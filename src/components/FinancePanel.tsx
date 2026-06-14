@@ -83,6 +83,17 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         </h3>
         <Line l="Räntepåslag" v={"+" + terms.spread + " %"} />
         <Line l="Maximal belåningsgrad" v={pct(terms.maxLtv)} />
+        {state.reputation < 98 && (() => {
+          const nextRep = Math.min(100, Math.round(state.reputation) + 10);
+          const nextSpread = +(2.5 - (nextRep / 100) * 1.7).toFixed(2);
+          const nextLtv = 0.6 + (nextRep / 100) * 0.2;
+          const nextRate = +(state.interestRate + nextSpread).toFixed(2);
+          return (
+            <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 8px", background: "#f8f5f2", borderRadius: 6 }}>
+              Med +10 reputation → ränta {nextRate} % · LTV {pct(nextLtv)}
+            </div>
+          );
+        })()}
         <h3 style={{ ...S.h3, marginTop: 18 }}>Amortera</h3>
         <div style={S.amortRow}>
           <input

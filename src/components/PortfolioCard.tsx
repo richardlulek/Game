@@ -22,14 +22,14 @@ const UPG_EFFECT: Record<string, string> = {
 
 const RAISE_OPTIONS = [5, 10, 20] as const;
 
-// Beräknar acceptanssannolikhet och översätter till text
-function riskLabel(newRent: number, marketMo: number): { text: string; color: string } {
+// Beräknar acceptanssannolikhet (speglar reducer-logiken exakt)
+function riskLabel(newRent: number, marketMo: number): { text: string; color: string; prob: number } {
   const r = newRent / marketMo;
-  if (r < 1.0)  return { text: "Mycket låg risk",  color: "#27660a" };
-  if (r < 1.1)  return { text: "Låg risk",         color: "#5a8a10" };
-  if (r < 1.2)  return { text: "Medel risk",       color: "#b07010" };
-  if (r < 1.35) return { text: "Hög risk",         color: "#b04010" };
-  return             { text: "Mycket hög risk",  color: "#c0392b" };
+  if (r < 1.0)  return { text: "Mycket låg risk",  color: "#27660a", prob: 97 };
+  if (r < 1.1)  return { text: "Låg risk",         color: "#5a8a10", prob: 80 };
+  if (r < 1.2)  return { text: "Medel risk",       color: "#b07010", prob: 55 };
+  if (r < 1.35) return { text: "Hög risk",         color: "#b04010", prob: 28 };
+  return             { text: "Mycket hög risk",  color: "#c0392b", prob: 10 };
 }
 
 // Genererar 3 hyresgästkandidater per plats (baseRent proportionellt per kapacitetsplats)
@@ -47,6 +47,13 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
   const noi          = propNOI(p, state);
   const maintainCost = Math.round(value * 0.02);
   const canMaintain  = state.cash >= maintainCost && !state.gameOver && p.status !== "bygger";
+  const yieldPct     = value > 0 ? (noi / value) * 100 : 0;
+  const condIn3      = Math.max(10, Math.round(p.condition - 3 * 0.45));
+  const totalEarned  = p.totalEarnedRent ?? 0;
+  const unrealGain   = p.purchasePrice ? value - p.purchasePrice : 0;
+  const totalReturn  = totalEarned + unrealGain;
+  const cashOnCash   = p.purchasePrice && p.purchasePrice > 0
+    ? (totalReturn / p.purchasePrice) * 100 : null;
 
   // ── Under byggnation ─────────────────────────────────────────
   if (p.status === "bygger") {
@@ -86,11 +93,29 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         <span style={subText}>marknadsvärde</span>
       </div>
 
-      {/* Snabbfakta */}
+      {/* Snabbfakta rad 1 */}
       <div style={statRow}>
         <Stat label="Yta" value={`${p.area} m²`} />
-        <StatBar label="Skick" c={p.condition} />
+        <StatBar label="Skick" c={p.condition} nextC={condIn3} />
         <Stat label="NOI/mån" value={kr(noi / 12)} color={noi >= 0 ? "#27660a" : "#c0392b"} />
+      </div>
+      {/* Snabbfakta rad 2 */}
+      <div style={{ ...statRow, marginTop: 8 }}>
+        <Stat
+          label="Direktavk."
+          value={`${yieldPct.toFixed(1)} %`}
+          color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#b07010" : "#c0392b"}
+        />
+        {p.purchasePrice && (
+          <Stat label="Köptes för" value={`${(p.purchasePrice / 1e6).toFixed(1)} Msek`} />
+        )}
+        {cashOnCash !== null && (
+          <Stat
+            label="Total avkastn."
+            value={`${cashOnCash >= 0 ? "+" : ""}${cashOnCash.toFixed(0)} %`}
+            color={cashOnCash >= 0 ? "#27660a" : "#c0392b"}
+          />
+        )}
       </div>
 
       <Divider />
@@ -203,10 +228,11 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontWeight: 700, fontSize: 13 }}>+{pct}%  →  {kr(newR)}/mån</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: risk.color }}>{risk.text}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: risk.color }}>{risk.prob}% chans</span>
                       </div>
-                      <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                        {newR > t.rent ? `+${kr(newR - t.rent)}/mån extra` : ""}
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#888", marginTop: 2 }}>
+                        <span>{newR > t.rent ? `+${kr(newR - t.rent)}/mån extra` : ""}</span>
+                        <span style={{ color: risk.color }}>{risk.text}</span>
                       </div>
                     </button>
                   );
@@ -344,11 +370,14 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-function StatBar({ label, c }: { label: string; c: number }) {
+function StatBar({ label, c, nextC }: { label: string; c: number; nextC?: number }) {
   return (
     <div style={{ flex: 1 }}>
       <div style={statLabel}>{label}</div>
       <CondBar c={c} />
+      {nextC !== undefined && nextC < c - 0.5 && (
+        <div style={{ fontSize: 10, color: "#bbb", marginTop: 1 }}>~{nextC} om 3 mån</div>
+      )}
     </div>
   );
 }

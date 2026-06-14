@@ -3,7 +3,7 @@
    Logiken är oförändrad från prototypen.
    ============================================================ */
 
-import { EVENTS } from "./data";
+import { DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
 import { equityOf, loanTerms } from "./finance";
 import { kr } from "./format";
 import { propAnnualOpex } from "./property";
@@ -23,8 +23,10 @@ export function advanceMonth(state: GameState): GameState {
       np.buildLeft -= 1;
       if (np.buildLeft <= 0) {
         np.status = "klar";
+        np.vacancyMult = Math.max(0.6, np.vacancyMult * 0.80); // nyproducerat: 20 % lägre vakans
+        s.reputation = Math.min(100, s.reputation + 5);
         events.push({
-          t: `🏗️ Nyproduktion klar: ${np.typeLabel} i ${np.districtName}.`,
+          t: `🏗️ Nyproduktion klar: ${np.typeLabel} i ${np.districtName}. Reputation +5.`,
           kind: "income",
         });
       }
@@ -44,6 +46,7 @@ export function advanceMonth(state: GameState): GameState {
         continue;
       }
       monthlyNOI += t.rent;
+      np.totalEarnedRent = (np.totalEarnedRent ?? 0) + t.rent;
       nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1 });
     }
     np.tenants = nextTenants;
@@ -61,16 +64,25 @@ export function advanceMonth(state: GameState): GameState {
     s = ev.apply(s);
     events.push({ t: `📰 ${ev.text}`, kind: "event" });
   }
+  // Sällsynt chockhändelse (~3 % per månad)
+  if (Math.random() < 0.03) {
+    const ev = pick(RARE_EVENTS);
+    s = ev.apply(s);
+    events.push({ t: `🚨 ${ev.text}`, kind: "warn" });
+  }
 
   // AI-konkurrenter agerar
   s.competitors = s.competitors.map((c) => {
     const nc = { ...c };
     const noi = nc.units * rnd(60000, 140000);
+    nc.monthlyNOI = Math.round(noi / 12);
     nc.cash += noi;
     if (nc.cash > 4e6 && Math.random() < 0.4) {
       nc.units += 1;
       nc.cash -= rnd(3, 5) * 1e6;
-      events.push({ t: `🏢 ${c.name} förvärvade en fastighet.`, kind: "event" });
+      const d = pick(DISTRICTS);
+      nc.lastBuy = d.name;
+      events.push({ t: `🏢 ${c.name} förvärvade en fastighet i ${d.name}.`, kind: "event" });
     }
     nc.equity = nc.cash + nc.units * rnd(4, 7) * 1e6;
     return nc;

@@ -86,6 +86,7 @@ export interface Property {
   capacity: number;
   status: PropStatus;
   buildLeft: number;
+  totalEarnedRent?: number;
 }
 
 /** En byggbar tomt. */
@@ -104,6 +105,8 @@ export interface Competitor {
   cash: number;
   units: number;
   equity: number;
+  lastBuy?: string;
+  monthlyNOI?: number;
 }
 
 /** En rad i händelseloggen. */

@@ -116,27 +116,43 @@ export const TENANT_PROFILES: TenantProfile[] = [
 export const EVENTS: GameEvent[] = [
   {
     id: "rate_up",
-    text: "Riksbanken höjer styrräntan med 0,25 %.",
-    apply: (s) => ({ ...s, interestRate: +(s.interestRate + 0.25).toFixed(2) }),
+    text: "Riksbanken höjer styrräntan med 0,25 %. Hyresefterfrågan dämpas.",
+    apply: (s) => ({
+      ...s,
+      interestRate: +(s.interestRate + 0.25).toFixed(2),
+      demandMod: +(s.demandMod * 0.98).toFixed(3),
+    }),
   },
   {
     id: "rate_down",
-    text: "Riksbanken sänker styrräntan med 0,25 %.",
-    apply: (s) => ({ ...s, interestRate: Math.max(0.5, +(s.interestRate - 0.25).toFixed(2)) }),
+    text: "Riksbanken sänker styrräntan med 0,25 %. Investeringsklimatet förbättras.",
+    apply: (s) => ({
+      ...s,
+      interestRate: Math.max(0.5, +(s.interestRate - 0.25).toFixed(2)),
+      demandMod: +(s.demandMod * 1.02).toFixed(3),
+    }),
   },
   {
     id: "boom",
-    text: "Högkonjunktur! Marknadsvärden stiger.",
-    apply: (s) => ({ ...s, marketMod: +(s.marketMod * 1.06).toFixed(3) }),
+    text: "Högkonjunktur! Marknadsvärden och hyresefterfrågan stiger.",
+    apply: (s) => ({
+      ...s,
+      marketMod: +(s.marketMod * 1.06).toFixed(3),
+      demandMod: +(s.demandMod * 1.03).toFixed(3),
+    }),
   },
   {
     id: "bust",
-    text: "Lågkonjunktur. Marknadsvärden faller.",
-    apply: (s) => ({ ...s, marketMod: +(s.marketMod * 0.94).toFixed(3) }),
+    text: "Lågkonjunktur. Marknadsvärden faller och efterfrågan sjunker.",
+    apply: (s) => ({
+      ...s,
+      marketMod: +(s.marketMod * 0.94).toFixed(3),
+      demandMod: +(s.demandMod * 0.97).toFixed(3),
+    }),
   },
   {
     id: "tenant_demand",
-    text: "Ökad efterfrågan på lokaler i staden.",
+    text: "Ökad inflyttning till staden. Hyresefterfrågan stiger markant.",
     apply: (s) => ({ ...s, demandMod: +(s.demandMod * 1.05).toFixed(3) }),
   },
   {
@@ -148,6 +164,29 @@ export const EVENTS: GameEvent[] = [
     id: "pr",
     text: "Positiv press om ditt bolag. Reputation +5.",
     apply: (s) => ({ ...s, reputation: Math.min(100, s.reputation + 5) }),
+  },
+];
+
+/** Sällsynta chockhändelser — triggas separat med ~3 % sannolikhet/månad. */
+export const RARE_EVENTS: GameEvent[] = [
+  {
+    id: "kris",
+    text: "Finanskris! Marknadsvärden kraschar, räntorna stiger och hyresgäster lämnar.",
+    apply: (s) => ({
+      ...s,
+      marketMod: +(s.marketMod * 0.88).toFixed(3),
+      demandMod: +(s.demandMod * 0.88).toFixed(3),
+      interestRate: +(s.interestRate + 0.5).toFixed(2),
+    }),
+  },
+  {
+    id: "rally",
+    text: "Fastighetsboom! Priserna och hyresefterfrågan skjuter i höjden.",
+    apply: (s) => ({
+      ...s,
+      marketMod: +(s.marketMod * 1.10).toFixed(3),
+      demandMod: +(s.demandMod * 1.06).toFixed(3),
+    }),
   },
 ];
 
