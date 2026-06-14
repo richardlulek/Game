@@ -61,7 +61,7 @@ export function MarketTable({ state, dispatch }: MarketTableProps) {
                   <span style={{ marginRight: 4 }}>{TYPE_ICONS[p.type] || "🏠"}</span>
                   <span style={{ fontWeight: 600 }}>{p.typeLabel}</span>
                   <span style={{ color: "#999", marginLeft: 4, fontSize: 11 }}>{p.districtName}</span>
-                  {p.tenant && <span style={{ marginLeft: 4, color: "#27660a", fontSize: 10 }}>✓ {p.tenant.name}</span>}
+                  {p.tenants.length > 0 && <span style={{ marginLeft: 4, color: "#27660a", fontSize: 10 }}>✓ {p.tenants.length}/{p.capacity} uthyrd</span>}
                   <div style={{ fontSize: 10, color: "#888" }}>
                     {p.area} m² · Skick {p.condition} · Avkastning {pct(y)}
                   </div>

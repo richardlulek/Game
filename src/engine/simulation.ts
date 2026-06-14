@@ -33,28 +33,20 @@ export function advanceMonth(state: GameState): GameState {
     // Slitage
     np.condition = Math.max(10, np.condition - rnd(0.2, 0.7));
     // Hyresgästlogik
-    if (np.tenant) {
-      monthlyNOI += np.tenant.rent;
-      // Konkursrisk
-      if (Math.random() < np.tenant.defaultRisk) {
-        events.push({
-          t: `⚠️ ${np.tenant.name} i ${np.districtName} gick i konkurs. Lokalen är nu vakant.`,
-          kind: "expense",
-        });
-        np.tenant = null;
-      } else {
-        const t2 = { ...np.tenant, monthsLeft: np.tenant.monthsLeft - 1 };
-        if (t2.monthsLeft <= 0) {
-          events.push({
-            t: `📄 Kontraktet med ${np.tenant.name} i ${np.districtName} löpte ut.`,
-            kind: "info",
-          });
-          np.tenant = null;
-        } else {
-          np.tenant = t2;
-        }
+    const nextTenants: typeof np.tenants = [];
+    for (const t of np.tenants) {
+      if (Math.random() < t.defaultRisk) {
+        events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Plats ledig.`, kind: "expense" });
+        continue;
       }
+      if (t.monthsLeft <= 1) {
+        events.push({ t: `📄 Kontrakt med ${t.name} i ${np.districtName} löpte ut.`, kind: "info" });
+        continue;
+      }
+      monthlyNOI += t.rent;
+      nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1 });
     }
+    np.tenants = nextTenants;
     // Opex dras alltid
     monthlyNOI -= propAnnualOpex(np, s) / 12;
     return np;

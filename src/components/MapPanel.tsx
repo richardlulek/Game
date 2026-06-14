@@ -516,8 +516,8 @@ function DistrictDetail({
                     <span style={{ color: "#888" }}>
                       {p.status === "bygger"
                         ? `⏳ ${p.buildLeft} mån`
-                        : p.tenant
-                          ? `✓ ${p.tenant.name}`
+                        : p.tenants.length > 0
+                          ? `✓ ${p.tenants.length}/${p.capacity} uthyrd`
                           : "⚠ Vakant"}
                     </span>
                   </div>

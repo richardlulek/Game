@@ -82,7 +82,8 @@ export interface Property {
   opexMult: number;
   vacancyMult: number;
   valueMult: number;
-  tenant: Tenant | null;
+  tenants: Tenant[];
+  capacity: number;
   status: PropStatus;
   buildLeft: number;
 }
@@ -157,15 +158,15 @@ export type GameAction =
   | { type: "SELL"; id: number }
   | { type: "UPGRADE"; id: number; upg: string }
   | { type: "LEASE"; id: number }
-  | { type: "EVICT"; id: number }
-  | { type: "RENEW_LEASE"; id: number }
+  | { type: "EVICT"; id: number; tenantId: number }
+  | { type: "RENEW_LEASE"; id: number; tenantId: number }
   | { type: "MAINTAIN"; id: number }
   | { type: "BUY_LOT"; id: number }
   | { type: "BUILD"; id: number; propType: PropTypeKey }
   | { type: "AMORT"; amount: number }
   | { type: "REFINANCE"; amount: number }
   | { type: "LEASE_TENANT"; id: number; tenant: Tenant }
-  | { type: "RAISE_RENT"; id: number; increasePercent: number }
+  | { type: "RAISE_RENT"; id: number; tenantId: number; increasePercent: number }
   | { type: "REFRESH_LISTINGS" }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }

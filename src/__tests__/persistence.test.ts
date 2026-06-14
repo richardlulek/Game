@@ -33,7 +33,7 @@ describe("persistens", () => {
   });
 
   it("synkar id-räknaren vid load så nya id:n inte krockar", () => {
-    const p = makeProperty({ id: 500, tenant: makeTenantFixture({ id: 750 }) });
+    const p = makeProperty({ id: 500, tenants: [makeTenantFixture({ id: 750 })] });
     saveGame(makeState({ portfolio: [p] }));
     loadGame();
     expect(newId()).toBe(751); // max(500, 750) + 1

@@ -91,13 +91,15 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "LEASE": {
-      // Hyr ut vakant lokal till ny hyresgäst
+      // Hyr ut en ledig plats till ny hyresgäst
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || p.tenant || p.status === "bygger") return state;
-      const tenant = makeTenant(propPotentialRent(p, state), state.demandMod, p.condition);
+      if (!p || p.tenants.length >= p.capacity || p.status === "bygger") return state;
+      const tenant = makeTenant(propPotentialRent(p, state) / p.capacity, state.demandMod, p.condition);
       return {
         ...state,
-        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant } : x)),
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id ? { ...x, tenants: [...x.tenants, tenant] } : x,
+        ),
         log: [
           {
             t: `Tecknade hyresavtal: ${tenant.name} i ${p.districtName}, ${tenant.termTotal} mån, ${kr(tenant.rent)}/mån.`,
@@ -109,31 +111,40 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "EVICT": {
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || !p.tenant || p.status === "bygger") return state;
-      const tenantName = p.tenant.name;
+      if (!p || p.status === "bygger") return state;
+      const tenant = p.tenants.find((t) => t.id === action.tenantId);
+      if (!tenant) return state;
       return {
         ...state,
         reputation: Math.max(0, state.reputation - 3),
-        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant: null } : x)),
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
+        ),
         log: [
-          { t: `Sade upp ${tenantName} i ${p.districtName} (reputation −3).`, kind: "warn" },
+          { t: `Sade upp ${tenant.name} i ${p.districtName} (reputation −3).`, kind: "warn" },
           ...state.log,
         ],
       };
     }
     case "RENEW_LEASE": {
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || !p.tenant || p.status === "bygger") return state;
-      const marketRent = Math.round((propPotentialRent(p, state) / 12) * p.tenant.quality);
-      const newRent = Math.max(p.tenant.rent, marketRent);
-      const renewed = { ...p.tenant, rent: newRent, monthsLeft: p.tenant.termTotal };
+      if (!p || p.status === "bygger") return state;
+      const tenant = p.tenants.find((t) => t.id === action.tenantId);
+      if (!tenant) return state;
+      const marketRent = Math.round((propPotentialRent(p, state) / p.capacity / 12) * tenant.quality);
+      const newRent = Math.max(tenant.rent, marketRent);
+      const renewed = { ...tenant, rent: newRent, monthsLeft: tenant.termTotal };
       return {
         ...state,
         reputation: Math.min(100, state.reputation + 1),
-        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant: renewed } : x)),
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id
+            ? { ...x, tenants: x.tenants.map((t) => (t.id === action.tenantId ? renewed : t)) }
+            : x,
+        ),
         log: [
           {
-            t: `Förnyade avtal med ${p.tenant.name} i ${p.districtName}: ${kr(newRent)}/mån, ${renewed.monthsLeft} mån.`,
+            t: `Förnyade avtal med ${tenant.name} i ${p.districtName}: ${kr(newRent)}/mån, ${renewed.monthsLeft} mån.`,
             kind: "buy",
           },
           ...state.log,
@@ -205,7 +216,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         opexMult: 1,
         vacancyMult: 1,
         valueMult: 1,
-        tenant: null,
+        tenants: [],
+        capacity: 1,
         status: "bygger",
         buildLeft: t.buildMonths,
       };
@@ -254,10 +266,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "LEASE_TENANT": {
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || p.tenant || p.status === "bygger") return state;
+      if (!p || p.tenants.length >= p.capacity || p.status === "bygger") return state;
       return {
         ...state,
-        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant: action.tenant } : x)),
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id ? { ...x, tenants: [...x.tenants, action.tenant] } : x,
+        ),
         log: [
           {
             t: `Tecknade hyresavtal: ${action.tenant.name} i ${p.districtName}, ${action.tenant.termTotal} mån, ${kr(action.tenant.rent)}/mån.`,
@@ -269,20 +283,24 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "RAISE_RENT": {
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || !p.tenant || p.status === "bygger") return state;
-      const newRent    = Math.round(p.tenant.rent * (1 + action.increasePercent / 100));
-      const marketMo   = propPotentialRent(p, state) / 12;
+      if (!p || p.status === "bygger") return state;
+      const tenant = p.tenants.find((t) => t.id === action.tenantId);
+      if (!tenant) return state;
+      const newRent    = Math.round(tenant.rent * (1 + action.increasePercent / 100));
+      const marketMo   = propPotentialRent(p, state) / p.capacity / 12;
       const ratio      = newRent / marketMo;
       const acceptProb = ratio < 1.0 ? 0.97 : ratio < 1.1 ? 0.80 : ratio < 1.2 ? 0.55 : ratio < 1.35 ? 0.28 : 0.10;
       if (Math.random() < acceptProb) {
         return {
           ...state,
           portfolio: state.portfolio.map((x) =>
-            x.id === p.id ? { ...x, tenant: { ...p.tenant!, rent: newRent } } : x,
+            x.id === p.id
+              ? { ...x, tenants: x.tenants.map((t) => (t.id === action.tenantId ? { ...t, rent: newRent } : t)) }
+              : x,
           ),
           log: [
             {
-              t: `${p.tenant.name} i ${p.districtName} accepterade hyreshöjning +${action.increasePercent}% → ${kr(newRent)}/mån.`,
+              t: `${tenant.name} i ${p.districtName} accepterade hyreshöjning +${action.increasePercent}% → ${kr(newRent)}/mån.`,
               kind: "income",
             },
             ...state.log,
@@ -292,10 +310,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         reputation: Math.max(0, state.reputation - 1),
-        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant: null } : x)),
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
+        ),
         log: [
           {
-            t: `${p.tenant.name} i ${p.districtName} avvisade hyreshöjningen och lämnade (reputation −1).`,
+            t: `${tenant.name} i ${p.districtName} avvisade hyreshöjningen och lämnade (reputation −1).`,
             kind: "warn",
           },
           ...state.log,

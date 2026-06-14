@@ -15,7 +15,7 @@ describe("advanceMonth – kassaflöde", () => {
   it("drar opex och ränta samt lägger till hyra på kassan", () => {
     const p = makeProperty({
       baseRent: 120_000, // opex = 120000 × 0.28 = 33600/år → 2800/mån
-      tenant: makeTenantFixture({ rent: 10_000, monthsLeft: 24 }),
+      tenants: [makeTenantFixture({ rent: 10_000, monthsLeft: 24 })],
     });
     const s = makeState({
       portfolio: [p],
@@ -39,10 +39,10 @@ describe("advanceMonth – kassaflöde", () => {
   it("räknar ner kontraktstiden och sliter på skicket", () => {
     const p = makeProperty({
       condition: 100,
-      tenant: makeTenantFixture({ monthsLeft: 24 }),
+      tenants: [makeTenantFixture({ monthsLeft: 24 })],
     });
     const next = advanceMonth(makeState({ portfolio: [p] }));
-    expect(next.portfolio[0].tenant?.monthsLeft).toBe(23);
+    expect(next.portfolio[0].tenants[0]?.monthsLeft).toBe(23);
     // slitage = rnd(0.2, 0.7) med random 0.5 → 0.45
     expect(next.portfolio[0].condition).toBeCloseTo(99.55, 6);
   });

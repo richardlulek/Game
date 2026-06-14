@@ -15,16 +15,11 @@ export function propMarketValue(p: Property, state: GameState): number {
   return v;
 }
 
-/** Faktisk årshyra (uthyrt = kontraktshyra, vakant = 0). */
-export function propAnnualRent(p: Property, state: GameState): number {
+/** Faktisk årshyra (summa av alla hyresgästers kontraktshyra, vakant = 0). */
+export function propAnnualRent(p: Property, _state: GameState): number {
   if (p.status === "bygger") return 0;
-  const t = PROP_TYPES[p.type];
-  const d = DISTRICTS.find((x) => x.id === p.district)!;
-  if (p.tenant) return p.tenant.rent * 12; // uthyrt: kontraktshyra
-  // Vakant: ingen intäkt, men marknadspotential visas separat
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2;
-  const vacancy = Math.max(0, t.vacancyBase * p.vacancyMult - (p.condition - 60) / 1000);
-  return 0 * gross * (1 - vacancy);
+  if (p.tenants.length > 0) return p.tenants.reduce((s, t) => s + t.rent * 12, 0);
+  return 0;
 }
 
 /** Marknadspotential för hyra om lokalen vore uthyrd. */

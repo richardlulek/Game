@@ -32,15 +32,16 @@ function riskLabel(newRent: number, marketMo: number): { text: string; color: st
   return             { text: "Mycket hög risk",  color: "#c0392b" };
 }
 
-// Genererar 3 hyresgästkandidater
+// Genererar 3 hyresgästkandidater per plats (baseRent proportionellt per kapacitetsplats)
 function genCandidates(p: Property, state: GameState): Tenant[] {
-  const base = propPotentialRent(p, state);
+  const base = propPotentialRent(p, state) / p.capacity;
   return Array.from({ length: 3 }, () => makeTenant(base, state.demandMod, p.condition));
 }
 
 export function PortfolioCard({ p, state, dispatch }: Props) {
+  const [candidateSlot, setCandidateSlot] = useState<number | null>(null); // which empty slot index is picking
   const [candidates, setCandidates] = useState<Tenant[] | null>(null);
-  const [showRaise, setShowRaise]   = useState(false);
+  const [showRaiseTenantId, setShowRaiseTenantId] = useState<number | null>(null);
 
   const value        = propMarketValue(p, state);
   const noi          = propNOI(p, state);
@@ -69,8 +70,11 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
     );
   }
 
-  const contractExpiring = p.tenant && p.tenant.monthsLeft <= 12;
-  const marketMo         = propPotentialRent(p, state) / 12;
+  const marketMo = propPotentialRent(p, state) / 12;
+  const slotPotential = Math.round(propPotentialRent(p, state) / p.capacity / 12);
+  const emptySlots = p.capacity - p.tenants.length;
+  const totalActualIncome = p.tenants.reduce((s, t) => s + t.rent, 0);
+  const maxPossibleIncome = Math.round(marketMo);
 
   return (
     <div style={card}>
@@ -91,19 +95,53 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       <Divider />
 
-      {/* ── Hyresgäst / vakant ──────────────────────────────── */}
-      {p.tenant ? (
-        <>
-          <div style={tenantBox}>
+      {/* ── Kapacitetsindikator ──────────────────────────────── */}
+      <div style={sectionLabel}>Hyresgäster</div>
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: p.tenants.length === p.capacity ? "#27660a" : "#7a4800" }}>
+            {p.tenants.length} av {p.capacity} platser uthyrda
+          </span>
+          <span style={{ fontSize: 11, color: "#888" }}>
+            {kr(totalActualIncome)}/mån av max {kr(maxPossibleIncome)}/mån
+          </span>
+        </div>
+        {/* Kapacitetsstapel */}
+        <div style={{ display: "flex", gap: 3, marginBottom: 4 }}>
+          {Array.from({ length: p.capacity }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                height: 6,
+                borderRadius: 3,
+                background: i < p.tenants.length ? BURGUNDY : "#e8d8d0",
+              }}
+            />
+          ))}
+        </div>
+        {emptySlots > 0 && (
+          <div style={{ fontSize: 11, color: "#a05000" }}>
+            Ytterligare potential: +{kr(slotPotential * emptySlots)}/mån
+          </div>
+        )}
+      </div>
+
+      {/* ── Hyresgästplatser ────────────────────────────────── */}
+      {p.tenants.map((t) => {
+        const contractExpiring = t.monthsLeft <= 12;
+        const showRaise = showRaiseTenantId === t.id;
+        return (
+          <div key={t.id} style={tenantBox}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
               <div>
-                <div style={tenantName}>{p.tenant.name}</div>
+                <div style={tenantName}>{t.name}</div>
                 <div style={tenantMeta}>
-                  {kr(p.tenant.rent)}/mån ·{" "}
+                  {kr(t.rent)}/mån ·{" "}
                   <span style={{ color: contractExpiring ? "#c05000" : "#666" }}>
                     {contractExpiring
-                      ? `⚠ kontrakt löper ut om ${p.tenant.monthsLeft} mån`
-                      : `${p.tenant.monthsLeft} mån kvar`}
+                      ? `⚠ kontrakt löper ut om ${t.monthsLeft} mån`
+                      : `${t.monthsLeft} mån kvar`}
                   </span>
                 </div>
               </div>
@@ -114,20 +152,20 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                 <SmallBtn
                   label="Förläng kontrakt"
                   color="#27660a"
-                  onClick={() => dispatch({ type: "RENEW_LEASE", id: p.id })}
+                  onClick={() => dispatch({ type: "RENEW_LEASE", id: p.id, tenantId: t.id })}
                   disabled={state.gameOver}
                 />
               )}
               <SmallBtn
                 label={showRaise ? "Stäng" : "Höj hyran"}
                 color={BURGUNDY}
-                onClick={() => setShowRaise((v) => !v)}
+                onClick={() => setShowRaiseTenantId(showRaise ? null : t.id)}
                 disabled={state.gameOver}
               />
               <SmallBtn
                 label="Säg upp  −3 rep"
                 color="#a03010"
-                onClick={() => dispatch({ type: "EVICT", id: p.id })}
+                onClick={() => dispatch({ type: "EVICT", id: p.id, tenantId: t.id })}
                 disabled={state.gameOver}
               />
             </div>
@@ -137,18 +175,18 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
               <div style={{ marginTop: 10, padding: "10px 12px", background: "#fff", borderRadius: 8, border: "1px solid #e8d8d0" }}>
                 <div style={sectionLabel}>Välj hur mycket du vill höja</div>
                 <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
-                  Marknadshyra: {kr(Math.round(marketMo))}/mån · Nu: {kr(p.tenant.rent)}/mån
+                  Marknadshyra: {kr(Math.round(slotPotential))}/mån · Nu: {kr(t.rent)}/mån
                 </div>
                 {RAISE_OPTIONS.map((pct) => {
-                  const newR  = Math.round(p.tenant!.rent * (1 + pct / 100));
-                  const risk  = riskLabel(newR, marketMo);
+                  const newR  = Math.round(t.rent * (1 + pct / 100));
+                  const risk  = riskLabel(newR, slotPotential);
                   const canDo = state.cash >= 0 && !state.gameOver;
                   return (
                     <button
                       key={pct}
                       onClick={() => {
-                        dispatch({ type: "RAISE_RENT", id: p.id, increasePercent: pct });
-                        setShowRaise(false);
+                        dispatch({ type: "RAISE_RENT", id: p.id, tenantId: t.id, increasePercent: pct });
+                        setShowRaiseTenantId(null);
                       }}
                       disabled={!canDo}
                       style={{
@@ -168,7 +206,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                         <span style={{ fontSize: 11, fontWeight: 700, color: risk.color }}>{risk.text}</span>
                       </div>
                       <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                        {newR > p.tenant!.rent ? `+${kr(newR - p.tenant!.rent)}/mån extra` : ""}
+                        {newR > t.rent ? `+${kr(newR - t.rent)}/mån extra` : ""}
                       </div>
                     </button>
                   );
@@ -176,63 +214,72 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
               </div>
             )}
           </div>
-        </>
-      ) : (
-        /* ── Vakant ─────────────────────────────────────────── */
-        <div style={vacantBox}>
-          <div style={vacantTitle}>⚠ Vakant lokal</div>
-          <div style={vacantSub}>Potentiell hyra: {kr(Math.round(marketMo))}/mån</div>
+        );
+      })}
 
-          {candidates ? (
-            /* Kandidatlista */
-            <div>
-              <div style={{ ...sectionLabel, marginBottom: 6 }}>Välj hyresgäst</div>
-              {candidates.map((t, i) => (
+      {/* ── Lediga platser ──────────────────────────────────── */}
+      {Array.from({ length: emptySlots }).map((_, i) => {
+        const slotIndex = p.tenants.length + i;
+        const isPickingThis = candidateSlot === slotIndex && candidates !== null;
+        return (
+          <div key={`empty-${i}`} style={vacantBox}>
+            <div style={vacantTitle}>Ledig plats</div>
+            <div style={vacantSub}>Potential: {kr(slotPotential)}/mån</div>
+
+            {isPickingThis ? (
+              <div>
+                <div style={{ ...sectionLabel, marginBottom: 6 }}>Välj hyresgäst</div>
+                {candidates!.map((t, ci) => (
+                  <button
+                    key={ci}
+                    onClick={() => {
+                      dispatch({ type: "LEASE_TENANT", id: p.id, tenant: t });
+                      setCandidates(null);
+                      setCandidateSlot(null);
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      marginBottom: 6,
+                      padding: "9px 10px",
+                      borderRadius: 8,
+                      border: `1px solid ${BURGUNDY}33`,
+                      background: "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: "#1a1a1a" }}>{t.name}</span>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: "#27660a" }}>{kr(t.rent)}/mån</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+                      Kontrakt: {t.termTotal} mån · Kvalitet: {t.quality.toFixed(2)} · Risk: {(t.defaultRisk * 100).toFixed(1)} %
+                    </div>
+                  </button>
+                ))}
                 <button
-                  key={i}
-                  onClick={() => {
-                    dispatch({ type: "LEASE_TENANT", id: p.id, tenant: t });
-                    setCandidates(null);
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    marginBottom: 6,
-                    padding: "9px 10px",
-                    borderRadius: 8,
-                    border: `1px solid ${BURGUNDY}33`,
-                    background: "#fff",
-                    cursor: "pointer",
-                  }}
+                  onClick={() => { setCandidates(null); setCandidateSlot(null); }}
+                  style={{ fontSize: 12, color: "#999", background: "none", border: "none", cursor: "pointer", marginTop: 2 }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: "#1a1a1a" }}>{t.name}</span>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: "#27660a" }}>{kr(t.rent)}/mån</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                    Kontrakt: {t.termTotal} mån · Kvalitet: {t.quality.toFixed(2)} · Risk: {(t.defaultRisk * 100).toFixed(1)} %
-                  </div>
+                  Avvisa alla
                 </button>
-              ))}
-              <button
-                onClick={() => setCandidates(null)}
-                style={{ fontSize: 12, color: "#999", background: "none", border: "none", cursor: "pointer", marginTop: 2 }}
-              >
-                Avvisa alla
-              </button>
-            </div>
-          ) : (
-            <ActionBtn
-              label="Välj hyresgäst"
-              sub="Se 3 kandidater med olika hyra, kontrakt och risk"
-              color={BURGUNDY}
-              disabled={state.gameOver}
-              onClick={() => setCandidates(genCandidates(p, state))}
-            />
-          )}
-        </div>
-      )}
+              </div>
+            ) : (
+              <ActionBtn
+                label="Välj hyresgäst"
+                sub="Se 3 kandidater med olika hyra, kontrakt och risk"
+                color={BURGUNDY}
+                disabled={state.gameOver}
+                onClick={() => {
+                  setCandidates(genCandidates(p, state));
+                  setCandidateSlot(slotIndex);
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
 
       <Divider />
 
@@ -380,11 +427,11 @@ const statLabel: React.CSSProperties = {
   fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2,
 };
 const statValue: React.CSSProperties = { fontSize: 14, fontWeight: 700 };
-const tenantBox: React.CSSProperties = { background: "#f7f2f8", borderRadius: 10, padding: "10px 12px" };
+const tenantBox: React.CSSProperties = { background: "#f7f2f8", borderRadius: 10, padding: "10px 12px", marginBottom: 6 };
 const tenantName: React.CSSProperties = { fontWeight: 700, fontSize: 14, color: BURGUNDY };
 const tenantMeta: React.CSSProperties = { fontSize: 12, color: "#666", marginTop: 2 };
 const vacantBox: React.CSSProperties = {
-  background: "#fff8f0", border: "1px dashed #e8c090", borderRadius: 10, padding: "10px 12px",
+  background: "#fff8f0", border: "1px dashed #e8c090", borderRadius: 10, padding: "10px 12px", marginBottom: 6,
 };
 const vacantTitle: React.CSSProperties = { fontWeight: 700, fontSize: 13, color: "#a05000" };
 const vacantSub: React.CSSProperties = { fontSize: 12, color: "#a06820", marginBottom: 6 };

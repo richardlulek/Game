@@ -14,7 +14,7 @@ export function Toolbar({ state, dispatch, saved, onSave, onLoad }: ToolbarProps
   // Count warnings: tenants with monthsLeft <= 3 OR condition < 40 on klar properties
   const warnCount = state.portfolio.filter(
     (p) => p.status === "klar" && (
-      (p.tenant && p.tenant.monthsLeft <= 3) || p.condition < 40
+      p.tenants.some((t) => t.monthsLeft <= 3) || p.condition < 40
     )
   ).length;
 

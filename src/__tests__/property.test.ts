@@ -38,38 +38,38 @@ describe("propAnnualOpex", () => {
 
 describe("propAnnualRent", () => {
   it("är 0 för vakant lokal (oavsett potential)", () => {
-    const p = makeProperty({ tenant: null });
+    const p = makeProperty({ tenants: [] });
     expect(propAnnualRent(p, makeState())).toBe(0);
     // Potentialen är däremot positiv:
     expect(propPotentialRent(p, makeState())).toBeGreaterThan(0);
   });
 
   it("är kontraktshyra × 12 för uthyrt", () => {
-    const p = makeProperty({ tenant: makeTenantFixture({ rent: 10_000 }) });
+    const p = makeProperty({ tenants: [makeTenantFixture({ rent: 10_000 })] });
     expect(propAnnualRent(p, makeState())).toBe(120_000);
   });
 
   it("är 0 under bygge", () => {
-    const p = makeProperty({ status: "bygger", tenant: makeTenantFixture() });
+    const p = makeProperty({ status: "bygger", tenants: [makeTenantFixture()] });
     expect(propAnnualRent(p, makeState())).toBe(0);
   });
 });
 
 describe("propNOI (driftnetto)", () => {
   it("vakant: NOI = −opex", () => {
-    const p = makeProperty({ baseRent: 100_000, tenant: null });
+    const p = makeProperty({ baseRent: 100_000, tenants: [] });
     expect(propNOI(p, makeState())).toBeCloseTo(-28_000, 6);
   });
 
   it("uthyrt: NOI = årshyra − opex", () => {
-    const p = makeProperty({ baseRent: 100_000, tenant: makeTenantFixture({ rent: 50_000 }) });
+    const p = makeProperty({ baseRent: 100_000, tenants: [makeTenantFixture({ rent: 50_000 })] });
     // 50000 × 12 − 28000 = 572000
     expect(propNOI(p, makeState())).toBeCloseTo(572_000, 6);
   });
 
   it("följer opexMult och taxMod", () => {
-    const base = makeProperty({ baseRent: 100_000, tenant: null });
-    const lowerOpex = makeProperty({ baseRent: 100_000, tenant: null, opexMult: 0.8 });
+    const base = makeProperty({ baseRent: 100_000, tenants: [] });
+    const lowerOpex = makeProperty({ baseRent: 100_000, tenants: [], opexMult: 0.8 });
     expect(propNOI(lowerOpex, makeState())).toBeGreaterThan(propNOI(base, makeState()));
     expect(propNOI(base, makeState({ taxMod: 1.04 }))).toBeLessThan(propNOI(base, makeState()));
   });

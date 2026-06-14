@@ -36,6 +36,9 @@ export function makeTenant(baseRent: number, demandMod: number, condition: numbe
   };
 }
 
+/** Beräknar maxantal hyresgäster baserat på yta. */
+export function calcCapacity(area: number): number { return Math.min(4, Math.floor(area / 1000) + 1); }
+
 /** Genererar ett marknadsobjekt till salu. */
 export function genListing(state: GameState): Property {
   const d = pick(DISTRICTS);
@@ -63,12 +66,13 @@ export function genListing(state: GameState): Property {
     opexMult: 1,
     vacancyMult: 1,
     valueMult: 1,
-    tenant: null,
+    tenants: [],
+    capacity: calcCapacity(area),
     status: "klar",
     buildLeft: 0,
   };
   // ~55 % chans att objektet redan har hyresgäst
-  if (Math.random() < 0.55) p.tenant = makeTenant(p.baseRent, state.demandMod);
+  if (Math.random() < 0.55) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
   return p;
 }
 

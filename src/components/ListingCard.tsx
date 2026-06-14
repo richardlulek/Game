@@ -32,11 +32,11 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
         <CondBar c={p.condition} />
       </div>
       <div style={S.cardRow}>
-        <span>{p.tenant ? "Uthyrt till" : "Status"}</span>
-        <strong>{p.tenant ? p.tenant.name : "Vakant"}</strong>
+        <span>Hyresgäster</span>
+        <strong>{p.tenants.length > 0 ? `${p.tenants.length} av ${p.capacity} uthyrd${p.tenants.length > 1 ? 'a' : ''}` : 'Vakant'}</strong>
       </div>
       <div style={S.cardRow}>
-        <span>Driftnetto/år</span>
+        <span>Potentiell NOI/år</span>
         <strong style={{ color: "#27660a" }}>{kr(noi)}</strong>
       </div>
       <div style={S.cardRow}>

@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from "react";
 import { kr, msek } from "../engine/format";
 import { propMarketValue, propNOI, propPotentialRent } from "../engine/property";
@@ -31,7 +32,7 @@ function PropertyRow({ p, state, dispatch, isExpanded, onToggle, isAlt }: RowPro
   const value = propMarketValue(p, state);
   const noi = propNOI(p, state);
   const cluster = getClusterCount(p, state);
-  const hasWarn = p.tenant && p.tenant.monthsLeft <= 3;
+  const hasWarn = p.tenants.some((t) => t.monthsLeft <= 3);
   const hasCond = p.condition < 40;
 
   const rowStyle = {
@@ -43,8 +44,8 @@ function PropertyRow({ p, state, dispatch, isExpanded, onToggle, isAlt }: RowPro
   let statusEl: React.ReactNode;
   if (p.status === "bygger") {
     statusEl = <span style={{ color: "#cc8020" }}>⏳ {p.buildLeft}m</span>;
-  } else if (p.tenant) {
-    statusEl = <span style={{ color: "#27660a", fontSize: 11 }}>✓ {p.tenant.name}</span>;
+  } else if (p.tenants.length > 0) {
+    statusEl = <span style={{ color: "#27660a", fontSize: 11 }}>✓ {p.tenants.length}/{p.capacity} uthyrd</span>;
   } else {
     statusEl = <span style={{ color: "#999" }}>— Vakant</span>;
   }
@@ -106,29 +107,30 @@ function PropertyActions({ p, state, dispatch }: { p: Property; state: GameState
       </button>
 
       {/* Hyresgäst actions */}
-      {!p.tenant ? (
+      {p.tenants.length < p.capacity && (
         <button
           style={{ ...S.miniActionBtn, background: BURGUNDY }}
           onClick={() => dispatch({ type: "LEASE", id: p.id })}
         >
           Hyr ut
         </button>
-      ) : (
-        <>
+      )}
+      {p.tenants.map((t) => (
+        <React.Fragment key={t.id}>
           <button
             style={{ ...S.miniActionBtn, background: "#c0392b" }}
-            onClick={() => dispatch({ type: "EVICT", id: p.id })}
+            onClick={() => dispatch({ type: "EVICT", id: p.id, tenantId: t.id })}
           >
-            Säg upp
+            Säg upp {t.name.split(" ")[0]}
           </button>
           <button
             style={{ ...S.miniActionBtn, background: "#27660a" }}
-            onClick={() => dispatch({ type: "RENEW_LEASE", id: p.id })}
+            onClick={() => dispatch({ type: "RENEW_LEASE", id: p.id, tenantId: t.id })}
           >
-            Förnya
+            Förnya {t.name.split(" ")[0]}
           </button>
-        </>
-      )}
+        </React.Fragment>
+      ))}
 
       {/* Divider */}
       <div style={{ width: 1, height: 20, background: "#ddd", margin: "0 4px" }} />
