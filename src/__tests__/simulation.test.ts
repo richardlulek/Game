@@ -14,7 +14,7 @@ afterEach(() => {
 describe("advanceMonth – kassaflöde", () => {
   it("drar opex och ränta samt lägger till hyra på kassan", () => {
     const p = makeProperty({
-      baseRent: 120_000, // opex = 120000 × 0.28 = 33600/år → 2800/mån
+      baseRent: 120_000, // opex = 120000 × 0.23 = 27600/år → 2300/mån
       tenants: [makeTenantFixture({ rent: 10_000, monthsLeft: 24 })],
     });
     const s = makeState({
@@ -28,10 +28,10 @@ describe("advanceMonth – kassaflöde", () => {
 
     const next = advanceMonth(s);
 
-    // monthlyNOI = 10000 − 2800 = 7200
+    // monthlyNOI = 10000 − 2300 = 7700
     // ränta = 1 200 000 × 5.65% / 12 = 5650
-    // kassa = 100000 + 7200 − 5650 = 101550
-    expect(next.cash).toBeCloseTo(101_550, 2);
+    // kassa = 100000 + 7700 − 5650 = 102050
+    expect(next.cash).toBeCloseTo(102_050, 2);
     expect(next.month).toBe(7);
     expect(next.gameOver).toBe(false);
   });

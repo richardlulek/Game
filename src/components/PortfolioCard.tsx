@@ -6,6 +6,7 @@ import { makeTenant } from "../engine/generators";
 import { propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property, Tenant } from "../engine/types";
 import { BURGUNDY } from "../styles/tokens";
+import { BuildingArt } from "./BuildingArt";
 import { CondBar } from "./CondBar";
 
 interface Props {
@@ -498,12 +499,15 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
 function CardHeader({ p, managed }: { p: Property; managed?: boolean }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <span style={badge}>{p.typeLabel}</span>
-        {managed && <span style={managedBadge}>🤝 Förvaltad</span>}
+    <div style={banner}>
+      <BuildingArt p={p} />
+      <div style={bannerOverlay}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={badge}>{p.typeLabel}</span>
+          {managed && <span style={managedBadge}>🤝</span>}
+        </div>
+        <span style={bannerDistrict}>{p.districtName}</span>
       </div>
-      <span style={districtText}>{p.districtName}</span>
     </div>
   );
 }
@@ -609,10 +613,22 @@ const badge: React.CSSProperties = {
   padding: "3px 10px", borderRadius: 6,
 };
 const managedBadge: React.CSSProperties = {
-  background: "#27660a22", color: "#27660a", fontSize: 11, fontWeight: 700,
-  padding: "3px 8px", borderRadius: 6, border: "1px solid #27660a44",
+  background: "rgba(39,102,10,0.92)", color: "#fff", fontSize: 12, fontWeight: 700,
+  padding: "2px 6px", borderRadius: 6,
 };
-const districtText: React.CSSProperties = { fontSize: 12, color: "#888", fontWeight: 600 };
+const banner: React.CSSProperties = {
+  position: "relative", margin: "-16px -16px 12px",
+  borderRadius: "14px 14px 0 0", overflow: "hidden", maxHeight: 160,
+};
+const bannerOverlay: React.CSSProperties = {
+  position: "absolute", left: 0, right: 0, bottom: 0,
+  display: "flex", justifyContent: "space-between", alignItems: "center",
+  padding: "8px 12px",
+  background: "linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0))",
+};
+const bannerDistrict: React.CSSProperties = {
+  fontSize: 12, color: "#fff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+};
 const valueRow: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 6, marginBottom: 10 };
 const valueText: React.CSSProperties = { fontSize: 24, fontWeight: 800, color: "#1a1a1a" };
 const subText: React.CSSProperties = { fontSize: 12, color: "#999" };

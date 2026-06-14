@@ -3,6 +3,7 @@ import { loanTerms } from "../engine/finance";
 import { propAnnualOpex, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { S } from "../styles/styles";
+import { BuildingArt } from "./BuildingArt";
 import { CondBar } from "./CondBar";
 
 interface ListingCardProps {
@@ -32,9 +33,12 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
 
   return (
     <div style={S.card}>
-      <div style={S.cardHead}>
-        <span style={S.badge}>{p.typeLabel}</span>
-        <span style={S.cardDistrict}>{p.districtName}</span>
+      <div style={listingBanner}>
+        <BuildingArt p={p} />
+        <div style={listingOverlay}>
+          <span style={S.badge}>{p.typeLabel}</span>
+          <span style={listingDistrict}>{p.districtName}</span>
+        </div>
       </div>
 
       <div style={S.cardValue}>{msek(p.askPrice)}</div>
@@ -105,6 +109,20 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
     </div>
   );
 }
+
+const listingBanner: React.CSSProperties = {
+  position: "relative", margin: "-16px -16px 10px",
+  borderRadius: "12px 12px 0 0", overflow: "hidden", maxHeight: 150,
+};
+const listingOverlay: React.CSSProperties = {
+  position: "absolute", left: 0, right: 0, bottom: 0,
+  display: "flex", justifyContent: "space-between", alignItems: "center",
+  padding: "7px 12px",
+  background: "linear-gradient(to top, rgba(0,0,0,0.42), rgba(0,0,0,0))",
+};
+const listingDistrict: React.CSSProperties = {
+  fontSize: 12, color: "#fff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+};
 
 const profitBox = (positive: boolean): React.CSSProperties => ({
   margin: "8px 0",

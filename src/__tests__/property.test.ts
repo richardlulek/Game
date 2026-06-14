@@ -25,9 +25,9 @@ describe("propMarketValue", () => {
 
 describe("propAnnualOpex", () => {
   it("är baseRent × opexFactor × opexMult × taxMod", () => {
-    // Bostad opexFactor 0.28. 100000 × 0.28 × 1 × 1 = 28000
+    // Bostad opexFactor 0.23. 100000 × 0.23 × 1 × 1 = 23000
     const p = makeProperty({ baseRent: 100_000 });
-    expect(propAnnualOpex(p, makeState())).toBeCloseTo(28_000, 6);
+    expect(propAnnualOpex(p, makeState())).toBeCloseTo(23_000, 6);
   });
 
   it("är 0 under bygge", () => {
@@ -58,13 +58,13 @@ describe("propAnnualRent", () => {
 describe("propNOI (driftnetto)", () => {
   it("vakant: NOI = −opex", () => {
     const p = makeProperty({ baseRent: 100_000, tenants: [] });
-    expect(propNOI(p, makeState())).toBeCloseTo(-28_000, 6);
+    expect(propNOI(p, makeState())).toBeCloseTo(-23_000, 6);
   });
 
   it("uthyrt: NOI = årshyra − opex", () => {
     const p = makeProperty({ baseRent: 100_000, tenants: [makeTenantFixture({ rent: 50_000 })] });
-    // 50000 × 12 − 28000 = 572000
-    expect(propNOI(p, makeState())).toBeCloseTo(572_000, 6);
+    // 50000 × 12 − 23000 = 577000
+    expect(propNOI(p, makeState())).toBeCloseTo(577_000, 6);
   });
 
   it("följer opexMult och taxMod", () => {
