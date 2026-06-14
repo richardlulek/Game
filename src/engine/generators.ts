@@ -7,9 +7,22 @@ import { DISTRICTS, PROP_TYPES, TENANT_PROFILES } from "./data";
 import { newId, pick, rnd } from "./random";
 import type { GameState, Lot, Property, Tenant } from "./types";
 
-/** Skapar en ny hyresgäst utifrån en slumpad profil. */
-export function makeTenant(baseRent: number, demandMod: number): Tenant {
-  const prof = pick(TENANT_PROFILES);
+/** Skapar en ny hyresgäst utifrån en slumpad profil.
+ *  condition-parametern filtrerar bort profiler som kräver bättre skick.
+ *  - condition < 40: only "privat" and "startup"
+ *  - condition < 60: exclude "stat"
+ *  - condition >= 60: all profiles eligible
+ */
+export function makeTenant(baseRent: number, demandMod: number, condition: number = 70): Tenant {
+  let eligible = TENANT_PROFILES;
+  if (condition < 40) {
+    eligible = TENANT_PROFILES.filter((p) => p.id === "privat" || p.id === "startup");
+  } else if (condition < 60) {
+    eligible = TENANT_PROFILES.filter((p) => p.id !== "stat");
+  }
+  // Fall back to all profiles if filtered list is empty
+  if (eligible.length === 0) eligible = TENANT_PROFILES;
+  const prof = pick(eligible);
   const term = Math.round(rnd(prof.termMin, prof.termMax));
   return {
     id: newId(),

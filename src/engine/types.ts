@@ -166,5 +166,6 @@ export type GameAction =
   | { type: "REFINANCE"; amount: number }
   | { type: "REFRESH_LISTINGS" }
   | { type: "NEXT_MONTH" }
+  | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
   | { type: "RESET" };

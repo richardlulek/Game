@@ -91,9 +91,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "LEASE": {
+      // Hyr ut vakant lokal till ny hyresgäst
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.tenant || p.status === "bygger") return state;
-      const tenant = makeTenant(propPotentialRent(p, state), state.demandMod);
+      const tenant = makeTenant(propPotentialRent(p, state), state.demandMod, p.condition);
       return {
         ...state,
         portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant } : x)),
@@ -260,6 +261,15 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "NEXT_MONTH":
       return advanceMonth(state);
+    case "FAST_FORWARD": {
+      let s = state;
+      const n = Math.min(action.months, 24);
+      for (let i = 0; i < n; i++) {
+        if (s.gameOver) break;
+        s = advanceMonth(s);
+      }
+      return s;
+    }
     case "LOAD":
       return action.state;
     case "RESET":

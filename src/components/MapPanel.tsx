@@ -107,7 +107,7 @@ export function MapPanel({ state, dispatch }: Props) {
   const selData = selected ? byDistrict[selected] : null;
 
   return (
-    <div style={{ marginTop: 18 }}>
+    <div style={{ height: "100%", overflow: "auto", padding: "8px 0" }}>
       {/* Förklaring */}
       <div
         style={{
@@ -117,6 +117,7 @@ export function MapPanel({ state, dispatch }: Props) {
           marginBottom: 12,
           fontSize: 12,
           flexWrap: "wrap",
+          padding: "0 12px",
         }}
       >
         <LegendDot color={BURGUNDY} shape="circle" label="Din fastighet" />
@@ -135,6 +136,7 @@ export function MapPanel({ state, dispatch }: Props) {
           overflow: "hidden",
           border: "1px solid #d8d0c8",
           boxShadow: "0 2px 10px rgba(0,0,0,.08)",
+          margin: "0 12px",
         }}
       >
         <svg
@@ -301,7 +303,7 @@ export function MapPanel({ state, dispatch }: Props) {
       {state.portfolio.length === 0 ? (
         <div
           style={{
-            marginTop: 12,
+            margin: "12px 12px 0",
             padding: "10px 14px",
             background: "#f0f6ff",
             border: "1px solid #c0d4f0",
@@ -317,7 +319,7 @@ export function MapPanel({ state, dispatch }: Props) {
       ) : topDist ? (
         <div
           style={{
-            marginTop: 12,
+            margin: "12px 12px 0",
             padding: "10px 14px",
             background: "#fff8f0",
             border: "1px solid #f0dcc0",
@@ -420,7 +422,7 @@ function DistrictDetail({
   return (
     <div
       style={{
-        marginTop: 16,
+        margin: "16px 12px 0",
         background: "#fff",
         border: `2px solid ${BURGUNDY}`,
         borderRadius: 12,

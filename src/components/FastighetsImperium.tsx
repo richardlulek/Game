@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
-import { kr, msek, pct } from "../engine/format";
 import { propNOI } from "../engine/property";
 import { useGameStore } from "../store/gameStore";
 import { S } from "../styles/styles";
@@ -8,13 +7,14 @@ import { BURGUNDY } from "../styles/tokens";
 import { BuildPanel } from "./BuildPanel";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
-import { ListingCard } from "./ListingCard";
 import { LogPanel } from "./LogPanel";
 import { MapPanel } from "./MapPanel";
-import { PortfolioCard } from "./PortfolioCard";
+import { MarketTable } from "./MarketTable";
+import { PortfolioTable } from "./PortfolioTable";
 import { RivalsPanel } from "./RivalsPanel";
-import { Stat } from "./Stat";
-import { Tabs } from "./Tabs";
+import { StatusBar } from "./StatusBar";
+import { Toolbar } from "./Toolbar";
+import { msek } from "../engine/format";
 
 export default function FastighetsImperium() {
   const state = useGameStore((s) => s.state);
@@ -25,7 +25,6 @@ export default function FastighetsImperium() {
   const [tab, setTab] = useState("portfolio");
   const [saved, setSaved] = useState(false);
 
-  // Persistens via localStorage (med versionshantering, se store/persistence.ts).
   const doSave = () => {
     save();
     setSaved(true);
@@ -43,135 +42,104 @@ export default function FastighetsImperium() {
   const myRank =
     [...state.competitors.map((c) => c.equity), equity].sort((a, b) => b - a).indexOf(equity) + 1;
 
+  const panelTabs = [
+    { id: "portfolio", label: `Portfölj (${state.portfolio.length})` },
+    { id: "market", label: "Marknad" },
+    { id: "build", label: "Bygg" },
+    { id: "finance", label: "Finans" },
+    { id: "rivals", label: "Konk." },
+    { id: "log", label: "Logg" },
+  ];
+
   return (
-    <div style={S.app}>
-      <header style={S.header}>
-        <div>
-          <h1 style={S.title}>
-            FASTIGHETS<span style={{ color: BURGUNDY }}>IMPERIUM</span>
-          </h1>
-          <div style={S.subtitle}>Förvärva · Bygg · Förvalta · Dominera</div>
-        </div>
-        <div style={S.dateBox}>
-          <div style={S.dateLabel}>MÅNAD</div>
-          <div style={S.dateValue}>
-            {state.month}/{state.year}
-          </div>
-          <button
-            style={S.nextBtn}
-            disabled={state.gameOver}
-            onClick={() => dispatch({ type: "NEXT_MONTH" })}
-          >
-            ► Nästa månad
-          </button>
-          <div style={{ marginTop: 6, display: "flex", gap: 6, justifyContent: "flex-end" }}>
-            <button style={S.miniBtn} onClick={doSave}>
-              {saved ? "✓ Sparat" : "Spara"}
-            </button>
-            <button style={S.miniBtn} onClick={doLoad}>
-              Ladda
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div style={S.statRow}>
-        <Stat
-          label="Kassa"
-          value={msek(state.cash)}
-          accent={state.cash < 0 ? "#c0392b" : "#1a1a1a"}
-        />
-        <Stat
-          label="Eget kapital"
-          value={msek(equity)}
-          accent={BURGUNDY}
-          sub={`Rank #${myRank} av ${state.competitors.length + 1}`}
-        />
-        <Stat label="Skuld" value={msek(state.debt)} sub={`LTV ${pct(ltv)}`} />
-        <Stat label="Din låneränta" value={terms.rate + " %"} sub={`påslag +${terms.spread}`} />
-        <Stat
-          label="Driftnetto/mån"
-          value={kr(monthlyNOI)}
-          sub={`ränta −${kr(monthlyInterest)}`}
-          accent={monthlyNOI - monthlyInterest >= 0 ? "#27660a" : "#c0392b"}
-        />
-        <Stat
-          label="Reputation"
-          value={Math.round(state.reputation)}
-          sub={`max LTV ${pct(terms.maxLtv)}`}
-          accent={BURGUNDY}
-        />
-      </div>
-
-      <EquityChart history={state.history} />
-
-      {state.gameOver && (
-        <div style={S.gameOver}>
-          Spelet är slut. Eget kapital: {msek(equity)} efter {state.year} år.
-          <button style={S.resetBtn} onClick={() => dispatch({ type: "RESET" })}>
-            Spela igen
-          </button>
-        </div>
-      )}
-
-      <Tabs
-        tab={tab}
-        setTab={setTab}
-        items={[
-          { id: "portfolio", label: `Portfölj (${state.portfolio.length})` },
-          { id: "map", label: "Karta" },
-          { id: "market", label: "Marknad" },
-          { id: "build", label: "Nyproduktion" },
-          { id: "finance", label: "Finans" },
-          { id: "rivals", label: "Konkurrenter" },
-          { id: "log", label: "Händelser" },
-        ]}
+    <div style={S.appLayout}>
+      {/* Toolbar */}
+      <Toolbar
+        state={state}
+        dispatch={dispatch}
+        saved={saved}
+        onSave={doSave}
+        onLoad={doLoad}
       />
 
-      {tab === "portfolio" && (
-        <div style={S.grid}>
-          {state.portfolio.length === 0 && (
-            <div style={S.empty}>
-              Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
-              <strong>Nyproduktion</strong>.
+      {/* Main content row */}
+      <div style={S.contentRow}>
+        {/* Left: Map */}
+        <div style={S.mapSection}>
+          <MapPanel state={state} dispatch={dispatch} />
+          {/* GameOver overlay */}
+          {state.gameOver && (
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: "rgba(30,14,18,0.85)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              zIndex: 10,
+            }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#ffd700", marginBottom: 12 }}>
+                Spelet är slut
+              </div>
+              <div style={{ fontSize: 15, color: "#ddd", marginBottom: 20 }}>
+                Eget kapital: {msek(equity)} efter {state.year} år
+              </div>
+              <button
+                style={{ ...S.toolbarNextBtn, fontSize: 15, padding: "10px 24px" }}
+                onClick={() => dispatch({ type: "RESET" })}
+              >
+                Spela igen
+              </button>
             </div>
           )}
-          {state.portfolio.map((p) => (
-            <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
-          ))}
         </div>
-      )}
 
-      {tab === "map" && <MapPanel state={state} dispatch={dispatch} />}
-
-      {tab === "market" && (
-        <div>
-          <div style={S.marketBar}>
-            <span>Objekt till salu</span>
-            <button style={S.smallBtn} onClick={() => dispatch({ type: "REFRESH_LISTINGS" })}>
-              ↻ Nya objekt
-            </button>
-          </div>
-          <div style={S.grid}>
-            {state.listings.map((p) => (
-              <ListingCard key={p.id} p={p} state={state} dispatch={dispatch} />
+        {/* Right panel */}
+        <div style={S.rightPanel}>
+          {/* Tab bar */}
+          <div style={S.panelTabBar}>
+            {panelTabs.map((t) => (
+              <button
+                key={t.id}
+                style={{ ...S.panelTab, ...(tab === t.id ? S.panelTabActive : {}) }}
+                onClick={() => setTab(t.id)}
+              >
+                {t.label}
+              </button>
             ))}
           </div>
+
+          {/* Panel content */}
+          <div style={S.panelContent}>
+            {tab === "portfolio" && <PortfolioTable state={state} dispatch={dispatch} />}
+            {tab === "market" && <MarketTable state={state} dispatch={dispatch} />}
+            {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
+            {tab === "finance" && (
+              <>
+                <FinancePanel state={state} dispatch={dispatch} equity={equity} ltv={ltv} terms={terms} />
+                <div style={{ padding: "0 16px 16px" }}>
+                  <EquityChart history={state.history} />
+                </div>
+              </>
+            )}
+            {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
+            {tab === "log" && <LogPanel log={state.log} />}
+          </div>
         </div>
-      )}
+      </div>
 
-      {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
-      {tab === "finance" && (
-        <FinancePanel state={state} dispatch={dispatch} equity={equity} ltv={ltv} terms={terms} />
-      )}
-      {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
-
-      {tab === "log" && <LogPanel log={state.log} />}
-
-      <footer style={S.footer}>
-        Bygg upp reputation för bättre lånevillkor · håll lokaler uthyrda · slå konkurrenterna i
-        eget kapital.
-      </footer>
+      {/* Status bar */}
+      <StatusBar
+        state={state}
+        equity={equity}
+        ltv={ltv}
+        terms={terms}
+        monthlyNOI={monthlyNOI}
+        monthlyInterest={monthlyInterest}
+        myRank={myRank}
+      />
     </div>
   );
 }

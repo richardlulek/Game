@@ -31,8 +31,16 @@ export function propAnnualRent(p: Property, state: GameState): number {
 export function propPotentialRent(p: Property, state: GameState): number {
   const t = PROP_TYPES[p.type];
   const d = DISTRICTS.find((x) => x.id === p.district)!;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2;
-  const vacancy = Math.max(0, t.vacancyBase * p.vacancyMult - (p.condition - 60) / 1000);
+
+  // Klusterbonus: fler ägda fastigheter i samma distrikt ger hyresboost och lägre vakans
+  const ownedInDistrict = state.portfolio.filter(
+    (x) => x.district === p.district && x.status === "klar",
+  ).length;
+  const clusterRentMult = ownedInDistrict >= 5 ? 1.10 : ownedInDistrict >= 3 ? 1.05 : 1;
+  const clusterVacMult  = ownedInDistrict >= 5 ? 0.85 : ownedInDistrict >= 3 ? 0.90 : 1;
+
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult;
+  const vacancy = Math.max(0, t.vacancyBase * p.vacancyMult * clusterVacMult - (p.condition - 60) / 1000);
   return gross * (1 - vacancy);
 }
 
