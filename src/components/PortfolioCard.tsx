@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { PROP_TYPES, UPGRADES } from "../engine/data";
+import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
+import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { makeTenant } from "../engine/generators";
-import { propMarketValue, propNOI, propPotentialRent } from "../engine/property";
+import { propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property, Tenant } from "../engine/types";
 import { BURGUNDY } from "../styles/tokens";
 import { CondBar } from "./CondBar";
@@ -10,7 +11,7 @@ import { CondBar } from "./CondBar";
 interface Props {
   p: Property;
   state: GameState;
-  dispatch: (action: GameAction) => void;
+  dispatch: (a: GameAction) => void;
 }
 
 const UPG_EFFECT: Record<string, string> = {
@@ -20,10 +21,19 @@ const UPG_EFFECT: Record<string, string> = {
   smart:      "−30 % vakans",
 };
 
-const RAISE_OPTIONS = [5, 10, 20] as const;
+const RAISE_OPTIONS  = [5, 10, 20] as const;
+const LOWER_OPTIONS  = [5, 10, 15] as const;
+const DEMAND_LABELS  = ["Mycket låg", "Låg", "Medel", "Hög", "Mycket hög"];
 
-// Beräknar acceptanssannolikhet (speglar reducer-logiken exakt)
-function riskLabel(newRent: number, marketMo: number): { text: string; color: string; prob: number } {
+function demandLabel(d: number) {
+  if (d < 0.5) return DEMAND_LABELS[0];
+  if (d < 0.7) return DEMAND_LABELS[1];
+  if (d < 0.85) return DEMAND_LABELS[2];
+  if (d < 0.95) return DEMAND_LABELS[3];
+  return DEMAND_LABELS[4];
+}
+
+function acceptProb(newRent: number, marketMo: number) {
   const r = newRent / marketMo;
   if (r < 1.0)  return { text: "Mycket låg risk",  color: "#27660a", prob: 97 };
   if (r < 1.1)  return { text: "Låg risk",         color: "#5a8a10", prob: 80 };
@@ -32,28 +42,53 @@ function riskLabel(newRent: number, marketMo: number): { text: string; color: st
   return             { text: "Mycket hög risk",  color: "#c0392b", prob: 10 };
 }
 
-// Genererar 3 hyresgästkandidater per plats (baseRent proportionellt per kapacitetsplats)
-function genCandidates(p: Property, state: GameState): Tenant[] {
-  const base = propPotentialRent(p, state) / p.capacity;
-  return Array.from({ length: 3 }, () => makeTenant(base, state.demandMod, p.condition));
+function genCandidates(p: Property, state: GameState, enhanced = false): Tenant[] {
+  const base  = propPotentialRent(p, state) / p.capacity;
+  const count = enhanced ? 5 : 3;
+  const pool  = Array.from({ length: count * 3 }, () =>
+    makeTenant(base, state.demandMod, p.condition),
+  );
+  return enhanced
+    ? pool.sort((a, b) => b.quality - a.quality).slice(0, count)
+    : pool.slice(0, count);
 }
 
 export function PortfolioCard({ p, state, dispatch }: Props) {
-  const [candidateSlot, setCandidateSlot] = useState<number | null>(null); // which empty slot index is picking
-  const [candidates, setCandidates] = useState<Tenant[] | null>(null);
+  const [showDetails,       setShowDetails]       = useState(false);
+  const [candidateSlot,     setCandidateSlot]     = useState<number | null>(null);
+  const [candidates,        setCandidates]        = useState<Tenant[] | null>(null);
+  const [marketingActive,   setMarketingActive]   = useState(false);
   const [showRaiseTenantId, setShowRaiseTenantId] = useState<number | null>(null);
+  const [showLowerTenantId, setShowLowerTenantId] = useState<number | null>(null);
 
+  // ── Beräknade värden ────────────────────────────────────────────
   const value        = propMarketValue(p, state);
   const noi          = propNOI(p, state);
+  const terms        = loanTerms(state);
+  const district     = DISTRICTS.find((d) => d.id === p.district);
   const maintainCost = Math.round(value * 0.02);
   const canMaintain  = state.cash >= maintainCost && !state.gameOver && p.status !== "bygger";
-  const yieldPct     = value > 0 ? (noi / value) * 100 : 0;
-  const condIn3      = Math.max(10, Math.round(p.condition - 3 * 0.45));
-  const totalEarned  = p.totalEarnedRent ?? 0;
-  const unrealGain   = p.purchasePrice ? value - p.purchasePrice : 0;
-  const totalReturn  = totalEarned + unrealGain;
-  const cashOnCash   = p.purchasePrice && p.purchasePrice > 0
-    ? (totalReturn / p.purchasePrice) * 100 : null;
+
+  const yieldPct    = value > 0 ? (noi / value) * 100 : 0;
+  const condIn3     = Math.max(10, Math.round(p.condition - 3 * 0.45));
+  const totalEarned = p.totalEarnedRent ?? 0;
+  const unrealGain  = p.purchasePrice ? value - p.purchasePrice : 0;
+  const cashOnCash  = p.purchasePrice
+    ? ((totalEarned + unrealGain) / p.purchasePrice) * 100
+    : null;
+
+  // Kassaflödesanalys
+  const grossRentMo  = p.tenants.reduce((s, t) => s + t.rent, 0);
+  const opexMo       = propAnnualOpex(p, state) / 12;
+  const portVal      = state.portfolio.reduce((a, x) => a + propMarketValue(x, state), 0);
+  const propShare    = portVal > 0 ? value / portVal : 0;
+  const interestMo   = (state.debt * propShare * (terms.rate / 100)) / 12;
+  const netCashflow  = grossRentMo - opexMo - interestMo;
+
+  const slotPotential  = Math.round(propPotentialRent(p, state) / p.capacity / 12);
+  const maxPossibleMo  = Math.round(propPotentialRent(p, state) / 12);
+  const emptySlots     = p.capacity - p.tenants.length;
+  const managerCostMo  = Math.max(2000, Math.round(grossRentMo * 0.03));
 
   // ── Under byggnation ─────────────────────────────────────────
   if (p.status === "bygger") {
@@ -63,43 +98,38 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         <CardHeader p={p} />
         <div style={valueRow}>
           <span style={valueText}>🏗️ Under byggnation</span>
-          <span style={subText}>{p.buildLeft} månader kvar</span>
         </div>
         <div style={statRow}>
-          <Stat label="Yta" value={`${p.area} m²`} />
+          <Stat label="Yta"   value={`${p.area} m²`} />
           <Stat label="Klart" value={`om ${p.buildLeft} mån`} />
+          <Stat label="Värde (nu)" value={msek(value)} />
         </div>
         <div style={progressWrap}>
           <div style={{ ...progressFill, width: `${progress * 100}%` }} />
         </div>
-        <div style={hint}>Nybygget är klart och hyresklart om {p.buildLeft} månader.</div>
+        <div style={hint}>Klart om {p.buildLeft} månader · Reputation +5 · 20 % lägre vakans vid inflyttning.</div>
       </div>
     );
   }
 
-  const marketMo = propPotentialRent(p, state) / 12;
-  const slotPotential = Math.round(propPotentialRent(p, state) / p.capacity / 12);
-  const emptySlots = p.capacity - p.tenants.length;
-  const totalActualIncome = p.tenants.reduce((s, t) => s + t.rent, 0);
-  const maxPossibleIncome = Math.round(marketMo);
-
   return (
     <div style={card}>
-      <CardHeader p={p} />
+      <CardHeader p={p} managed={p.managed} />
 
-      {/* Marknadsvärde */}
+      {/* ── Värde ──────────────────────────────────────────────── */}
       <div style={valueRow}>
         <span style={valueText}>{msek(value)}</span>
         <span style={subText}>marknadsvärde</span>
       </div>
 
-      {/* Snabbfakta rad 1 */}
+      {/* ── Snabbfakta rad 1 ───────────────────────────────────── */}
       <div style={statRow}>
         <Stat label="Yta" value={`${p.area} m²`} />
         <StatBar label="Skick" c={p.condition} nextC={condIn3} />
         <Stat label="NOI/mån" value={kr(noi / 12)} color={noi >= 0 ? "#27660a" : "#c0392b"} />
       </div>
-      {/* Snabbfakta rad 2 */}
+
+      {/* ── Snabbfakta rad 2 ───────────────────────────────────── */}
       <div style={{ ...statRow, marginTop: 8 }}>
         <Stat
           label="Direktavk."
@@ -118,28 +148,58 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         )}
       </div>
 
+      {/* ── Kassaflöde & distrikt (vikbar) ─────────────────────── */}
+      <button
+        onClick={() => setShowDetails(!showDetails)}
+        style={detailToggleBtn}
+      >
+        {showDetails ? "▲ Dölj analys" : "▼ Kassaflöde & distriktsfakta"}
+      </button>
+      {showDetails && (
+        <div style={detailBox}>
+          <div style={sectionLabel}>Kassaflöde / mån</div>
+          <CashRow label="Bruttohyra"      v={grossRentMo}    positive />
+          <CashRow label="Driftkostnad"    v={-opexMo} />
+          <CashRow label="≈ Räntedel"      v={-interestMo} />
+          {p.managed && <CashRow label="Förvaltarkostnad" v={-managerCostMo} />}
+          <div style={{ height: 1, background: "#eedede", margin: "5px 0" }} />
+          <CashRow label="Nettokassaflöde" v={netCashflow} bold />
+
+          {district && (
+            <>
+              <div style={{ ...sectionLabel, marginTop: 10 }}>Distrikt: {district.name}</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                <Chip
+                  label={`Tillväxt ${district.growth >= 1 ? "+" : ""}${((district.growth - 1) * 100).toFixed(0)} %/år`}
+                  color={district.growth >= 1.05 ? "#27660a" : district.growth >= 1 ? "#5a8a10" : "#b04010"}
+                />
+                <Chip label={`Efterfrågan: ${demandLabel(district.demand)}`} color="#2a4a8a" />
+                <Chip label={`Prestige ${district.prestige.toFixed(1)}×`} color="#5a2a7a" />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <Divider />
 
-      {/* ── Kapacitetsindikator ──────────────────────────────── */}
+      {/* ── Hyresgäster ────────────────────────────────────────── */}
       <div style={sectionLabel}>Hyresgäster</div>
       <div style={{ marginBottom: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: p.tenants.length === p.capacity ? "#27660a" : "#7a4800" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: emptySlots === 0 ? "#27660a" : "#7a4800" }}>
             {p.tenants.length} av {p.capacity} platser uthyrda
           </span>
           <span style={{ fontSize: 11, color: "#888" }}>
-            {kr(totalActualIncome)}/mån av max {kr(maxPossibleIncome)}/mån
+            {kr(grossRentMo)}/mån av max {kr(maxPossibleMo)}/mån
           </span>
         </div>
-        {/* Kapacitetsstapel */}
         <div style={{ display: "flex", gap: 3, marginBottom: 4 }}>
           {Array.from({ length: p.capacity }).map((_, i) => (
             <div
               key={i}
               style={{
-                flex: 1,
-                height: 6,
-                borderRadius: 3,
+                flex: 1, height: 6, borderRadius: 3,
                 background: i < p.tenants.length ? BURGUNDY : "#e8d8d0",
               }}
             />
@@ -147,65 +207,93 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         </div>
         {emptySlots > 0 && (
           <div style={{ fontSize: 11, color: "#a05000" }}>
-            Ytterligare potential: +{kr(slotPotential * emptySlots)}/mån
+            Outnyttjad potential: +{kr(slotPotential * emptySlots)}/mån
           </div>
         )}
       </div>
 
-      {/* ── Hyresgästplatser ────────────────────────────────── */}
+      {/* ── Aktiva hyresgäster ─────────────────────────────────── */}
       {p.tenants.map((t) => {
-        const contractExpiring = t.monthsLeft <= 12;
+        const rentVsMarket  = slotPotential > 0 ? t.rent / slotPotential : 1;
+        const diffPct       = Math.round(Math.abs(rentVsMarket - 1) * 100);
+        const marketChip    = rentVsMarket > 1.08
+          ? { label: `+${diffPct}% över marknad`, color: "#27660a" }
+          : rentVsMarket < 0.92
+            ? { label: `−${diffPct}% under marknad`, color: "#c0392b" }
+            : { label: "I nivå med marknad",         color: "#888" };
+
+        const expiring = t.monthsLeft <= 12;
+        const critical = t.monthsLeft <= 3;
         const showRaise = showRaiseTenantId === t.id;
+        const showLower = showLowerTenantId === t.id;
+
         return (
           <div key={t.id} style={tenantBox}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+            {/* Tenant header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={tenantName}>{t.name}</div>
-                <div style={tenantMeta}>
-                  {kr(t.rent)}/mån ·{" "}
-                  <span style={{ color: contractExpiring ? "#c05000" : "#666" }}>
-                    {contractExpiring
-                      ? `⚠ kontrakt löper ut om ${t.monthsLeft} mån`
-                      : `${t.monthsLeft} mån kvar`}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 3 }}>
+                  <span style={tenantMeta}>{kr(t.rent)}/mån</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: marketChip.color }}>
+                    {marketChip.label}
                   </span>
+                </div>
+                <div style={{ ...tenantMeta, marginTop: 2, color: critical ? "#c05000" : "#888" }}>
+                  {critical ? `⚠ löper ut om ${t.monthsLeft} mån` : expiring ? `⚠ ${t.monthsLeft} mån kvar` : `${t.monthsLeft} mån kvar`}
+                  {" "}· {t.termTotal} mån kontrakt · Risk {(t.defaultRisk * 100).toFixed(1)} %
                 </div>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-              {contractExpiring && (
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              {expiring && (
                 <SmallBtn
                   label="Förläng kontrakt"
                   color="#27660a"
-                  onClick={() => dispatch({ type: "RENEW_LEASE", id: p.id, tenantId: t.id })}
+                  onClick={() => {
+                    dispatch({ type: "RENEW_LEASE", id: p.id, tenantId: t.id });
+                  }}
                   disabled={state.gameOver}
                 />
               )}
               <SmallBtn
-                label={showRaise ? "Stäng" : "Höj hyran"}
+                label={showRaise ? "✕ Stäng" : "Höj hyran"}
                 color={BURGUNDY}
-                onClick={() => setShowRaiseTenantId(showRaise ? null : t.id)}
+                onClick={() => {
+                  setShowRaiseTenantId(showRaise ? null : t.id);
+                  setShowLowerTenantId(null);
+                }}
                 disabled={state.gameOver}
               />
               <SmallBtn
-                label="Säg upp  −3 rep"
+                label={showLower ? "✕ Stäng" : "Sänk hyran"}
+                color="#4a6aaa"
+                onClick={() => {
+                  setShowLowerTenantId(showLower ? null : t.id);
+                  setShowRaiseTenantId(null);
+                }}
+                disabled={state.gameOver}
+              />
+              <SmallBtn
+                label="Säg upp −3 rep"
                 color="#a03010"
                 onClick={() => dispatch({ type: "EVICT", id: p.id, tenantId: t.id })}
                 disabled={state.gameOver}
               />
             </div>
 
-            {/* ── Höj hyra-panel ─────────────────────────── */}
+            {/* ── Höj hyra ───────────────────────────────────── */}
             {showRaise && (
-              <div style={{ marginTop: 10, padding: "10px 12px", background: "#fff", borderRadius: 8, border: "1px solid #e8d8d0" }}>
-                <div style={sectionLabel}>Välj hur mycket du vill höja</div>
+              <div style={subPanel}>
+                <div style={sectionLabel}>Välj höjning</div>
                 <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
-                  Marknadshyra: {kr(Math.round(slotPotential))}/mån · Nu: {kr(t.rent)}/mån
+                  Marknadshyra: {kr(slotPotential)}/mån · Nu: {kr(t.rent)}/mån
                 </div>
                 {RAISE_OPTIONS.map((pct) => {
-                  const newR  = Math.round(t.rent * (1 + pct / 100));
-                  const risk  = riskLabel(newR, slotPotential);
-                  const canDo = state.cash >= 0 && !state.gameOver;
+                  const newR = Math.round(t.rent * (1 + pct / 100));
+                  const risk = acceptProb(newR, slotPotential);
                   return (
                     <button
                       key={pct}
@@ -213,26 +301,45 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                         dispatch({ type: "RAISE_RENT", id: p.id, tenantId: t.id, increasePercent: pct });
                         setShowRaiseTenantId(null);
                       }}
-                      disabled={!canDo}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        marginBottom: 6,
-                        padding: "8px 10px",
-                        borderRadius: 7,
-                        border: `1px solid ${risk.color}44`,
-                        background: risk.color + "0f",
-                        cursor: canDo ? "pointer" : "default",
-                      }}
+                      disabled={state.gameOver}
+                      style={rentOptionBtn(risk.color)}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: 700, fontSize: 13 }}>+{pct}%  →  {kr(newR)}/mån</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: risk.color }}>{risk.prob}% chans</span>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>+{pct}% → {kr(newR)}/mån</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: risk.color }}>{risk.prob}% chans</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#888", marginTop: 2 }}>
-                        <span>{newR > t.rent ? `+${kr(newR - t.rent)}/mån extra` : ""}</span>
+                        <span>+{kr(newR - t.rent)}/mån extra</span>
                         <span style={{ color: risk.color }}>{risk.text}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── Sänk hyra ──────────────────────────────────── */}
+            {showLower && (
+              <div style={subPanel}>
+                <div style={sectionLabel}>Välj sänkning</div>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
+                  Sänkt hyra accepteras alltid · Ökar chansen att stanna (reputation +0,5)
+                </div>
+                {LOWER_OPTIONS.map((pct) => {
+                  const newR = Math.round(t.rent * (1 - pct / 100));
+                  return (
+                    <button
+                      key={pct}
+                      onClick={() => {
+                        dispatch({ type: "LOWER_RENT", id: p.id, tenantId: t.id, decreasePercent: pct });
+                        setShowLowerTenantId(null);
+                      }}
+                      disabled={state.gameOver}
+                      style={rentOptionBtn("#4a6aaa")}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>−{pct}% → {kr(newR)}/mån</span>
+                        <span style={{ fontSize: 12, color: "#4a6aaa" }}>−{kr(t.rent - newR)}/mån</span>
                       </div>
                     </button>
                   );
@@ -243,18 +350,22 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         );
       })}
 
-      {/* ── Lediga platser ──────────────────────────────────── */}
+      {/* ── Lediga platser ─────────────────────────────────────── */}
       {Array.from({ length: emptySlots }).map((_, i) => {
-        const slotIndex = p.tenants.length + i;
-        const isPickingThis = candidateSlot === slotIndex && candidates !== null;
+        const slotIndex   = p.tenants.length + i;
+        const isPicking   = candidateSlot === slotIndex && candidates !== null;
         return (
           <div key={`empty-${i}`} style={vacantBox}>
-            <div style={vacantTitle}>Ledig plats</div>
-            <div style={vacantSub}>Potential: {kr(slotPotential)}/mån</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={vacantTitle}>Ledig plats</span>
+              <span style={vacantSub}>Potential {kr(slotPotential)}/mån</span>
+            </div>
 
-            {isPickingThis ? (
+            {isPicking ? (
               <div>
-                <div style={{ ...sectionLabel, marginBottom: 6 }}>Välj hyresgäst</div>
+                <div style={{ ...sectionLabel, marginBottom: 6 }}>
+                  {marketingActive ? "5 kvalificerade kandidater (kampanj aktiv)" : "Välj hyresgäst"}
+                </div>
                 {candidates!.map((t, ci) => (
                   <button
                     key={ci}
@@ -262,46 +373,58 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                       dispatch({ type: "LEASE_TENANT", id: p.id, tenant: t });
                       setCandidates(null);
                       setCandidateSlot(null);
+                      setMarketingActive(false);
                     }}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      marginBottom: 6,
-                      padding: "9px 10px",
-                      borderRadius: 8,
-                      border: `1px solid ${BURGUNDY}33`,
-                      background: "#fff",
-                      cursor: "pointer",
-                    }}
+                    style={candidateBtn}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ fontWeight: 700, fontSize: 13, color: "#1a1a1a" }}>{t.name}</span>
                       <span style={{ fontWeight: 700, fontSize: 13, color: "#27660a" }}>{kr(t.rent)}/mån</span>
                     </div>
                     <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                      Kontrakt: {t.termTotal} mån · Kvalitet: {t.quality.toFixed(2)} · Risk: {(t.defaultRisk * 100).toFixed(1)} %
+                      {t.termTotal} mån kontrakt · Kvalitet {t.quality.toFixed(2)} · Risk {(t.defaultRisk * 100).toFixed(1)} %
                     </div>
                   </button>
                 ))}
                 <button
                   onClick={() => { setCandidates(null); setCandidateSlot(null); }}
-                  style={{ fontSize: 12, color: "#999", background: "none", border: "none", cursor: "pointer", marginTop: 2 }}
+                  style={{ fontSize: 12, color: "#999", background: "none", border: "none", cursor: "pointer", marginTop: 4 }}
                 >
                   Avvisa alla
                 </button>
               </div>
             ) : (
-              <ActionBtn
-                label="Välj hyresgäst"
-                sub="Se 3 kandidater med olika hyra, kontrakt och risk"
-                color={BURGUNDY}
-                disabled={state.gameOver}
-                onClick={() => {
-                  setCandidates(genCandidates(p, state));
-                  setCandidateSlot(slotIndex);
-                }}
-              />
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button
+                  onClick={() => {
+                    setCandidates(genCandidates(p, state, marketingActive));
+                    setCandidateSlot(slotIndex);
+                  }}
+                  disabled={state.gameOver}
+                  style={showCandidatesBtn}
+                >
+                  {marketingActive ? "📣 Visa 5 kvalificerade kandidater" : "Välj hyresgäst →"}
+                </button>
+                {!marketingActive && (
+                  <button
+                    onClick={() => {
+                      if (state.cash >= 25000 && !state.gameOver) {
+                        dispatch({ type: "MARKET_BOOST", id: p.id });
+                        setMarketingActive(true);
+                      }
+                    }}
+                    disabled={state.cash < 25000 || state.gameOver}
+                    style={{
+                      padding: "7px 10px", borderRadius: 8, border: "1px solid #5a4aaa44",
+                      background: state.cash >= 25000 ? "#5a4aaa18" : "#f5f5f5",
+                      color: state.cash >= 25000 ? "#5a4aaa" : "#aaa",
+                      fontSize: 12, fontWeight: 700, cursor: state.cash >= 25000 ? "pointer" : "default",
+                    }}
+                  >
+                    📣 Kampanj 25 k
+                  </button>
+                )}
+              </div>
             )}
           </div>
         );
@@ -309,11 +432,11 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       <Divider />
 
-      {/* ── Investeringar ────────────────────────────────────── */}
+      {/* ── Investeringar ───────────────────────────────────────── */}
       <div style={sectionLabel}>Investeringar</div>
 
       <ActionBtn
-        label={`🔧 Underhåll  · ${msek(maintainCost)}`}
+        label={`🔧 Underhåll · ${msek(maintainCost)}`}
         sub="+15 skick · minskar vakans och hyrestapp"
         color={canMaintain ? "#2a6a1a" : undefined}
         disabled={!canMaintain}
@@ -327,7 +450,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         return (
           <ActionBtn
             key={u.id}
-            label={done ? `✓ ${u.name}` : `${u.name}  · ${msek(cost)}`}
+            label={done ? `✓ ${u.name}` : `${u.name} · ${msek(cost)}`}
             sub={UPG_EFFECT[u.id] ?? u.desc}
             color={done ? "#27660a" : canDo ? "#5a2a3a" : undefined}
             done={done}
@@ -339,8 +462,29 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       <Divider />
 
+      {/* ── Förvaltning ─────────────────────────────────────────── */}
+      <div style={sectionLabel}>Förvaltning</div>
+
       <ActionBtn
-        label={`Sälj fastighet  · ${msek(value)}`}
+        label={
+          p.managed
+            ? `✓ Förvaltare anställd · ${kr(managerCostMo)}/mån`
+            : `👔 Anställ förvaltare · ${kr(managerCostMo)}/mån`
+        }
+        sub={
+          p.managed
+            ? "Auto-förnyar kontrakt och underhåller vid skick < 45. Klicka för att avsluta."
+            : "Auto-förnyar kontrakt vid utgång och underhåller automatiskt."
+        }
+        color={p.managed ? "#27660a" : "#2a4a6a"}
+        disabled={state.gameOver}
+        onClick={() => dispatch({ type: "TOGGLE_MANAGER", id: p.id })}
+      />
+
+      <Divider />
+
+      <ActionBtn
+        label={`Sälj fastighet · ${msek(value)}`}
         sub="Realiserar vinst/förlust mot inköpspris"
         color="#7a5a00"
         disabled={state.gameOver}
@@ -350,12 +494,15 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
   );
 }
 
-// ── Sub-komponenter ────────────────────────────────────────────
+// ── Sub-komponenter ─────────────────────────────────────────────
 
-function CardHeader({ p }: { p: Property }) {
+function CardHeader({ p, managed }: { p: Property; managed?: boolean }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-      <span style={badge}>{p.typeLabel}</span>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <span style={badge}>{p.typeLabel}</span>
+        {managed && <span style={managedBadge}>🤝 Förvaltad</span>}
+      </div>
       <span style={districtText}>{p.districtName}</span>
     </div>
   );
@@ -382,13 +529,34 @@ function StatBar({ label, c, nextC }: { label: string; c: number; nextC?: number
   );
 }
 
+function CashRow({ label, v, positive, bold }: { label: string; v: number; positive?: boolean; bold?: boolean }) {
+  const color = positive ? "#27660a" : v < 0 ? "#c0392b" : "#333";
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
+      <span style={{ color: "#666" }}>{label}</span>
+      <span style={{ fontWeight: bold ? 700 : 400, color }}>
+        {v >= 0 ? "+" : ""}{kr(Math.round(v))}
+      </span>
+    </div>
+  );
+}
+
+function Chip({ label, color }: { label: string; color: string }) {
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10,
+      background: color + "18", color, border: `1px solid ${color}44`,
+    }}>
+      {label}
+    </span>
+  );
+}
+
 function Divider() {
   return <div style={{ height: 1, background: "#f0ece8", margin: "10px 0" }} />;
 }
 
-function SmallBtn({
-  label, color, onClick, disabled,
-}: {
+function SmallBtn({ label, color, onClick, disabled }: {
   label: string; color: string; onClick: () => void; disabled?: boolean;
 }) {
   return (
@@ -396,13 +564,11 @@ function SmallBtn({
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: "5px 12px",
-        borderRadius: 6,
+        padding: "5px 12px", borderRadius: 6,
         border: `1px solid ${color}44`,
-        background: color + "15",
+        background: disabled ? "#f5f5f5" : color + "15",
         color: disabled ? "#aaa" : color,
-        fontWeight: 700,
-        fontSize: 12,
+        fontWeight: 700, fontSize: 12,
         cursor: disabled ? "default" : "pointer",
       }}
     >
@@ -415,29 +581,24 @@ interface ActionBtnProps {
   label: string; sub: string; color?: string;
   disabled?: boolean; done?: boolean; onClick: () => void;
 }
-
 function ActionBtn({ label, sub, color, disabled, done, onClick }: ActionBtnProps) {
   const bg     = disabled ? (done ? "#eef5ee" : "#f5f5f5") : (color ? color + "18" : "#f5f0ed");
   const border = disabled ? (done ? "#27660a33" : "#e8e8e8") : (color ? color + "55" : "#ddd");
   const tc     = disabled ? (done ? "#27660a" : "#aaa") : (color ?? "#333");
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        display: "block", width: "100%", textAlign: "left",
-        marginTop: 7, padding: "9px 12px", borderRadius: 8,
-        border: `1px solid ${border}`, background: bg,
-        cursor: disabled ? "default" : "pointer",
-      }}
-    >
+    <button onClick={onClick} disabled={disabled} style={{
+      display: "block", width: "100%", textAlign: "left",
+      marginTop: 7, padding: "9px 12px", borderRadius: 8,
+      border: `1px solid ${border}`, background: bg,
+      cursor: disabled ? "default" : "pointer",
+    }}>
       <div style={{ fontWeight: 700, fontSize: 13, color: tc }}>{label}</div>
       <div style={{ fontSize: 11, color: disabled ? "#bbb" : "#888", marginTop: 2 }}>{sub}</div>
     </button>
   );
 }
 
-// ── Stilkonstanter ──────────────────────────────────────────────
+// ── Stilkonstanter ─────────────────────────────────────────────
 
 const card: React.CSSProperties = {
   background: "#fff", border: "1px solid #eee", borderRadius: 14,
@@ -446,6 +607,10 @@ const card: React.CSSProperties = {
 const badge: React.CSSProperties = {
   background: BURGUNDY, color: "#fff", fontSize: 11, fontWeight: 700,
   padding: "3px 10px", borderRadius: 6,
+};
+const managedBadge: React.CSSProperties = {
+  background: "#27660a22", color: "#27660a", fontSize: 11, fontWeight: 700,
+  padding: "3px 8px", borderRadius: 6, border: "1px solid #27660a44",
 };
 const districtText: React.CSSProperties = { fontSize: 12, color: "#888", fontWeight: 600 };
 const valueRow: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 6, marginBottom: 10 };
@@ -456,16 +621,52 @@ const statLabel: React.CSSProperties = {
   fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2,
 };
 const statValue: React.CSSProperties = { fontSize: 14, fontWeight: 700 };
-const tenantBox: React.CSSProperties = { background: "#f7f2f8", borderRadius: 10, padding: "10px 12px", marginBottom: 6 };
+
+const detailToggleBtn: React.CSSProperties = {
+  display: "block", width: "100%", textAlign: "left",
+  marginTop: 8, padding: "6px 0",
+  background: "none", border: "none",
+  fontSize: 12, color: "#888", cursor: "pointer", fontWeight: 600,
+};
+const detailBox: React.CSSProperties = {
+  background: "#faf8f6", border: "1px solid #f0ece8", borderRadius: 8,
+  padding: "10px 12px", marginBottom: 4,
+};
+const subPanel: React.CSSProperties = {
+  marginTop: 10, padding: "10px 12px",
+  background: "#fff", borderRadius: 8, border: "1px solid #e8d8d0",
+};
+const rentOptionBtn = (color: string): React.CSSProperties => ({
+  display: "block", width: "100%", textAlign: "left",
+  marginBottom: 6, padding: "8px 10px", borderRadius: 7,
+  border: `1px solid ${color}44`, background: color + "0f",
+  cursor: "pointer",
+});
+const candidateBtn: React.CSSProperties = {
+  display: "block", width: "100%", textAlign: "left",
+  marginBottom: 6, padding: "9px 10px", borderRadius: 8,
+  border: `1px solid ${BURGUNDY}33`, background: "#fff", cursor: "pointer",
+};
+const showCandidatesBtn: React.CSSProperties = {
+  padding: "7px 12px", borderRadius: 8,
+  border: `1px solid ${BURGUNDY}44`, background: BURGUNDY + "18",
+  color: BURGUNDY, fontSize: 12, fontWeight: 700, cursor: "pointer",
+};
+
+const tenantBox: React.CSSProperties = {
+  background: "#f7f2f8", borderRadius: 10, padding: "10px 12px", marginBottom: 6,
+};
 const tenantName: React.CSSProperties = { fontWeight: 700, fontSize: 14, color: BURGUNDY };
-const tenantMeta: React.CSSProperties = { fontSize: 12, color: "#666", marginTop: 2 };
+const tenantMeta: React.CSSProperties = { fontSize: 12, color: "#666" };
 const vacantBox: React.CSSProperties = {
-  background: "#fff8f0", border: "1px dashed #e8c090", borderRadius: 10, padding: "10px 12px", marginBottom: 6,
+  background: "#fff8f0", border: "1px dashed #e8c090",
+  borderRadius: 10, padding: "10px 12px", marginBottom: 6,
 };
 const vacantTitle: React.CSSProperties = { fontWeight: 700, fontSize: 13, color: "#a05000" };
-const vacantSub: React.CSSProperties = { fontSize: 12, color: "#a06820", marginBottom: 6 };
+const vacantSub: React.CSSProperties = { fontSize: 12, color: "#a06820" };
 const sectionLabel: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2,
+  fontSize: 10, fontWeight: 700, color: "#aaa",
+  textTransform: "uppercase", letterSpacing: 1, marginBottom: 2,
 };
 const progressWrap: React.CSSProperties = {
   height: 8, background: "#eee", borderRadius: 4, overflow: "hidden", margin: "10px 0",

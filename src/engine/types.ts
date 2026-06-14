@@ -87,6 +87,7 @@ export interface Property {
   status: PropStatus;
   buildLeft: number;
   totalEarnedRent?: number;
+  managed?: boolean;
 }
 
 /** En byggbar tomt. */
@@ -170,6 +171,9 @@ export type GameAction =
   | { type: "REFINANCE"; amount: number }
   | { type: "LEASE_TENANT"; id: number; tenant: Tenant }
   | { type: "RAISE_RENT"; id: number; tenantId: number; increasePercent: number }
+  | { type: "LOWER_RENT"; id: number; tenantId: number; decreasePercent: number }
+  | { type: "TOGGLE_MANAGER"; id: number }
+  | { type: "MARKET_BOOST"; id: number }
   | { type: "REFRESH_LISTINGS" }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }

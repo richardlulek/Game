@@ -322,6 +322,63 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "LOWER_RENT": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.status === "bygger") return state;
+      const tenant = p.tenants.find((t) => t.id === action.tenantId);
+      if (!tenant) return state;
+      const newRent = Math.round(tenant.rent * (1 - action.decreasePercent / 100));
+      return {
+        ...state,
+        reputation: Math.min(100, state.reputation + 0.5),
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id
+            ? { ...x, tenants: x.tenants.map((t) => (t.id === action.tenantId ? { ...t, rent: newRent } : t)) }
+            : x,
+        ),
+        log: [
+          {
+            t: `${tenant.name} i ${p.districtName}: hyra sänkt −${action.decreasePercent}% → ${kr(newRent)}/mån (reputation +0,5).`,
+            kind: "info",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "TOGGLE_MANAGER": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p) return state;
+      const managed = !p.managed;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, managed } : x)),
+        log: [
+          {
+            t: managed
+              ? `Anställde förvaltare för ${p.typeLabel} i ${p.districtName}.`
+              : `Avslutade förvaltning av ${p.typeLabel} i ${p.districtName}.`,
+            kind: managed ? "buy" : "info",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "MARKET_BOOST": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p) return state;
+      if (state.cash < 25000) return log(state, "För lite kontanter för marknadsföringskampanj.", "warn");
+      return {
+        ...state,
+        cash: state.cash - 25000,
+        log: [
+          {
+            t: `Marknadsföringskampanj för ${p.typeLabel} i ${p.districtName} (25 000 kr) – 5 kvalificerade kandidater tillgängliga.`,
+            kind: "upg",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "REFRESH_LISTINGS": {
       const listings = [];
       for (let i = 0; i < 6; i++) listings.push(genListing(state));

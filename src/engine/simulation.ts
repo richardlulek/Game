@@ -6,7 +6,7 @@
 import { DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
 import { equityOf, loanTerms } from "./finance";
 import { kr } from "./format";
-import { propAnnualOpex } from "./property";
+import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { pick, rnd } from "./random";
 import type { GameState, LogEntry } from "./types";
 
@@ -32,6 +32,21 @@ export function advanceMonth(state: GameState): GameState {
       }
       return np;
     }
+    // Förvaltare: avanstalt månadskostnad + auto-underhåll
+    if (np.managed) {
+      const managerCost = Math.max(2000, Math.round(np.tenants.reduce((a, t) => a + t.rent, 0) * 0.03));
+      s.cash -= managerCost;
+      monthlyNOI -= managerCost;
+      if (np.condition < 45) {
+        const maintainCost = Math.round(propMarketValue(np, s) * 0.02);
+        if (s.cash >= maintainCost) {
+          s.cash -= maintainCost;
+          monthlyNOI -= maintainCost;
+          np.condition = Math.min(100, np.condition + 15);
+          events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName}.`, kind: "upg" });
+        }
+      }
+    }
     // Slitage
     np.condition = Math.max(10, np.condition - rnd(0.2, 0.7));
     // Hyresgästlogik
@@ -42,7 +57,17 @@ export function advanceMonth(state: GameState): GameState {
         continue;
       }
       if (t.monthsLeft <= 1) {
-        events.push({ t: `📄 Kontrakt med ${t.name} i ${np.districtName} löpte ut.`, kind: "info" });
+        if (np.managed) {
+          // Auto-förnya till marknadshyra (ej lägre än befintlig)
+          const marketMo = propPotentialRent(np, s) / np.capacity / 12;
+          const newRent = Math.max(t.rent, Math.round(marketMo * t.quality));
+          monthlyNOI += t.rent;
+          np.totalEarnedRent = (np.totalEarnedRent ?? 0) + t.rent;
+          nextTenants.push({ ...t, monthsLeft: t.termTotal, rent: newRent });
+          events.push({ t: `📄 Förvaltare förnyade avtal med ${t.name} i ${np.districtName}: ${kr(newRent)}/mån.`, kind: "info" });
+        } else {
+          events.push({ t: `📄 Kontrakt med ${t.name} i ${np.districtName} löpte ut.`, kind: "info" });
+        }
         continue;
       }
       monthlyNOI += t.rent;
