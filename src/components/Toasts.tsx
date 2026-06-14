@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { playIncome, playWarn } from "../audio/sound";
 import type { LogEntry, LogKind } from "../engine/types";
+import { C, THEME } from "../styles/tokens";
 
 interface ToastItem {
   id: number;
   entry: LogEntry;
 }
 
-const STYLE_BY_KIND: Record<string, { bg: string; border: string; icon: string }> = {
-  income:  { bg: "#eef7ee", border: "#27660a", icon: "💰" },
-  sell:    { bg: "#fff6e8", border: "#b07010", icon: "🤝" },
-  buy:     { bg: "#eef2fb", border: "#2a4a8a", icon: "🏠" },
-  warn:    { bg: "#fdeeee", border: "#c0392b", icon: "⚠️" },
-  expense: { bg: "#fdeeee", border: "#c0392b", icon: "📉" },
-  event:   { bg: "#f3eefb", border: "#5a2a7a", icon: "📰" },
-  upg:     { bg: "#eef7ee", border: "#2a6a1a", icon: "🔧" },
-  info:    { bg: "#f4f4f4", border: "#888",    icon: "ℹ️" },
+/** Färgad vänsterkant per loggtyp – övriga ytor är gemensamma (valnöt/mässing). */
+const STYLE_BY_KIND: Record<string, { border: string; icon: string }> = {
+  income:  { border: C.positive, icon: "💰" },
+  sell:    { border: C.brass,    icon: "🤝" },
+  buy:     { border: C.green,    icon: "🏠" },
+  warn:    { border: C.negative, icon: "⚠️" },
+  expense: { border: C.negative, icon: "📉" },
+  event:   { border: C.gold,     icon: "📰" },
+  upg:     { border: C.green,    icon: "🔧" },
+  info:    { border: C.brassDim, icon: "ℹ️" },
 };
 
 function soundFor(kind: LogKind) {
@@ -69,13 +71,12 @@ export function Toasts({ log }: { log: LogEntry[] }) {
             key={t.id}
             style={{
               ...toastStyle,
-              background: st.bg,
               borderLeft: `4px solid ${st.border}`,
             }}
             onClick={() => setToasts((cur) => cur.filter((x) => x.id !== t.id))}
           >
             <span style={{ fontSize: 16, flexShrink: 0 }}>{st.icon}</span>
-            <span style={{ fontSize: 13, color: "#222", lineHeight: 1.35 }}>{t.entry.t}</span>
+            <span style={{ fontSize: 13, color: C.creamText, lineHeight: 1.35 }}>{t.entry.t}</span>
           </div>
         );
       })}
@@ -100,8 +101,11 @@ const toastStyle: React.CSSProperties = {
   gap: 9,
   alignItems: "flex-start",
   padding: "10px 13px",
-  borderRadius: 10,
-  boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+  background: C.wood,
+  border: `1px solid ${C.brassDim}`,
+  borderRadius: 5,
+  color: C.creamText,
+  boxShadow: `0 4px 16px rgba(20,12,4,0.45), ${THEME.insetGold}`,
   animation: "fi-toast-in 0.3s cubic-bezier(.2,.8,.2,1)",
   pointerEvents: "auto",
   cursor: "pointer",

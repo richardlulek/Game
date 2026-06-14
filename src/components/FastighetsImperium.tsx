@@ -10,15 +10,17 @@ import { BuildPanel } from "./BuildPanel";
 import { DecisionModal } from "./DecisionModal";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
+import { CityMap } from "./CityMap";
 import { ListingCard } from "./ListingCard";
 import { LogPanel } from "./LogPanel";
-import { MapPanel } from "./MapPanel";
 import { OffersModal } from "./OffersModal";
 import { PortfolioCard } from "./PortfolioCard";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
+import { TitleScreen } from "./TitleScreen";
 import { Toasts } from "./Toasts";
 import { Toolbar } from "./Toolbar";
+import { C, FONTS } from "../styles/tokens";
 
 const TABS = [
   { id: "portfolio", label: "Portfölj" },
@@ -35,11 +37,16 @@ export default function FastighetsImperium() {
   const dispatch = useGameStore((s) => s.dispatch);
   const save     = useGameStore((s) => s.save);
   const load     = useGameStore((s) => s.load);
+  const hasSaveFn = useGameStore((s) => s.hasSave);
 
+  const [started, setStarted] = useState(false);
   const [tab, setTab]         = useState("portfolio");
   const [saved, setSaved]     = useState(false);
   const [showOffers, setShowOffers] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
+
+  const startNew = () => { dispatch({ type: "RESET" }); setStarted(true); };
+  const startContinue = () => { load(); setStarted(true); };
 
   // Månadspuls – ett kort svep när månaden växlar.
   const [pulseKey, setPulseKey] = useState(0);
@@ -64,6 +71,15 @@ export default function FastighetsImperium() {
   const myRank          = [...state.competitors.map((c) => c.equity), equity]
     .sort((a, b) => b - a).indexOf(equity) + 1;
 
+  if (!started) {
+    return (
+      <>
+        <Animations />
+        <TitleScreen hasSave={hasSaveFn()} onNew={startNew} onContinue={startContinue} />
+      </>
+    );
+  }
+
   return (
     <div style={S.appLayout}>
       <Animations />
@@ -78,8 +94,9 @@ export default function FastighetsImperium() {
       {/* ── Game-over banner ────────────────────────────────── */}
       {state.gameOver && (
         <div style={{
-          background: "#5a0010", color: "#fff", textAlign: "center",
-          padding: "10px 16px", fontSize: 14, fontWeight: 700,
+          background: BURGUNDY, color: C.brassBright, textAlign: "center",
+          padding: "10px 16px", fontSize: 14, fontWeight: 700, fontFamily: FONTS.heading,
+          borderBottom: `1px solid ${C.brass}`,
           display: "flex", justifyContent: "center", alignItems: "center", gap: 16,
         }}>
           Spelet är slut — {state.year} år spelade
@@ -144,7 +161,7 @@ export default function FastighetsImperium() {
           </div>
         )}
 
-        {tab === "map" && <MapPanel state={state} dispatch={dispatch} />}
+        {tab === "map" && <CityMap state={state} dispatch={dispatch} />}
 
         {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
 
@@ -199,8 +216,8 @@ export default function FastighetsImperium() {
 const tabBarStyle: React.CSSProperties = {
   display: "flex",
   overflowX: "auto",
-  background: "#fff",
-  borderBottom: "2px solid #eee",
+  background: C.wood,
+  borderBottom: `1px solid ${C.brass}`,
   flexShrink: 0,
   WebkitOverflowScrolling: "touch",
 };
@@ -208,26 +225,28 @@ const tabBarStyle: React.CSSProperties = {
 const tabStyle: React.CSSProperties = {
   background: "none",
   border: "none",
-  padding: "12px 16px",
+  padding: "11px 18px",
+  fontFamily: FONTS.heading,
   fontSize: 14,
   fontWeight: 600,
-  color: "#888",
+  color: C.creamSoft,
   borderBottom: "2px solid transparent",
-  marginBottom: -2,
+  marginBottom: -1,
   cursor: "pointer",
   whiteSpace: "nowrap",
   flexShrink: 0,
+  letterSpacing: 0.3,
 };
 
 const tabActiveStyle: React.CSSProperties = {
-  color: BURGUNDY,
-  borderBottom: `2px solid ${BURGUNDY}`,
+  color: C.brassBright,
+  borderBottom: `2px solid ${C.brass}`,
 };
 
 const contentStyle: React.CSSProperties = {
   flex: 1,
   overflowY: "auto",
-  padding: "16px",
-  background: "#faf8f6",
+  padding: "18px",
+  background: "transparent",
   WebkitOverflowScrolling: "touch",
 };

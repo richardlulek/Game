@@ -2,7 +2,7 @@ import { playSuccess } from "../audio/sound";
 import { kr, msek } from "../engine/format";
 import { propMarketValue } from "../engine/property";
 import type { GameAction, GameState } from "../engine/types";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
 interface Props {
   state: GameState;
@@ -21,9 +21,10 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
           <span>📨 Inkommande bud ({offers.length})</span>
           <button style={closeBtn} onClick={onClose}>✕</button>
         </div>
+        <div style={goldRule} />
 
         {offers.length === 0 ? (
-          <div style={{ color: "#999", fontSize: 14, padding: "20px 0", textAlign: "center" }}>
+          <div style={{ color: C.inkSoft, fontSize: 14, padding: "20px 0", textAlign: "center" }}>
             Inga aktiva bud just nu. Rivaler lägger ibland bud på dina fastigheter över marknadsvärde.
           </div>
         ) : (
@@ -38,18 +39,18 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                     <span style={{ fontWeight: 700, fontSize: 14 }}>
                       {o.propLabel} · {o.districtName}
                     </span>
-                    <span style={{ fontSize: 11, color: "#999" }}>löper ut om {o.expiresIn} mån</span>
+                    <span style={{ fontSize: 11, color: C.inkSoft }}>löper ut om {o.expiresIn} mån</span>
                   </div>
-                  <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>
+                  <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 3 }}>
                     {o.from} bjuder
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: BURGUNDY }}>{msek(o.amount)}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: premium >= 0 ? "#27660a" : "#c0392b" }}>
+                    <span style={{ fontFamily: FONTS.heading, fontSize: 20, fontWeight: 800, color: BURGUNDY }}>{msek(o.amount)}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: premium >= 0 ? C.positive : C.negative }}>
                       {premium >= 0 ? "+" : ""}{premium.toFixed(0)} % mot marknad
                     </span>
                   </div>
-                  <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>
+                  <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 1 }}>
                     Marknadsvärde: {kr(market)}
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
@@ -80,31 +81,34 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
 }
 
 const overlay: React.CSSProperties = {
-  position: "fixed", inset: 0, background: "rgba(20,8,12,0.5)",
+  position: "fixed", inset: 0, background: "rgba(16,8,8,0.6)",
   display: "flex", alignItems: "center", justifyContent: "center",
   zIndex: 1500, padding: 20, animation: "fi-overlay-fade 0.2s ease",
 };
 const modal: React.CSSProperties = {
-  background: "#fff", borderRadius: 16, padding: 20,
+  background: THEME.parchment, border: THEME.brassBorder2, borderRadius: 6, padding: 20,
   maxWidth: 460, width: "100%", maxHeight: "80vh", overflowY: "auto",
-  boxShadow: "0 12px 48px rgba(0,0,0,0.35)",
+  boxShadow: THEME.panelShadow, color: C.ink,
   animation: "fi-modal-pop 0.25s cubic-bezier(.2,.8,.2,1)",
 };
 const header: React.CSSProperties = {
   display: "flex", justifyContent: "space-between", alignItems: "center",
-  fontSize: 16, fontWeight: 800, color: BURGUNDY, marginBottom: 14,
+  fontFamily: FONTS.heading, fontSize: 17, fontWeight: 800, color: BURGUNDY, marginBottom: 8,
+};
+const goldRule: React.CSSProperties = {
+  height: 2, background: THEME.goldRule, marginBottom: 14,
 };
 const closeBtn: React.CSSProperties = {
-  background: "none", border: "none", fontSize: 18, color: "#999", cursor: "pointer",
+  background: "none", border: "none", fontSize: 18, color: C.inkSoft, cursor: "pointer",
 };
 const offerCard: React.CSSProperties = {
-  border: "1px solid #eee", borderRadius: 12, padding: 14, background: "#fafafa",
+  border: `1px solid ${C.brassDim}`, borderRadius: 6, padding: 14, background: C.cream,
 };
 const acceptBtn: React.CSSProperties = {
-  flex: 1, padding: "8px", borderRadius: 8, border: "none",
-  background: BURGUNDY, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
+  flex: 1, padding: "8px", borderRadius: 6, border: THEME.brassBorder,
+  background: BURGUNDY, color: C.brassBright, fontWeight: 700, fontSize: 13, cursor: "pointer",
 };
 const declineBtn: React.CSSProperties = {
-  flex: 1, padding: "8px", borderRadius: 8, border: "1px solid #ddd",
-  background: "#fff", color: "#666", fontWeight: 600, fontSize: 13, cursor: "pointer",
+  flex: 1, padding: "8px", borderRadius: 6, border: `1px solid ${C.brassDim}`,
+  background: "transparent", color: C.ink, fontWeight: 600, fontSize: 13, cursor: "pointer",
 };

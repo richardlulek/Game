@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { reducer } from "../engine/reducer";
 import { advanceMonth } from "../engine/simulation";
-import type { Offer, PendingDecision } from "../engine/types";
+import type { Offer, PendingDecision, Property } from "../engine/types";
 import { makeProperty, makeState } from "./factories";
+
+afterEach(() => vi.restoreAllMocks());
 
 const decision: PendingDecision = {
   id: "test",
@@ -57,5 +59,26 @@ describe("bud", () => {
     const next = reducer(s, { type: "DECLINE_OFFER", offerId: 500 });
     expect(next.offers).toHaveLength(0);
     expect(next.portfolio).toHaveLength(1);
+  });
+});
+
+describe("PLACE_BID (utgående bud på marknadsobjekt)", () => {
+  const listing: Property = makeProperty({ id: 7, owned: false, askPrice: 4_000_000, tenants: [] });
+
+  it("accepterat bud flyttar objektet till portföljen till budpriset", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.0); // alltid accept
+    const s = makeState({ listings: [listing], cash: 5_000_000, debt: 0 });
+    const next = reducer(s, { type: "PLACE_BID", id: 7, amount: 3_600_000 });
+    expect(next.listings).toHaveLength(0);
+    expect(next.portfolio).toHaveLength(1);
+    expect(next.portfolio[0].purchasePrice).toBe(3_600_000);
+  });
+
+  it("avvisat bud (high roll) behåller objektet på marknaden", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // avvisat + ej tillbakadraget
+    const s = makeState({ listings: [listing], cash: 5_000_000, debt: 0 });
+    const next = reducer(s, { type: "PLACE_BID", id: 7, amount: 3_200_000 });
+    expect(next.listings).toHaveLength(1);
+    expect(next.portfolio).toHaveLength(0);
   });
 });

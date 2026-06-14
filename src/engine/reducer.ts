@@ -49,6 +49,50 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "PLACE_BID": {
+      const p = state.listings.find((x) => x.id === action.id);
+      if (!p) return state;
+      const { maxLtv } = loanTerms(state);
+      const bid = Math.max(0, Math.round(action.amount));
+      const down = bid * (1 - maxLtv);
+      if (state.cash < down)
+        return log(state, `För lite kontanter. Handpenning ${msek(down)} krävs för budet.`, "warn");
+      const ratio = bid / p.askPrice;
+      const acceptProb =
+        ratio >= 0.97 ? 0.92 : ratio >= 0.92 ? 0.62 : ratio >= 0.85 ? 0.34 : ratio >= 0.78 ? 0.13 : 0.03;
+      if (Math.random() < acceptProb) {
+        const loan = bid - down;
+        return {
+          ...state,
+          cash: state.cash - down,
+          debt: state.debt + loan,
+          reputation: Math.min(100, state.reputation + 1),
+          portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: bid }],
+          listings: state.listings.filter((x) => x.id !== p.id),
+          log: [
+            {
+              t: `✓ Bud accepterat! Köpte ${p.typeLabel} i ${p.districtName} för ${msek(bid)} (under utpris ${msek(p.askPrice)}).`,
+              kind: "buy",
+            },
+            ...state.log,
+          ],
+        };
+      }
+      const withdrawn = Math.random() < 0.25;
+      return {
+        ...state,
+        listings: withdrawn ? state.listings.filter((x) => x.id !== p.id) : state.listings,
+        log: [
+          {
+            t: withdrawn
+              ? `Ditt bud på ${p.typeLabel} i ${p.districtName} avvisades – säljaren tog ett annat bud.`
+              : `Ditt bud på ${p.typeLabel} i ${p.districtName} (${msek(bid)}) avvisades. Försök igen eller höj budet.`,
+            kind: "warn",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "SELL": {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p) return state;

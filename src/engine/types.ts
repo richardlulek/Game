@@ -202,6 +202,7 @@ export interface GameState {
 /** Alla actions som reducern hanterar. */
 export type GameAction =
   | { type: "BUY"; id: number }
+  | { type: "PLACE_BID"; id: number; amount: number }
   | { type: "SELL"; id: number }
   | { type: "UPGRADE"; id: number; upg: string }
   | { type: "LEASE"; id: number }

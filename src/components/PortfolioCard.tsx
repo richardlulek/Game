@@ -5,7 +5,7 @@ import { kr, msek } from "../engine/format";
 import { makeTenant } from "../engine/generators";
 import { propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property, Tenant } from "../engine/types";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { BuildingArt } from "./BuildingArt";
 import { CondBar } from "./CondBar";
 
@@ -519,7 +519,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   return (
     <div style={{ flex: 1 }}>
       <div style={statLabel}>{label}</div>
-      <div style={{ ...statValue, color: color ?? "#1a1a1a" }}>{value}</div>
+      <div style={{ ...statValue, color: color ?? C.ink }}>{value}</div>
     </div>
   );
 }
@@ -530,17 +530,17 @@ function StatBar({ label, c, nextC }: { label: string; c: number; nextC?: number
       <div style={statLabel}>{label}</div>
       <CondBar c={c} />
       {nextC !== undefined && nextC < c - 0.5 && (
-        <div style={{ fontSize: 10, color: "#bbb", marginTop: 1 }}>~{nextC} om 3 mån</div>
+        <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 1 }}>~{nextC} om 3 mån</div>
       )}
     </div>
   );
 }
 
 function CashRow({ label, v, positive, bold }: { label: string; v: number; positive?: boolean; bold?: boolean }) {
-  const color = positive ? "#27660a" : v < 0 ? "#c0392b" : "#333";
+  const color = positive ? C.positive : v < 0 ? C.negative : C.ink;
   return (
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-      <span style={{ color: "#666" }}>{label}</span>
+      <span style={{ color: C.inkSoft }}>{label}</span>
       <span style={{ fontWeight: bold ? 700 : 400, color }}>
         {v >= 0 ? "+" : ""}{kr(Math.round(v))}
       </span>
@@ -560,7 +560,7 @@ function Chip({ label, color }: { label: string; color: string }) {
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: "#f0ece8", margin: "10px 0" }} />;
+  return <div style={{ height: 2, background: THEME.goldRule, opacity: 0.5, margin: "11px 0" }} />;
 }
 
 function SmallBtn({ label, color, onClick, disabled }: {
@@ -571,11 +571,11 @@ function SmallBtn({ label, color, onClick, disabled }: {
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: "5px 12px", borderRadius: 6,
-        border: `1px solid ${color}44`,
-        background: disabled ? "#f5f5f5" : color + "15",
-        color: disabled ? "#aaa" : color,
-        fontWeight: 700, fontSize: 12,
+        padding: "5px 12px", borderRadius: 4,
+        border: `1px solid ${disabled ? C.brassDim : color}`,
+        background: disabled ? "#e3d8bf" : color + "1a",
+        color: disabled ? C.inkSoft : color,
+        fontWeight: 700, fontSize: 12, fontFamily: FONTS.body,
         cursor: disabled ? "default" : "pointer",
       }}
     >
@@ -589,18 +589,18 @@ interface ActionBtnProps {
   disabled?: boolean; done?: boolean; onClick: () => void;
 }
 function ActionBtn({ label, sub, color, disabled, done, onClick }: ActionBtnProps) {
-  const bg     = disabled ? (done ? "#eef5ee" : "#f5f5f5") : (color ? color + "18" : "#f5f0ed");
-  const border = disabled ? (done ? "#27660a33" : "#e8e8e8") : (color ? color + "55" : "#ddd");
-  const tc     = disabled ? (done ? "#27660a" : "#aaa") : (color ?? "#333");
+  const bg     = disabled ? (done ? "#dfe9d6" : "#e3d8bf") : (color ? color + "1f" : "#ece0c6");
+  const border = disabled ? (done ? C.positive + "66" : C.brassDim) : (color ?? C.brassDim);
+  const tc     = disabled ? (done ? C.positive : C.inkSoft) : (color ?? C.ink);
   return (
     <button onClick={onClick} disabled={disabled} style={{
       display: "block", width: "100%", textAlign: "left",
-      marginTop: 7, padding: "9px 12px", borderRadius: 8,
-      border: `1px solid ${border}`, background: bg,
+      marginTop: 7, padding: "9px 12px", borderRadius: 4,
+      border: `1px solid ${border}`, background: bg, fontFamily: FONTS.body,
       cursor: disabled ? "default" : "pointer",
     }}>
       <div style={{ fontWeight: 700, fontSize: 13, color: tc }}>{label}</div>
-      <div style={{ fontSize: 11, color: disabled ? "#bbb" : "#888", marginTop: 2 }}>{sub}</div>
+      <div style={{ fontSize: 11, color: disabled ? C.inkSoft : C.inkSoft, marginTop: 2 }}>{sub}</div>
     </button>
   );
 }
@@ -608,93 +608,98 @@ function ActionBtn({ label, sub, color, disabled, done, onClick }: ActionBtnProp
 // ── Stilkonstanter ─────────────────────────────────────────────
 
 const card: React.CSSProperties = {
-  background: "#fff", border: "1px solid #eee", borderRadius: 14,
-  padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,.05)",
+  background: THEME.parchment, border: `1px solid ${C.brass}`, borderRadius: 6,
+  padding: 16, color: C.ink,
+  boxShadow: `${THEME.insetGold}, 0 6px 18px rgba(0,0,0,0.35)`,
 };
 const badge: React.CSSProperties = {
-  background: BURGUNDY, color: "#fff", fontSize: 11, fontWeight: 700,
-  padding: "3px 10px", borderRadius: 6,
+  background: BURGUNDY, color: C.brassBright, fontSize: 10, fontWeight: 700,
+  letterSpacing: 1, textTransform: "uppercase",
+  padding: "3px 9px", borderRadius: 3, border: `1px solid ${C.brass}99`,
 };
 const managedBadge: React.CSSProperties = {
-  background: "rgba(39,102,10,0.92)", color: "#fff", fontSize: 12, fontWeight: 700,
-  padding: "2px 6px", borderRadius: 6,
+  background: "rgba(47,125,63,0.95)", color: C.brassBright, fontSize: 12, fontWeight: 700,
+  padding: "2px 6px", borderRadius: 4, border: `1px solid ${C.brass}99`,
 };
 const banner: React.CSSProperties = {
   position: "relative", margin: "-16px -16px 12px",
-  borderRadius: "14px 14px 0 0", overflow: "hidden", maxHeight: 160,
+  borderRadius: "6px 6px 0 0", overflow: "hidden", maxHeight: 160,
+  borderBottom: `2px solid ${C.brass}`,
 };
 const bannerOverlay: React.CSSProperties = {
   position: "absolute", left: 0, right: 0, bottom: 0,
   display: "flex", justifyContent: "space-between", alignItems: "center",
   padding: "8px 12px",
-  background: "linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0))",
+  background: "linear-gradient(to top, rgba(20,12,4,0.6), rgba(20,12,4,0))",
 };
 const bannerDistrict: React.CSSProperties = {
-  fontSize: 12, color: "#fff", fontWeight: 700, textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+  fontSize: 13, color: C.brassBright, fontWeight: 700, fontFamily: FONTS.heading,
+  textShadow: "0 1px 3px rgba(0,0,0,0.7)",
 };
 const valueRow: React.CSSProperties = { display: "flex", alignItems: "baseline", gap: 6, marginBottom: 10 };
-const valueText: React.CSSProperties = { fontSize: 24, fontWeight: 800, color: "#1a1a1a" };
-const subText: React.CSSProperties = { fontSize: 12, color: "#999" };
+const valueText: React.CSSProperties = { fontSize: 25, fontWeight: 800, color: C.ink, fontFamily: FONTS.heading };
+const subText: React.CSSProperties = { fontSize: 12, color: C.inkSoft };
 const statRow: React.CSSProperties = { display: "flex", gap: 12, marginBottom: 4 };
 const statLabel: React.CSSProperties = {
-  fontSize: 10, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2,
+  fontSize: 10, color: C.brassDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2, fontWeight: 600,
 };
-const statValue: React.CSSProperties = { fontSize: 14, fontWeight: 700 };
+const statValue: React.CSSProperties = { fontSize: 14, fontWeight: 700, fontFamily: FONTS.heading };
 
 const detailToggleBtn: React.CSSProperties = {
   display: "block", width: "100%", textAlign: "left",
   marginTop: 8, padding: "6px 0",
   background: "none", border: "none",
-  fontSize: 12, color: "#888", cursor: "pointer", fontWeight: 600,
+  fontSize: 12, color: C.inkSoft, cursor: "pointer", fontWeight: 600,
 };
 const detailBox: React.CSSProperties = {
-  background: "#faf8f6", border: "1px solid #f0ece8", borderRadius: 8,
+  background: "#ece0c6", border: `1px solid ${C.brassDim}`, borderRadius: 5,
   padding: "10px 12px", marginBottom: 4,
 };
 const subPanel: React.CSSProperties = {
   marginTop: 10, padding: "10px 12px",
-  background: "#fff", borderRadius: 8, border: "1px solid #e8d8d0",
+  background: "#fbf5e6", borderRadius: 5, border: `1px solid ${C.brassDim}`,
 };
 const rentOptionBtn = (color: string): React.CSSProperties => ({
   display: "block", width: "100%", textAlign: "left",
-  marginBottom: 6, padding: "8px 10px", borderRadius: 7,
-  border: `1px solid ${color}44`, background: color + "0f",
-  cursor: "pointer",
+  marginBottom: 6, padding: "8px 10px", borderRadius: 4,
+  border: `1px solid ${color}66`, background: color + "14",
+  cursor: "pointer", fontFamily: FONTS.body,
 });
 const candidateBtn: React.CSSProperties = {
   display: "block", width: "100%", textAlign: "left",
-  marginBottom: 6, padding: "9px 10px", borderRadius: 8,
-  border: `1px solid ${BURGUNDY}33`, background: "#fff", cursor: "pointer",
+  marginBottom: 6, padding: "9px 10px", borderRadius: 4,
+  border: `1px solid ${C.brass}`, background: "#fbf5e6", cursor: "pointer",
 };
 const showCandidatesBtn: React.CSSProperties = {
-  padding: "7px 12px", borderRadius: 8,
-  border: `1px solid ${BURGUNDY}44`, background: BURGUNDY + "18",
-  color: BURGUNDY, fontSize: 12, fontWeight: 700, cursor: "pointer",
+  padding: "7px 12px", borderRadius: 4,
+  border: `1px solid ${C.brass}`, background: BURGUNDY,
+  color: C.brassBright, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body,
 };
 
 const tenantBox: React.CSSProperties = {
-  background: "#f7f2f8", borderRadius: 10, padding: "10px 12px", marginBottom: 6,
+  background: "#ece0c6", borderRadius: 5, padding: "10px 12px", marginBottom: 6,
+  border: `1px solid ${C.brassDim}66`,
 };
-const tenantName: React.CSSProperties = { fontWeight: 700, fontSize: 14, color: BURGUNDY };
+const tenantName: React.CSSProperties = { fontWeight: 700, fontSize: 14, color: BURGUNDY, fontFamily: FONTS.heading };
 const profileTag: React.CSSProperties = {
-  fontSize: 10, fontWeight: 600, color: "#5a7a4a", background: "#eef3ee",
-  padding: "1px 6px", borderRadius: 8,
+  fontSize: 10, fontWeight: 600, color: C.green, background: "#e2ecd9",
+  padding: "1px 6px", borderRadius: 8, border: `1px solid ${C.green}44`,
 };
-const tenantMeta: React.CSSProperties = { fontSize: 12, color: "#666" };
+const tenantMeta: React.CSSProperties = { fontSize: 12, color: C.inkSoft };
 const vacantBox: React.CSSProperties = {
-  background: "#fff8f0", border: "1px dashed #e8c090",
-  borderRadius: 10, padding: "10px 12px", marginBottom: 6,
+  background: "#f4ead2", border: `1px dashed ${C.brass}`,
+  borderRadius: 5, padding: "10px 12px", marginBottom: 6,
 };
-const vacantTitle: React.CSSProperties = { fontWeight: 700, fontSize: 13, color: "#a05000" };
-const vacantSub: React.CSSProperties = { fontSize: 12, color: "#a06820" };
+const vacantTitle: React.CSSProperties = { fontWeight: 700, fontSize: 13, color: BURGUNDY };
+const vacantSub: React.CSSProperties = { fontSize: 12, color: C.inkSoft };
 const sectionLabel: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, color: "#aaa",
+  fontSize: 10, fontWeight: 700, color: C.brassDim,
   textTransform: "uppercase", letterSpacing: 1, marginBottom: 2,
 };
 const progressWrap: React.CSSProperties = {
-  height: 8, background: "#eee", borderRadius: 4, overflow: "hidden", margin: "10px 0",
+  height: 8, background: "#d8c7a0", borderRadius: 4, overflow: "hidden", margin: "10px 0",
 };
 const progressFill: React.CSSProperties = {
   height: "100%", background: BURGUNDY, borderRadius: 4, transition: "width 0.3s",
 };
-const hint: React.CSSProperties = { fontSize: 12, color: "#999", marginTop: 4 };
+const hint: React.CSSProperties = { fontSize: 12, color: C.inkSoft, marginTop: 4 };

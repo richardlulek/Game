@@ -1,6 +1,6 @@
 import { playClick } from "../audio/sound";
 import type { GameAction, GameState } from "../engine/types";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
 interface Props {
   state: GameState;
@@ -19,6 +19,7 @@ export function DecisionModal({ state, dispatch }: Props) {
           <span style={{ fontSize: 22 }}>🤔</span>
           <span>{d.title}</span>
         </div>
+        <div style={goldRule} />
         <div style={body}>{d.text}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {d.options.map((o, i) => (
@@ -43,7 +44,7 @@ export function DecisionModal({ state, dispatch }: Props) {
 const overlay: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(20,8,12,0.55)",
+  background: "rgba(16,8,8,0.6)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -53,12 +54,14 @@ const overlay: React.CSSProperties = {
 };
 
 const modal: React.CSSProperties = {
-  background: "#fff",
-  borderRadius: 16,
+  background: THEME.parchment,
+  border: THEME.brassBorder2,
+  borderRadius: 6,
   padding: 22,
   maxWidth: 440,
   width: "100%",
-  boxShadow: "0 12px 48px rgba(0,0,0,0.35)",
+  boxShadow: THEME.panelShadow,
+  color: C.ink,
   animation: "fi-modal-pop 0.25s cubic-bezier(.2,.8,.2,1)",
 };
 
@@ -66,15 +69,22 @@ const header: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 10,
-  fontSize: 17,
+  fontFamily: FONTS.heading,
+  fontSize: 18,
   fontWeight: 800,
   color: BURGUNDY,
-  marginBottom: 10,
+  marginBottom: 8,
+};
+
+const goldRule: React.CSSProperties = {
+  height: 2,
+  background: THEME.goldRule,
+  marginBottom: 12,
 };
 
 const body: React.CSSProperties = {
   fontSize: 14,
-  color: "#444",
+  color: C.inkSoft,
   lineHeight: 1.5,
   marginBottom: 18,
 };
@@ -82,9 +92,9 @@ const body: React.CSSProperties = {
 const optionBtn = (primary: boolean): React.CSSProperties => ({
   textAlign: "left",
   padding: "12px 14px",
-  borderRadius: 10,
-  border: `1px solid ${primary ? BURGUNDY : "#ddd"}`,
-  background: primary ? BURGUNDY + "10" : "#fafafa",
-  color: primary ? BURGUNDY : "#333",
+  borderRadius: 6,
+  border: `1px solid ${primary ? C.brass : C.brassDim}`,
+  background: primary ? BURGUNDY : "transparent",
+  color: primary ? C.brassBright : C.ink,
   cursor: "pointer",
 });
