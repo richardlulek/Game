@@ -13,44 +13,51 @@ import type {
 } from "./types";
 
 export const DISTRICTS: District[] = [
-  { id: "centrum", name: "Centrum", base: 32000, growth: 1.0, demand: 0.9, prestige: 1.4 },
-  { id: "hamnen", name: "Hamnen", base: 21000, growth: 1.25, demand: 0.75, prestige: 1.1 },
-  { id: "industri", name: "Industriområdet", base: 11000, growth: 0.9, demand: 0.6, prestige: 0.7 },
-  { id: "förort", name: "Förorten", base: 16000, growth: 1.1, demand: 0.8, prestige: 0.9 },
-  { id: "kulle", name: "Villakullen", base: 28000, growth: 1.05, demand: 0.85, prestige: 1.3 },
+  { id: "centrum",  name: "Centrum",         base: 32000, growth: 1.0,  demand: 1.00, prestige: 1.4 },
+  { id: "hamnen",   name: "Hamnen",           base: 21000, growth: 1.25, demand: 0.85, prestige: 1.1 },
+  { id: "industri", name: "Industriområdet",  base: 11000, growth: 0.9,  demand: 0.75, prestige: 0.7 },
+  { id: "förort",   name: "Förorten",         base: 16000, growth: 1.1,  demand: 0.90, prestige: 0.9 },
+  { id: "kulle",    name: "Villakullen",      base: 28000, growth: 1.05, demand: 0.95, prestige: 1.3 },
 ];
 
+/*
+ * Balanserade yields (vid 70 % LTV, ränta ~4 %):
+ *   Bostad:  ~5 % direktavk., låg vakans  → stabil, låg risk
+ *   Industri: ~5,5 % direktavk., medellång kontrakt → kassaflödesstabil
+ *   Kontor:  ~6 % direktavk., hög vakans → risk/yield-avvägning
+ *   Butik:   ~7 % direktavk., högst vakans → maximal yield, högst risk
+ */
 export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   bostad: {
     label: "Bostadshus",
-    rentFactor: 0.0042,
-    opexFactor: 0.28,
-    vacancyBase: 0.04,
-    buildCostM2: 24000,
+    rentFactor: 0.0050,   // was 0.0042 → +19 %
+    opexFactor: 0.23,     // was 0.28  → −18 %
+    vacancyBase: 0.04,    // oförändrad (stabil boendemarknad)
+    buildCostM2: 18000,   // was 24000 → bygg lönsamt i rätt distrikt
     buildMonths: 10,
   },
   kontor: {
     label: "Kontor",
-    rentFactor: 0.0055,
-    opexFactor: 0.32,
-    vacancyBase: 0.1,
-    buildCostM2: 28000,
+    rentFactor: 0.0062,   // was 0.0055 → +13 %
+    opexFactor: 0.26,     // was 0.32  → −19 %
+    vacancyBase: 0.10,    // oförändrad (kontorsmarknaden rörlig)
+    buildCostM2: 22000,   // was 28000
     buildMonths: 12,
   },
   butik: {
     label: "Butik",
-    rentFactor: 0.006,
-    opexFactor: 0.3,
-    vacancyBase: 0.12,
-    buildCostM2: 26000,
+    rentFactor: 0.0070,   // was 0.006 → +17 %
+    opexFactor: 0.23,     // was 0.30  → −23 %
+    vacancyBase: 0.13,    // was 0.12  (lite svårare att fylla)
+    buildCostM2: 20000,   // was 26000
     buildMonths: 11,
   },
   industri: {
     label: "Industri/Lager",
-    rentFactor: 0.0038,
-    opexFactor: 0.22,
-    vacancyBase: 0.08,
-    buildCostM2: 14000,
+    rentFactor: 0.0050,   // was 0.0038 → +32 %
+    opexFactor: 0.17,     // was 0.22  → −23 % (enkla lokaler)
+    vacancyBase: 0.07,    // was 0.08
+    buildCostM2: 10000,   // was 14000 → lönsamt att bygga
     buildMonths: 8,
   },
 };

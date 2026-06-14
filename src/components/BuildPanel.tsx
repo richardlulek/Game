@@ -83,6 +83,18 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
                   <span>Byggtid</span>
                   <strong>{t.buildMonths} mån</strong>
                 </div>
+                <div style={S.cardRow}>
+                  <span>Typisk direktavk.</span>
+                  <strong style={{ color: "#27660a" }}>
+                    {chosen === "bostad" ? "~5 %" : chosen === "kontor" ? "~6 %" : chosen === "butik" ? "~7 %" : "~5,5 %"}
+                  </strong>
+                </div>
+                <div style={S.cardRow}>
+                  <span>Vakansrisk</span>
+                  <strong>
+                    {chosen === "bostad" ? "Låg 4 %" : chosen === "kontor" ? "Hög 10 %" : chosen === "butik" ? "Hög 13 %" : "Låg 7 %"}
+                  </strong>
+                </div>
                 <div style={{ fontSize: 11, color: "#27660a", margin: "4px 0 8px", padding: "5px 8px", background: "#eef5ee", borderRadius: 6 }}>
                   Vid färdigställande: Reputation +5 · 20 % lägre vakans
                 </div>

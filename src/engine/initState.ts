@@ -14,7 +14,7 @@ export function initState(): GameState {
     year: 1,
     cash: 5_000_000,
     debt: 0,
-    interestRate: 4.0,
+    interestRate: 2.5,
     marketMod: 1.0,
     demandMod: 1.0,
     taxMod: 1.0,
