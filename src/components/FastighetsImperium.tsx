@@ -20,6 +20,8 @@ import { StatusBar } from "./StatusBar";
 import { TitleScreen } from "./TitleScreen";
 import { Toasts } from "./Toasts";
 import { Toolbar } from "./Toolbar";
+import { StockExchange } from "./StockExchange";
+import { GroupOverview } from "./GroupOverview";
 import { C, FONTS } from "../styles/tokens";
 
 const TABS = [
@@ -27,7 +29,9 @@ const TABS = [
   { id: "market",    label: "Marknad" },
   { id: "map",       label: "Karta" },
   { id: "build",     label: "Bygg" },
+  { id: "stocks",    label: "Börs" },
   { id: "finance",   label: "Finans" },
+  { id: "group",     label: "Koncern" },
   { id: "rivals",    label: "Topp" },
   { id: "log",       label: "Logg" },
 ];
@@ -164,6 +168,10 @@ export default function FastighetsImperium() {
         {tab === "map" && <CityMap state={state} dispatch={dispatch} />}
 
         {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
+
+        {tab === "stocks" && <StockExchange state={state} dispatch={dispatch} />}
+
+        {tab === "group" && <GroupOverview state={state} />}
 
         {tab === "finance" && (
           <>

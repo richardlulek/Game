@@ -9,6 +9,7 @@ import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { newId, pick, rnd } from "./random";
+import { priceStocks, stepSentiment } from "./stocks";
 import type { GameState, LogEntry, Offer } from "./types";
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
@@ -19,6 +20,7 @@ export function advanceMonth(state: GameState): GameState {
   let s: GameState = { ...state };
   let monthlyNOI = 0;
   const events: LogEntry[] = [];
+  const prevSent = state.marketSentiment ?? 1; // sentiment innan månadens händelser
 
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
@@ -165,6 +167,30 @@ export function advanceMonth(state: GameState): GameState {
     });
   }
   s.offers = offers;
+
+  // ── Börsen ──────────────────────────────────────────────────────
+  // Sentiment rör sig (påverkat av månadens makrohändelser), aktier
+  // prissätts och utdelning betalas ut.
+  const sent = stepSentiment(s.marketSentiment ?? 1);
+  const sentReturn = (prevSent > 0 ? sent / prevSent : 1) - 1;
+  s.marketSentiment = sent;
+  s.sentimentHistory = [...(s.sentimentHistory ?? [prevSent]), sent].slice(-32);
+  const market = priceStocks(s.stocks ?? [], sentReturn, s.competitors);
+  s.stocks = market.stocks;
+  if (market.dividends > 0) {
+    s.cash += market.dividends;
+    s.dividendsReceived = (s.dividendsReceived ?? 0) + market.dividends;
+    if (s.month % 3 === 0)
+      events.push({ t: `📈 Aktieutdelning inkom: ${kr(market.dividends)}.`, kind: "income" });
+  }
+
+  // ── Dotterbolag (förvärvade konkurrenter) ───────────────────────
+  const subIncome = (s.subsidiaries ?? []).reduce((a, x) => a + x.monthlyIncome, 0);
+  if (subIncome > 0) {
+    s.cash += subIncome;
+    if (s.month % 3 === 0)
+      events.push({ t: `🏛️ Dotterbolagen bidrog med ${kr(subIncome * 3)} i kvartalet.`, kind: "income" });
+  }
 
   // ── Beslutshändelse (~6 %) ──────────────────────────────────────
   if (Math.random() < 0.06) {

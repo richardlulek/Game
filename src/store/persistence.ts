@@ -5,12 +5,13 @@
    ============================================================ */
 
 import { syncIdCounter } from "../engine/random";
+import { initStocks } from "../engine/stocks";
 import type { GameState } from "../engine/types";
 
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 interface SaveFile {
   version: number;
@@ -43,6 +44,14 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     ...s,
     offers: (s as any).offers ?? [],
     pendingDecision: (s as any).pendingDecision ?? null,
+  }),
+  4: (s) => ({
+    ...s,
+    stocks: (s as any).stocks ?? initStocks((s as any).competitors ?? []),
+    marketSentiment: (s as any).marketSentiment ?? 1,
+    sentimentHistory: (s as any).sentimentHistory ?? [1],
+    subsidiaries: (s as any).subsidiaries ?? [],
+    dividendsReceived: (s as any).dividendsReceived ?? 0,
   }),
 };
 

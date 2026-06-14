@@ -4,6 +4,7 @@
    ============================================================ */
 
 import { propMarketValue } from "./property";
+import { stockHoldingsValue, subsidiaryValue } from "./stocks";
 import type { GameState, LoanTerms } from "./types";
 
 /** Reputationsbaserade lånevillkor (ränta, påslag, max belåningsgrad). */
@@ -23,9 +24,15 @@ export function portfolioValue(state: GameState): number {
   return state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
 }
 
-/** Eget kapital = kassa + fastighetsvärde − skuld. */
+/** Eget kapital = kassa + fastighetsvärde + aktier + dotterbolag − skuld. */
 export function equityOf(state: GameState): number {
-  return state.cash + portfolioValue(state) - state.debt;
+  return (
+    state.cash +
+    portfolioValue(state) +
+    stockHoldingsValue(state) +
+    subsidiaryValue(state) -
+    state.debt
+  );
 }
 
 /** Belåningsgrad (LTV). 0 om portföljen är tom. */

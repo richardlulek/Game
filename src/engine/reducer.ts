@@ -12,6 +12,7 @@ import { initState } from "./initState";
 import { propMarketValue, propPotentialRent } from "./property";
 import { newId } from "./random";
 import { advanceMonth } from "./simulation";
+import { COURTAGE } from "./stocks";
 import type { GameAction, GameState, LogKind, Property } from "./types";
 
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
@@ -475,6 +476,80 @@ export function reducer(state: GameState, action: GameAction): GameState {
         offers: state.offers.filter((o) => o.id !== offer.id),
         log: [
           { t: `Avböjde ${offer.from}s bud på ${offer.propLabel} i ${offer.districtName}.`, kind: "info" },
+          ...state.log,
+        ],
+      };
+    }
+    case "BUY_SHARES": {
+      const st = state.stocks.find((x) => x.id === action.stockId);
+      if (!st) return state;
+      const want = Math.max(0, Math.floor(action.qty));
+      const available = st.sharesOutstanding - st.owned;
+      const qty = Math.min(want, available);
+      if (qty <= 0) return state;
+      const cost = qty * st.price * (1 + COURTAGE);
+      if (state.cash < cost)
+        return log(state, `För lite kontanter. ${qty} aktier i ${st.name} kostar ${msek(cost)}.`, "warn");
+      const newOwned = st.owned + qty;
+      const newAvg = (st.owned * st.avgCost + qty * st.price) / newOwned;
+      return {
+        ...state,
+        cash: state.cash - cost,
+        stocks: state.stocks.map((x) =>
+          x.id === st.id ? { ...x, owned: newOwned, avgCost: +newAvg.toFixed(2) } : x,
+        ),
+        log: [
+          { t: `Köpte ${qty.toLocaleString("sv-SE")} aktier i ${st.name} för ${msek(cost)}.`, kind: "buy" },
+          ...state.log,
+        ],
+      };
+    }
+    case "SELL_SHARES": {
+      const st = state.stocks.find((x) => x.id === action.stockId);
+      if (!st) return state;
+      const qty = Math.min(Math.max(0, Math.floor(action.qty)), st.owned);
+      if (qty <= 0) return state;
+      const proceeds = qty * st.price * (1 - COURTAGE);
+      const newOwned = st.owned - qty;
+      return {
+        ...state,
+        cash: state.cash + proceeds,
+        stocks: state.stocks.map((x) =>
+          x.id === st.id ? { ...x, owned: newOwned, avgCost: newOwned === 0 ? 0 : x.avgCost } : x,
+        ),
+        log: [
+          { t: `Sålde ${qty.toLocaleString("sv-SE")} aktier i ${st.name} för ${msek(proceeds)}.`, kind: "sell" },
+          ...state.log,
+        ],
+      };
+    }
+    case "ACQUIRE_COMPANY": {
+      const st = state.stocks.find((x) => x.id === action.stockId);
+      if (!st || !st.competitorName) return state;
+      const ownPct = st.owned / st.sharesOutstanding;
+      if (ownPct <= 0.5)
+        return log(state, `Du behöver majoritet (>50 %) i ${st.name} för att förvärva bolaget.`, "warn");
+      const remaining = st.sharesOutstanding - st.owned;
+      const cost = remaining * st.price * 1.2; // budpremie 20 %
+      if (state.cash < cost)
+        return log(state, `Förvärvet kräver ${msek(cost)} för resterande aktier i ${st.name}.`, "warn");
+      const comp = state.competitors.find((c) => c.name === st.competitorName);
+      const monthlyIncome = Math.max(
+        20_000,
+        Math.round(comp?.monthlyNOI ?? ((comp?.equity ?? 0) * 0.06) / 12),
+      );
+      return {
+        ...state,
+        cash: state.cash - cost,
+        reputation: Math.min(100, state.reputation + 4),
+        competitors: state.competitors.filter((c) => c.name !== st.competitorName),
+        stocks: state.stocks.filter((x) => x.id !== st.id),
+        subsidiaries: [...(state.subsidiaries ?? []), { name: st.name, monthlyIncome }],
+        log: [
+          {
+            t: `🏛️ FÖRVÄRV: Du köpte upp ${st.name} för ${msek(cost)}. Bolaget blir ett dotterbolag (${kr(monthlyIncome)}/mån).`,
+            kind: "buy",
+          },
           ...state.log,
         ],
       };

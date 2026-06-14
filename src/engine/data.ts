@@ -123,49 +123,61 @@ export const TENANT_PROFILES: TenantProfile[] = [
 export const EVENTS: GameEvent[] = [
   {
     id: "rate_up",
-    text: "Riksbanken höjer styrräntan med 0,25 %. Hyresefterfrågan dämpas.",
+    text: "Riksbanken höjer styrräntan med 0,25 %. Hyresefterfrågan dämpas och börsen svalnar.",
     apply: (s) => ({
       ...s,
       interestRate: +(s.interestRate + 0.25).toFixed(2),
       demandMod: +(s.demandMod * 0.98).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 0.985).toFixed(3),
     }),
   },
   {
     id: "rate_down",
-    text: "Riksbanken sänker styrräntan med 0,25 %. Investeringsklimatet förbättras.",
+    text: "Riksbanken sänker styrräntan med 0,25 %. Investeringsklimatet och börsen lyfter.",
     apply: (s) => ({
       ...s,
       interestRate: Math.max(0.5, +(s.interestRate - 0.25).toFixed(2)),
       demandMod: +(s.demandMod * 1.02).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 1.015).toFixed(3),
     }),
   },
   {
     id: "boom",
-    text: "Högkonjunktur! Marknadsvärden och hyresefterfrågan stiger.",
+    text: "Högkonjunktur! Marknadsvärden, hyresefterfrågan och börsen stiger.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 1.06).toFixed(3),
       demandMod: +(s.demandMod * 1.03).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 1.04).toFixed(3),
     }),
   },
   {
     id: "bust",
-    text: "Lågkonjunktur. Marknadsvärden faller och efterfrågan sjunker.",
+    text: "Lågkonjunktur. Marknadsvärden faller, efterfrågan sjunker och börsen tappar.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 0.94).toFixed(3),
       demandMod: +(s.demandMod * 0.97).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 0.95).toFixed(3),
     }),
   },
   {
     id: "tenant_demand",
     text: "Ökad inflyttning till staden. Hyresefterfrågan stiger markant.",
-    apply: (s) => ({ ...s, demandMod: +(s.demandMod * 1.05).toFixed(3) }),
+    apply: (s) => ({
+      ...s,
+      demandMod: +(s.demandMod * 1.05).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 1.01).toFixed(3),
+    }),
   },
   {
     id: "tax",
     text: "Höjd fastighetsskatt aviseras.",
-    apply: (s) => ({ ...s, taxMod: +(s.taxMod * 1.04).toFixed(3) }),
+    apply: (s) => ({
+      ...s,
+      taxMod: +(s.taxMod * 1.04).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 0.99).toFixed(3),
+    }),
   },
   {
     id: "pr",
@@ -178,21 +190,23 @@ export const EVENTS: GameEvent[] = [
 export const RARE_EVENTS: GameEvent[] = [
   {
     id: "kris",
-    text: "Finanskris! Marknadsvärden kraschar, räntorna stiger och hyresgäster lämnar.",
+    text: "Finanskris! Marknadsvärden kraschar, börsen rasar och hyresgäster lämnar.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 0.88).toFixed(3),
       demandMod: +(s.demandMod * 0.88).toFixed(3),
       interestRate: +(s.interestRate + 0.5).toFixed(2),
+      marketSentiment: +((s.marketSentiment ?? 1) * 0.80).toFixed(3),
     }),
   },
   {
     id: "rally",
-    text: "Fastighetsboom! Priserna och hyresefterfrågan skjuter i höjden.",
+    text: "Fastighetsboom! Priserna, hyresefterfrågan och börsen skjuter i höjden.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 1.10).toFixed(3),
       demandMod: +(s.demandMod * 1.06).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 1.12).toFixed(3),
     }),
   },
 ];

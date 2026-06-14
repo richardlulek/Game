@@ -14,3 +14,4 @@ export * from "./simulation";
 export * from "./reducer";
 export * from "./initState";
 export * from "./season";
+export * from "./stocks";

@@ -1,7 +1,7 @@
-import { kr, msek } from "../engine/format";
+import { kr, msek, pct } from "../engine/format";
 import type { GameState } from "../engine/types";
 import { S } from "../styles/styles";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C } from "../styles/tokens";
 
 interface RivalsPanelProps {
   state: GameState;
@@ -51,6 +51,16 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
               {c.monthlyNOI !== undefined && <span>NOI: {kr(c.monthlyNOI)}/mån</span>}
               {c.lastBuy && <span>Senaste köp: {c.lastBuy}</span>}
             </div>
+            {(() => {
+              if (c.me) return null;
+              const stock = state.stocks.find((s) => s.competitorName === c.name);
+              if (!stock || stock.owned <= 0) return null;
+              return (
+                <div style={{ fontSize: 12, color: C.brassDim, marginTop: 3, fontWeight: 600 }}>
+                  Din ägarandel: {pct(stock.owned / stock.sharesOutstanding)} · {kr(stock.owned * stock.price)}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>

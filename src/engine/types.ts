@@ -151,6 +151,33 @@ export interface Competitor {
   monthlyNOI?: number;
 }
 
+/** Bransch på börsen. */
+export type Sector = "fastighet" | "bank" | "bygg" | "handel" | "industri";
+
+/** Ett börsnoterat bolag. */
+export interface Stock {
+  id: string;
+  name: string;
+  sector: Sector;
+  price: number;
+  prevPrice: number;
+  sharesOutstanding: number;
+  owned: number;
+  avgCost: number;
+  dividendYield: number;   // årlig
+  beta: number;            // känslighet mot marknadssentiment
+  drift: number;           // grundtrend per månad
+  volatility: number;
+  history: number[];       // senaste priserna
+  competitorName?: string; // länk till en Competitor om det är en rival
+}
+
+/** Ett förvärvat dotterbolag som ger månadsintäkt. */
+export interface Subsidiary {
+  name: string;
+  monthlyIncome: number;
+}
+
 /** En rad i händelseloggen. */
 export interface LogEntry {
   t: string;
@@ -197,6 +224,11 @@ export interface GameState {
   gameOver: boolean;
   offers: Offer[];
   pendingDecision: PendingDecision | null;
+  stocks: Stock[];
+  marketSentiment: number;
+  sentimentHistory: number[];
+  subsidiaries: Subsidiary[];
+  dividendsReceived: number;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -222,6 +254,9 @@ export type GameAction =
   | { type: "RESOLVE_DECISION"; optionIndex: number }
   | { type: "ACCEPT_OFFER"; offerId: number }
   | { type: "DECLINE_OFFER"; offerId: number }
+  | { type: "BUY_SHARES"; stockId: string; qty: number }
+  | { type: "SELL_SHARES"; stockId: string; qty: number }
+  | { type: "ACQUIRE_COMPANY"; stockId: string }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

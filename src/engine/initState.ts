@@ -5,6 +5,7 @@
 import { AI_NAMES } from "./data";
 import { genListing, genLot } from "./generators";
 import { rnd } from "./random";
+import { initStocks } from "./stocks";
 import type { GameState } from "./types";
 
 /** Skapar ett nytt speltillstånd med startobjekt, tomter och konkurrenter. */
@@ -28,6 +29,11 @@ export function initState(): GameState {
     gameOver: false,
     offers: [],
     pendingDecision: null,
+    stocks: [],
+    marketSentiment: 1.0,
+    sentimentHistory: [1.0],
+    subsidiaries: [],
+    dividendsReceived: 0,
   };
   for (let i = 0; i < 6; i++) base.listings.push(genListing(base));
   for (let i = 0; i < 3; i++) base.lots.push(genLot(base));
@@ -39,5 +45,6 @@ export function initState(): GameState {
       equity: rnd(8, 20) * 1e6,
     }),
   );
+  base.stocks = initStocks(base.competitors);
   return base;
 }

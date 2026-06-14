@@ -22,6 +22,11 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     gameOver: false,
     offers: [],
     pendingDecision: null,
+    stocks: [],
+    marketSentiment: 1.0,
+    sentimentHistory: [1.0],
+    subsidiaries: [],
+    dividendsReceived: 0,
     ...over,
   };
 }
