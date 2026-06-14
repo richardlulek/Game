@@ -10,6 +10,7 @@ import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
 import { ListingCard } from "./ListingCard";
 import { LogPanel } from "./LogPanel";
+import { MapPanel } from "./MapPanel";
 import { PortfolioCard } from "./PortfolioCard";
 import { RivalsPanel } from "./RivalsPanel";
 import { Stat } from "./Stat";
@@ -118,6 +119,7 @@ export default function FastighetsImperium() {
         setTab={setTab}
         items={[
           { id: "portfolio", label: `Portfölj (${state.portfolio.length})` },
+          { id: "map", label: "Karta" },
           { id: "market", label: "Marknad" },
           { id: "build", label: "Nyproduktion" },
           { id: "finance", label: "Finans" },
@@ -139,6 +141,8 @@ export default function FastighetsImperium() {
           ))}
         </div>
       )}
+
+      {tab === "map" && <MapPanel state={state} dispatch={dispatch} />}
 
       {tab === "market" && (
         <div>
