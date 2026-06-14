@@ -164,6 +164,8 @@ export type GameAction =
   | { type: "BUILD"; id: number; propType: PropTypeKey }
   | { type: "AMORT"; amount: number }
   | { type: "REFINANCE"; amount: number }
+  | { type: "LEASE_TENANT"; id: number; tenant: Tenant }
+  | { type: "RAISE_RENT"; id: number; increasePercent: number }
   | { type: "REFRESH_LISTINGS" }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }

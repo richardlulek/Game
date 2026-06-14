@@ -252,6 +252,56 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "LEASE_TENANT": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.tenant || p.status === "bygger") return state;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant: action.tenant } : x)),
+        log: [
+          {
+            t: `Tecknade hyresavtal: ${action.tenant.name} i ${p.districtName}, ${action.tenant.termTotal} mån, ${kr(action.tenant.rent)}/mån.`,
+            kind: "buy",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "RAISE_RENT": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || !p.tenant || p.status === "bygger") return state;
+      const newRent    = Math.round(p.tenant.rent * (1 + action.increasePercent / 100));
+      const marketMo   = propPotentialRent(p, state) / 12;
+      const ratio      = newRent / marketMo;
+      const acceptProb = ratio < 1.0 ? 0.97 : ratio < 1.1 ? 0.80 : ratio < 1.2 ? 0.55 : ratio < 1.35 ? 0.28 : 0.10;
+      if (Math.random() < acceptProb) {
+        return {
+          ...state,
+          portfolio: state.portfolio.map((x) =>
+            x.id === p.id ? { ...x, tenant: { ...p.tenant!, rent: newRent } } : x,
+          ),
+          log: [
+            {
+              t: `${p.tenant.name} i ${p.districtName} accepterade hyreshöjning +${action.increasePercent}% → ${kr(newRent)}/mån.`,
+              kind: "income",
+            },
+            ...state.log,
+          ],
+        };
+      }
+      return {
+        ...state,
+        reputation: Math.max(0, state.reputation - 1),
+        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, tenant: null } : x)),
+        log: [
+          {
+            t: `${p.tenant.name} i ${p.districtName} avvisade hyreshöjningen och lämnade (reputation −1).`,
+            kind: "warn",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "REFRESH_LISTINGS": {
       const listings = [];
       for (let i = 0; i < 6; i++) listings.push(genListing(state));
