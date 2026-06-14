@@ -1,13 +1,12 @@
 /* ============================================================
-   Börsen – art-deco aktiemarknadsvy.
-   Handlar mot den redan byggda börsmotorn (engine/stocks).
-   Inline-stilar, inga externa beroenden utöver designtokens.
+   Börsen – djupare aktiemarknadsvy med limitorder, nyhetshändelser
+   och portföljhistorik. Inline-stilar, inga externa beroenden.
    ============================================================ */
 
 import { useState } from "react";
 import { kr, msek, pct } from "../engine/format";
 import { COURTAGE, stockHoldingsValue } from "../engine/stocks";
-import type { GameAction, GameState, Sector, Stock } from "../engine/types";
+import type { GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
 interface StockExchangeProps {
@@ -15,7 +14,7 @@ interface StockExchangeProps {
   dispatch: (a: GameAction) => void;
 }
 
-/** Branschfärger för chip. */
+/** Branschfärger & etiketter. */
 const SECTOR_COLOR: Record<Sector, string> = {
   fastighet: C.green,
   bank: "#2a4a8a",
@@ -23,7 +22,6 @@ const SECTOR_COLOR: Record<Sector, string> = {
   handel: "#7a3a6a",
   industri: C.inkSoft,
 };
-
 const SECTOR_LABEL: Record<Sector, string> = {
   fastighet: "Fastighet",
   bank: "Bank",
@@ -32,70 +30,7 @@ const SECTOR_LABEL: Record<Sector, string> = {
   industri: "Industri",
 };
 
-/** Tunn guldlinje – avdelare. */
-function GoldRule() {
-  return <div style={{ height: 2, background: THEME.goldRule, margin: "10px 0" }} />;
-}
-
-/** Färg för upp/ned-tal. */
-const trendColor = (v: number) => (v >= 0 ? C.positive : C.negative);
-const signed = (v: number) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " %";
-
-/** Liten inline-SVG-sparkline. */
-function Spark({
-  data,
-  width = 92,
-  height = 26,
-  color,
-}: {
-  data: number[];
-  width?: number;
-  height?: number;
-  color: string;
-}) {
-  if (!data || data.length < 2) {
-    return <div style={{ width, height }} />;
-  }
-  const pad = 2;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data
-    .map((v, i) => {
-      const x = pad + (i / (data.length - 1)) * (width - 2 * pad);
-      const y = height - pad - ((v - min) / range) * (height - 2 * pad);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width, height, display: "block" }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** Branschchip. */
-function SectorChip({ sector }: { sector: Sector }) {
-  return (
-    <span
-      style={{
-        background: SECTOR_COLOR[sector],
-        color: C.creamText,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0.8,
-        textTransform: "uppercase",
-        padding: "2px 8px",
-        borderRadius: 3,
-        border: `1px solid ${C.brass}88`,
-        fontFamily: FONTS.body,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {SECTOR_LABEL[sector]}
-    </span>
-  );
-}
+// ── Gemensamma stilar ──────────────────────────────────────────────────
 
 const card: React.CSSProperties = {
   background: THEME.parchment,
@@ -181,15 +116,539 @@ const subLabel: React.CSSProperties = {
   fontWeight: 600,
 };
 
+// ── Hjälpkomponenter ───────────────────────────────────────────────────
+
+function GoldRule() {
+  return <div style={{ height: 2, background: THEME.goldRule, margin: "10px 0" }} />;
+}
+
+const trendColor = (v: number) => (v >= 0 ? C.positive : C.negative);
+const signed = (v: number) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " %";
+
+/** Sparkline. */
+function Spark({
+  data,
+  width = 92,
+  height = 26,
+  color,
+}: {
+  data: number[];
+  width?: number;
+  height?: number;
+  color: string;
+}) {
+  if (!data || data.length < 2) return <div style={{ width, height }} />;
+  const pad = 2;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data
+    .map((v, i) => {
+      const x = pad + (i / (data.length - 1)) * (width - 2 * pad);
+      const y = height - pad - ((v - min) / range) * (height - 2 * pad);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width, height, display: "block" }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Branschchip. */
+function SectorChip({ sector }: { sector: Sector }) {
+  return (
+    <span
+      style={{
+        background: SECTOR_COLOR[sector],
+        color: C.creamText,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 0.8,
+        textTransform: "uppercase",
+        padding: "2px 8px",
+        borderRadius: 3,
+        border: `1px solid ${C.brass}88`,
+        fontFamily: FONTS.body,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {SECTOR_LABEL[sector]}
+    </span>
+  );
+}
+
+// ── Limitorderformulär ─────────────────────────────────────────────────
+
+function LimitOrderForm({
+  stock,
+  currentMonth,
+  dispatch,
+  onClose,
+}: {
+  stock: Stock;
+  currentMonth: number;
+  dispatch: (a: GameAction) => void;
+  onClose: () => void;
+}) {
+  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [qty, setQty] = useState(100);
+  const [price, setPrice] = useState(+stock.price.toFixed(2));
+
+  const isValid = qty > 0 && price > 0;
+
+  return (
+    <div
+      style={{
+        background: "#f8f0dc",
+        border: `1px solid ${C.brass}`,
+        borderRadius: 6,
+        padding: 14,
+        marginTop: 10,
+      }}
+    >
+      <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: BURGUNDY, marginBottom: 10 }}>
+        Limitorder – {stock.name}
+      </div>
+
+      {/* Sida */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        {(["buy", "sell"] as const).map((s) => (
+          <button
+            key={s}
+            style={{
+              ...secondaryBtn,
+              flex: 1,
+              padding: "7px 0",
+              background: side === s ? BURGUNDY : "transparent",
+              color: side === s ? C.brassBright : C.ink,
+              border: `1px solid ${side === s ? C.brass : C.brassDim}`,
+            }}
+            onClick={() => setSide(s)}
+          >
+            {s === "buy" ? "Köp om pris ≤" : "Sälj om pris ≥"}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div>
+          <div style={subLabel}>Antal aktier</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button style={stepBtn} onClick={() => setQty(Math.max(1, qty - 100))}>−</button>
+            <input
+              type="number"
+              min={1}
+              value={qty}
+              onChange={(e) => setQty(Math.max(1, Math.floor(+e.target.value) || 1))}
+              style={{ ...qtyInput, width: 80 }}
+            />
+            <button style={stepBtn} onClick={() => setQty(qty + 100)}>+</button>
+          </div>
+        </div>
+        <div>
+          <div style={subLabel}>Limitkurs (kr)</div>
+          <input
+            type="number"
+            min={0.01}
+            step={0.5}
+            value={price}
+            onChange={(e) => setPrice(Math.max(0.01, +e.target.value))}
+            style={{ ...qtyInput, width: 100 }}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+          <button
+            style={isValid ? primaryBtn : { ...primaryBtn, ...disabledBtn }}
+            disabled={!isValid}
+            onClick={() => {
+              dispatch({
+                type: "PLACE_LIMIT_ORDER",
+                stockId: stock.id,
+                qty,
+                limitPrice: price,
+                side,
+              });
+              onClose();
+            }}
+          >
+            Lägg order
+          </button>
+          <button style={secondaryBtn} onClick={onClose}>
+            Avbryt
+          </button>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
+        Nu: {kr(stock.price)} · Order exekveras automatiskt nästa månad om kursen når ditt mål.
+        Notera att kurs och tillgång kan skilja sig vid exekvering.
+      </div>
+    </div>
+  );
+}
+
+// ── En aktierad ────────────────────────────────────────────────────────
+
+function StockRow({
+  stock,
+  state,
+  dispatch,
+}: {
+  stock: Stock;
+  state: GameState;
+  dispatch: (a: GameAction) => void;
+}) {
+  const [qty, setQty] = useState(100);
+  const [showLimit, setShowLimit] = useState(false);
+  const setQtyClamp = (v: number) => setQty(Math.max(0, Math.floor(v) || 0));
+
+  const cost = qty * stock.price * (1 + COURTAGE);
+  const canBuy = qty > 0 && state.cash >= cost;
+  const canSell = stock.owned > 0 && qty > 0;
+  const sellQty = Math.min(qty, stock.owned);
+  const proceeds = sellQty * stock.price * (1 - COURTAGE);
+  const maxAffordable = Math.floor(state.cash / (stock.price * (1 + COURTAGE)));
+  const monthChange = stock.prevPrice ? stock.price / stock.prevPrice - 1 : 0;
+  const ownShare = stock.sharesOutstanding > 0 ? stock.owned / stock.sharesOutstanding : 0;
+  const marketCap = stock.price * stock.sharesOutstanding;
+  const unrealized = stock.owned > 0 ? stock.owned * (stock.price - stock.avgCost) : 0;
+
+  const linkedComp = stock.competitorName
+    ? state.competitors.find((c) => c.name === stock.competitorName)
+    : undefined;
+  const canAcquire = ownShare > 0.5;
+  const acquireCost = (stock.sharesOutstanding - stock.owned) * stock.price * 1.2;
+
+  return (
+    <div style={{ ...card, padding: 14 }}>
+      {/* Namn + chip + pris */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: FONTS.heading, fontSize: 17, fontWeight: 700, color: C.ink }}>
+              {stock.name}
+            </span>
+            <SectorChip sector={stock.sector} />
+            {stock.owned > 0 && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, background: C.green, color: "#fff",
+                padding: "2px 7px", borderRadius: 10,
+              }}>
+                ÄGER
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: C.inkSoft }}>
+            Utdelning: <span style={num}>{pct(stock.dividendYield)}</span>/år
+            {" · "}Mktcap: <span style={num}>{msek(marketCap)}</span>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Spark data={stock.history} color={trendColor(monthChange)} />
+          <div style={{ textAlign: "right" }}>
+            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(stock.price)}</div>
+            <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(monthChange) }}>
+              {signed(monthChange)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Konkurrentens drift */}
+      {linkedComp && (
+        <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12, color: C.inkSoft }}>
+          <span>Bestånd: <span style={num}>{linkedComp.units.toLocaleString("sv-SE")}</span> objekt</span>
+          {linkedComp.monthlyNOI !== undefined && (
+            <span>Driftnetto: <span style={num}>{kr(linkedComp.monthlyNOI)}</span>/mån</span>
+          )}
+        </div>
+      )}
+
+      <GoldRule />
+
+      {/* Innehav + P&L */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 8, marginBottom: 4 }}>
+        <div>
+          <div style={subLabel}>Ditt innehav</div>
+          <div style={{ ...num, fontSize: 15, color: C.ink, fontWeight: 700 }}>
+            {stock.owned.toLocaleString("sv-SE")} st
+          </div>
+        </div>
+        <div>
+          <div style={subLabel}>Marknadsvärde</div>
+          <div style={{ ...num, fontSize: 15, color: C.ink, fontWeight: 700 }}>
+            {kr(stock.owned * stock.price)}
+          </div>
+        </div>
+        {stock.owned > 0 && (
+          <div>
+            <div style={subLabel}>Orealiserat</div>
+            <div style={{ ...num, fontSize: 15, fontWeight: 700, color: trendColor(unrealized) }}>
+              {(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))}
+            </div>
+          </div>
+        )}
+        <div>
+          <div style={subLabel}>Ägarandel</div>
+          <div style={{ ...num, fontSize: 15, fontWeight: 700, color: ownShare > 0.5 ? BURGUNDY : C.ink }}>
+            {pct(ownShare)}
+          </div>
+        </div>
+      </div>
+
+      {/* Förvärvsknapp / hint */}
+      {stock.competitorName && (canAcquire || ownShare > 0.25) && (
+        <div style={{ marginTop: 10 }}>
+          {canAcquire ? (
+            <>
+              <button
+                style={{ ...primaryBtn, width: "100%" }}
+                onClick={() => dispatch({ type: "ACQUIRE_COMPANY", stockId: stock.id })}
+              >
+                Förvärva bolaget
+              </button>
+              <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 5, textAlign: "center" }}>
+                Restpost (ca +20 %): <span style={num}>{kr(acquireCost)}</span>
+              </div>
+            </>
+          ) : (
+            <div style={{
+              fontSize: 12, color: BURGUNDY, fontWeight: 600,
+              background: "#fff7ea", border: `1px solid ${C.brass}66`,
+              borderRadius: 4, padding: "6px 10px",
+            }}>
+              {ownShare > 0.4
+                ? "Du närmar dig majoritet – över 50 % krävs för förvärv."
+                : "Du är störste ägare – köp mer för att ta kontroll."}
+            </div>
+          )}
+        </div>
+      )}
+
+      <GoldRule />
+
+      {/* Handelskontroller */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button style={stepBtn} onClick={() => setQtyClamp(qty - 100)}>−</button>
+          <input
+            type="number"
+            min={0}
+            value={qty}
+            onChange={(e) => setQtyClamp(+e.target.value)}
+            style={qtyInput}
+          />
+          <button style={stepBtn} onClick={() => setQtyClamp(qty + 100)}>+</button>
+        </div>
+        <button
+          style={{ ...secondaryBtn, padding: "8px 10px" }}
+          disabled={maxAffordable <= 0}
+          onClick={() => setQtyClamp(maxAffordable)}
+        >
+          Max
+        </button>
+        <button
+          style={canBuy ? primaryBtn : { ...primaryBtn, ...disabledBtn }}
+          disabled={!canBuy}
+          onClick={() => dispatch({ type: "BUY_SHARES", stockId: stock.id, qty })}
+        >
+          Köp
+        </button>
+        <button
+          style={canSell ? secondaryBtn : { ...secondaryBtn, ...disabledBtn }}
+          disabled={!canSell}
+          onClick={() => dispatch({ type: "SELL_SHARES", stockId: stock.id, qty: sellQty })}
+        >
+          Sälj
+        </button>
+        <button
+          style={{
+            ...secondaryBtn,
+            padding: "8px 12px",
+            background: showLimit ? C.wood : "transparent",
+            color: showLimit ? C.brassBright : C.ink,
+          }}
+          onClick={() => setShowLimit((v) => !v)}
+        >
+          Limit
+        </button>
+      </div>
+
+      {/* Kostnads-/likvidförhandsvisning */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12, color: C.inkSoft }}>
+        <span>
+          Köp {qty.toLocaleString("sv-SE")} st:{" "}
+          <span style={{ ...num, color: canBuy ? C.ink : C.negative }}>{kr(cost)}</span>
+        </span>
+        {stock.owned > 0 && (
+          <span>
+            Sälj {sellQty.toLocaleString("sv-SE")} st:{" "}
+            <span style={{ ...num, color: C.ink }}>{kr(proceeds)}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Limitorderformulär */}
+      {showLimit && (
+        <LimitOrderForm
+          stock={stock}
+          currentMonth={state.month}
+          dispatch={dispatch}
+          onClose={() => setShowLimit(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Limitorderlista ────────────────────────────────────────────────────
+
+function LimitOrdersPanel({
+  orders,
+  state,
+  dispatch,
+}: {
+  orders: LimitOrder[];
+  state: GameState;
+  dispatch: (a: GameAction) => void;
+}) {
+  if (orders.length === 0) return null;
+  return (
+    <div style={card}>
+      <h3 style={{ ...heading, fontSize: 16, marginBottom: 8 }}>
+        Öppna limitorder ({orders.length})
+      </h3>
+      <GoldRule />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {orders.map((o) => {
+          const stock = state.stocks.find((s) => s.id === o.stockId);
+          const dist = stock ? ((stock.price - o.limitPrice) / o.limitPrice * 100) : null;
+          return (
+            <div
+              key={o.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "#fbf5e6",
+                border: `1px solid ${C.brassDim}44`,
+                borderRadius: 4,
+                padding: "8px 12px",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: C.ink }}>
+                  {o.side === "buy" ? "🟢 Köp" : "🔴 Sälj"} {o.qty.toLocaleString("sv-SE")} × {o.stockName}
+                </span>
+                <span style={{ fontSize: 12, color: C.inkSoft }}>
+                  Limitkurs {kr(o.limitPrice)}
+                  {" · "}Nu: {stock ? kr(stock.price) : "—"}
+                  {dist !== null && (
+                    <span style={{ color: Math.abs(dist) < 3 ? C.positive : C.inkSoft }}>
+                      {" "}({dist > 0 ? "+" : ""}{dist.toFixed(1)} % till trigger)
+                    </span>
+                  )}
+                </span>
+              </div>
+              <button
+                style={{ ...secondaryBtn, padding: "5px 12px", fontSize: 12 }}
+                onClick={() => dispatch({ type: "CANCEL_LIMIT_ORDER", orderId: o.id })}
+              >
+                Avbryt
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Aktieportföljens historik ──────────────────────────────────────────
+
+function PortfolioHistoryCard({ history }: { history: number[] }) {
+  if (!history || history.length < 2) return null;
+  const latest = history[history.length - 1];
+  const oldest = history[0];
+  const change = oldest > 0 ? (latest - oldest) / oldest : 0;
+
+  return (
+    <div style={card}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: FONTS.display, fontSize: 13, letterSpacing: 1.5, color: C.brassDim, textTransform: "uppercase", marginBottom: 4 }}>
+            Portföljens värde
+          </div>
+          <div style={{ ...num, fontSize: 24, fontWeight: 700, color: C.ink }}>{msek(latest)}</div>
+          <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(change), marginTop: 2 }}>
+            {signed(change)} totalt ({history.length} månader)
+          </div>
+        </div>
+        <Spark data={history} width={200} height={44} color={trendColor(change)} />
+      </div>
+    </div>
+  );
+}
+
+// ── Branschindex-rad ───────────────────────────────────────────────────
+
+function SectorSummary({ stocks }: { stocks: Stock[] }) {
+  const sectors = (["fastighet", "bank", "bygg", "handel", "industri"] as Sector[]);
+  return (
+    <div style={{
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+    }}>
+      {sectors.map((sec) => {
+        const sectorStocks = stocks.filter((s) => s.sector === sec);
+        if (sectorStocks.length === 0) return null;
+        const avgChange = sectorStocks.reduce((a, s) => a + (s.prevPrice ? s.price / s.prevPrice - 1 : 0), 0) / sectorStocks.length;
+        return (
+          <div
+            key={sec}
+            style={{
+              background: "#fbf5e6",
+              border: `1px solid ${C.brassDim}66`,
+              borderRadius: 4,
+              padding: "6px 12px",
+              fontSize: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: SECTOR_COLOR[sec],
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.inkSoft }}>
+              {SECTOR_LABEL[sec]}
+            </span>
+            <span style={{ ...num, fontWeight: 700, color: trendColor(avgChange) }}>
+              {signed(avgChange)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Huvud-export ───────────────────────────────────────────────────────
+
 export function StockExchange({ state, dispatch }: StockExchangeProps) {
-  // Per-aktie antal i lokalt state (default 100).
-  const [qtys, setQtys] = useState<Record<string, number>>({});
-  const qtyOf = (id: string) => {
-    const q = qtys[id];
-    return q === undefined ? 100 : q;
-  };
-  const setQty = (id: string, v: number) =>
-    setQtys((prev) => ({ ...prev, [id]: Math.max(0, Math.floor(v) || 0) }));
+  const [sectorFilter, setSectorFilter] = useState<Sector | "alla">("alla");
 
   // ── Marknadsindex ──────────────────────────────────────────
   const index = Math.round(state.marketSentiment * 1000);
@@ -203,262 +662,43 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
   const unrealized = holdingsValue - costBasis;
   const unrealizedPct = costBasis > 0 ? unrealized / costBasis : 0;
 
-  const competitorStocks = state.stocks.filter((s) => s.competitorName);
-  const otherStocks = state.stocks.filter((s) => !s.competitorName);
+  // ── Filtrering ──────────────────────────────────────────────
+  const competitorStocks = state.stocks.filter(
+    (s) => s.competitorName && (sectorFilter === "alla" || s.sector === sectorFilter),
+  );
+  const otherStocks = state.stocks.filter(
+    (s) => !s.competitorName && (sectorFilter === "alla" || s.sector === sectorFilter),
+  );
 
-  // ── En aktierad ────────────────────────────────────────────
-  function StockRow({ stock }: { stock: Stock }) {
-    const qty = qtyOf(stock.id);
-    const cost = qty * stock.price * (1 + COURTAGE);
-    const canBuy = qty > 0 && state.cash >= cost;
-    const canSell = stock.owned > 0 && qty > 0;
-    const sellable = Math.min(qty, stock.owned);
-    const proceeds = sellable * stock.price * (1 - COURTAGE);
-    const maxAffordable = Math.floor(state.cash / (stock.price * (1 + COURTAGE)));
-    const monthChange = stock.prevPrice ? stock.price / stock.prevPrice - 1 : 0;
-    const ownShare = stock.sharesOutstanding > 0 ? stock.owned / stock.sharesOutstanding : 0;
+  const openOrders = state.stockOrders ?? [];
 
-    const linkedComp = stock.competitorName
-      ? state.competitors.find((c) => c.name === stock.competitorName)
-      : undefined;
-
-    const canAcquire = ownShare > 0.5;
-    const acquireCost = (stock.sharesOutstanding - stock.owned) * stock.price * 1.2;
-
-    return (
-      <div style={{ ...card, padding: 14 }}>
-        {/* Översta raden: namn + chip + pris */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span
-                style={{
-                  fontFamily: FONTS.heading,
-                  fontSize: 17,
-                  fontWeight: 700,
-                  color: C.ink,
-                }}
-              >
-                {stock.name}
-              </span>
-              <SectorChip sector={stock.sector} />
-            </div>
-            <div style={{ fontSize: 12, color: C.inkSoft }}>
-              Utdelning: <span style={num}>{pct(stock.dividendYield)}</span> /år
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Spark data={stock.history} color={trendColor(monthChange)} />
-            <div style={{ textAlign: "right" }}>
-              <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>
-                {kr(stock.price)}
-              </div>
-              <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(monthChange) }}>
-                {signed(monthChange)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Konkurrentens drift (objekt + NOI) */}
-        {linkedComp && (
-          <div
-            style={{
-              display: "flex",
-              gap: 16,
-              marginTop: 8,
-              fontSize: 12,
-              color: C.inkSoft,
-            }}
-          >
-            <span>
-              Bestånd: <span style={num}>{linkedComp.units.toLocaleString("sv-SE")}</span> objekt
-            </span>
-            {linkedComp.monthlyNOI !== undefined && (
-              <span>
-                Driftnetto: <span style={num}>{kr(linkedComp.monthlyNOI)}</span>/mån
-              </span>
-            )}
-          </div>
-        )}
-
-        <GoldRule />
-
-        {/* Innehav */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))",
-            gap: 8,
-            marginBottom: 4,
-          }}
-        >
-          <div>
-            <div style={subLabel}>Ditt innehav</div>
-            <div style={{ ...num, fontSize: 15, color: C.ink, fontWeight: 700 }}>
-              {stock.owned.toLocaleString("sv-SE")} st
-            </div>
-          </div>
-          <div>
-            <div style={subLabel}>Värde</div>
-            <div style={{ ...num, fontSize: 15, color: C.ink, fontWeight: 700 }}>
-              {kr(stock.owned * stock.price)}
-            </div>
-          </div>
-          <div>
-            <div style={subLabel}>Ägarandel</div>
-            <div
-              style={{
-                ...num,
-                fontSize: 15,
-                fontWeight: 700,
-                color: ownShare > 0.5 ? BURGUNDY : C.ink,
-              }}
-            >
-              {pct(ownShare)}
-            </div>
-          </div>
-        </div>
-
-        {/* Takeover-hint / knapp för konkurrenter */}
-        {stock.competitorName && (canAcquire || ownShare > 0.25) && (
-          <div style={{ marginTop: 10 }}>
-            {canAcquire ? (
-              <>
-                <button
-                  style={{ ...primaryBtn, width: "100%" }}
-                  onClick={() => dispatch({ type: "ACQUIRE_COMPANY", stockId: stock.id })}
-                >
-                  Förvärva bolaget
-                </button>
-                <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 5, textAlign: "center" }}>
-                  Restpost (ca +20 %): <span style={num}>{kr(acquireCost)}</span>
-                </div>
-              </>
-            ) : (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: BURGUNDY,
-                  fontWeight: 600,
-                  background: "#fff7ea",
-                  border: `1px solid ${C.brass}66`,
-                  borderRadius: 4,
-                  padding: "6px 10px",
-                }}
-              >
-                {ownShare > 0.4
-                  ? "Du närmar dig majoritet – över 50 % krävs för förvärv."
-                  : "Du är största ägare i bolaget."}
-              </div>
-            )}
-          </div>
-        )}
-
-        <GoldRule />
-
-        {/* Handelskontroller */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button style={stepBtn} aria-label="Minska" onClick={() => setQty(stock.id, qty - 100)}>
-              −
-            </button>
-            <input
-              type="number"
-              min={0}
-              value={qty}
-              onChange={(e) => setQty(stock.id, +e.target.value)}
-              style={qtyInput}
-            />
-            <button style={stepBtn} aria-label="Öka" onClick={() => setQty(stock.id, qty + 100)}>
-              +
-            </button>
-          </div>
-          <button
-            style={{ ...secondaryBtn, padding: "8px 10px" }}
-            disabled={maxAffordable <= 0}
-            onClick={() => setQty(stock.id, maxAffordable)}
-          >
-            Max
-          </button>
-
-          <button
-            style={canBuy ? primaryBtn : { ...primaryBtn, ...disabledBtn }}
-            disabled={!canBuy}
-            onClick={() => dispatch({ type: "BUY_SHARES", stockId: stock.id, qty })}
-          >
-            Köp
-          </button>
-          <button
-            style={canSell ? secondaryBtn : { ...secondaryBtn, ...disabledBtn }}
-            disabled={!canSell}
-            onClick={() => dispatch({ type: "SELL_SHARES", stockId: stock.id, qty: sellable })}
-          >
-            Sälj
-          </button>
-        </div>
-
-        {/* Kostnads-/likvidförhandsvisning */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: 8,
-            fontSize: 12,
-            color: C.inkSoft,
-          }}
-        >
-          <span>
-            Kostnad köp: <span style={{ ...num, color: canBuy ? C.ink : C.negative }}>{kr(cost)}</span>
-          </span>
-          {stock.owned > 0 && (
-            <span>
-              Likvid sälj ({sellable.toLocaleString("sv-SE")} st):{" "}
-              <span style={{ ...num, color: C.ink }}>{kr(proceeds)}</span>
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const sectors: Array<Sector | "alla"> = ["alla", "fastighet", "bank", "bygg", "handel", "industri"];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
       {/* ── Header / index ──────────────────────────────────── */}
-      <div
-        style={{
-          background: THEME.woodBar,
-          border: `2px solid ${C.brass}`,
-          borderRadius: 6,
-          padding: "14px 18px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 16,
-          flexWrap: "wrap",
-          boxShadow: THEME.panelShadow,
-        }}
-      >
+      <div style={{
+        background: THEME.woodBar,
+        border: `2px solid ${C.brass}`,
+        borderRadius: 6,
+        padding: "14px 18px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 16,
+        flexWrap: "wrap",
+        boxShadow: THEME.panelShadow,
+      }}>
         <div>
-          <div
-            style={{
-              fontFamily: FONTS.display,
-              fontSize: 26,
-              fontWeight: 900,
-              color: C.brassBright,
-              letterSpacing: 3,
-              textShadow: "0 1px 2px rgba(0,0,0,0.6)",
-            }}
-          >
+          <div style={{
+            fontFamily: FONTS.display,
+            fontSize: 26,
+            fontWeight: 900,
+            color: C.brassBright,
+            letterSpacing: 3,
+            textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+          }}>
             BÖRSEN
           </div>
           <div style={{ fontFamily: FONTS.heading, fontSize: 13, color: C.creamSoft }}>
@@ -470,54 +710,32 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           <Spark data={sh} width={120} height={34} color={C.brass} />
           <div style={{ textAlign: "right" }}>
             <div style={{ ...subLabel, color: C.brassDim }}>Marknadsindex</div>
-            <div
-              style={{
-                fontFamily: FONTS.heading,
-                fontSize: 28,
-                fontWeight: 700,
-                color: C.brassBright,
-                lineHeight: 1.1,
-              }}
-            >
+            <div style={{ fontFamily: FONTS.heading, fontSize: 28, fontWeight: 700, color: C.brassBright, lineHeight: 1.1 }}>
               {index.toLocaleString("sv-SE")}
             </div>
-            <div
-              style={{
-                fontFamily: FONTS.heading,
-                fontSize: 14,
-                fontWeight: 700,
-                color: indexChange >= 0 ? C.positiveBright : C.negativeBright,
-              }}
-            >
+            <div style={{ fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700, color: indexChange >= 0 ? C.positiveBright : C.negativeBright }}>
               {signed(indexChange)} mot förra månaden
             </div>
           </div>
         </div>
       </div>
 
+      {/* ── Branschindex ────────────────────────────────────── */}
+      <SectorSummary stocks={state.stocks} />
+
       {/* ── Innehavssammanställning ─────────────────────────── */}
       <div style={card}>
         <h3 style={{ ...heading, fontSize: 18 }}>Din aktieportfölj</h3>
         <GoldRule />
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
-            gap: 14,
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14 }}>
           <div>
             <div style={subLabel}>Innehav (marknad)</div>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>
-              {msek(holdingsValue)}
-            </div>
+            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{msek(holdingsValue)}</div>
             <div style={{ fontSize: 11, color: C.inkSoft }}>{kr(holdingsValue)}</div>
           </div>
           <div>
             <div style={subLabel}>Anskaffningsvärde</div>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>
-              {kr(costBasis)}
-            </div>
+            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(costBasis)}</div>
           </div>
           <div>
             <div style={subLabel}>Orealiserat resultat</div>
@@ -537,6 +755,36 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
         </div>
       </div>
 
+      {/* ── Portföljhistorik ─────────────────────────────────── */}
+      <PortfolioHistoryCard history={state.portfolioValueHistory ?? []} />
+
+      {/* ── Öppna limitorder ─────────────────────────────────── */}
+      <LimitOrdersPanel orders={openOrders} state={state} dispatch={dispatch} />
+
+      {/* ── Branschfilter ────────────────────────────────────── */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {sectors.map((s) => (
+          <button
+            key={s}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 4,
+              border: `1px solid ${s === sectorFilter ? C.brass : C.brassDim}`,
+              background: s === sectorFilter ? BURGUNDY : "transparent",
+              color: s === sectorFilter ? C.brassBright : C.ink,
+              fontFamily: FONTS.body,
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              letterSpacing: 0.4,
+            }}
+            onClick={() => setSectorFilter(s)}
+          >
+            {s === "alla" ? "Alla" : SECTOR_LABEL[s]}
+          </button>
+        ))}
+      </div>
+
       {/* ── Konkurrenter ────────────────────────────────────── */}
       {competitorStocks.length > 0 && (
         <div>
@@ -545,7 +793,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {competitorStocks.map((s) => (
-              <StockRow key={s.id} stock={s} />
+              <StockRow key={s.id} stock={s} state={state} dispatch={dispatch} />
             ))}
           </div>
         </div>
@@ -559,9 +807,15 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {otherStocks.map((s) => (
-              <StockRow key={s.id} stock={s} />
+              <StockRow key={s.id} stock={s} state={state} dispatch={dispatch} />
             ))}
           </div>
+        </div>
+      )}
+
+      {competitorStocks.length === 0 && otherStocks.length === 0 && (
+        <div style={{ ...card, textAlign: "center", color: C.inkSoft, fontSize: 14 }}>
+          Inga bolag matchar valt branschfilter.
         </div>
       )}
     </div>

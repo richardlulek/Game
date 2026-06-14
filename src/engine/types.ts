@@ -185,6 +185,17 @@ export interface ActiveResearch {
   monthsTotal: number;
 }
 
+/** En aktiv limitorder på börsen. */
+export interface LimitOrder {
+  id: string;
+  stockId: string;
+  stockName: string;
+  side: "buy" | "sell";
+  qty: number;
+  limitPrice: number;
+  createdMonth: number;
+}
+
 /** En rad i händelseloggen. */
 export interface LogEntry {
   t: string;
@@ -241,6 +252,8 @@ export interface GameState {
   researchDone: string[];
   activeResearch: ActiveResearch | null;
   staff: Record<string, number>;
+  stockOrders: LimitOrder[];
+  portfolioValueHistory: number[];
 }
 
 /** Alla actions som reducern hanterar. */
@@ -273,6 +286,9 @@ export type GameAction =
   | { type: "START_RESEARCH"; id: string }
   | { type: "HIRE_STAFF"; role: string }
   | { type: "FIRE_STAFF"; role: string }
+  | { type: "SELL_SUBSIDIARY"; name: string }
+  | { type: "PLACE_LIMIT_ORDER"; stockId: string; qty: number; limitPrice: number; side: "buy" | "sell" }
+  | { type: "CANCEL_LIMIT_ORDER"; orderId: string }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

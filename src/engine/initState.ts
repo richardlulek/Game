@@ -39,6 +39,8 @@ export function initState(): GameState {
     researchDone: [],
     activeResearch: null,
     staff: {},
+    stockOrders: [],
+    portfolioValueHistory: [0],
   };
   for (let i = 0; i < 6; i++) base.listings.push(genListing(base));
   for (let i = 0; i < 3; i++) base.lots.push(genLot(base));

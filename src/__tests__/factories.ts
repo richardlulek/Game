@@ -32,6 +32,8 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     researchDone: [],
     activeResearch: null,
     staff: {},
+    stockOrders: [],
+    portfolioValueHistory: [0],
     ...over,
   };
 }

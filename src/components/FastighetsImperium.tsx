@@ -179,7 +179,7 @@ export default function FastighetsImperium() {
 
         {tab === "staff" && <StaffPanel state={state} dispatch={dispatch} />}
 
-        {tab === "group" && <GroupOverview state={state} />}
+        {tab === "group" && <GroupOverview state={state} dispatch={dispatch} />}
 
         {tab === "finance" && (
           <>

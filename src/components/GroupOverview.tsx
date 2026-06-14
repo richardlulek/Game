@@ -7,12 +7,13 @@
 import { kr, msek, pct } from "../engine/format";
 import { equityOf, loanTerms, portfolioValue } from "../engine/finance";
 import { propNOI } from "../engine/property";
-import { stockHoldingsValue, subsidiaryValue } from "../engine/stocks";
-import type { GameState } from "../engine/types";
+import { STOCK_CAP_RATE, stockHoldingsValue, subsidiaryValue } from "../engine/stocks";
+import type { GameAction, GameState } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
 interface GroupOverviewProps {
   state: GameState;
+  dispatch: (a: GameAction) => void;
 }
 
 const card: React.CSSProperties = {
@@ -98,7 +99,19 @@ function Row({
   );
 }
 
-export function GroupOverview({ state }: GroupOverviewProps) {
+const sellBtnStyle: React.CSSProperties = {
+  padding: "5px 14px",
+  borderRadius: 4,
+  border: `1px solid ${C.brassDim}`,
+  background: "transparent",
+  color: C.ink,
+  fontWeight: 600,
+  fontSize: 12,
+  fontFamily: FONTS.body,
+  cursor: "pointer",
+};
+
+export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
   const cash = state.cash;
   const propVal = portfolioValue(state);
   const stocksVal = stockHoldingsValue(state);
@@ -202,28 +215,48 @@ export function GroupOverview({ state }: GroupOverviewProps) {
         <GoldRule />
         {state.subsidiaries.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {state.subsidiaries.map((s, i) => (
-              <div
-                key={s.name + i}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 0",
-                  borderBottom:
-                    i < state.subsidiaries.length - 1
-                      ? "1px solid rgba(201,164,92,0.3)"
-                      : "none",
-                }}
-              >
-                <span style={{ fontFamily: FONTS.heading, fontSize: 15, color: C.ink }}>
-                  {s.name}
-                </span>
-                <span style={{ ...num, fontWeight: 700, color: C.green }}>
-                  {kr(s.monthlyIncome)}/mån
-                </span>
-              </div>
-            ))}
+            {state.subsidiaries.map((s, i) => {
+              const salePrice = Math.round((s.monthlyIncome * 12 / STOCK_CAP_RATE) * 0.80);
+              return (
+                <div
+                  key={s.name + i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "10px 0",
+                    borderBottom:
+                      i < state.subsidiaries.length - 1
+                        ? "1px solid rgba(201,164,92,0.3)"
+                        : "none",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontFamily: FONTS.heading, fontSize: 15, color: C.ink }}>
+                      {s.name}
+                    </span>
+                    <span style={{ fontSize: 11, color: C.inkSoft }}>
+                      Säljvärde ca {msek(salePrice)}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ ...num, fontWeight: 700, color: C.green, whiteSpace: "nowrap" }}>
+                      {kr(s.monthlyIncome)}/mån
+                    </span>
+                    <button
+                      style={sellBtnStyle}
+                      onClick={() => dispatch({ type: "SELL_SUBSIDIARY", name: s.name })}
+                    >
+                      Sälj
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
+              Säljpris = kapitaliserat kassaflöde (6 % avkastning) med 20 % realisationsrabatt.
+            </div>
           </div>
         ) : (
           <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>

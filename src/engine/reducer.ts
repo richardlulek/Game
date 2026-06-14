@@ -20,7 +20,7 @@ import {
 } from "./progression";
 import { newId } from "./random";
 import { advanceMonth } from "./simulation";
-import { COURTAGE } from "./stocks";
+import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
 import type { GameAction, GameState, LogKind, Property } from "./types";
 
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
@@ -640,6 +640,57 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         staff,
         log: [{ t: `Avslutade anställningen av ${role.name}.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "SELL_SUBSIDIARY": {
+      const sub = (state.subsidiaries ?? []).find((s) => s.name === action.name);
+      if (!sub) return state;
+      // Försäljningspris = kapitaliserat värde med 20 % realiseringsrabatt
+      const salePrice = Math.round((sub.monthlyIncome * 12 / STOCK_CAP_RATE) * 0.80);
+      return {
+        ...state,
+        cash: state.cash + salePrice,
+        subsidiaries: state.subsidiaries.filter((s) => s.name !== action.name),
+        log: [
+          {
+            t: `Sålde dotterbolaget ${sub.name} för ${msek(salePrice)} (${kr(sub.monthlyIncome)}/mån × 12 / 6 % × 80 %).`,
+            kind: "sell",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "PLACE_LIMIT_ORDER": {
+      const st = state.stocks.find((x) => x.id === action.stockId);
+      if (!st) return state;
+      const qty = Math.max(1, Math.floor(action.qty));
+      const limitPrice = Math.max(0.01, +action.limitPrice.toFixed(2));
+      const newOrder = {
+        id: String(Date.now()) + String(Math.random()),
+        stockId: action.stockId,
+        stockName: st.name,
+        side: action.side,
+        qty,
+        limitPrice,
+        createdMonth: state.month,
+      };
+      return {
+        ...state,
+        stockOrders: [...(state.stockOrders ?? []), newOrder],
+        log: [
+          {
+            t: `Limitorder lagd: ${action.side === "buy" ? "Köp" : "Sälj"} ${qty.toLocaleString("sv-SE")} aktier i ${st.name} @ ${kr(limitPrice)}.`,
+            kind: "info",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "CANCEL_LIMIT_ORDER": {
+      return {
+        ...state,
+        stockOrders: (state.stockOrders ?? []).filter((o) => o.id !== action.orderId),
+        log: [{ t: "Limitorder avbröts.", kind: "info" }, ...state.log],
       };
     }
     case "NEXT_MONTH":

@@ -5,11 +5,55 @@
    marknaden känns levande. Ren logik, inga React-beroenden.
    ============================================================ */
 
+import { kr } from "./format";
 import { rnd } from "./random";
-import type { Competitor, Sector, Stock } from "./types";
+import type { Competitor, GameState, LimitOrder, Sector, Stock } from "./types";
 
 const COURTAGE = 0.003; // 0,3 % avgift per affär
-const STOCK_CAP_RATE = 0.06; // för att kapitalisera dotterbolagsintäkt
+export const STOCK_CAP_RATE = 0.06; // för att kapitalisera dotterbolagsintäkt
+
+// ── Bolagsspecifika nyhetshändelser ───────────────────────────────────
+interface NewsTemplate {
+  text: string;
+  impact: [number, number]; // [min mult, max mult] på aktiekursen
+}
+const STOCK_NEWS: NewsTemplate[] = [
+  { text: "{n}: vinst bättre än väntat – aktien stiger", impact: [1.05, 1.13] },
+  { text: "{n}: vinst sämre än väntat – aktien faller", impact: [0.87, 0.95] },
+  { text: "{n}: analytiker höjer riktkurs", impact: [1.03, 1.09] },
+  { text: "{n}: analytiker sänker riktkurs", impact: [0.91, 0.97] },
+  { text: "{n}: storkontrakt vunnet", impact: [1.06, 1.15] },
+  { text: "{n}: VD avgår oväntat", impact: [0.84, 0.93] },
+  { text: "{n}: Finansinspektionen inleder granskning", impact: [0.79, 0.90] },
+  { text: "{n}: förvärvsrykte stiger", impact: [1.08, 1.18] },
+  { text: "{n}: utdelningen sänks", impact: [0.87, 0.93] },
+  { text: "{n}: aktieåterköpsprogram annonseras", impact: [1.04, 1.10] },
+  { text: "{n}: rekordutdelning höjer aktien", impact: [1.06, 1.12] },
+  { text: "{n}: strejkhot tynger bolaget", impact: [0.91, 0.97] },
+];
+
+/** Applicerar slumpmässig bolagsnyhet (20 % chans per månad). */
+export function applyStockNews(
+  stocks: Stock[],
+): { stocks: Stock[]; newsEntry: string | null } {
+  if (Math.random() > 0.20 || stocks.length === 0)
+    return { stocks, newsEntry: null };
+  const idx = Math.floor(Math.random() * stocks.length);
+  const target = stocks[idx];
+  const tmpl = STOCK_NEWS[Math.floor(Math.random() * STOCK_NEWS.length)];
+  const [lo, hi] = tmpl.impact;
+  const mult = lo + Math.random() * (hi - lo);
+  const newPrice = Math.max(1, Math.round(target.price * mult * 100) / 100);
+  const text = tmpl.text.replace("{n}", target.name);
+  return {
+    stocks: stocks.map((s) =>
+      s.id === target.id
+        ? { ...s, price: newPrice, history: [...s.history, newPrice].slice(-32) }
+        : s,
+    ),
+    newsEntry: `📊 ${text}.`,
+  };
+}
 
 /** Andra börsbolag (ej direkta konkurrenter) – ger bredd åt marknaden. */
 interface CompanyDef {
@@ -123,6 +167,84 @@ export function priceStocks(
 export function stepSentiment(current: number): number {
   const s = current + (1 - current) * 0.04 + rnd(-0.025, 0.025);
   return +clamp(0.55, 1.6, s).toFixed(3);
+}
+
+/**
+ * Kontrollerar öppna limitorder mot aktuella kurser och exekverar dem.
+ * Returnerar uppdaterat state plus loggmeddelanden för utförda ordrar.
+ */
+export function executeLimitOrders(
+  state: GameState,
+): { state: GameState; fills: string[] } {
+  const orders: LimitOrder[] = state.stockOrders ?? [];
+  if (orders.length === 0) return { state, fills: [] };
+
+  let s: GameState = { ...state, stocks: [...state.stocks] };
+  const fills: string[] = [];
+  const remaining: LimitOrder[] = [];
+
+  for (const order of orders) {
+    const stock = s.stocks.find((x) => x.id === order.stockId);
+    if (!stock) {
+      // Aktien försvann (förvärv) – avbryt ordern tyst.
+      continue;
+    }
+    const triggered =
+      (order.side === "buy" && stock.price <= order.limitPrice) ||
+      (order.side === "sell" && stock.price >= order.limitPrice);
+
+    if (!triggered) {
+      remaining.push(order);
+      continue;
+    }
+
+    if (order.side === "buy") {
+      const available = stock.sharesOutstanding - stock.owned;
+      const qty = Math.min(order.qty, available);
+      const cost = qty * stock.price * (1 + COURTAGE);
+      if (s.cash < cost || qty <= 0) {
+        fills.push(`⚠️ Limitorder avbröts – kunde ej köpa ${order.stockName}: otillräcklig kassa.`);
+        continue;
+      }
+      const newOwned = stock.owned + qty;
+      const newAvg = (stock.owned * stock.avgCost + qty * stock.price) / newOwned;
+      s = {
+        ...s,
+        cash: s.cash - cost,
+        stocks: s.stocks.map((x) =>
+          x.id === stock.id
+            ? { ...x, owned: newOwned, avgCost: +newAvg.toFixed(2) }
+            : x,
+        ),
+      };
+      fills.push(
+        `✅ Limitorder utförd: Köpte ${qty.toLocaleString("sv-SE")} aktier i ${order.stockName} @ ${kr(stock.price)}.`,
+      );
+    } else {
+      const qty = Math.min(order.qty, stock.owned);
+      if (qty <= 0) {
+        fills.push(`⚠️ Limitorder avbröts – inga aktier att sälja i ${order.stockName}.`);
+        continue;
+      }
+      const proceeds = qty * stock.price * (1 - COURTAGE);
+      const newOwned = stock.owned - qty;
+      s = {
+        ...s,
+        cash: s.cash + proceeds,
+        stocks: s.stocks.map((x) =>
+          x.id === stock.id
+            ? { ...x, owned: newOwned, avgCost: newOwned === 0 ? 0 : x.avgCost }
+            : x,
+        ),
+      };
+      fills.push(
+        `✅ Limitorder utförd: Sålde ${qty.toLocaleString("sv-SE")} aktier i ${order.stockName} @ ${kr(stock.price)}.`,
+      );
+    }
+  }
+
+  s.stockOrders = remaining;
+  return { state: s, fills };
 }
 
 export { COURTAGE };

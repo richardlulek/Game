@@ -10,7 +10,7 @@ import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
-import { priceStocks, stepSentiment } from "./stocks";
+import { applyStockNews, executeLimitOrders, priceStocks, stepSentiment, stockHoldingsValue } from "./stocks";
 import type { GameState, LogEntry, Offer } from "./types";
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
@@ -184,6 +184,21 @@ export function advanceMonth(state: GameState): GameState {
     if (s.month % 3 === 0)
       events.push({ t: `📈 Aktieutdelning inkom: ${kr(market.dividends)}.`, kind: "income" });
   }
+  // Bolagsspecifika nyhetshändelser
+  const stockNewsResult = applyStockNews(s.stocks);
+  s.stocks = stockNewsResult.stocks;
+  if (stockNewsResult.newsEntry)
+    events.push({ t: stockNewsResult.newsEntry, kind: "event" });
+  // Exekvera limitorder mot nya kurser
+  const orderResult = executeLimitOrders(s);
+  s = orderResult.state;
+  for (const fill of orderResult.fills)
+    events.push({ t: fill, kind: fill.startsWith("✅") ? "income" : "warn" });
+  // Uppdatera aktieportföljens värdehistorik
+  s.portfolioValueHistory = [
+    ...(s.portfolioValueHistory ?? []),
+    Math.round(stockHoldingsValue(s)),
+  ].slice(-48);
 
   // ── Dotterbolag (förvärvade konkurrenter) ───────────────────────
   const subIncome = (s.subsidiaries ?? []).reduce((a, x) => a + x.monthlyIncome, 0);
