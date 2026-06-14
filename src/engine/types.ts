@@ -157,9 +157,13 @@ export type GameAction =
   | { type: "SELL"; id: number }
   | { type: "UPGRADE"; id: number; upg: string }
   | { type: "LEASE"; id: number }
+  | { type: "EVICT"; id: number }
+  | { type: "RENEW_LEASE"; id: number }
+  | { type: "MAINTAIN"; id: number }
   | { type: "BUY_LOT"; id: number }
   | { type: "BUILD"; id: number; propType: PropTypeKey }
   | { type: "AMORT"; amount: number }
+  | { type: "REFINANCE"; amount: number }
   | { type: "REFRESH_LISTINGS" }
   | { type: "NEXT_MONTH" }
   | { type: "LOAD"; state: GameState }

@@ -15,6 +15,8 @@ interface PortfolioCardProps {
 export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
   const value = propMarketValue(p, state);
   const noi = propNOI(p, state);
+  const maintainCost = Math.round(value * 0.02);
+  const canMaintain = state.cash >= maintainCost && !state.gameOver;
 
   if (p.status === "bygger") {
     return (
@@ -45,6 +47,8 @@ export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
     );
   }
 
+  const contractExpiring = p.tenant && p.tenant.monthsLeft <= 12;
+
   return (
     <div style={S.card}>
       <div style={S.cardHead}>
@@ -60,16 +64,56 @@ export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
         <span>Skick</span>
         <CondBar c={p.condition} />
       </div>
+
       {p.tenant ? (
         <div style={S.tenantBox}>
-          <div style={{ fontWeight: 700, color: BURGUNDY }}>{p.tenant.name}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ fontWeight: 700, color: BURGUNDY }}>{p.tenant.name}</div>
+            <button
+              title="Säg upp hyresgästen (−3 reputation)"
+              onClick={() => dispatch({ type: "EVICT", id: p.id })}
+              disabled={state.gameOver}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#c0392b",
+                fontSize: 13,
+                cursor: "pointer",
+                padding: "0 2px",
+                fontWeight: 600,
+                opacity: state.gameOver ? 0.4 : 1,
+              }}
+            >
+              Säg upp
+            </button>
+          </div>
           <div style={S.cardRow}>
             <span>Hyra/mån</span>
             <strong>{kr(p.tenant.rent)}</strong>
           </div>
-          <div style={S.cardRow}>
-            <span>Kontrakt kvar</span>
-            <strong>{p.tenant.monthsLeft} mån</strong>
+          <div style={{ ...S.cardRow, marginTop: 2 }}>
+            <span style={{ color: contractExpiring ? "#c05000" : undefined }}>
+              {contractExpiring ? `⚠ ${p.tenant.monthsLeft} mån kvar` : `Kontrakt ${p.tenant.monthsLeft} mån`}
+            </span>
+            {contractExpiring && (
+              <button
+                onClick={() => dispatch({ type: "RENEW_LEASE", id: p.id })}
+                disabled={state.gameOver}
+                style={{
+                  background: "#27660a",
+                  color: "#fff",
+                  border: "none",
+                  padding: "3px 10px",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: state.gameOver ? "default" : "pointer",
+                  opacity: state.gameOver ? 0.5 : 1,
+                }}
+              >
+                Förläng
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -80,10 +124,34 @@ export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
           </button>
         </div>
       )}
+
       <div style={S.cardRow}>
         <span>Driftnetto/år</span>
         <strong style={{ color: noi >= 0 ? "#27660a" : "#c0392b" }}>{kr(noi)}</strong>
       </div>
+
+      {/* Underhåll – repeaterbar skickförbättring */}
+      <button
+        onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
+        disabled={!canMaintain}
+        title={`Kostar ${msek(maintainCost)} och ger +15 skick`}
+        style={{
+          width: "100%",
+          marginTop: 10,
+          background: canMaintain ? "#f0f6ee" : "#f5f5f5",
+          border: `1px solid ${canMaintain ? "#6aaa5a" : "#ddd"}`,
+          color: canMaintain ? "#2a6a1a" : "#aaa",
+          padding: "7px",
+          borderRadius: 8,
+          fontWeight: 600,
+          fontSize: 12,
+          cursor: canMaintain ? "pointer" : "default",
+        }}
+      >
+        🔧 Underhåll +15 skick ({msek(maintainCost)})
+      </button>
+
+      {/* Engångs-uppgraderingar */}
       <div style={S.upgRow}>
         {UPGRADES.map((u) => {
           const done = p.upgrades.includes(u.id);
@@ -101,6 +169,7 @@ export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
           );
         })}
       </div>
+
       <button style={S.sellBtn} onClick={() => dispatch({ type: "SELL", id: p.id })}>
         Sälj för {msek(value)}
       </button>
