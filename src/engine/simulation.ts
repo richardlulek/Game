@@ -3,15 +3,19 @@
    Logiken är oförändrad från prototypen.
    ============================================================ */
 
-import { DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
+import { AI_NAMES, DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
+import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
-import { kr } from "./format";
+import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
-import { pick, rnd } from "./random";
-import type { GameState, LogEntry } from "./types";
+import { newId, pick, rnd } from "./random";
+import type { GameState, LogEntry, Offer } from "./types";
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
 export function advanceMonth(state: GameState): GameState {
+  // Ett pågående beslut måste lösas innan spelet kan gå vidare.
+  if (state.pendingDecision) return state;
+
   let s: GameState = { ...state };
   let monthlyNOI = 0;
   const events: LogEntry[] = [];
@@ -120,6 +124,53 @@ export function advanceMonth(state: GameState): GameState {
       t: `🏷️ En konkurrent köpte ${taken.typeLabel} i ${taken.districtName} före dig.`,
       kind: "event",
     });
+  }
+
+  // ── Inkommande bud på dina fastigheter ──────────────────────────
+  // Räkna ner befintliga bud, släng utgångna.
+  let offers: Offer[] = (s.offers ?? [])
+    .map((o) => ({ ...o, expiresIn: o.expiresIn - 1 }))
+    .filter((o) => {
+      if (o.expiresIn <= 0) {
+        events.push({ t: `⌛ Budet på ${o.propLabel} i ${o.districtName} drogs tillbaka.`, kind: "info" });
+        return false;
+      }
+      // Behåll bara bud på fastigheter du fortfarande äger.
+      return s.portfolio.some((p) => p.id === o.propId);
+    });
+  // Nytt bud (~9 %): en rival vill köpa en av dina färdiga fastigheter över marknadsvärde.
+  const buyoutCandidates = s.portfolio.filter(
+    (p) => p.status === "klar" && !offers.some((o) => o.propId === p.id),
+  );
+  if (buyoutCandidates.length > 0 && Math.random() < 0.09) {
+    const target = pick(buyoutCandidates);
+    const premium = rnd(1.1, 1.4);
+    const amount = Math.round(propMarketValue(target, s) * premium);
+    offers = [
+      ...offers,
+      {
+        id: newId(),
+        kind: "buyout",
+        propId: target.id,
+        propLabel: target.typeLabel,
+        districtName: target.districtName,
+        from: pick(AI_NAMES),
+        amount,
+        expiresIn: 3,
+      },
+    ];
+    events.push({
+      t: `📨 ${offers[offers.length - 1].from} bjuder ${msek(amount)} för din ${target.typeLabel} i ${target.districtName}.`,
+      kind: "event",
+    });
+  }
+  s.offers = offers;
+
+  // ── Beslutshändelse (~6 %) ──────────────────────────────────────
+  if (Math.random() < 0.06) {
+    const decision = makeDecision(s);
+    s.pendingDecision = decision;
+    events.push({ t: `🤔 Beslut krävs: ${decision.title}`, kind: "event" });
   }
 
   // Tid

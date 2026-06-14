@@ -7,10 +7,12 @@
      • bygger   → byggarbetsplats med kran
    ============================================================ */
 
+import { seasonOf } from "../engine/season";
 import type { Property, PropTypeKey } from "../engine/types";
 
 interface Props {
   p: Property;
+  month?: number;
 }
 
 const SKY: Record<PropTypeKey, [string, string]> = {
@@ -68,16 +70,17 @@ function windowGrid(
   return out;
 }
 
-export function BuildingArt({ p }: Props) {
+export function BuildingArt({ p, month }: Props) {
   const gid = `sky-${p.id}`;
-  const sky = SKY[p.type];
+  const winter = month !== undefined && seasonOf(month) === "vinter";
+  const sky = winter ? (["#c2d2e0", "#e6eef5"] as [string, string]) : SKY[p.type];
   const wall = WALL[p.type];
   const dark = DARK_GLASS[p.type];
   const occ = p.capacity > 0 ? p.tenants.length / p.capacity : 0;
   const grime = Math.max(0, (100 - p.condition) / 100); // 0 fint … 1 slitet
   const building = p.status === "bygger"
     ? <Construction wall={wall} />
-    : <Finished type={p.type} wall={wall} dark={dark} occ={occ} grime={grime} id={p.id} />;
+    : <Finished type={p.type} wall={wall} dark={dark} occ={occ} grime={grime} id={p.id} winter={winter} />;
 
   return (
     <svg
@@ -94,12 +97,12 @@ export function BuildingArt({ p }: Props) {
       </defs>
       {/* Himmel */}
       <rect width="160" height="100" fill={`url(#${gid})`} />
-      {/* Sol/måne-skugga */}
-      <circle cx="132" cy="22" r="11" fill="#fff" opacity="0.5" />
+      {/* Sol/måne */}
+      <circle cx="132" cy="22" r="11" fill="#fff" opacity={winter ? 0.4 : 0.55} />
       {building}
       {/* Mark */}
-      <rect x="0" y={GY} width="160" height={100 - GY} fill="#c9c0b2" />
-      <rect x="0" y={GY} width="160" height="2.5" fill="#b3a896" />
+      <rect x="0" y={GY} width="160" height={100 - GY} fill={winter ? "#e9eef2" : "#c9c0b2"} />
+      <rect x="0" y={GY} width="160" height="2.5" fill={winter ? "#d2dae0" : "#b3a896"} />
     </svg>
   );
 }
@@ -107,7 +110,7 @@ export function BuildingArt({ p }: Props) {
 // ── Färdig byggnad per typ ──────────────────────────────────────
 
 function Finished({
-  type, wall, dark, occ, grime, id,
+  type, wall, dark, occ, grime, id, winter,
 }: {
   type: PropTypeKey;
   wall: { light: string; dark: string; roof: string };
@@ -115,8 +118,11 @@ function Finished({
   occ: number;
   grime: number;
   id: number;
+  winter: boolean;
 }) {
   const lit = (n: number) => Math.round(occ * n);
+  const snow = (x: number, y: number, w: number, h = 3) =>
+    winter ? <rect x={x} y={y} width={w} height={h} rx={1.5} fill="#fbfdff" opacity="0.95" /> : null;
 
   if (type === "bostad") {
     const cols = 4, rows = 3, total = cols * rows;
@@ -127,6 +133,7 @@ function Finished({
         <rect x="112" y="34" width="12" height={GY - 34} fill={wall.dark} opacity="0.55" />
         {/* Tak */}
         <rect x="32" y="28" width="96" height="8" rx="1.5" fill={wall.roof} />
+        {snow(31, 26, 98)}
         {/* Slitage */}
         <Grime x={36} y={28} w={88} h={GY - 28} amount={grime} />
         {/* Fönster */}
@@ -144,6 +151,7 @@ function Finished({
         <rect x="54" y="16" width="52" height={GY - 16} fill={wall.light} />
         <rect x="96" y="16" width="10" height={GY - 16} fill={wall.dark} opacity="0.5" />
         <rect x="52" y="12" width="56" height="6" rx="1.5" fill={wall.roof} />
+        {snow(52, 10, 56, 2.5)}
         {/* Antenn */}
         <line x1="80" y1="12" x2="80" y2="3" stroke="#888" strokeWidth="1.4" />
         <circle cx="80" cy="3" r="1.6" fill="#c0392b" />
@@ -165,6 +173,7 @@ function Finished({
       <g>
         <rect x="28" y="46" width="104" height={GY - 46} fill={wall.light} />
         <rect x="24" y="40" width="112" height="7" rx="1.5" fill={wall.roof} />
+        {snow(24, 38, 112)}
         {/* Skyltband */}
         <rect x="28" y="47" width="104" height="9" fill={wall.dark} opacity="0.6" />
         <Grime x={28} y={40} w={104} h={GY - 40} amount={grime} />
@@ -197,10 +206,14 @@ function Finished({
           <g key={i}>
             <polygon points={`${x},48 ${x + 14},38 ${x + 29},48`} fill={wall.dark} />
             <polygon points={`${x + 14},38 ${x + 29},48 ${x + 29},44 ${x + 14},34`} fill={dark} opacity="0.7" />
+            {winter && <polygon points={`${x},48 ${x + 14},38 ${x + 16},40 ${x + 3},48`} fill="#fbfdff" opacity="0.9" />}
           </g>
         );
       })}
       <Grime x={22} y={38} w={116} h={GY - 38} amount={grime} />
+      {/* Skorsten + rök */}
+      <rect x="123" y="34" width="6" height="14" fill={wall.dark} />
+      <Smoke x={126} />
       {/* Höga fönster */}
       {windowGrid(30, 52, 100, 12, 6, 1, Math.round(occ * total), dark)}
       {/* Portar */}
@@ -209,8 +222,21 @@ function Finished({
         <line key={i} x1="40" y1={GY - 18 + i * 5} x2="68" y2={GY - 18 + i * 5} stroke={wall.roof} strokeWidth="1" opacity="0.5" />
       ))}
       <rect x="86" y={GY - 22} width="28" height="22" fill={wall.dark} />
-      {/* Ventil på tak */}
-      {id % 2 === 0 && <rect x="120" y="42" width="8" height="8" fill="#888" />}
+    </g>
+  );
+}
+
+// Animerad rök ur skorstenen (SMIL – inga beroenden).
+function Smoke({ x }: { x: number }) {
+  return (
+    <g>
+      {[0, 1, 2].map((i) => (
+        <circle key={i} cx={x} cy="34" r="2" fill="#cfd4d9">
+          <animate attributeName="cy" from="34" to="12" dur="3s" begin={`${i}s`} repeatCount="indefinite" />
+          <animate attributeName="r" from="1.5" to="4.5" dur="3s" begin={`${i}s`} repeatCount="indefinite" />
+          <animate attributeName="opacity" from="0.5" to="0" dur="3s" begin={`${i}s`} repeatCount="indefinite" />
+        </circle>
+      ))}
     </g>
   );
 }

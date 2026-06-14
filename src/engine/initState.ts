@@ -26,6 +26,8 @@ export function initState(): GameState {
     log: [{ t: "Du startar med 5 MSEK eget kapital. Lycka till!", kind: "info" }],
     history: [{ month: 0, equity: 5_000_000 }],
     gameOver: false,
+    offers: [],
+    pendingDecision: null,
   };
   for (let i = 0; i < 6; i++) base.listings.push(genListing(base));
   for (let i = 0; i < 3; i++) base.lots.push(genLot(base));

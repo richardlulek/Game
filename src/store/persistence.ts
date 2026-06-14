@@ -10,7 +10,7 @@ import type { GameState } from "../engine/types";
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 interface SaveFile {
   version: number;
@@ -38,6 +38,11 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       capacity: Math.min(4, Math.floor((p.area ?? 1000) / 1000) + 1),
       tenant: undefined,
     })),
+  }),
+  3: (s) => ({
+    ...s,
+    offers: (s as any).offers ?? [],
+    pendingDecision: (s as any).pendingDecision ?? null,
   }),
 };
 

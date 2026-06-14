@@ -7,8 +7,17 @@ import { DISTRICTS, PROP_TYPES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
+import { seasonOf } from "../engine/season";
 import type { District, GameAction, GameState, Lot, Property, PropTypeKey } from "../engine/types";
 import { BURGUNDY } from "../styles/tokens";
+
+// Säsongstint som läggs över hela kartan (låg opacitet → stämning).
+const SEASON_TINT: Record<string, { color: string; opacity: number }> = {
+  vinter: { color: "#dfeaf2", opacity: 0.24 },
+  vår:    { color: "#d8f0d0", opacity: 0.07 },
+  sommar: { color: "#fff3c0", opacity: 0.08 },
+  höst:   { color: "#e8b870", opacity: 0.13 },
+};
 
 // ── Kartgeometri (SVG viewBox 640 × 480) ──────────────────────
 // Polygoner täcker hela ytan; bakgrunden agerar "hav".
@@ -105,6 +114,8 @@ export function MapPanel({ state, dispatch }: Props) {
 
   const selGeo = selected ? GEO.find((g) => g.id === selected) ?? null : null;
   const selData = selected ? byDistrict[selected] : null;
+  const season = seasonOf(state.month);
+  const tint = SEASON_TINT[season];
 
   return (
     <div style={{ paddingTop: 4 }}>
@@ -276,6 +287,33 @@ export function MapPanel({ state, dispatch }: Props) {
               </g>
             );
           })}
+
+          {/* Drivande moln */}
+          <g style={{ pointerEvents: "none" }} opacity="0.55">
+            <g>
+              <ellipse cx="0" cy="46" rx="26" ry="8" fill="#ffffff" />
+              <ellipse cx="20" cy="42" rx="18" ry="7" fill="#ffffff" />
+              <animateTransform attributeName="transform" type="translate" from="-70 0" to="710 0" dur="48s" repeatCount="indefinite" />
+            </g>
+            <g>
+              <ellipse cx="0" cy="78" rx="20" ry="6" fill="#ffffff" />
+              <ellipse cx="16" cy="74" rx="14" ry="5" fill="#ffffff" />
+              <animateTransform attributeName="transform" type="translate" from="-50 0" to="690 0" dur="72s" repeatCount="indefinite" />
+            </g>
+          </g>
+
+          {/* Liten båt i hamnvattnet */}
+          <g style={{ pointerEvents: "none" }}>
+            <g>
+              <polygon points="0,8 26,8 21,15 5,15" fill="#7a4a2e" />
+              <rect x="12" y="-6" width="1.5" height="14" fill="#5a3a22" />
+              <polygon points="13.5,-6 13.5,5 23,5" fill="#f4f0e8" />
+              <animateTransform attributeName="transform" type="translate" from="-40 460" to="700 460" dur="40s" repeatCount="indefinite" />
+            </g>
+          </g>
+
+          {/* Säsongstint över hela kartan */}
+          <rect width="640" height="480" fill={tint.color} opacity={tint.opacity} style={{ pointerEvents: "none" }} />
 
           {/* Kompassros */}
           <g transform="translate(614, 456)">

@@ -386,13 +386,62 @@ export function reducer(state: GameState, action: GameAction): GameState {
       for (let i = 0; i < 3; i++) lots.push(genLot(state));
       return { ...state, listings, lots };
     }
+    case "RESOLVE_DECISION": {
+      const d = state.pendingDecision;
+      if (!d) return state;
+      const opt = d.options[action.optionIndex];
+      if (!opt) return state;
+      const e = opt.effect;
+      let s: GameState = { ...state, pendingDecision: null };
+      if (e.cash) s.cash += e.cash;
+      if (e.reputation) s.reputation = Math.max(0, Math.min(100, s.reputation + e.reputation));
+      if (e.demandMod) s.demandMod = +(s.demandMod * e.demandMod).toFixed(3);
+      if (e.marketMod) s.marketMod = +(s.marketMod * e.marketMod).toFixed(3);
+      if (e.taxMod) s.taxMod = +(s.taxMod * e.taxMod).toFixed(3);
+      if (e.addLot) s = { ...s, lots: [...s.lots, genLot(s)] };
+      return { ...s, log: [{ t: e.log, kind: e.logKind }, ...s.log] };
+    }
+    case "ACCEPT_OFFER": {
+      const offer = (state.offers ?? []).find((o) => o.id === action.offerId);
+      if (!offer) return state;
+      const p = state.portfolio.find((x) => x.id === offer.propId);
+      if (!p) return { ...state, offers: state.offers.filter((o) => o.id !== offer.id) };
+      const payoff = Math.min(state.debt, (p.purchasePrice || offer.amount) * 0.6);
+      return {
+        ...state,
+        cash: state.cash + (offer.amount - payoff),
+        debt: Math.max(0, state.debt - payoff),
+        reputation: Math.min(100, state.reputation + 1),
+        portfolio: state.portfolio.filter((x) => x.id !== p.id),
+        offers: state.offers.filter((o) => o.id !== offer.id),
+        log: [
+          {
+            t: `Accepterade bud: sålde ${p.typeLabel} i ${p.districtName} till ${offer.from} för ${msek(offer.amount)}.`,
+            kind: "sell",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "DECLINE_OFFER": {
+      const offer = (state.offers ?? []).find((o) => o.id === action.offerId);
+      if (!offer) return state;
+      return {
+        ...state,
+        offers: state.offers.filter((o) => o.id !== offer.id),
+        log: [
+          { t: `Avböjde ${offer.from}s bud på ${offer.propLabel} i ${offer.districtName}.`, kind: "info" },
+          ...state.log,
+        ],
+      };
+    }
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {
       let s = state;
       const n = Math.min(action.months, 24);
       for (let i = 0; i < n; i++) {
-        if (s.gameOver) break;
+        if (s.gameOver || s.pendingDecision) break;
         s = advanceMonth(s);
       }
       return s;

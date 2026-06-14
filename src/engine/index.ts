@@ -13,3 +13,4 @@ export * from "./generators";
 export * from "./simulation";
 export * from "./reducer";
 export * from "./initState";
+export * from "./season";

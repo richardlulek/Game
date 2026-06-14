@@ -198,3 +198,12 @@ export const RARE_EVENTS: GameEvent[] = [
 ];
 
 export const AI_NAMES = ["Nordhem Fastigheter", "Brunnsparken Invest", "Kustlinjen AB"];
+
+/** Affärsnamn per hyresgästprofil – ger varje kontrakt en egen identitet. */
+export const TENANT_NAMES: Record<string, string[]> = {
+  stat: ["Skatteverket", "Försäkringskassan", "Lantmäteriet", "Arbetsförmedlingen", "Migrationsverket"],
+  kedja: ["ICA Nära", "Espresso House", "Apoteket", "Systembolaget", "Clas Ohlson", "Pressbyrån", "Hemtex"],
+  smb: ["Café Lyckan", "Berg & Co Redovisning", "Nordvik Tandvård", "Studio Form", "Bokhandeln Pagina", "Frisör Saxon"],
+  privat: ["Familjen Andersson", "Familjen Lindqvist", "Erik & Sofia", "Familjen Öberg", "Familjen Holm"],
+  startup: ["Pixelplay AB", "Greenmile Tech", "Fjord Analytics", "Loopa", "Nordbyte", "Tindra Studio"],
+};

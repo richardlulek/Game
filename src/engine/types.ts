@@ -57,11 +57,52 @@ export interface Tenant {
   id: number;
   profile: string;
   name: string;
+  /** Kategorin (t.ex. "Etablerad kedja") – name är numera affärsnamnet. */
+  profileName?: string;
   quality: number;
   defaultRisk: number;
   monthsLeft: number;
   termTotal: number;
   rent: number;
+}
+
+/** Ett inkommande erbjudande (t.ex. en rival som vill köpa din fastighet). */
+export interface Offer {
+  id: number;
+  kind: "buyout";
+  propId: number;
+  propLabel: string;
+  districtName: string;
+  from: string;
+  amount: number;
+  expiresIn: number;
+}
+
+/** Ett val som spelaren måste ta ställning till innan spelet kan gå vidare. */
+export interface PendingDecision {
+  id: string;
+  title: string;
+  text: string;
+  options: DecisionOption[];
+}
+
+/** Ett alternativ i ett beslut – effekten är ren data (serialiserbar). */
+export interface DecisionOption {
+  label: string;
+  detail: string;
+  effect: DecisionEffect;
+}
+
+/** Deterministisk, serialiserbar effekt av ett beslutsalternativ. */
+export interface DecisionEffect {
+  cash?: number;
+  reputation?: number;
+  demandMod?: number;
+  marketMod?: number;
+  taxMod?: number;
+  addLot?: boolean;
+  log: string;
+  logKind: LogKind;
 }
 
 /** En fastighet (till salu eller ägd). */
@@ -154,6 +195,8 @@ export interface GameState {
   log: LogEntry[];
   history: HistoryPoint[];
   gameOver: boolean;
+  offers: Offer[];
+  pendingDecision: PendingDecision | null;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -175,6 +218,9 @@ export type GameAction =
   | { type: "TOGGLE_MANAGER"; id: number }
   | { type: "MARKET_BOOST"; id: number }
   | { type: "REFRESH_LISTINGS" }
+  | { type: "RESOLVE_DECISION"; optionIndex: number }
+  | { type: "ACCEPT_OFFER"; offerId: number }
+  | { type: "DECLINE_OFFER"; offerId: number }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

@@ -34,7 +34,7 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
   return (
     <div style={S.card}>
       <div style={listingBanner}>
-        <BuildingArt p={p} />
+        <BuildingArt p={p} month={state.month} />
         <div style={listingOverlay}>
           <span style={S.badge}>{p.typeLabel}</span>
           <span style={listingDistrict}>{p.districtName}</span>

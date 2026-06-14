@@ -20,6 +20,8 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     log: [],
     history: [{ month: 0, equity: 5_000_000 }],
     gameOver: false,
+    offers: [],
+    pendingDecision: null,
     ...over,
   };
 }

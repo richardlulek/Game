@@ -96,7 +96,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
     const progress = 1 - p.buildLeft / PROP_TYPES[p.type].buildMonths;
     return (
       <div style={card}>
-        <CardHeader p={p} />
+        <CardHeader p={p} month={state.month} />
         <div style={valueRow}>
           <span style={valueText}>🏗️ Under byggnation</span>
         </div>
@@ -115,7 +115,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
   return (
     <div style={card}>
-      <CardHeader p={p} managed={p.managed} />
+      <CardHeader p={p} managed={p.managed} month={state.month} />
 
       {/* ── Värde ──────────────────────────────────────────────── */}
       <div style={valueRow}>
@@ -233,7 +233,10 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
             {/* Tenant header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <div style={tenantName}>{t.name}</div>
+                <div style={{ display: "flex", gap: 7, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <span style={tenantName}>{t.name}</span>
+                  {t.profileName && <span style={profileTag}>{t.profileName}</span>}
+                </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 3 }}>
                   <span style={tenantMeta}>{kr(t.rent)}/mån</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: marketChip.color }}>
@@ -497,10 +500,10 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
 // ── Sub-komponenter ─────────────────────────────────────────────
 
-function CardHeader({ p, managed }: { p: Property; managed?: boolean }) {
+function CardHeader({ p, managed, month }: { p: Property; managed?: boolean; month?: number }) {
   return (
     <div style={banner}>
-      <BuildingArt p={p} />
+      <BuildingArt p={p} month={month} />
       <div style={bannerOverlay}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span style={badge}>{p.typeLabel}</span>
@@ -673,6 +676,10 @@ const tenantBox: React.CSSProperties = {
   background: "#f7f2f8", borderRadius: 10, padding: "10px 12px", marginBottom: 6,
 };
 const tenantName: React.CSSProperties = { fontWeight: 700, fontSize: 14, color: BURGUNDY };
+const profileTag: React.CSSProperties = {
+  fontSize: 10, fontWeight: 600, color: "#5a7a4a", background: "#eef3ee",
+  padding: "1px 6px", borderRadius: 8,
+};
 const tenantMeta: React.CSSProperties = { fontSize: 12, color: "#666" };
 const vacantBox: React.CSSProperties = {
   background: "#fff8f0", border: "1px dashed #e8c090",

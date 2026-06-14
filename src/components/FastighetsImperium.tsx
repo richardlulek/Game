@@ -1,18 +1,23 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { propNOI } from "../engine/property";
 import { useGameStore } from "../store/gameStore";
 import { S } from "../styles/styles";
 import { BURGUNDY } from "../styles/tokens";
+import { Animations } from "./Animations";
 import { BuildPanel } from "./BuildPanel";
+import { DecisionModal } from "./DecisionModal";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
 import { ListingCard } from "./ListingCard";
 import { LogPanel } from "./LogPanel";
 import { MapPanel } from "./MapPanel";
+import { OffersModal } from "./OffersModal";
 import { PortfolioCard } from "./PortfolioCard";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
+import { Toasts } from "./Toasts";
 import { Toolbar } from "./Toolbar";
 
 const TABS = [
@@ -31,10 +36,25 @@ export default function FastighetsImperium() {
   const save     = useGameStore((s) => s.save);
   const load     = useGameStore((s) => s.load);
 
-  const [tab, setTab]     = useState("portfolio");
-  const [saved, setSaved] = useState(false);
+  const [tab, setTab]         = useState("portfolio");
+  const [saved, setSaved]     = useState(false);
+  const [showOffers, setShowOffers] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
+
+  // Månadspuls – ett kort svep när månaden växlar.
+  const [pulseKey, setPulseKey] = useState(0);
+  const absMonth = state.year * 12 + state.month;
+  const prevMonth = useRef(absMonth);
+  useEffect(() => {
+    if (absMonth !== prevMonth.current) {
+      prevMonth.current = absMonth;
+      setPulseKey((k) => k + 1);
+    }
+  }, [absMonth]);
 
   const doSave = () => { save(); setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  const toggleSound = () => { const v = !soundOn; setSoundEnabled(v); setSoundOn(v); };
+  const offersCount = (state.offers ?? []).length;
 
   const equity          = equityOf(state);
   const monthlyNOI      = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
@@ -46,8 +66,14 @@ export default function FastighetsImperium() {
 
   return (
     <div style={S.appLayout}>
+      <Animations />
+
       {/* ── Toolbar ─────────────────────────────────────────── */}
-      <Toolbar state={state} dispatch={dispatch} saved={saved} onSave={doSave} onLoad={load} />
+      <Toolbar
+        state={state} dispatch={dispatch} saved={saved} onSave={doSave} onLoad={load}
+        offersCount={offersCount} onOpenOffers={() => setShowOffers(true)}
+        soundOn={soundOn} onToggleSound={toggleSound}
+      />
 
       {/* ── Game-over banner ────────────────────────────────── */}
       {state.gameOver && (
@@ -145,6 +171,25 @@ export default function FastighetsImperium() {
         terms={terms} monthlyNOI={monthlyNOI}
         monthlyInterest={monthlyInterest} myRank={myRank}
       />
+
+      {/* ── Månadspuls ──────────────────────────────────────── */}
+      {pulseKey > 0 && (
+        <div
+          key={pulseKey}
+          style={{
+            position: "fixed", inset: 0, pointerEvents: "none", zIndex: 900,
+            background: `radial-gradient(circle at 50% 0%, ${BURGUNDY}22, transparent 60%)`,
+            animation: "fi-month-pulse 0.7s ease-out",
+          }}
+        />
+      )}
+
+      {/* ── Reaktiva lager ──────────────────────────────────── */}
+      <Toasts log={state.log} />
+      {showOffers && (
+        <OffersModal state={state} dispatch={dispatch} onClose={() => setShowOffers(false)} />
+      )}
+      <DecisionModal state={state} dispatch={dispatch} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
    Använder Math.random (samma beteende som prototypen).
    ============================================================ */
 
-import { DISTRICTS, PROP_TYPES, TENANT_PROFILES } from "./data";
+import { DISTRICTS, PROP_TYPES, TENANT_NAMES, TENANT_PROFILES } from "./data";
 import { newId, pick, rnd } from "./random";
 import type { GameState, Lot, Property, Tenant } from "./types";
 
@@ -24,10 +24,12 @@ export function makeTenant(baseRent: number, demandMod: number, condition: numbe
   if (eligible.length === 0) eligible = TENANT_PROFILES;
   const prof = pick(eligible);
   const term = Math.round(rnd(prof.termMin, prof.termMax));
+  const names = TENANT_NAMES[prof.id] ?? [prof.name];
   return {
     id: newId(),
     profile: prof.id,
-    name: prof.name,
+    name: pick(names),
+    profileName: prof.name,
     quality: prof.quality,
     defaultRisk: prof.defaultRisk,
     monthsLeft: term,
