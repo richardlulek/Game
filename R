@@ -1,0 +1,4 @@
+git clone fastighetsimperium.bundle fastighetsimperium
+cd fastighetsimperium
+git remote set-url origin https://github.com/<ditt-användarnamn>/fastighetsimperium.git
+git push -u origin main
