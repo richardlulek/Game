@@ -1,178 +1,395 @@
+import { PROP_TYPES, UPGRADES } from "../engine/data";
 import { kr, msek } from "../engine/format";
 import { propMarketValue, propNOI, propPotentialRent } from "../engine/property";
-import { PROP_TYPES, UPGRADES } from "../engine/data";
 import type { GameAction, GameState, Property } from "../engine/types";
-import { S } from "../styles/styles";
 import { BURGUNDY } from "../styles/tokens";
 import { CondBar } from "./CondBar";
 
-interface PortfolioCardProps {
+interface Props {
   p: Property;
   state: GameState;
   dispatch: (action: GameAction) => void;
 }
 
-export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
-  const value = propMarketValue(p, state);
-  const noi = propNOI(p, state);
-  const maintainCost = Math.round(value * 0.02);
-  const canMaintain = state.cash >= maintainCost && !state.gameOver;
+// Effekttexter för varje uppgradering
+const UPG_EFFECT: Record<string, string> = {
+  renovering:  "+18 % hyra · +35 skick",
+  energi:      "−20 % driftkostnad · +10 skick",
+  tillbygg:    "+25 % värde · +10 % hyra",
+  smart:       "−30 % vakans",
+};
 
+export function PortfolioCard({ p, state, dispatch }: Props) {
+  const value        = propMarketValue(p, state);
+  const noi          = propNOI(p, state);
+  const maintainCost = Math.round(value * 0.02);
+  const canMaintain  = state.cash >= maintainCost && !state.gameOver && p.status !== "bygger";
+
+  // ── Under byggnation ──────────────────────────────────────────
   if (p.status === "bygger") {
+    const progress = 1 - p.buildLeft / PROP_TYPES[p.type].buildMonths;
     return (
-      <div style={{ ...S.card, borderColor: BURGUNDY + "55" }}>
-        <div style={S.cardHead}>
-          <span style={S.badge}>{p.typeLabel}</span>
-          <span style={S.cardDistrict}>{p.districtName}</span>
+      <div style={card}>
+        <CardHeader p={p} />
+        <div style={valueRow}>
+          <span style={valueText}>🏗️ Under byggnation</span>
+          <span style={subText}>{p.buildLeft} månader kvar</span>
         </div>
-        <div style={{ ...S.cardValue, color: BURGUNDY }}>🏗️ Bygger</div>
-        <div style={S.cardRow}>
-          <span>Yta</span>
-          <strong>{p.area} m²</strong>
+        <div style={statRow}>
+          <Stat label="Yta" value={`${p.area} m²`} />
+          <Stat label="Klart" value={`om ${p.buildLeft} mån`} />
         </div>
-        <div style={S.cardRow}>
-          <span>Klart om</span>
-          <strong>{p.buildLeft} mån</strong>
+        <div style={progressWrap}>
+          <div style={{ ...progressFill, width: `${progress * 100}%` }} />
         </div>
-        <div style={{ ...S.condBar, marginTop: 8, width: "100%" }}>
-          <span
-            style={{
-              ...S.condFill,
-              width: `${100 - (p.buildLeft / PROP_TYPES[p.type].buildMonths) * 100}%`,
-              background: BURGUNDY,
-            }}
-          />
-        </div>
+        <div style={hint}>Nybygget är färdigt och hyresklart om {p.buildLeft} månader.</div>
       </div>
     );
   }
 
+  // ── Normal fastighet ──────────────────────────────────────────
   const contractExpiring = p.tenant && p.tenant.monthsLeft <= 12;
+  const canEvict         = !!p.tenant && !state.gameOver;
+  const canRenew         = !!contractExpiring && !state.gameOver;
 
   return (
-    <div style={S.card}>
-      <div style={S.cardHead}>
-        <span style={S.badge}>{p.typeLabel}</span>
-        <span style={S.cardDistrict}>{p.districtName}</span>
-      </div>
-      <div style={S.cardValue}>{msek(value)}</div>
-      <div style={S.cardRow}>
-        <span>Yta</span>
-        <strong>{p.area} m²</strong>
-      </div>
-      <div style={S.cardRow}>
-        <span>Skick</span>
-        <CondBar c={p.condition} />
+    <div style={card}>
+      {/* Rubrik */}
+      <CardHeader p={p} />
+
+      {/* Marknadsvärde */}
+      <div style={valueRow}>
+        <span style={valueText}>{msek(value)}</span>
+        <span style={subText}>marknadsvärde</span>
       </div>
 
+      {/* Snabbfakta */}
+      <div style={statRow}>
+        <Stat label="Yta" value={`${p.area} m²`} />
+        <StatBar label="Skick" c={p.condition} />
+        <Stat
+          label="NOI/mån"
+          value={kr(noi / 12)}
+          color={noi >= 0 ? "#27660a" : "#c0392b"}
+        />
+      </div>
+
+      <Divider />
+
+      {/* ── Hyresgäst / vakant ─────────────────────────────── */}
       {p.tenant ? (
-        <div style={S.tenantBox}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ fontWeight: 700, color: BURGUNDY }}>{p.tenant.name}</div>
-            <button
-              title="Säg upp hyresgästen (−3 reputation)"
-              onClick={() => dispatch({ type: "EVICT", id: p.id })}
-              disabled={state.gameOver}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#c0392b",
-                fontSize: 13,
-                cursor: "pointer",
-                padding: "0 2px",
-                fontWeight: 600,
-                opacity: state.gameOver ? 0.4 : 1,
-              }}
-            >
-              Säg upp
-            </button>
+        <div style={tenantBox}>
+          <div style={tenantHeader}>
+            <div>
+              <div style={tenantName}>{p.tenant.name}</div>
+              <div style={tenantMeta}>
+                {kr(p.tenant.rent)}/mån ·{" "}
+                <span style={{ color: contractExpiring ? "#c05000" : "#666" }}>
+                  {contractExpiring
+                    ? `⚠ kontrakt löper ut om ${p.tenant.monthsLeft} mån`
+                    : `${p.tenant.monthsLeft} mån kvar`}
+                </span>
+              </div>
+            </div>
           </div>
-          <div style={S.cardRow}>
-            <span>Hyra/mån</span>
-            <strong>{kr(p.tenant.rent)}</strong>
-          </div>
-          <div style={{ ...S.cardRow, marginTop: 2 }}>
-            <span style={{ color: contractExpiring ? "#c05000" : undefined }}>
-              {contractExpiring ? `⚠ ${p.tenant.monthsLeft} mån kvar` : `Kontrakt ${p.tenant.monthsLeft} mån`}
-            </span>
-            {contractExpiring && (
-              <button
+
+          <div style={actionRow}>
+            {canRenew && (
+              <ActionBtn
+                label="Förläng kontrakt"
+                sub="+1 reputation · ny period"
+                color="#27660a"
                 onClick={() => dispatch({ type: "RENEW_LEASE", id: p.id })}
-                disabled={state.gameOver}
-                style={{
-                  background: "#27660a",
-                  color: "#fff",
-                  border: "none",
-                  padding: "3px 10px",
-                  borderRadius: 6,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: state.gameOver ? "default" : "pointer",
-                  opacity: state.gameOver ? 0.5 : 1,
-                }}
-              >
-                Förläng
-              </button>
+              />
             )}
+            <ActionBtn
+              label="Säg upp hyresgäst"
+              sub="−3 reputation · lokalen töms"
+              color="#a03010"
+              disabled={!canEvict}
+              onClick={() => dispatch({ type: "EVICT", id: p.id })}
+            />
           </div>
         </div>
       ) : (
-        <div style={S.vacantBox}>
-          <span>Vakant — potential {kr(propPotentialRent(p, state) / 12)}/mån</span>
-          <button style={S.leaseBtn} onClick={() => dispatch({ type: "LEASE", id: p.id })}>
-            Hyr ut
-          </button>
+        <div style={vacantBox}>
+          <div style={vacantTitle}>⚠ Vakant lokal</div>
+          <div style={vacantSub}>Potentiell hyra: {kr(propPotentialRent(p, state) / 12)}/mån</div>
+          <ActionBtn
+            label="Hyr ut"
+            sub="Hitta hyresgäst automatiskt"
+            color={BURGUNDY}
+            disabled={state.gameOver}
+            onClick={() => dispatch({ type: "LEASE", id: p.id })}
+          />
         </div>
       )}
 
-      <div style={S.cardRow}>
-        <span>Driftnetto/år</span>
-        <strong style={{ color: noi >= 0 ? "#27660a" : "#c0392b" }}>{kr(noi)}</strong>
-      </div>
+      <Divider />
 
-      {/* Underhåll – repeaterbar skickförbättring */}
-      <button
-        onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
+      {/* ── Investeringar ──────────────────────────────────── */}
+      <div style={sectionLabel}>Investeringar</div>
+
+      {/* Underhåll */}
+      <ActionBtn
+        label={`🔧 Underhåll  · ${msek(maintainCost)}`}
+        sub="+15 skick · minskar vakans och hyrestapp"
+        color={canMaintain ? "#2a6a1a" : undefined}
         disabled={!canMaintain}
-        title={`Kostar ${msek(maintainCost)} och ger +15 skick`}
-        style={{
-          width: "100%",
-          marginTop: 10,
-          background: canMaintain ? "#f0f6ee" : "#f5f5f5",
-          border: `1px solid ${canMaintain ? "#6aaa5a" : "#ddd"}`,
-          color: canMaintain ? "#2a6a1a" : "#aaa",
-          padding: "7px",
-          borderRadius: 8,
-          fontWeight: 600,
-          fontSize: 12,
-          cursor: canMaintain ? "pointer" : "default",
-        }}
-      >
-        🔧 Underhåll +15 skick ({msek(maintainCost)})
-      </button>
+        onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
+      />
 
-      {/* Engångs-uppgraderingar */}
-      <div style={S.upgRow}>
-        {UPGRADES.map((u) => {
-          const done = p.upgrades.includes(u.id);
-          return (
-            <button
-              key={u.id}
-              disabled={done}
-              title={`${u.desc} (${msek(value * u.cost)})`}
-              onClick={() => dispatch({ type: "UPGRADE", id: p.id, upg: u.id })}
-              style={{ ...S.upgBtn, ...(done ? S.upgDone : {}) }}
-            >
-              {done ? "✓ " : ""}
-              {u.name}
-            </button>
-          );
-        })}
-      </div>
+      {/* Engångsuppgraderingar */}
+      {UPGRADES.map((u) => {
+        const done    = p.upgrades.includes(u.id);
+        const cost    = Math.round(value * u.cost);
+        const canDo   = !done && state.cash >= cost && !state.gameOver;
+        return (
+          <ActionBtn
+            key={u.id}
+            label={done ? `✓ ${u.name}` : `${u.name}  · ${msek(cost)}`}
+            sub={UPG_EFFECT[u.id] ?? u.desc}
+            color={done ? "#27660a" : canDo ? "#5a2a3a" : undefined}
+            done={done}
+            disabled={done || !canDo}
+            onClick={() => dispatch({ type: "UPGRADE", id: p.id, upg: u.id })}
+          />
+        );
+      })}
 
-      <button style={S.sellBtn} onClick={() => dispatch({ type: "SELL", id: p.id })}>
-        Sälj för {msek(value)}
-      </button>
+      <Divider />
+
+      {/* Sälj */}
+      <ActionBtn
+        label={`Sälj fastighet  · ${msek(value)}`}
+        sub="Realiserar vinst/förlust mot inköpspris"
+        color="#7a5a00"
+        disabled={state.gameOver}
+        onClick={() => dispatch({ type: "SELL", id: p.id })}
+      />
     </div>
   );
 }
+
+// ── Sub-komponenter ────────────────────────────────────────────
+
+function CardHeader({ p }: { p: Property }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <span style={badge}>{p.typeLabel}</span>
+      <span style={districtText}>{p.districtName}</span>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div style={{ flex: 1 }}>
+      <div style={statLabel}>{label}</div>
+      <div style={{ ...statValue, color: color ?? "#1a1a1a" }}>{value}</div>
+    </div>
+  );
+}
+
+function StatBar({ label, c }: { label: string; c: number }) {
+  return (
+    <div style={{ flex: 1 }}>
+      <div style={statLabel}>{label}</div>
+      <CondBar c={c} />
+    </div>
+  );
+}
+
+function Divider() {
+  return <div style={{ height: 1, background: "#f0ece8", margin: "10px 0" }} />;
+}
+
+interface ActionBtnProps {
+  label: string;
+  sub: string;
+  color?: string;
+  disabled?: boolean;
+  done?: boolean;
+  onClick: () => void;
+}
+
+function ActionBtn({ label, sub, color, disabled, done, onClick }: ActionBtnProps) {
+  const bg = disabled
+    ? (done ? "#eef5ee" : "#f5f5f5")
+    : color
+      ? color + "18"
+      : "#f5f0ed";
+
+  const border = disabled
+    ? (done ? "#27660a33" : "#e8e8e8")
+    : color
+      ? color + "55"
+      : "#ddd";
+
+  const textColor = disabled
+    ? (done ? "#27660a" : "#aaa")
+    : color ?? "#333";
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        marginTop: 7,
+        padding: "9px 12px",
+        borderRadius: 8,
+        border: `1px solid ${border}`,
+        background: bg,
+        cursor: disabled ? "default" : "pointer",
+      }}
+    >
+      <div style={{ fontWeight: 700, fontSize: 13, color: textColor }}>{label}</div>
+      <div style={{ fontSize: 11, color: disabled ? "#bbb" : "#888", marginTop: 2 }}>{sub}</div>
+    </button>
+  );
+}
+
+// ── Stilkonstanter ──────────────────────────────────────────────
+
+const card: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #eee",
+  borderRadius: 14,
+  padding: 16,
+  boxShadow: "0 2px 8px rgba(0,0,0,.05)",
+};
+
+const badge: React.CSSProperties = {
+  background: BURGUNDY,
+  color: "#fff",
+  fontSize: 11,
+  fontWeight: 700,
+  padding: "3px 10px",
+  borderRadius: 6,
+};
+
+const districtText: React.CSSProperties = {
+  fontSize: 12,
+  color: "#888",
+  fontWeight: 600,
+};
+
+const valueRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: 6,
+  marginBottom: 10,
+};
+
+const valueText: React.CSSProperties = {
+  fontSize: 24,
+  fontWeight: 800,
+  color: "#1a1a1a",
+};
+
+const subText: React.CSSProperties = {
+  fontSize: 12,
+  color: "#999",
+};
+
+const statRow: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  marginBottom: 4,
+};
+
+const statLabel: React.CSSProperties = {
+  fontSize: 10,
+  color: "#aaa",
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+  marginBottom: 2,
+};
+
+const statValue: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+const tenantBox: React.CSSProperties = {
+  background: "#f7f2f8",
+  borderRadius: 10,
+  padding: "10px 12px",
+};
+
+const tenantHeader: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  marginBottom: 6,
+};
+
+const tenantName: React.CSSProperties = {
+  fontWeight: 700,
+  fontSize: 14,
+  color: BURGUNDY,
+};
+
+const tenantMeta: React.CSSProperties = {
+  fontSize: 12,
+  color: "#666",
+  marginTop: 2,
+};
+
+const actionRow: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 0,
+};
+
+const vacantBox: React.CSSProperties = {
+  background: "#fff8f0",
+  border: "1px dashed #e8c090",
+  borderRadius: 10,
+  padding: "10px 12px",
+};
+
+const vacantTitle: React.CSSProperties = {
+  fontWeight: 700,
+  fontSize: 13,
+  color: "#a05000",
+};
+
+const vacantSub: React.CSSProperties = {
+  fontSize: 12,
+  color: "#a06820",
+  marginBottom: 6,
+};
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: "#aaa",
+  textTransform: "uppercase",
+  letterSpacing: 1,
+  marginBottom: 2,
+};
+
+const progressWrap: React.CSSProperties = {
+  height: 8,
+  background: "#eee",
+  borderRadius: 4,
+  overflow: "hidden",
+  margin: "10px 0",
+};
+
+const progressFill: React.CSSProperties = {
+  height: "100%",
+  background: BURGUNDY,
+  borderRadius: 4,
+  transition: "width 0.3s",
+};
+
+const hint: React.CSSProperties = {
+  fontSize: 12,
+  color: "#999",
+  marginTop: 4,
+};
