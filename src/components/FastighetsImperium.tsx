@@ -7,139 +7,182 @@ import { BURGUNDY } from "../styles/tokens";
 import { BuildPanel } from "./BuildPanel";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
+import { ListingCard } from "./ListingCard";
 import { LogPanel } from "./LogPanel";
 import { MapPanel } from "./MapPanel";
-import { MarketTable } from "./MarketTable";
-import { PortfolioTable } from "./PortfolioTable";
+import { PortfolioCard } from "./PortfolioCard";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
 import { Toolbar } from "./Toolbar";
-import { msek } from "../engine/format";
+
+const TABS = [
+  { id: "portfolio", label: "Portfölj" },
+  { id: "market",    label: "Marknad" },
+  { id: "map",       label: "Karta" },
+  { id: "build",     label: "Bygg" },
+  { id: "finance",   label: "Finans" },
+  { id: "rivals",    label: "Topp" },
+  { id: "log",       label: "Logg" },
+];
 
 export default function FastighetsImperium() {
-  const state = useGameStore((s) => s.state);
+  const state    = useGameStore((s) => s.state);
   const dispatch = useGameStore((s) => s.dispatch);
-  const save = useGameStore((s) => s.save);
-  const load = useGameStore((s) => s.load);
+  const save     = useGameStore((s) => s.save);
+  const load     = useGameStore((s) => s.load);
 
-  const [tab, setTab] = useState("portfolio");
+  const [tab, setTab]     = useState("portfolio");
   const [saved, setSaved] = useState(false);
 
-  const doSave = () => {
-    save();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-  const doLoad = () => {
-    load();
-  };
+  const doSave = () => { save(); setSaved(true); setTimeout(() => setSaved(false), 1500); };
 
-  const equity = equityOf(state);
-  const monthlyNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
-  const terms = loanTerms(state);
+  const equity          = equityOf(state);
+  const monthlyNOI      = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
+  const terms           = loanTerms(state);
   const monthlyInterest = (state.debt * (terms.rate / 100)) / 12;
-  const ltv = ltvOf(state);
-  const myRank =
-    [...state.competitors.map((c) => c.equity), equity].sort((a, b) => b - a).indexOf(equity) + 1;
-
-  const panelTabs = [
-    { id: "portfolio", label: `Portfölj (${state.portfolio.length})` },
-    { id: "market", label: "Marknad" },
-    { id: "build", label: "Bygg" },
-    { id: "finance", label: "Finans" },
-    { id: "rivals", label: "Konk." },
-    { id: "log", label: "Logg" },
-  ];
+  const ltv             = ltvOf(state);
+  const myRank          = [...state.competitors.map((c) => c.equity), equity]
+    .sort((a, b) => b - a).indexOf(equity) + 1;
 
   return (
     <div style={S.appLayout}>
-      {/* Toolbar */}
-      <Toolbar
-        state={state}
-        dispatch={dispatch}
-        saved={saved}
-        onSave={doSave}
-        onLoad={doLoad}
-      />
+      {/* ── Toolbar ─────────────────────────────────────────── */}
+      <Toolbar state={state} dispatch={dispatch} saved={saved} onSave={doSave} onLoad={load} />
 
-      {/* Main content row */}
-      <div style={S.contentRow}>
-        {/* Left: Map */}
-        <div style={S.mapSection}>
-          <MapPanel state={state} dispatch={dispatch} />
-          {/* GameOver overlay */}
-          {state.gameOver && (
-            <div style={{
-              position: "absolute",
-              top: 0, left: 0, right: 0, bottom: 0,
-              background: "rgba(30,14,18,0.85)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              zIndex: 10,
-            }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#ffd700", marginBottom: 12 }}>
-                Spelet är slut
-              </div>
-              <div style={{ fontSize: 15, color: "#ddd", marginBottom: 20 }}>
-                Eget kapital: {msek(equity)} efter {state.year} år
-              </div>
-              <button
-                style={{ ...S.toolbarNextBtn, fontSize: 15, padding: "10px 24px" }}
-                onClick={() => dispatch({ type: "RESET" })}
-              >
-                Spela igen
-              </button>
-            </div>
-          )}
+      {/* ── Game-over banner ────────────────────────────────── */}
+      {state.gameOver && (
+        <div style={{
+          background: "#5a0010", color: "#fff", textAlign: "center",
+          padding: "10px 16px", fontSize: 14, fontWeight: 700,
+          display: "flex", justifyContent: "center", alignItems: "center", gap: 16,
+        }}>
+          Spelet är slut — {state.year} år spelade
+          <button
+            style={{ ...S.toolbarNextBtn, padding: "5px 14px", fontSize: 13 }}
+            onClick={() => dispatch({ type: "RESET" })}
+          >
+            Spela igen
+          </button>
         </div>
+      )}
 
-        {/* Right panel */}
-        <div style={S.rightPanel}>
-          {/* Tab bar */}
-          <div style={S.panelTabBar}>
-            {panelTabs.map((t) => (
-              <button
-                key={t.id}
-                style={{ ...S.panelTab, ...(tab === t.id ? S.panelTabActive : {}) }}
-                onClick={() => setTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Panel content */}
-          <div style={S.panelContent}>
-            {tab === "portfolio" && <PortfolioTable state={state} dispatch={dispatch} />}
-            {tab === "market" && <MarketTable state={state} dispatch={dispatch} />}
-            {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
-            {tab === "finance" && (
-              <>
-                <FinancePanel state={state} dispatch={dispatch} equity={equity} ltv={ltv} terms={terms} />
-                <div style={{ padding: "0 16px 16px" }}>
-                  <EquityChart history={state.history} />
-                </div>
-              </>
-            )}
-            {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
-            {tab === "log" && <LogPanel log={state.log} />}
-          </div>
-        </div>
+      {/* ── Tab bar ─────────────────────────────────────────── */}
+      <div style={tabBarStyle}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            style={{ ...tabStyle, ...(tab === t.id ? tabActiveStyle : {}) }}
+            onClick={() => setTab(t.id)}
+          >
+            {t.id === "portfolio"
+              ? `Portfölj (${state.portfolio.length})`
+              : t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Status bar */}
+      {/* ── Content ─────────────────────────────────────────── */}
+      <div style={contentStyle}>
+        {tab === "portfolio" && (
+          <div style={S.grid}>
+            {state.portfolio.length === 0 && (
+              <div style={S.empty}>
+                Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
+                <strong>Bygg</strong>.
+              </div>
+            )}
+            {state.portfolio.map((p) => (
+              <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
+            ))}
+          </div>
+        )}
+
+        {tab === "market" && (
+          <div>
+            <div style={S.marketBar}>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>
+                Objekt till salu ({state.listings.length})
+              </span>
+              <button
+                style={S.smallBtn}
+                onClick={() => dispatch({ type: "REFRESH_LISTINGS" })}
+              >
+                ↻ Nya objekt
+              </button>
+            </div>
+            <div style={S.grid}>
+              {state.listings.map((p) => (
+                <ListingCard key={p.id} p={p} state={state} dispatch={dispatch} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "map" && <MapPanel state={state} dispatch={dispatch} />}
+
+        {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
+
+        {tab === "finance" && (
+          <>
+            <FinancePanel
+              state={state} dispatch={dispatch}
+              equity={equity} ltv={ltv} terms={terms}
+            />
+            <div style={{ marginTop: 18 }}>
+              <EquityChart history={state.history} />
+            </div>
+          </>
+        )}
+
+        {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
+
+        {tab === "log" && <LogPanel log={state.log} />}
+      </div>
+
+      {/* ── Status bar ──────────────────────────────────────── */}
       <StatusBar
-        state={state}
-        equity={equity}
-        ltv={ltv}
-        terms={terms}
-        monthlyNOI={monthlyNOI}
-        monthlyInterest={monthlyInterest}
-        myRank={myRank}
+        state={state} equity={equity} ltv={ltv}
+        terms={terms} monthlyNOI={monthlyNOI}
+        monthlyInterest={monthlyInterest} myRank={myRank}
       />
     </div>
   );
 }
+
+// ── Lokala stilar ────────────────────────────────────────────────
+
+const tabBarStyle: React.CSSProperties = {
+  display: "flex",
+  overflowX: "auto",
+  background: "#fff",
+  borderBottom: "2px solid #eee",
+  flexShrink: 0,
+  WebkitOverflowScrolling: "touch",
+};
+
+const tabStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: "12px 16px",
+  fontSize: 14,
+  fontWeight: 600,
+  color: "#888",
+  borderBottom: "2px solid transparent",
+  marginBottom: -2,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+};
+
+const tabActiveStyle: React.CSSProperties = {
+  color: BURGUNDY,
+  borderBottom: `2px solid ${BURGUNDY}`,
+};
+
+const contentStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  padding: "16px",
+  background: "#faf8f6",
+  WebkitOverflowScrolling: "touch",
+};

@@ -107,7 +107,7 @@ export function MapPanel({ state, dispatch }: Props) {
   const selData = selected ? byDistrict[selected] : null;
 
   return (
-    <div style={{ height: "100%", overflow: "auto", padding: "8px 0" }}>
+    <div style={{ paddingTop: 4 }}>
       {/* Förklaring */}
       <div
         style={{
@@ -117,7 +117,6 @@ export function MapPanel({ state, dispatch }: Props) {
           marginBottom: 12,
           fontSize: 12,
           flexWrap: "wrap",
-          padding: "0 12px",
         }}
       >
         <LegendDot color={BURGUNDY} shape="circle" label="Din fastighet" />
