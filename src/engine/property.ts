@@ -7,33 +7,34 @@ import { DISTRICTS, PROP_TYPES } from "./data";
 import type { GameState, Property } from "./types";
 
 /** Marknadsvärde för en fastighet givet nuvarande tillstånd.
- *  Blandar substansvärde med inkomstvärde – hög beläggning och bra hyror
- *  driver upp värdet relativt ett tomt objekt.
+ *  Substansvärde som bas, med premie för beläggning och hyresnivå.
+ *  Vakant fastighet = substansvärde (aldrig rabatterat).
+ *  Fullt uthyrd vid marknadshyra = substansvärde + 10 %.
  */
 export function propMarketValue(p: Property, state: GameState): number {
   const d = DISTRICTS.find((x) => x.id === p.district)!;
   const condFactor = 0.6 + (p.condition / 100) * 0.6;
   const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult;
 
-  if (p.status === "bygger") return assetValue * 0.5;
+  if (p.status === "bygger") return Math.round(assetValue * 0.5);
 
-  // Inkomstvärde: NOI / cap rate (5.5 %)
-  const noi = propNOI(p, state);
-  const incomeValue = noi > 0 ? noi / 0.055 : 0;
-
-  // Beläggningsgrad påverkar blandningsvikten mot inkomstvärdet
+  // Beläggningspremie: 0 % → ×1.0, 100 % → ×1.10
   const occupancy = p.capacity > 0 ? p.tenants.length / p.capacity : 0;
-  // Vid 0 % beläggning: rent substansvärde; vid 100 %: 60/40 inkomst/substans
-  const incomeWeight = occupancy * 0.6;
-  const blended = assetValue * (1 - incomeWeight) + incomeValue * incomeWeight;
+  const occupancyMult = 1.0 + occupancy * 0.10;
 
-  // Hyrespremie/-rabatt relativt marknadspotential
-  const potentialRent = propPotentialRent(p, state);
-  const actualRent = propAnnualRent(p, state);
-  const rentRatio = potentialRent > 0 && actualRent > 0 ? actualRent / potentialRent : 1;
-  const rentMult = Math.max(0.90, Math.min(1.20, 0.95 + rentRatio * 0.25));
+  // Hyrespremie: jämför faktisk hyra mot proportionell marknadspotential
+  // Överpris → upp till +5 %, underpris → ned till −5 %
+  let rentMult = 1.0;
+  if (occupancy > 0) {
+    const potentialRent = propPotentialRent(p, state);
+    const actualRent    = propAnnualRent(p, state);
+    if (potentialRent > 0) {
+      const rentRatio = actualRent / (potentialRent * occupancy);
+      rentMult = Math.max(0.95, Math.min(1.05, 1.0 + (rentRatio - 1) * 0.25));
+    }
+  }
 
-  return Math.round(blended * rentMult);
+  return Math.round(assetValue * occupancyMult * rentMult);
 }
 
 /** Faktisk årshyra (summa av alla hyresgästers kontraktshyra, vakant = 0). */
