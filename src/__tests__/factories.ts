@@ -27,6 +27,11 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     sentimentHistory: [1.0],
     subsidiaries: [],
     dividendsReceived: 0,
+    districtDev: { centrum: 1, hamnen: 1, industri: 1, förort: 1, kulle: 1 },
+    buildCostMod: 1,
+    researchDone: [],
+    activeResearch: null,
+    staff: {},
     ...over,
   };
 }

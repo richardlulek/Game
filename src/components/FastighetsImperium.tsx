@@ -22,6 +22,8 @@ import { Toasts } from "./Toasts";
 import { Toolbar } from "./Toolbar";
 import { StockExchange } from "./StockExchange";
 import { GroupOverview } from "./GroupOverview";
+import { ResearchPanel } from "./ResearchPanel";
+import { StaffPanel } from "./StaffPanel";
 import { C, FONTS } from "../styles/tokens";
 
 const TABS = [
@@ -31,6 +33,8 @@ const TABS = [
   { id: "build",     label: "Bygg" },
   { id: "stocks",    label: "Börs" },
   { id: "finance",   label: "Finans" },
+  { id: "research",  label: "Forskning" },
+  { id: "staff",     label: "Anställda" },
   { id: "group",     label: "Koncern" },
   { id: "rivals",    label: "Topp" },
   { id: "log",       label: "Logg" },
@@ -170,6 +174,10 @@ export default function FastighetsImperium() {
         {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
 
         {tab === "stocks" && <StockExchange state={state} dispatch={dispatch} />}
+
+        {tab === "research" && <ResearchPanel state={state} dispatch={dispatch} />}
+
+        {tab === "staff" && <StaffPanel state={state} dispatch={dispatch} />}
 
         {tab === "group" && <GroupOverview state={state} />}
 

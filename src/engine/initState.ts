@@ -34,6 +34,11 @@ export function initState(): GameState {
     sentimentHistory: [1.0],
     subsidiaries: [],
     dividendsReceived: 0,
+    districtDev: { centrum: 1, hamnen: 1, industri: 1, förort: 1, kulle: 1 },
+    buildCostMod: 1,
+    researchDone: [],
+    activeResearch: null,
+    staff: {},
   };
   for (let i = 0; i < 6; i++) base.listings.push(genListing(base));
   for (let i = 0; i < 3; i++) base.lots.push(genLot(base));

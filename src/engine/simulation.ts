@@ -8,6 +8,7 @@ import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
+import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
 import { priceStocks, stepSentiment } from "./stocks";
 import type { GameState, LogEntry, Offer } from "./types";
@@ -53,8 +54,8 @@ export function advanceMonth(state: GameState): GameState {
         }
       }
     }
-    // Slitage
-    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7));
+    // Slitage (långsammare med smart förvaltning)
+    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7) * wearMult(s));
     // Hyresgästlogik
     const nextTenants: typeof np.tenants = [];
     for (const t of np.tenants) {
@@ -191,6 +192,43 @@ export function advanceMonth(state: GameState): GameState {
     if (s.month % 3 === 0)
       events.push({ t: `🏛️ Dotterbolagen bidrog med ${kr(subIncome * 3)} i kvartalet.`, kind: "income" });
   }
+
+  // ── Löner (anställda) ───────────────────────────────────────────
+  const salaries = salariesTotal(s);
+  if (salaries > 0) {
+    s.cash -= salaries;
+    if (s.month % 3 === 0)
+      events.push({ t: `👔 Löner betalades: ${kr(salaries)}/mån.`, kind: "expense" });
+  }
+  // Marknadschef stärker varumärket
+  const repGain = monthlyReputation(s);
+  if (repGain > 0) s.reputation = Math.min(100, s.reputation + repGain);
+
+  // ── Forskning fortskrider ───────────────────────────────────────
+  if (s.activeResearch) {
+    const left = s.activeResearch.monthsLeft - 1;
+    if (left <= 0) {
+      const def = RESEARCH.find((r) => r.id === s.activeResearch!.id);
+      s.researchDone = [...(s.researchDone ?? []), s.activeResearch.id];
+      s.activeResearch = null;
+      events.push({ t: `🔬 Forskning klar: ${def?.name ?? ""} — ${def?.effect ?? ""}.`, kind: "income" });
+    } else {
+      s.activeResearch = { ...s.activeResearch, monthsLeft: left };
+    }
+  }
+
+  // ── Områdesutveckling: distrikt med fler ägda objekt apprecierar ─
+  const dev: Record<string, number> = { ...(s.districtDev ?? {}) };
+  for (const d of DISTRICTS) {
+    const ownedHere = s.portfolio.filter((p) => p.district === d.id && p.status === "klar").length;
+    const cur = dev[d.id] ?? 1;
+    const growth = 0.0015 * ownedHere + rnd(-0.0025, 0.004);
+    dev[d.id] = Math.max(0.85, Math.min(1.6, +(cur * (1 + growth)).toFixed(4)));
+  }
+  s.districtDev = dev;
+
+  // Råvarupris/byggkostnad mjukt tillbaka mot normalt
+  s.buildCostMod = +(((s.buildCostMod ?? 1) * 0.85 + 0.15)).toFixed(3);
 
   // ── Beslutshändelse (~6 %) ──────────────────────────────────────
   if (Math.random() < 0.06) {

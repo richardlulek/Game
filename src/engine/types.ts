@@ -178,6 +178,13 @@ export interface Subsidiary {
   monthlyIncome: number;
 }
 
+/** Ett pågående forskningsprojekt. */
+export interface ActiveResearch {
+  id: string;
+  monthsLeft: number;
+  monthsTotal: number;
+}
+
 /** En rad i händelseloggen. */
 export interface LogEntry {
   t: string;
@@ -229,6 +236,11 @@ export interface GameState {
   sentimentHistory: number[];
   subsidiaries: Subsidiary[];
   dividendsReceived: number;
+  districtDev: Record<string, number>;
+  buildCostMod: number;
+  researchDone: string[];
+  activeResearch: ActiveResearch | null;
+  staff: Record<string, number>;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -257,6 +269,10 @@ export type GameAction =
   | { type: "BUY_SHARES"; stockId: string; qty: number }
   | { type: "SELL_SHARES"; stockId: string; qty: number }
   | { type: "ACQUIRE_COMPANY"; stockId: string }
+  | { type: "CHANGE_USE"; id: number; propType: PropTypeKey }
+  | { type: "START_RESEARCH"; id: string }
+  | { type: "HIRE_STAFF"; role: string }
+  | { type: "FIRE_STAFF"; role: string }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

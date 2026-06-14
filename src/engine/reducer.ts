@@ -10,6 +10,14 @@ import { kr, msek, pct } from "./format";
 import { genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
 import { propMarketValue, propPotentialRent } from "./property";
+import {
+  RESEARCH,
+  STAFF_ROLES,
+  bidBonus,
+  buildCostMult,
+  buildMonthsDelta,
+  hireFee,
+} from "./progression";
 import { newId } from "./random";
 import { advanceMonth } from "./simulation";
 import { COURTAGE } from "./stocks";
@@ -59,8 +67,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (state.cash < down)
         return log(state, `För lite kontanter. Handpenning ${msek(down)} krävs för budet.`, "warn");
       const ratio = bid / p.askPrice;
-      const acceptProb =
+      const baseProb =
         ratio >= 0.97 ? 0.92 : ratio >= 0.92 ? 0.62 : ratio >= 0.85 ? 0.34 : ratio >= 0.78 ? 0.13 : 0.03;
+      const acceptProb = Math.min(0.98, baseProb + bidBonus(state));
       if (Math.random() < acceptProb) {
         const loan = bid - down;
         return {
@@ -237,7 +246,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const lot = state.lots.find((x) => x.id === action.id);
       const t = PROP_TYPES[action.propType];
       if (!lot || !lot.owned || !t) return state;
-      const cost = lot.area * t.buildCostM2;
+      const cost = Math.round(lot.area * t.buildCostM2 * buildCostMult(state));
+      const buildLeft = Math.max(4, t.buildMonths + buildMonthsDelta(state));
       const { maxLtv } = loanTerms(state);
       const down = cost * (1 - maxLtv);
       if (state.cash < down)
@@ -264,7 +274,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         tenants: [],
         capacity: 1,
         status: "bygger",
-        buildLeft: t.buildMonths,
+        buildLeft,
       };
       return {
         ...state,
@@ -274,7 +284,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         lots: state.lots.filter((x) => x.id !== lot.id),
         log: [
           {
-            t: `Påbörjade nyproduktion (${t.label}) i ${lot.districtName}. Klart om ${t.buildMonths} mån.`,
+            t: `Påbörjade nyproduktion (${t.label}) i ${lot.districtName}. Klart om ${buildLeft} mån.`,
             kind: "upg",
           },
           ...state.log,
@@ -552,6 +562,84 @@ export function reducer(state: GameState, action: GameAction): GameState {
           },
           ...state.log,
         ],
+      };
+    }
+    case "CHANGE_USE": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      const t = PROP_TYPES[action.propType];
+      if (!p || !t || p.status === "bygger") return state;
+      if (p.type === action.propType) return state;
+      if (p.tenants.length > 0)
+        return log(state, "Fastigheten måste vara vakant för att ändra användning.", "warn");
+      const value = propMarketValue(p, state);
+      const cost = Math.round(value * 0.15);
+      if (state.cash < cost)
+        return log(state, `Ändrad användning kostar ${msek(cost)} (ombyggnad).`, "warn");
+      const newBaseRent = Math.round(value * t.rentFactor * 12);
+      return {
+        ...state,
+        cash: state.cash - cost,
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id
+            ? { ...x, type: action.propType, typeLabel: t.label, baseRent: newBaseRent, condition: Math.max(60, x.condition - 10) }
+            : x,
+        ),
+        log: [
+          { t: `Ändrade användning i ${p.districtName}: ${p.typeLabel} → ${t.label} (${msek(cost)}).`, kind: "upg" },
+          ...state.log,
+        ],
+      };
+    }
+    case "START_RESEARCH": {
+      if (state.activeResearch) return log(state, "Ett forskningsprojekt pågår redan.", "warn");
+      if ((state.researchDone ?? []).includes(action.id)) return state;
+      const def = RESEARCH.find((r) => r.id === action.id);
+      if (!def) return state;
+      if (state.cash < def.cost)
+        return log(state, `${def.name} kräver ${msek(def.cost)} i forskningsbudget.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - def.cost,
+        activeResearch: { id: def.id, monthsLeft: def.months, monthsTotal: def.months },
+        log: [
+          { t: `🔬 Startade forskning: ${def.name} (klar om ${def.months} mån).`, kind: "upg" },
+          ...state.log,
+        ],
+      };
+    }
+    case "HIRE_STAFF": {
+      const role = STAFF_ROLES.find((r) => r.id === action.role);
+      if (!role) return state;
+      const cur = state.staff?.[action.role] ?? 0;
+      if (cur >= role.maxLevel) return log(state, `${role.name} är redan på högsta nivå.`, "warn");
+      const nextLevel = cur + 1;
+      const fee = hireFee(action.role, nextLevel);
+      if (state.cash < fee)
+        return log(state, `Rekrytering av ${role.name} kostar ${msek(fee)} i ingångsarvode.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - fee,
+        staff: { ...(state.staff ?? {}), [action.role]: nextLevel },
+        log: [
+          {
+            t: cur === 0
+              ? `Anställde ${role.name} (lön ${kr(role.baseSalary)}/mån).`
+              : `Befordrade ${role.name} till nivå ${nextLevel}.`,
+            kind: "buy",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "FIRE_STAFF": {
+      const role = STAFF_ROLES.find((r) => r.id === action.role);
+      if (!role || !(state.staff?.[action.role] ?? 0)) return state;
+      const staff = { ...(state.staff ?? {}) };
+      delete staff[action.role];
+      return {
+        ...state,
+        staff,
+        log: [{ t: `Avslutade anställningen av ${role.name}.`, kind: "info" }, ...state.log],
       };
     }
     case "NEXT_MONTH":

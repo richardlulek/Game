@@ -12,6 +12,7 @@ import type { CSSProperties } from "react";
 import { DISTRICTS, PROP_TYPES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek, pct } from "../engine/format";
+import { buildCostMult, buildMonthsDelta } from "../engine/progression";
 import {
   propAnnualOpex,
   propMarketValue,
@@ -204,7 +205,7 @@ export function CityMap({ state, dispatch }: Props) {
       {selProperty && selected?.kind === "listing" ? (
         <ListingDetail p={selProperty} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
       ) : selProperty && selected?.kind === "owned" ? (
-        <OwnedDetail p={selProperty} state={state} onClose={() => setSelected(null)} />
+        <OwnedDetail p={selProperty} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
       ) : selLot ? (
         <LotDetail lot={selLot} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
       ) : (
@@ -627,15 +628,21 @@ function acceptanceLabel(ratio: number): { label: string; color: string } {
 function OwnedDetail({
   p,
   state,
+  dispatch,
   onClose,
 }: {
   p: Property;
   state: GameState;
+  dispatch: (a: GameAction) => void;
   onClose: () => void;
 }) {
   const val = propMarketValue(p, state);
   const noiMonth = propNOI(p, state) / 12;
   const building = p.status === "bygger";
+  const [newUse, setNewUse] = useState<PropTypeKey>(p.type);
+  const changeCost = Math.round(val * 0.15);
+  const vacant = p.tenants.length === 0;
+  const canChange = !building && vacant && newUse !== p.type && state.cash >= changeCost && !state.gameOver;
 
   return (
     <DetailShell
@@ -660,9 +667,41 @@ function OwnedDetail({
         value={building ? `Klart om ${p.buildLeft} mån` : "Klar"}
         color={building ? "#b06010" : C.inkSoft}
       />
+
+      {!building && (
+        <>
+          <GoldRule />
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.brassDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+            Ändra användning
+          </div>
+          <select value={newUse} onChange={(e) => setNewUse(e.target.value as PropTypeKey)} style={selectStyle}>
+            {PROP_TYPE_KEYS.map((k) => (
+              <option key={k} value={k}>{PROP_TYPES[k].label}</option>
+            ))}
+          </select>
+          <button
+            style={canChange ? primaryBtn : disabledBtn}
+            disabled={!canChange}
+            onClick={() => dispatch({ type: "CHANGE_USE", id: p.id, propType: newUse })}
+          >
+            {newUse === p.type ? "Välj ny användning" : `Bygg om → ${PROP_TYPES[newUse].label} · ${msek(changeCost)}`}
+          </button>
+          {!vacant && (
+            <div style={{ fontSize: 11, color: C.negative, marginTop: 4 }}>
+              Fastigheten måste vara vakant för att byggas om.
+            </div>
+          )}
+
+          <div style={{ height: 8 }} />
+          <button style={secondaryBtn} onClick={() => dispatch({ type: "SELL", id: p.id })}>
+            Sälj fastighet · {msek(val)}
+          </button>
+        </>
+      )}
+
       <GoldRule />
       <div style={{ fontSize: 12.5, color: C.inkSoft, lineHeight: 1.5 }}>
-        Hantera hyresgäster &amp; uppgraderingar i Portfölj-fliken.
+        Hyresgäster &amp; uppgraderingar hanteras i Portfölj-fliken.
       </div>
     </DetailShell>
   );
@@ -707,7 +746,8 @@ function LotDetail({
 
   // Bygg på ägd tomt
   const def = PROP_TYPES[buildType];
-  const cost = lot.area * def.buildCostM2;
+  const cost = Math.round(lot.area * def.buildCostM2 * buildCostMult(state));
+  const months = Math.max(4, def.buildMonths + buildMonthsDelta(state));
   const down = cost * (1 - terms.maxLtv);
   const canBuild = state.cash >= down && !state.gameOver;
 
@@ -734,7 +774,7 @@ function LotDetail({
         })}
       </select>
       <Row label="Byggkostnad" value={msek(cost)} strong />
-      <Row label="Byggtid" value={`${def.buildMonths} mån`} />
+      <Row label="Byggtid" value={`${months} mån`} />
       <Row label="Handpenning" value={msek(down)} />
       <button
         style={{ ...primaryBtn, ...(canBuild ? {} : disabledBtn), marginTop: 12 }}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { msek } from "../engine/format";
 import { PROP_TYPES } from "../engine/data";
+import { buildCostMult, buildMonthsDelta } from "../engine/progression";
 import type { GameAction, GameState, PropTypeKey } from "../engine/types";
 import { S } from "../styles/styles";
 
@@ -53,7 +54,8 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
           .map((l) => {
             const chosen: PropTypeKey = sel[l.id] || "bostad";
             const t = PROP_TYPES[chosen];
-            const cost = l.area * t.buildCostM2;
+            const cost = Math.round(l.area * t.buildCostM2 * buildCostMult(state));
+            const months = Math.max(4, t.buildMonths + buildMonthsDelta(state));
             return (
               <div key={l.id} style={S.card}>
                 <div style={S.cardHead}>
@@ -81,7 +83,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
                 </div>
                 <div style={S.cardRow}>
                   <span>Byggtid</span>
-                  <strong>{t.buildMonths} mån</strong>
+                  <strong>{months} mån</strong>
                 </div>
                 <div style={S.cardRow}>
                   <span>Typisk direktavk.</span>

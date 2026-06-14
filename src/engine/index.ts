@@ -15,3 +15,4 @@ export * from "./reducer";
 export * from "./initState";
 export * from "./season";
 export * from "./stocks";
+export * from "./progression";

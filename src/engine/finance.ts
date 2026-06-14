@@ -4,13 +4,15 @@
    ============================================================ */
 
 import { propMarketValue } from "./property";
+import { spreadDelta } from "./progression";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
 import type { GameState, LoanTerms } from "./types";
 
 /** Reputationsbaserade lånevillkor (ränta, påslag, max belåningsgrad). */
 export function loanTerms(state: GameState): LoanTerms {
   const rep = state.reputation;
-  const spread = 2.5 - (rep / 100) * 1.7; // 0,8–2,5 % påslag
+  // Forskning (finansstyrka) och CFO sänker påslaget.
+  const spread = Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state));
   const maxLtv = 0.6 + (rep / 100) * 0.2; // 60–80 %
   return {
     rate: +(state.interestRate + spread).toFixed(2),

@@ -184,6 +184,20 @@ export const EVENTS: GameEvent[] = [
     text: "Positiv press om ditt bolag. Reputation +5.",
     apply: (s) => ({ ...s, reputation: Math.min(100, s.reputation + 5) }),
   },
+  {
+    id: "ravarubrist",
+    text: "Råvarubrist! Byggmaterial blir dyrare en tid framåt.",
+    apply: (s) => ({ ...s, buildCostMod: +(((s.buildCostMod ?? 1) * 1.3)).toFixed(3) }),
+  },
+  {
+    id: "hyresreglering",
+    text: "Nya regler: skärpt hyresreglering dämpar efterfrågan.",
+    apply: (s) => ({
+      ...s,
+      demandMod: +(s.demandMod * 0.95).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 0.99).toFixed(3),
+    }),
+  },
 ];
 
 /** Sällsynta chockhändelser — triggas separat med ~3 % sannolikhet/månad. */

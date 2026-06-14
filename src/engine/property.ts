@@ -4,7 +4,13 @@
    ============================================================ */
 
 import { DISTRICTS, PROP_TYPES } from "./data";
+import { opexMult, vacancyMult } from "./progression";
 import type { GameState, Property } from "./types";
+
+/** Områdesutvecklingsfaktor – stiger när distriktet bebyggs (1.0 = neutral). */
+export function districtDevOf(state: GameState, district: string): number {
+  return state.districtDev?.[district] ?? 1;
+}
 
 /** Marknadsvärde för en fastighet givet nuvarande tillstånd.
  *  Substansvärde som bas, med premie för beläggning och hyresnivå.
@@ -14,7 +20,8 @@ import type { GameState, Property } from "./types";
 export function propMarketValue(p: Property, state: GameState): number {
   const d = DISTRICTS.find((x) => x.id === p.district)!;
   const condFactor = 0.6 + (p.condition / 100) * 0.6;
-  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult;
+  const dev = districtDevOf(state, p.district);
+  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev;
 
   if (p.status === "bygger") return Math.round(assetValue * 0.5);
 
@@ -56,8 +63,13 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const clusterRentMult = ownedInDistrict >= 5 ? 1.10 : ownedInDistrict >= 3 ? 1.05 : 1;
   const clusterVacMult  = ownedInDistrict >= 5 ? 0.85 : ownedInDistrict >= 3 ? 0.90 : 1;
 
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult;
-  const vacancy = Math.max(0, t.vacancyBase * p.vacancyMult * clusterVacMult - (p.condition - 60) / 1000);
+  // Områdesutveckling lyfter hyran (halv effekt mot värdet).
+  const devRent = 1 + (districtDevOf(state, p.district) - 1) * 0.5;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent;
+  const vacancy = Math.max(
+    0,
+    t.vacancyBase * p.vacancyMult * clusterVacMult * vacancyMult(state) - (p.condition - 60) / 1000,
+  );
   return gross * (1 - vacancy);
 }
 
@@ -65,7 +77,7 @@ export function propPotentialRent(p: Property, state: GameState): number {
 export function propAnnualOpex(p: Property, state: GameState): number {
   if (p.status === "bygger") return 0;
   const t = PROP_TYPES[p.type];
-  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod;
+  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state);
 }
 
 /** Driftnetto per år (hyra − driftkostnad). */
