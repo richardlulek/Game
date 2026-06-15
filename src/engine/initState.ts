@@ -1,14 +1,17 @@
 /* ============================================================
-   Initialt speltillstånd.
+   Initialt speltillstånd – en ändlig värld med 100 fastigheter
+   fördelade mellan marknaden, konkurrenter och en off-market pool.
    ============================================================ */
 
 import { AI_NAMES } from "./data";
-import { genListing, genLot } from "./generators";
+import { genLot, genWorldProperty } from "./generators";
 import { rnd } from "./random";
 import { initStocks } from "./stocks";
-import type { GameState } from "./types";
+import type { Competitor, GameState, Property } from "./types";
 
-/** Skapar ett nytt speltillstånd med startobjekt, tomter och konkurrenter. */
+const WORLD_SIZE = 100;
+
+/** Skapar ett nytt speltillstånd med en ändlig fastighetsmarknad. */
 export function initState(): GameState {
   const base: GameState = {
     month: 1,
@@ -41,17 +44,60 @@ export function initState(): GameState {
     staff: {},
     stockOrders: [],
     portfolioValueHistory: [0],
+    worldPool: [],
+    worldTotal: WORLD_SIZE,
   };
-  for (let i = 0; i < 6; i++) base.listings.push(genListing(base));
-  for (let i = 0; i < 3; i++) base.lots.push(genLot(base));
-  AI_NAMES.forEach((n) =>
-    base.competitors.push({
-      name: n,
-      cash: rnd(3, 8) * 1e6,
-      units: Math.round(rnd(2, 5)),
-      equity: rnd(8, 20) * 1e6,
-    }),
-  );
+
+  // ── Generera hela världen (WORLD_SIZE fastigheter) ──────────────
+  const allProps: Property[] = [];
+  for (let i = 0; i < WORLD_SIZE; i++) allProps.push(genWorldProperty(base));
+
+  // ── Skapa konkurrenter ──────────────────────────────────────────
+  // Varje konkurrent får 10-14 fastigheter från världspoolen.
+  const compPortfolioSize = Math.floor(WORLD_SIZE * 0.12); // ~12 per konkurrent
+  const competitors: Competitor[] = AI_NAMES.map((n) => ({
+    name: n,
+    cash: rnd(2, 6) * 1e6,
+    units: 0,
+    equity: 0,
+    portfolio: [],
+  }));
+
+  let propIdx = 0;
+  for (const c of competitors) {
+    const slice = allProps.slice(propIdx, propIdx + compPortfolioSize);
+    c.portfolio = slice.map((p) => ({ ...p, owned: false }));
+    c.units = c.portfolio.length;
+    const portVal = c.portfolio.reduce((a, p) => a + p.askPrice, 0);
+    c.equity = c.cash + portVal;
+    c.monthlyNOI = Math.round((portVal * 0.06) / 12);
+    propIdx += compPortfolioSize;
+  }
+  base.competitors = competitors;
+
+  // ── 10 fastigheter till salu (listings) ─────────────────────────
+  const listingProps = allProps.slice(propIdx, propIdx + 10);
+  base.listings = listingProps.map((p) => toListingProp(p, base));
+  propIdx += 10;
+
+  // ── Resten går till off-market poolen ────────────────────────────
+  base.worldPool = allProps.slice(propIdx).map((p) => ({ ...p, owned: false }));
+
+  // ── Tomter ──────────────────────────────────────────────────────
+  for (let i = 0; i < 4; i++) base.lots.push(genLot(base));
+
+  // ── Aktier ──────────────────────────────────────────────────────
   base.stocks = initStocks(base.competitors);
+
   return base;
+}
+
+function toListingProp(p: Property, state: GameState): Property {
+  const born = state.year * 12 + state.month;
+  return {
+    ...p,
+    owned: false,
+    listedMonth: born,
+    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+  };
 }

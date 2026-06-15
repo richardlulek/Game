@@ -104,30 +104,60 @@ export function advanceMonth(state: GameState): GameState {
     events.push({ t: `🚨 ${ev.text}`, kind: "warn" });
   }
 
-  // AI-konkurrenter agerar
+  // ── AI-konkurrenter agerar (riktiga portföljer) ─────────────────
   s.competitors = s.competitors.map((c) => {
-    const nc = { ...c };
-    const noi = nc.units * rnd(60000, 140000);
-    nc.monthlyNOI = Math.round(noi / 12);
-    nc.cash += noi;
-    if (nc.cash > 4e6 && Math.random() < 0.4) {
-      nc.units += 1;
-      nc.cash -= rnd(3, 5) * 1e6;
-      const d = pick(DISTRICTS);
-      nc.lastBuy = d.name;
-      events.push({ t: `🏢 ${c.name} förvärvade en fastighet i ${d.name}.`, kind: "event" });
+    const nc = { ...c, portfolio: [...(c.portfolio ?? [])] };
+    // NOI från faktisk portfölj (förenklad: 6 % cap rate per portföljvärde)
+    const portVal = nc.portfolio.reduce((a, p) => a + p.askPrice, 0);
+    nc.monthlyNOI = Math.round((portVal * 0.06) / 12);
+    nc.cash += nc.monthlyNOI;
+    // Sälj ibland (5 % chans) — fastighet återgår till marknaden
+    if (nc.portfolio.length > 2 && Math.random() < 0.05) {
+      const idx = Math.floor(Math.random() * nc.portfolio.length);
+      const selling = nc.portfolio.splice(idx, 1)[0];
+      const sellPrice = Math.round(selling.askPrice * rnd(0.95, 1.10));
+      nc.cash += sellPrice;
+      const born = s.year * 12 + s.month;
+      s.listings = [
+        ...s.listings,
+        {
+          ...selling,
+          owned: false,
+          askPrice: sellPrice,
+          listedMonth: born,
+          expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+        },
+      ];
+      events.push({ t: `🏷️ ${c.name} säljer ${selling.typeLabel} i ${selling.districtName} (${msek(sellPrice)}).`, kind: "event" });
     }
-    nc.equity = nc.cash + nc.units * rnd(4, 7) * 1e6;
+    nc.units = nc.portfolio.length;
+    nc.equity = nc.cash + nc.portfolio.reduce((a, p) => a + p.askPrice, 0);
     return nc;
   });
-  // Konkurrenter kan sno ett marknadsobjekt
-  if (s.listings.length > 2 && Math.random() < 0.3) {
-    const taken = pick(s.listings);
-    s.listings = s.listings.filter((x) => x.id !== taken.id);
-    events.push({
-      t: `🏷️ En konkurrent köpte ${taken.typeLabel} i ${taken.districtName} före dig.`,
-      kind: "event",
-    });
+  // Konkurrent köper från marknaden (tar ett verkligt objekt)
+  if (s.listings.length > 3 && Math.random() < 0.25) {
+    const buyable = s.listings.filter((p) => p.status === "klar");
+    if (buyable.length > 0) {
+      const taken = pick(buyable);
+      const buyer = pick(s.competitors);
+      const price = Math.round(taken.askPrice * rnd(0.97, 1.05));
+      s.listings = s.listings.filter((x) => x.id !== taken.id);
+      s.competitors = s.competitors.map((c) =>
+        c.name === buyer.name
+          ? {
+              ...c,
+              cash: Math.max(0, c.cash - price),
+              portfolio: [...(c.portfolio ?? []), { ...taken, owned: false, askPrice: price }],
+              units: (c.portfolio ?? []).length + 1,
+              lastBuy: taken.districtName,
+            }
+          : c,
+      );
+      events.push({
+        t: `🏢 ${buyer.name} köpte ${taken.typeLabel} i ${taken.districtName} för ${msek(price)}.`,
+        kind: "event",
+      });
+    }
   }
 
   // ── Inkommande bud på dina fastigheter ──────────────────────────
@@ -253,25 +283,17 @@ export function advanceMonth(state: GameState): GameState {
     events.push({ t: `🤔 Beslut krävs: ${decision.title}`, kind: "event" });
   }
 
-  // ── Marknadstillflöde: 1–3 nya objekt, 0–1 ny tomt per månad ──────
-  const MAX_LISTINGS = 12;
-  const MAX_FREE_LOTS = 6;
-  const newListings = 1 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < newListings; i++) {
-    if (s.listings.length < MAX_LISTINGS) s.listings = [...s.listings, genListing(s)];
-  }
-  if (Math.random() < 0.5 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS) {
-    s.lots = [...s.lots, genLot(s)];
-  }
-  // ── Utgångna objekt försvinner ──────────────────────────────────
+  // ── Utgångna listings återgår till världspoolen ─────────────────
   const nowAbs = s.year * 12 + s.month;
+  const expiredListings: typeof s.listings = [];
   s.listings = s.listings.filter((p) => {
     if ((p.expiresMonth ?? Infinity) <= nowAbs) {
-      events.push({ t: `📋 ${p.typeLabel} i ${p.districtName} drogs tillbaka från marknaden.`, kind: "info" });
+      expiredListings.push({ ...p, listedMonth: undefined, expiresMonth: undefined });
       return false;
     }
     return true;
   });
+  s.worldPool = [...(s.worldPool ?? []), ...expiredListings];
   s.lots = s.lots.filter((l) => {
     if (!l.owned && (l.expiresMonth ?? Infinity) <= nowAbs) {
       events.push({ t: `📋 Tomt i ${l.districtName} drogs tillbaka.`, kind: "info" });
@@ -279,6 +301,35 @@ export function advanceMonth(state: GameState): GameState {
     }
     return true;
   });
+
+  // ── Marknadstillflöde: avslöja ur världspoolen (ej generera nytt) ─
+  const MAX_LISTINGS = 12;
+  const MAX_FREE_LOTS = 6;
+  const pool = s.worldPool ?? [];
+  if (s.listings.length < MAX_LISTINGS && pool.length > 0) {
+    const reveal = 1 + Math.floor(Math.random() * Math.min(3, pool.length));
+    const toReveal = pool.slice(0, reveal);
+    const born = nowAbs;
+    s.listings = [
+      ...s.listings,
+      ...toReveal.map((p) => ({
+        ...p,
+        listedMonth: born,
+        expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+      })),
+    ].slice(0, MAX_LISTINGS);
+    s.worldPool = pool.slice(reveal);
+  }
+  // Om världspoolen tar slut: generera nybyggnation (expansionen av världen)
+  if ((s.worldPool ?? []).length === 0 && s.listings.length < MAX_LISTINGS) {
+    const newProp = genListing(s);
+    s.listings = [...s.listings, newProp];
+    s.worldTotal = (s.worldTotal ?? 0) + 1;
+    events.push({ t: `🏗️ Nyproduktion utökar marknaden: ${newProp.typeLabel} i ${newProp.districtName}.`, kind: "info" });
+  }
+  if (Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS) {
+    s.lots = [...s.lots, genLot(s)];
+  }
 
   // Tid
   s.month += 1;

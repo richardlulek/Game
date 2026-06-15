@@ -108,14 +108,24 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p) return state;
       const value = propMarketValue(p, state);
       const payoff = Math.min(state.debt, (p.purchasePrice || value) * 0.6);
+      const born = state.year * 12 + state.month;
+      // Fastigheten stannar kvar i världen – läggs ut till försäljning
+      const relisted = {
+        ...p,
+        owned: false,
+        askPrice: value,
+        listedMonth: born,
+        expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+      };
       return {
         ...state,
         cash: state.cash + (value - payoff),
         debt: Math.max(0, state.debt - payoff),
         portfolio: state.portfolio.filter((x) => x.id !== p.id),
+        listings: [...state.listings, relisted],
         log: [
           {
-            t: `Sålde ${p.typeLabel} i ${p.districtName} för ${msek(value)} (netto ${msek(value - payoff)}).`,
+            t: `Sålde ${p.typeLabel} i ${p.districtName} för ${msek(value)} (netto ${msek(value - payoff)}) – läggs ut till salu.`,
             kind: "sell",
           },
           ...state.log,
@@ -282,9 +292,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
         debt: state.debt + (cost - down),
         portfolio: [...state.portfolio, newProp],
         lots: state.lots.filter((x) => x.id !== lot.id),
+        worldTotal: (state.worldTotal ?? 0) + 1,
         log: [
           {
-            t: `Påbörjade nyproduktion (${t.label}) i ${lot.districtName}. Klart om ${buildLeft} mån.`,
+            t: `Påbörjade nyproduktion (${t.label}) i ${lot.districtName}. Klart om ${buildLeft} mån. Världen utökas till ${(state.worldTotal ?? 0) + 1} fastigheter.`,
             kind: "upg",
           },
           ...state.log,

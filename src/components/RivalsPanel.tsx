@@ -23,8 +23,11 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
     0,
   );
   const all: RankRow[] = [
-    { name: "DU", equity, units: state.portfolio.length, me: true, monthlyNOI: myMonthlyNOI },
-    ...state.competitors,
+    { name: "DU", equity, units: state.portfolio.filter(p => p.status === "klar").length, me: true, monthlyNOI: myMonthlyNOI },
+    ...state.competitors.map((c) => ({
+      ...c,
+      units: c.portfolio?.length ?? c.units,
+    })),
   ].sort((a, b) => b.equity - a.equity);
   return (
     <div style={{ marginTop: 18 }}>

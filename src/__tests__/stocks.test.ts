@@ -39,7 +39,7 @@ describe("aktiehandel", () => {
 });
 
 describe("uppköp av konkurrent", () => {
-  const comp: Competitor = { name: "Rival AB", cash: 1e6, units: 4, equity: 12e6, monthlyNOI: 50_000 };
+  const comp: Competitor = { name: "Rival AB", cash: 1e6, units: 4, equity: 12e6, monthlyNOI: 50_000, portfolio: [] };
 
   it("ACQUIRE_COMPANY kräver majoritet (>50 %)", () => {
     const s = makeState({

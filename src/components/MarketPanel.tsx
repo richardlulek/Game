@@ -50,6 +50,13 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
 
   const now = state.year * 12 + state.month;
 
+  // ── Världsstatistik ─────────────────────────────────────────────
+  const worldTotal  = state.worldTotal ?? 0;
+  const playerOwned = state.portfolio.filter((p) => p.status === "klar").length;
+  const rivalOwned  = state.competitors.reduce((a, c) => a + (c.portfolio?.length ?? 0), 0);
+  const onMarket    = state.listings.length;
+  const offMarket   = state.worldPool?.length ?? 0;
+
   // ── Filtrera ────────────────────────────────────────────────
   const filtered = state.listings
     .filter((p) =>
@@ -79,6 +86,49 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
 
   return (
     <div>
+      {/* ── Världsöversikt ──────────────────────────────────── */}
+      {worldTotal > 0 && (
+        <div style={{
+          display: "flex",
+          gap: 0,
+          border: `1px solid ${C.brass}`,
+          borderRadius: 6,
+          overflow: "hidden",
+          marginBottom: 14,
+          fontSize: 12,
+        }}>
+          {[
+            { label: "Dina",          value: playerOwned, color: C.green },
+            { label: "Till salu",     value: onMarket,    color: "#9a6a10" },
+            { label: "Konkurrenter",  value: rivalOwned,  color: C.burgundy },
+            { label: "Off-market",    value: offMarket,   color: C.inkSoft },
+          ].map((seg) => (
+            <div key={seg.label} style={{
+              flex: 1,
+              padding: "8px 10px",
+              background: C.parchment,
+              borderRight: `1px solid ${C.brass}55`,
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: FONTS.heading, color: seg.color }}>
+                {seg.value}
+              </div>
+              <div style={{ color: C.inkSoft, fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                {seg.label}
+              </div>
+            </div>
+          ))}
+          <div style={{ flex: 1, padding: "8px 10px", background: C.wood, textAlign: "center" }}>
+            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: FONTS.heading, color: C.brassBright }}>
+              {worldTotal}
+            </div>
+            <div style={{ color: C.creamSoft, fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
+              Totalt
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ──────────────────────────────────────────── */}
       <div style={S.marketBar}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>

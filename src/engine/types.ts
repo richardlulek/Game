@@ -153,6 +153,7 @@ export interface Competitor {
   equity: number;
   lastBuy?: string;
   monthlyNOI?: number;
+  portfolio: Property[];
 }
 
 /** Bransch på börsen. */
@@ -258,6 +259,8 @@ export interface GameState {
   staff: Record<string, number>;
   stockOrders: LimitOrder[];
   portfolioValueHistory: number[];
+  worldPool: Property[];
+  worldTotal: number;
 }
 
 /** Alla actions som reducern hanterar. */
