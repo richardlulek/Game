@@ -43,22 +43,25 @@ interface Zone {
   h: number;
 }
 
+/* ── Zoner designade för att rymma ~35 enheter var (hela världen synlig) ─
+   ViewBox 1000×750. Byggnader 28×22 med 8 px gap → ~6–9 cols per zon.
+   Hamnen täcker hela bredden på bottenvåningen. */
 const ZONES: Zone[] = [
-  { id: "förort", x: 24, y: 96, w: 286, h: 372 }, // vänster
-  { id: "centrum", x: 334, y: 96, w: 340, h: 372 }, // mitten
-  { id: "kulle", x: 698, y: 96, w: 278, h: 176 }, // uppe höger
-  { id: "industri", x: 698, y: 296, w: 278, h: 172 }, // höger
-  { id: "hamnen", x: 24, y: 492, w: 952, h: 144 }, // nederst (vid vattnet)
+  { id: "förort",  x: 20,  y: 92,  w: 294, h: 410 },
+  { id: "centrum", x: 326, y: 92,  w: 348, h: 410 },
+  { id: "kulle",   x: 686, y: 92,  w: 294, h: 196 },
+  { id: "industri",x: 686, y: 302, w: 294, h: 200 },
+  { id: "hamnen",  x: 20,  y: 516, w: 960, h: 186 },
 ];
 
 /** Byggnadsfotavtryckets mått i kartans koordinatsystem. */
-const SLOT_W = 34;
-const SLOT_H = 30;
-const SLOT_GAP_X = 18;
-const SLOT_GAP_Y = 20;
-const ZONE_PAD_X = 22;
-const ZONE_PAD_TOP = 40; // plats för zonetiketten
-const ZONE_PAD_BOTTOM = 14;
+const SLOT_W = 28;
+const SLOT_H = 22;
+const SLOT_GAP_X = 9;
+const SLOT_GAP_Y = 8;
+const ZONE_PAD_X = 18;
+const ZONE_PAD_TOP = 36;
+const ZONE_PAD_BOTTOM = 10;
 
 /** Färger för de tre konkurrenterna på kartan. */
 const RIVAL_COLORS = ["#a855f7", "#f97316", "#06b6d4"];
@@ -181,8 +184,8 @@ export function CityMap({ state, dispatch }: Props) {
       {/* SVG-stadskartan */}
       <div style={mapFrame}>
         <svg
-          viewBox="0 0 1000 660"
-          style={{ display: "block", width: "100%", height: "auto", maxHeight: "62vh", background: C.felt }}
+          viewBox="0 0 1000 750"
+          style={{ display: "block", width: "100%", height: "auto", background: C.felt }}
           aria-label="Stadskartan"
         >
           <defs>
@@ -194,17 +197,17 @@ export function CityMap({ state, dispatch }: Props) {
             </pattern>
             {/* Skugga för byggnader */}
             <filter id="city-shadow" x="-30%" y="-30%" width="160%" height="170%">
-              <feDropShadow dx="1.5" dy="2.5" stdDeviation="1.2" floodColor="#000000" floodOpacity="0.4" />
+              <feDropShadow dx="1" dy="1.5" stdDeviation="0.8" floodColor="#000000" floodOpacity="0.35" />
             </filter>
           </defs>
 
           {/* Filtbakgrund */}
-          <rect width="1000" height="660" fill={C.feltDark} />
-          <rect width="1000" height="660" fill={C.felt} opacity="0.55" />
+          <rect width="1000" height="750" fill={C.feltDark} />
+          <rect width="1000" height="750" fill={C.felt} opacity="0.55" />
 
           {/* Vatten längst ner (för hamnen) */}
-          <rect x="0" y="618" width="1000" height="42" fill="url(#city-water)" />
-          <rect x="0" y="614" width="1000" height="4" fill={C.brassDim} opacity="0.45" />
+          <rect x="0" y="706" width="1000" height="44" fill="url(#city-water)" />
+          <rect x="0" y="702" width="1000" height="4" fill={C.brassDim} opacity="0.45" />
 
           {/* Gator: brett rutnät av pergamentfärgade vägar */}
           <Streets />
@@ -265,42 +268,33 @@ function serialize(k: SelKey): string {
 // ── Gator ───────────────────────────────────────────────────────
 
 function Streets() {
-  const vert = [330, 690]; // mellan zonerna
-  const horiz = [92, 290, 488]; // delar upp till kvarter
+  // Gator separerar de fem zonerna i koordinatsystemet (viewBox 1000×750).
+  // Horisontella: topp (y=88), mellan kulle/industri (y=292), före hamnen (y=508).
+  // Vertikala: förort|centrum (x=318), centrum|kulle (x=678).
   const roadFill = "#c7b78d";
   const roadDash = C.parchment;
+  const horizFull  = [88, 508];          // full bredd
+  const horizRight = [292];              // bara högerkolumnen (kulle/industri)
+  const vert       = [318, 678];
+
   return (
     <g style={{ pointerEvents: "none" }}>
-      {/* Horisontella gator */}
-      {horiz.map((y) => (
-        <g key={`h${y}`}>
-          <rect x="0" y={y - 7} width="1000" height="14" fill={roadFill} opacity="0.5" />
-          <line
-            x1="0"
-            y1={y}
-            x2="1000"
-            y2={y}
-            stroke={roadDash}
-            strokeWidth="1.5"
-            strokeDasharray="14 12"
-            opacity="0.7"
-          />
+      {horizFull.map((y) => (
+        <g key={`hf${y}`}>
+          <rect x="0" y={y - 6} width="1000" height="12" fill={roadFill} opacity="0.45" />
+          <line x1="0" y1={y} x2="1000" y2={y} stroke={roadDash} strokeWidth="1.2" strokeDasharray="12 10" opacity="0.65" />
         </g>
       ))}
-      {/* Vertikala gator */}
+      {horizRight.map((y) => (
+        <g key={`hr${y}`}>
+          <rect x="678" y={y - 6} width="322" height="12" fill={roadFill} opacity="0.45" />
+          <line x1="678" y1={y} x2="1000" y2={y} stroke={roadDash} strokeWidth="1.2" strokeDasharray="12 10" opacity="0.65" />
+        </g>
+      ))}
       {vert.map((x) => (
         <g key={`v${x}`}>
-          <rect x={x - 7} y="0" width="14" height="618" fill={roadFill} opacity="0.5" />
-          <line
-            x1={x}
-            y1="0"
-            x2={x}
-            y2="618"
-            stroke={roadDash}
-            strokeWidth="1.5"
-            strokeDasharray="14 12"
-            opacity="0.7"
-          />
+          <rect x={x - 6} y="0" width="12" height="704" fill={roadFill} opacity="0.45" />
+          <line x1={x} y1="0" x2={x} y2="704" stroke={roadDash} strokeWidth="1.2" strokeDasharray="12 10" opacity="0.65" />
         </g>
       ))}
     </g>
@@ -430,10 +424,10 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
           />
           <text
             x={cx}
-            y={cy - 1}
+            y={cy + 1}
             textAnchor="middle"
             fontFamily={FONTS.body}
-            fontSize={7.5}
+            fontSize={6.5}
             fontWeight={700}
             fill={lotOwned ? C.brassBright : C.creamSoft}
           >
@@ -445,7 +439,7 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
               y={cy + 8}
               textAnchor="middle"
               fontFamily={FONTS.body}
-              fontSize={6.5}
+              fontSize={5.5}
               fill={C.creamSoft}
               opacity={0.85}
             >
@@ -463,50 +457,49 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
             <rect x={x} y={y} width={SLOT_W} height={SLOT_H} rx={3} fill={roof} stroke={stroke} strokeWidth={strokeW} />
             {/* Takdetalj (inre rektangel) */}
             <rect
-              x={x + 6}
-              y={y + 5}
-              width={SLOT_W - 12}
-              height={SLOT_H - 10}
+              x={x + 4}
+              y={y + 4}
+              width={SLOT_W - 8}
+              height={SLOT_H - 7}
               rx={2}
               fill="#000000"
               opacity={0.16}
             />
           </g>
 
-          {/* Bygger → liten kran + schraffering */}
+          {/* Bygger → liten kran */}
           {building?.status === "bygger" && (
             <g style={{ pointerEvents: "none" }}>
-              <line x1={x + 7} y1={y + SLOT_H - 4} x2={x + 7} y2={y + 4} stroke={C.woodDark} strokeWidth={1.6} />
-              <line x1={x + 7} y1={y + 5} x2={x + SLOT_W - 6} y2={y + 5} stroke={C.woodDark} strokeWidth={1.6} />
-              <line x1={x + SLOT_W - 6} y1={y + 5} x2={x + SLOT_W - 6} y2={y + 11} stroke={C.woodDark} strokeWidth={1} />
-              <line x1={x + 2} y1={y + SLOT_H * 0.5} x2={x + SLOT_W - 2} y2={y + SLOT_H * 0.5} stroke={C.woodDark} strokeWidth={0.8} strokeDasharray="3 2" opacity={0.7} />
+              <line x1={x + 5} y1={y + SLOT_H - 3} x2={x + 5} y2={y + 3} stroke={C.woodDark} strokeWidth={1.4} />
+              <line x1={x + 5} y1={y + 4} x2={x + SLOT_W - 5} y2={y + 4} stroke={C.woodDark} strokeWidth={1.4} />
+              <line x1={x + SLOT_W - 5} y1={y + 4} x2={x + SLOT_W - 5} y2={y + 9} stroke={C.woodDark} strokeWidth={0.9} />
             </g>
           )}
 
-          {/* Till salu → liten flagga med "TILL SALU" */}
+          {/* Till salu → liten flagga */}
           {key.kind === "listing" && (
             <g style={{ pointerEvents: "none" }}>
-              <line x1={x + SLOT_W - 6} y1={y - 9} x2={x + SLOT_W - 6} y2={y + 4} stroke={C.brassBright} strokeWidth={1.2} />
+              <line x1={x + SLOT_W - 5} y1={y - 7} x2={x + SLOT_W - 5} y2={y + 3} stroke={C.brassBright} strokeWidth={1.0} />
               <polygon
-                points={`${x + SLOT_W - 6},${y - 9} ${x + SLOT_W + 12},${y - 6} ${x + SLOT_W - 6},${y - 3}`}
+                points={`${x + SLOT_W - 5},${y - 7} ${x + SLOT_W + 9},${y - 5} ${x + SLOT_W - 5},${y - 2}`}
                 fill={BURGUNDY}
                 stroke={C.brass}
-                strokeWidth={0.6}
+                strokeWidth={0.5}
               />
             </g>
           )}
-          {/* Rival → liten prick i övre vänster för att indikera ägaren */}
+          {/* Rival → liten prick i övre vänster */}
           {isRival && (
-            <circle cx={x + 5} cy={y + 5} r={3.5} fill={roof} stroke="#00000033" strokeWidth={0.8} style={{ pointerEvents: "none" }} />
+            <circle cx={x + 4} cy={y + 4} r={2.8} fill={roof} stroke="#00000033" strokeWidth={0.7} style={{ pointerEvents: "none" }} />
           )}
-          {/* Off-market → "?" text i mitten */}
+          {/* Off-market → "?" i mitten */}
           {isOffmarket && (
             <text
               x={cx}
-              y={cy + 4}
+              y={cy + 3.5}
               textAnchor="middle"
               fontFamily={FONTS.body}
-              fontSize={11}
+              fontSize={9}
               fontWeight={700}
               fill="#ccd5dd"
               style={{ pointerEvents: "none" }}
@@ -1153,7 +1146,8 @@ const legendChip: CSSProperties = {
 
 const mapFrame: CSSProperties = {
   borderRadius: "0 0 8px 8px",
-  overflow: "hidden",
+  overflow: "auto",
+  maxHeight: "72vh",
   border: THEME.brassBorder,
   boxShadow: THEME.panelShadow,
 };
