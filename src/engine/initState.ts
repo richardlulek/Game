@@ -3,11 +3,11 @@
    fördelade mellan marknaden, konkurrenter och en off-market pool.
    ============================================================ */
 
-import { AI_NAMES } from "./data";
+import { AI_NAMES, DISTRICTS } from "./data";
 import { genLot, genWorldProperty } from "./generators";
 import { rnd } from "./random";
 import { initStocks } from "./stocks";
-import type { Competitor, GameState, Property } from "./types";
+import type { Competitor, CompetitorStrategy, GameState, Property } from "./types";
 
 const WORLD_SIZE = 100;
 
@@ -55,13 +55,12 @@ export function initState(): GameState {
   // ── Skapa konkurrenter ──────────────────────────────────────────
   // Varje konkurrent får 10-14 fastigheter från världspoolen.
   const compPortfolioSize = Math.floor(WORLD_SIZE * 0.12); // ~12 per konkurrent
-  const competitors: Competitor[] = AI_NAMES.map((n) => ({
-    name: n,
-    cash: rnd(2, 6) * 1e6,
-    units: 0,
-    equity: 0,
-    portfolio: [],
-  }));
+  const STRATEGIES: CompetitorStrategy[] = ["tillväxt", "utdelning", "värde", "distrikt"];
+  const competitors: Competitor[] = AI_NAMES.map((n, i) => {
+    const strategy = STRATEGIES[i % STRATEGIES.length];
+    const preferredDistrict = strategy === "distrikt" ? DISTRICTS[i % DISTRICTS.length].id : undefined;
+    return { name: n, cash: rnd(2, 6) * 1e6, units: 0, equity: 0, portfolio: [], strategy, preferredDistrict };
+  });
 
   let propIdx = 0;
   for (const c of competitors) {

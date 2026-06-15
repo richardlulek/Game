@@ -42,12 +42,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
           "warn",
         );
       const loan = p.askPrice - down;
+      const txEntry = { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: "Spelaren" };
       return {
         ...state,
         cash: state.cash - down,
         debt: state.debt + loan,
         reputation: Math.min(100, state.reputation + 1),
-        portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: p.askPrice }],
+        portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: p.askPrice, txHistory: [...(p.txHistory ?? []), txEntry] }],
         listings: state.listings.filter((x) => x.id !== p.id),
         log: [
           {
@@ -72,12 +73,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const acceptProb = Math.min(0.98, baseProb + bidBonus(state));
       if (Math.random() < acceptProb) {
         const loan = bid - down;
+        const txEntry = { type: "köp" as const, price: bid, month: state.month, year: state.year, party: "Spelaren" };
         return {
           ...state,
           cash: state.cash - down,
           debt: state.debt + loan,
           reputation: Math.min(100, state.reputation + 1),
-          portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: bid }],
+          portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: bid, txHistory: [...(p.txHistory ?? []), txEntry] }],
           listings: state.listings.filter((x) => x.id !== p.id),
           log: [
             {
@@ -109,13 +111,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const value = propMarketValue(p, state);
       const payoff = Math.min(state.debt, (p.purchasePrice || value) * 0.6);
       const born = state.year * 12 + state.month;
-      // Fastigheten stannar kvar i världen – läggs ut till försäljning
+      const sellTx = { type: "sälj" as const, price: value, month: state.month, year: state.year, party: "Spelaren" };
       const relisted = {
         ...p,
         owned: false,
         askPrice: value,
         listedMonth: born,
         expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+        txHistory: [...(p.txHistory ?? []), sellTx],
       };
       return {
         ...state,
@@ -285,6 +288,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         capacity: 1,
         status: "bygger",
         buildLeft,
+        txHistory: [{ type: "nybygg", price: Math.round(cost), month: state.month, year: state.year, party: "Spelaren" }],
       };
       return {
         ...state,
@@ -725,6 +729,57 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         stockOrders: (state.stockOrders ?? []).filter((o) => o.id !== action.orderId),
         log: [{ t: "Limitorder avbröts.", kind: "info" }, ...state.log],
+      };
+    }
+    case "OFFER_TO_RIVAL": {
+      const comp = state.competitors.find((c) => c.name === action.competitorName);
+      if (!comp) return state;
+      const propIdx = comp.portfolio.findIndex((p) => p.id === action.propertyId);
+      if (propIdx === -1) return state;
+      const prop = comp.portfolio[propIdx];
+      const ref = prop.askPrice;
+      const ratio = action.amount / ref;
+      const { maxLtv } = loanTerms(state);
+      const down = action.amount * (1 - maxLtv);
+      if (state.cash < down)
+        return log(state, `Du behöver ${msek(down)} i handpenning för att köpa av ${action.competitorName}.`, "warn");
+      const accepted = ratio >= 1.25 || (ratio >= 1.1 && Math.random() < 0.70);
+      if (!accepted) {
+        return log(
+          state,
+          `${action.competitorName} avböjde ditt bud på ${msek(action.amount)} för ${prop.typeLabel} i ${prop.districtName}. Lägg ett högre bud.`,
+          "warn",
+        );
+      }
+      const loan = action.amount - down;
+      const txEntry = { type: "köp" as const, price: action.amount, month: state.month, year: state.year, party: `${action.competitorName} (direktköp)` };
+      const boughtProp: Property = { ...prop, owned: true, purchasePrice: action.amount, txHistory: [...(prop.txHistory ?? []), txEntry] };
+      const newCompPortfolio = comp.portfolio.filter((_, i) => i !== propIdx);
+      return {
+        ...state,
+        cash: state.cash - down,
+        debt: state.debt + loan,
+        reputation: Math.min(100, state.reputation + 2),
+        portfolio: [...state.portfolio, boughtProp],
+        competitors: state.competitors.map((c) =>
+          c.name === action.competitorName
+            ? { ...c, portfolio: newCompPortfolio, units: newCompPortfolio.length, cash: c.cash + action.amount, equity: c.equity + action.amount }
+            : c,
+        ),
+        log: [
+          {
+            t: `✅ ${action.competitorName} accepterade ditt bud! Du köpte ${prop.typeLabel} i ${prop.districtName} för ${msek(action.amount)} (lån ${msek(loan)}).`,
+            kind: "buy",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "SELECT_LENDER": {
+      return {
+        ...state,
+        selectedLender: action.lenderId === state.selectedLender ? undefined : action.lenderId,
+        log: [{ t: `Bytte långivare.`, kind: "info" }, ...state.log],
       };
     }
     case "NEXT_MONTH":

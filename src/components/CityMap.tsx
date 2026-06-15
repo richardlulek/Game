@@ -20,6 +20,7 @@ import {
   propPotentialRent,
 } from "../engine/property";
 import type {
+  Competitor,
   GameAction,
   GameState,
   Lot,
@@ -59,14 +60,23 @@ const ZONE_PAD_X = 22;
 const ZONE_PAD_TOP = 40; // plats för zonetiketten
 const ZONE_PAD_BOTTOM = 14;
 
+/** Färger för de tre konkurrenterna på kartan. */
+const RIVAL_COLORS = ["#a855f7", "#f97316", "#06b6d4"];
+
 /** En vald enhet på kartan (diskriminerad union). */
 type SelKey =
   | { kind: "listing"; id: number }
   | { kind: "owned"; id: number }
-  | { kind: "lot"; id: number };
+  | { kind: "lot"; id: number }
+  | { kind: "rival"; competitorName: string; id: number };
 
 function sameSel(a: SelKey | null, b: SelKey): boolean {
-  return a !== null && a.kind === b.kind && a.id === b.id;
+  if (a === null) return false;
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "rival" && b.kind === "rival")
+    return a.competitorName === b.competitorName && a.id === b.id;
+  if (a.kind !== "rival" && b.kind !== "rival") return a.id === b.id;
+  return false;
 }
 
 /** Ett utlagt fotavtryck: position + vad det representerar. */
@@ -103,23 +113,30 @@ export function CityMap({ state, dispatch }: Props) {
   const [hovered, setHovered] = useState<string | null>(null); // serialiserad SelKey
   const [selected, setSelected] = useState<SelKey | null>(null);
 
-  // Lägg ut alla enheter per zon (ägda + till salu + tomter).
+  // Lägg ut alla enheter per zon (ägda + till salu + tomter + konkurrenter).
   const placedByZone = useMemo(() => {
     const map: Record<string, Placed[]> = {};
     for (const zone of ZONES) {
       const owned = state.portfolio.filter((p) => p.district === zone.id);
       const listings = state.listings.filter((p) => p.district === zone.id);
       const lots = state.lots.filter((l) => l.district === zone.id);
+      const rivals: SelKey[] = [];
+      for (const comp of state.competitors) {
+        for (const p of (comp.portfolio ?? [])) {
+          if (p.district === zone.id) rivals.push({ kind: "rival", competitorName: comp.name, id: p.id });
+        }
+      }
       const keys: SelKey[] = [
         ...owned.map((p): SelKey => ({ kind: "owned", id: p.id })),
         ...listings.map((p): SelKey => ({ kind: "listing", id: p.id })),
         ...lots.map((l): SelKey => ({ kind: "lot", id: l.id })),
+        ...rivals,
       ];
       const slots = layoutZone(zone, keys.length);
       map[zone.id] = keys.map((key, i) => ({ key, x: slots[i].x, y: slots[i].y }));
     }
     return map;
-  }, [state.portfolio, state.listings, state.lots]);
+  }, [state.portfolio, state.listings, state.lots, state.competitors]);
 
   // Slå upp valt objekt → konkret data till detaljpanelen.
   const selProperty =
@@ -132,17 +149,25 @@ export function CityMap({ state, dispatch }: Props) {
     selected && selected.kind === "lot"
       ? state.lots.find((l) => l.id === selected.id) ?? null
       : null;
+  const selRival =
+    selected && selected.kind === "rival"
+      ? (() => {
+          const comp = state.competitors.find((c) => c.name === selected.competitorName);
+          const prop = comp?.portfolio.find((p) => p.id === selected.id) ?? null;
+          return comp && prop ? { comp, prop } : null;
+        })()
+      : null;
 
   return (
     <div style={{ paddingTop: 4 }}>
       {/* Titelremsa */}
       <div style={titleStrip}>
         <span style={titleText}>STADEN</span>
-        <span style={titleSub}>Klicka en byggnad för att köpa eller lägga bud</span>
+        <span style={titleSub}>Klicka en byggnad för att köpa, lägga bud eller göra direkterbjudande till konkurrent</span>
       </div>
 
       {/* Förklaring (mässingschips på valnötsremsa) */}
-      <Legend />
+      <Legend competitors={state.competitors} />
 
       {/* SVG-stadskartan */}
       <div style={mapFrame}>
@@ -208,9 +233,11 @@ export function CityMap({ state, dispatch }: Props) {
         <OwnedDetail p={selProperty} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
       ) : selLot ? (
         <LotDetail lot={selLot} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
+      ) : selRival ? (
+        <RivalDetail comp={selRival.comp} prop={selRival.prop} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
       ) : (
         <div style={hintBox}>
-          Klicka en byggnad för detaljer, köp eller lägg bud.
+          Klicka en byggnad för detaljer, köp eller lägg bud. Konkurrenternas byggnader är markerade i lila, orange och turkos.
         </div>
       )}
     </div>
@@ -220,6 +247,7 @@ export function CityMap({ state, dispatch }: Props) {
 // ── Serialisering av SelKey (för hover-jämförelse / React-nycklar) ─
 
 function serialize(k: SelKey): string {
+  if (k.kind === "rival") return `rival:${k.competitorName}:${k.id}`;
   return `${k.kind}:${k.id}`;
 }
 
@@ -334,6 +362,7 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
   let roof: string = C.brass;
   let isLot = false;
   let lotOwned = false;
+  let isRival = false;
   let building: Property | undefined;
   let lot: Lot | undefined;
 
@@ -343,6 +372,11 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
   } else if (key.kind === "listing") {
     building = state.listings.find((p) => p.id === key.id);
     roof = C.green;
+  } else if (key.kind === "rival") {
+    const compIdx = state.competitors.findIndex((c) => c.name === key.competitorName);
+    roof = RIVAL_COLORS[compIdx % RIVAL_COLORS.length];
+    building = state.competitors[compIdx]?.portfolio.find((p) => p.id === key.id);
+    isRival = true;
   } else {
     lot = state.lots.find((l) => l.id === key.id);
     isLot = true;
@@ -445,6 +479,10 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
               />
             </g>
           )}
+          {/* Rival → liten prick i övre vänster för att indikera ägaren */}
+          {isRival && (
+            <circle cx={x + 5} cy={y + 5} r={3.5} fill={roof} stroke="#00000033" strokeWidth={0.8} style={{ pointerEvents: "none" }} />
+          )}
         </>
       )}
     </g>
@@ -453,13 +491,16 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
 
 // ── Förklaring (mässingschips) ──────────────────────────────────
 
-function Legend() {
+function Legend({ competitors }: { competitors: import("../engine/types").Competitor[] }) {
   return (
     <div style={legendBar}>
       <LegendChip color={C.brass} label="Din fastighet" />
       <LegendChip color="#cc8020" label="Under byggnation" />
       <LegendChip color={C.green} label="Till salu" flag />
       <LegendChip color="transparent" label="Tomt" dashed />
+      {competitors.map((c, i) => (
+        <LegendChip key={c.name} color={RIVAL_COLORS[i % RIVAL_COLORS.length]} label={c.name.split(" ")[0]} />
+      ))}
     </div>
   );
 }
@@ -855,6 +896,98 @@ function Row({
 
 function GoldRule() {
   return <div style={{ height: 1, background: THEME.goldRule, margin: "8px 0" }} />;
+}
+
+// ── Rival (konkurrentägd): direkterbjudande ──────────────────────
+
+function RivalDetail({
+  comp,
+  prop,
+  state,
+  dispatch,
+  onClose,
+}: {
+  comp: Competitor;
+  prop: Property;
+  state: GameState;
+  dispatch: (a: GameAction) => void;
+  onClose: () => void;
+}) {
+  const ref = prop.askPrice;
+  const minOffer = Math.round(ref * 0.9);
+  const maxOffer = Math.round(ref * 1.5);
+  const [offer, setOffer] = useState(Math.round(ref * 1.15));
+  const { maxLtv } = loanTerms(state);
+  const down = offer * (1 - maxLtv);
+  const canOffer = state.cash >= down && !state.gameOver;
+  const ratio = offer / ref;
+  const likelyText =
+    ratio >= 1.25 ? { label: "Mycket trolig", color: C.positive } :
+    ratio >= 1.1  ? { label: "Trolig (70 %)", color: C.positive } :
+    { label: "Avvisas troligen", color: C.negative };
+
+  const compIdx = state.competitors.findIndex((c) => c.name === comp.name);
+  const rivalColor = RIVAL_COLORS[compIdx % RIVAL_COLORS.length];
+
+  return (
+    <DetailShell
+      title={prop.typeLabel}
+      sub={`${prop.districtName} · ${prop.area} m² · Ägs av ${comp.name}`}
+      onClose={onClose}
+      accent={rivalColor}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span style={{ width: 10, height: 10, borderRadius: "50%", background: rivalColor, display: "inline-block" }} />
+        <span style={{ fontSize: 12, color: C.inkSoft, fontWeight: 600 }}>{comp.name}</span>
+        {comp.strategy && (
+          <span style={{ fontSize: 11, background: rivalColor + "22", color: rivalColor, borderRadius: 4, padding: "1px 8px", fontWeight: 700 }}>
+            {comp.strategy}
+          </span>
+        )}
+      </div>
+      <Row label="Typ · distrikt" value={`${prop.typeLabel} · ${prop.districtName}`} />
+      <Row label="Yta" value={`${prop.area} m²`} />
+      <Row label="Skick" value={`${Math.round(prop.condition)} / 100`} />
+      <GoldRule />
+      <Row label="Senaste pris" value={msek(ref)} strong />
+      <Row label="Handpenning" value={msek(down)} />
+      <div style={{ marginTop: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+          <span style={bidLabel}>Ditt erbjudande</span>
+          <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 18, color: C.ink }}>
+            {msek(offer)}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={minOffer}
+          max={maxOffer}
+          step={Math.max(1, Math.round(ref / 40))}
+          value={offer}
+          onChange={(e) => setOffer(Number(e.target.value))}
+          style={{ width: "100%", accentColor: rivalColor, marginBottom: 4 }}
+        />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.inkSoft }}>
+          <span>{msek(minOffer)}</span>
+          <span>{msek(maxOffer)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+          <span style={{ fontSize: 12, color: C.inkSoft }}>Acceptanschans</span>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: likelyText.color }}>{likelyText.label}</span>
+        </div>
+        <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 2, fontStyle: "italic" }}>
+          Konkurrenten kräver minst 10 % premie över senaste pris.
+        </div>
+        <button
+          style={{ ...primaryBtn, ...(canOffer ? {} : disabledBtn), marginTop: 10 }}
+          disabled={!canOffer}
+          onClick={() => dispatch({ type: "OFFER_TO_RIVAL", competitorName: comp.name, propertyId: prop.id, amount: offer })}
+        >
+          {canOffer ? `Lägg erbjudande ${msek(offer)}` : "Otillräcklig handpenning"}
+        </button>
+      </div>
+    </DetailShell>
+  );
 }
 
 /* =============================================================

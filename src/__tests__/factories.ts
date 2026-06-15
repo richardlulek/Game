@@ -36,6 +36,7 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     portfolioValueHistory: [0],
     worldPool: [],
     worldTotal: 0,
+    selectedLender: undefined,
     ...over,
   };
 }

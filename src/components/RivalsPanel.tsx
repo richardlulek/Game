@@ -15,6 +15,8 @@ interface RankRow {
   me?: boolean;
   lastBuy?: string;
   monthlyNOI?: number;
+  strategy?: string;
+  preferredDistrict?: string;
 }
 
 export function RivalsPanel({ state, equity }: RivalsPanelProps) {
@@ -27,6 +29,8 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
     ...state.competitors.map((c) => ({
       ...c,
       units: c.portfolio?.length ?? c.units,
+      strategy: c.strategy,
+      preferredDistrict: c.preferredDistrict,
     })),
   ].sort((a, b) => b.equity - a.equity);
   return (
@@ -49,10 +53,15 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
                 {msek(c.equity)}
               </span>
             </div>
-            <div style={{ fontSize: 12, color: "#888", marginTop: 3, display: "flex", gap: 12 }}>
+            <div style={{ fontSize: 12, color: "#888", marginTop: 3, display: "flex", gap: 12, flexWrap: "wrap" }}>
               <span>{c.units} objekt</span>
               {c.monthlyNOI !== undefined && <span>NOI: {kr(c.monthlyNOI)}/mån</span>}
               {c.lastBuy && <span>Senaste köp: {c.lastBuy}</span>}
+              {!c.me && c.strategy && (
+                <span style={{ fontWeight: 700, color: "#7b5a2e" }}>
+                  Strategi: {c.strategy}{c.preferredDistrict ? ` (${c.preferredDistrict})` : ""}
+                </span>
+              )}
             </div>
             {(() => {
               if (c.me) return null;

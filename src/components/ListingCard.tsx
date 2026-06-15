@@ -89,6 +89,20 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
         </div>
       )}
 
+      {p.txHistory && p.txHistory.length > 0 && (
+        <div style={{ marginBottom: 8, padding: "6px 8px", background: "#f7f3e8", borderRadius: 4, border: "1px solid #e8dfc5" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#7b5a2e", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
+            Transaktionshistorik
+          </div>
+          {[...p.txHistory].reverse().slice(0, 3).map((tx, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#666", lineHeight: 1.6 }}>
+              <span>{tx.year}:{tx.month < 10 ? "0" : ""}{tx.month} · {tx.type} · {tx.party}</span>
+              <span style={{ fontWeight: 700 }}>{msek(tx.price)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={S.cardRow}>
         <span>Yta</span>
         <strong style={strong}>{p.area} m²</strong>

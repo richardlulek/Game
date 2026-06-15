@@ -104,16 +104,19 @@ export function advanceMonth(state: GameState): GameState {
     events.push({ t: `🚨 ${ev.text}`, kind: "warn" });
   }
 
-  // ── AI-konkurrenter agerar (riktiga portföljer) ─────────────────
+  // ── AI-konkurrenter agerar (riktiga portföljer + personligheter) ─
   s.competitors = s.competitors.map((c) => {
     const nc = { ...c, portfolio: [...(c.portfolio ?? [])] };
-    // NOI från faktisk portfölj (förenklad: 6 % cap rate per portföljvärde)
     const portVal = nc.portfolio.reduce((a, p) => a + p.askPrice, 0);
     nc.monthlyNOI = Math.round((portVal * 0.06) / 12);
     nc.cash += nc.monthlyNOI;
-    // Sälj ibland (5 % chans) — fastighet återgår till marknaden
-    if (nc.portfolio.length > 2 && Math.random() < 0.05) {
-      const idx = Math.floor(Math.random() * nc.portfolio.length);
+    // Säljchans per strategi
+    const sellProb = nc.strategy === "tillväxt" ? 0.01 : nc.strategy === "värde" ? 0.08 : 0.05;
+    if (nc.portfolio.length > 2 && Math.random() < sellProb) {
+      // värde-strategi säljer helst sin dyraste fastighet (realiserar vinst)
+      const idx = nc.strategy === "värde"
+        ? nc.portfolio.reduce((best, p, i) => p.askPrice > nc.portfolio[best].askPrice ? i : best, 0)
+        : Math.floor(Math.random() * nc.portfolio.length);
       const selling = nc.portfolio.splice(idx, 1)[0];
       const sellPrice = Math.round(selling.askPrice * rnd(0.95, 1.10));
       nc.cash += sellPrice;
@@ -134,12 +137,21 @@ export function advanceMonth(state: GameState): GameState {
     nc.equity = nc.cash + nc.portfolio.reduce((a, p) => a + p.askPrice, 0);
     return nc;
   });
-  // Konkurrent köper från marknaden (tar ett verkligt objekt)
+  // Konkurrent köper från marknaden med strategi-filtrering
   if (s.listings.length > 3 && Math.random() < 0.25) {
-    const buyable = s.listings.filter((p) => p.status === "klar");
+    const buyer = pick(s.competitors);
+    const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
+    const buyable = s.listings.filter((p) => {
+      if (p.status !== "klar") return false;
+      switch (buyer.strategy) {
+        case "distrikt": return p.district === buyer.preferredDistrict;
+        case "värde": return p.askPrice < avgPrice * 0.95;
+        case "utdelning": return (p.askPrice * 0.06 / 12) / p.askPrice >= 0.004;
+        case "tillväxt": default: return true;
+      }
+    });
     if (buyable.length > 0) {
       const taken = pick(buyable);
-      const buyer = pick(s.competitors);
       const price = Math.round(taken.askPrice * rnd(0.97, 1.05));
       s.listings = s.listings.filter((x) => x.id !== taken.id);
       s.competitors = s.competitors.map((c) =>

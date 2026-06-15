@@ -105,6 +105,15 @@ export interface DecisionEffect {
   logKind: LogKind;
 }
 
+/** En transaktion i fastighetens historik. */
+export interface TxRecord {
+  type: "köp" | "sälj" | "nybygg";
+  price: number;
+  month: number;
+  year: number;
+  party: string;
+}
+
 /** En fastighet (till salu eller ägd). */
 export interface Property {
   id: number;
@@ -131,6 +140,7 @@ export interface Property {
   managed?: boolean;
   listedMonth?: number;
   expiresMonth?: number;
+  txHistory?: TxRecord[];
 }
 
 /** En byggbar tomt. */
@@ -145,6 +155,8 @@ export interface Lot {
   expiresMonth?: number;
 }
 
+export type CompetitorStrategy = "tillväxt" | "utdelning" | "värde" | "distrikt";
+
 /** En AI-konkurrent. */
 export interface Competitor {
   name: string;
@@ -154,6 +166,8 @@ export interface Competitor {
   lastBuy?: string;
   monthlyNOI?: number;
   portfolio: Property[];
+  strategy?: CompetitorStrategy;
+  preferredDistrict?: string;
 }
 
 /** Bransch på börsen. */
@@ -220,6 +234,16 @@ export interface GameEvent {
   apply: (s: GameState) => GameState;
 }
 
+/** En tillgänglig långivare. */
+export interface Lender {
+  id: string;
+  name: string;
+  desc: string;
+  rateBonus: number;
+  ltvBonus: number;
+  minReputation: number;
+}
+
 /** Lånevillkor härledda ur reputation. */
 export interface LoanTerms {
   rate: number;
@@ -261,6 +285,7 @@ export interface GameState {
   portfolioValueHistory: number[];
   worldPool: Property[];
   worldTotal: number;
+  selectedLender?: string;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -297,6 +322,8 @@ export type GameAction =
   | { type: "SELL_SUBSIDIARY"; name: string }
   | { type: "PLACE_LIMIT_ORDER"; stockId: string; qty: number; limitPrice: number; side: "buy" | "sell" }
   | { type: "CANCEL_LIMIT_ORDER"; orderId: string }
+  | { type: "OFFER_TO_RIVAL"; competitorName: string; propertyId: number; amount: number }
+  | { type: "SELECT_LENDER"; lenderId: string }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
