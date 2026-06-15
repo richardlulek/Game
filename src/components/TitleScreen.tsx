@@ -1,13 +1,19 @@
+import { useState } from "react";
+import { SCENARIOS } from "../engine/scenarios";
+import type { ScenarioId } from "../engine/types";
 import { C, FONTS, THEME } from "../styles/tokens";
 
 interface Props {
   hasSave: boolean;
-  onNew: () => void;
+  onNew: (scenarioId: ScenarioId) => void;
   onContinue: () => void;
 }
 
 /** Art-deco titelskärm – "spelets entré". */
 export function TitleScreen({ hasSave, onNew, onContinue }: Props) {
+  const [phase, setPhase] = useState<"start" | "scenario">("start");
+  const [selectedId, setSelectedId] = useState<ScenarioId>("equity50");
+
   return (
     <div style={wrap}>
       {/* Solstråle-motiv */}
@@ -57,23 +63,71 @@ export function TitleScreen({ hasSave, onNew, onContinue }: Props) {
 
       {/* Mässingsram med titel */}
       <div style={frame}>
-        <div style={overline}>· ETABLERAT 1925 ·</div>
-        <div style={title}>FASTIGHETS&shy;IMPERIUM</div>
-        <div style={rule}>
-          <span style={diamond}>◆</span>
-        </div>
-        <div style={subtitle}>Res ett imperium kvarter för kvarter</div>
+        {phase === "start" && (
+          <>
+            <div style={overline}>· ETABLERAT 1925 ·</div>
+            <div style={title}>FASTIGHETS&shy;IMPERIUM</div>
+            <div style={rule}>
+              <span style={diamond}>◆</span>
+            </div>
+            <div style={subtitle}>Res ett imperium kvarter för kvarter</div>
 
-        <div style={btnRow}>
-          {hasSave && (
-            <button style={contBtn} onClick={onContinue}>
-              Fortsätt spela
-            </button>
-          )}
-          <button style={newBtn} onClick={onNew}>
-            {hasSave ? "Nytt spel" : "Börja spela"}
-          </button>
-        </div>
+            <div style={btnRow}>
+              {hasSave && (
+                <button style={contBtn} onClick={onContinue}>
+                  Fortsätt spela
+                </button>
+              )}
+              <button style={newBtn} onClick={() => setPhase("scenario")}>
+                {hasSave ? "Nytt spel" : "Börja spela"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {phase === "scenario" && (
+          <>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 22, fontWeight: 700, color: C.brassBright, marginBottom: 16 }}>
+              Välj spelläge
+            </div>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: 10,
+              marginBottom: 18,
+              maxWidth: 700,
+              width: "100%",
+            }}>
+              {SCENARIOS.map((sc) => (
+                <div
+                  key={sc.id}
+                  onClick={() => setSelectedId(sc.id)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 5,
+                    border: selectedId === sc.id ? `2px solid ${C.brass}` : `1px solid ${C.brassDim}`,
+                    background: "rgba(255,255,255,0.07)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <div style={{ fontSize: 26 }}>{sc.icon}</div>
+                  <div style={{ fontFamily: FONTS.heading, fontSize: 15, fontWeight: 700, color: C.brassBright, marginTop: 4 }}>{sc.title}</div>
+                  <div style={{ fontSize: 11, color: C.brass, marginTop: 2 }}>{sc.subtitle}</div>
+                  <div style={{ fontSize: 12, color: C.creamSoft, marginTop: 4 }}>{sc.desc}</div>
+                </div>
+              ))}
+            </div>
+            <div style={btnRow}>
+              <button style={contBtn} onClick={() => setPhase("start")}>
+                ← Tillbaka
+              </button>
+              <button style={newBtn} onClick={() => onNew(selectedId)}>
+                Starta
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

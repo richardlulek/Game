@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { propNOI } from "../engine/property";
+import { SCENARIOS } from "../engine/scenarios";
+import type { ScenarioId } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import { S } from "../styles/styles";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C, FONTS } from "../styles/tokens";
 import { Animations } from "./Animations";
 import { BuildPanel } from "./BuildPanel";
 import { DecisionModal } from "./DecisionModal";
@@ -27,7 +29,6 @@ import { StaffPanel } from "./StaffPanel";
 import { PortfolioTable } from "./PortfolioTable";
 import { AcquisitionPanel } from "./AcquisitionPanel";
 import { DistrictPanel } from "./DistrictPanel";
-import { C, FONTS } from "../styles/tokens";
 
 const TABS = [
   { id: "portfolio", label: "Portfölj" },
@@ -58,8 +59,12 @@ export default function FastighetsImperium() {
   const [saved, setSaved]     = useState(false);
   const [showOffers, setShowOffers] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const [showVictory, setShowVictory] = useState(false);
 
-  const startNew = () => { dispatch({ type: "RESET" }); setStarted(true); };
+  const startNew = (scenarioId: ScenarioId) => {
+    dispatch({ type: "RESET", scenarioId });
+    setStarted(true);
+  };
   const startContinue = () => { load(); setStarted(true); };
 
   // Månadspuls – ett kort svep när månaden växlar.
@@ -72,6 +77,13 @@ export default function FastighetsImperium() {
       setPulseKey((k) => k + 1);
     }
   }, [absMonth]);
+
+  // Victory detection
+  const prevWon = useRef(false);
+  useEffect(() => {
+    if (state.gameWon && !prevWon.current) { setShowVictory(true); }
+    prevWon.current = !!state.gameWon;
+  }, [state.gameWon]);
 
   const doSave = () => { save(); setSaved(true); setTimeout(() => setSaved(false), 1500); };
   const toggleSound = () => { const v = !soundOn; setSoundEnabled(v); setSoundOn(v); };
@@ -137,6 +149,23 @@ export default function FastighetsImperium() {
           </button>
         ))}
       </div>
+
+      {/* ── Scenario progress bar ───────────────────────────── */}
+      {state.scenarioId && state.scenarioId !== "sandbox" && (() => {
+        const sc = SCENARIOS.find((x) => x.id === state.scenarioId);
+        if (!sc) return null;
+        const prog = sc.progress(state);
+        const pct = Math.min(1, prog.value / prog.max);
+        return (
+          <div style={{ background: C.woodDark, padding: "4px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.brass}44` }}>
+            <span style={{ fontSize: 11, color: C.brass, fontWeight: 700, whiteSpace: "nowrap" }}>{sc.icon} {sc.title}</span>
+            <div style={{ flex: 1, height: 6, background: "#2a1a0a", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ width: `${pct * 100}%`, height: "100%", background: pct >= 1 ? "#ffd700" : C.brass, borderRadius: 3, transition: "width 0.5s" }} />
+            </div>
+            <span style={{ fontSize: 11, color: C.creamSoft, whiteSpace: "nowrap" }}>{prog.label}</span>
+          </div>
+        );
+      })()}
 
       {/* ── Content ─────────────────────────────────────────── */}
       <div style={contentStyle}>
@@ -206,6 +235,48 @@ export default function FastighetsImperium() {
             animation: "fi-month-pulse 0.7s ease-out",
           }}
         />
+      )}
+
+      {/* ── Victory overlay ─────────────────────────────────── */}
+      {showVictory && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,20,10,0.85)", zIndex: 2500,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div style={{
+            background: "linear-gradient(165deg, #f6efdc, #e6d6b4)", border: `2px solid ${C.brass}`, borderRadius: 8,
+            padding: "36px 44px", maxWidth: 480, width: "100%", textAlign: "center",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+          }}>
+            <div style={{ fontSize: 52, marginBottom: 8 }}>🏆</div>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 26, fontWeight: 900, color: BURGUNDY, marginBottom: 6 }}>
+              Seger!
+            </div>
+            {(() => {
+              const sc = SCENARIOS.find((x) => x.id === state.scenarioId);
+              return sc ? (
+                <div style={{ fontSize: 15, color: C.inkSoft, marginBottom: 18 }}>
+                  {sc.title}: {sc.subtitle}<br />
+                  <span style={{ fontSize: 13 }}>Spelat klart år {state.year}, månad {state.month}</span>
+                </div>
+              ) : null;
+            })()}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={() => setShowVictory(false)}
+                style={{ padding: "10px 24px", borderRadius: 4, border: `1px solid ${C.brass}`, background: "transparent", color: C.ink, fontWeight: 700, cursor: "pointer" }}
+              >
+                Fortsätt spela
+              </button>
+              <button
+                onClick={() => { setShowVictory(false); dispatch({ type: "RESET" }); setStarted(false); }}
+                style={{ padding: "10px 24px", borderRadius: 4, border: `1px solid ${C.brass}`, background: BURGUNDY, color: C.brassBright, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body }}
+              >
+                Nytt spel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Reaktiva lager ──────────────────────────────────── */}

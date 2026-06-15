@@ -51,6 +51,18 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
       <Chip label="Ränta" value={terms.rate + " %"} />
       <Chip label="Reputation" value={String(Math.round(state.reputation))} />
       <Chip label="Rank" value={`#${myRank}`} valueColor={rankColor} />
+      {state.marketMod < 0.97 && (
+        <Chip label="Marknad" value={`${((state.marketMod - 1) * 100).toFixed(0)} %`} valueColor="#f87a7a" />
+      )}
+      {state.marketMod > 1.03 && (
+        <Chip label="Marknad" value={`+${((state.marketMod - 1) * 100).toFixed(0)} %`} valueColor="#80e080" />
+      )}
+      {state.demandMod < 0.97 && (
+        <Chip label="Efterfrågan" value={`${((state.demandMod - 1) * 100).toFixed(0)} %`} valueColor="#f87a7a" />
+      )}
+      {(state.recessionMonthsLeft ?? 0) > 0 && (
+        <Chip label="Lågkonjunktur" value={`${state.recessionMonthsLeft} mån`} valueColor="#f87a7a" />
+      )}
     </div>
   );
 }

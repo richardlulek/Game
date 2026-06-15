@@ -47,7 +47,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash - down,
         debt: state.debt + loan,
-        reputation: Math.min(100, state.reputation + 1),
+        reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
         portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: p.askPrice, txHistory: [...(p.txHistory ?? []), txEntry] }],
         listings: state.listings.filter((x) => x.id !== p.id),
         log: [
@@ -78,7 +78,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...state,
           cash: state.cash - down,
           debt: state.debt + loan,
-          reputation: Math.min(100, state.reputation + 1),
+          reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
           portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: bid, txHistory: [...(p.txHistory ?? []), txEntry] }],
           listings: state.listings.filter((x) => x.id !== p.id),
           log: [
@@ -294,6 +294,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash - down,
         debt: state.debt + (cost - down),
+        reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
         portfolio: [...state.portfolio, newProp],
         lots: state.lots.filter((x) => x.id !== lot.id),
         worldTotal: (state.worldTotal ?? 0) + 1,
@@ -836,6 +837,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!rival) return state;
       if ((rival.portfolio ?? []).length === 0)
         return log(state, `${rival.name} äger inga fastigheter att förvärva.`, "warn");
+      const minPrice = Math.round((rival.equity ?? 0) * 1.3);
+      if (action.amount < minPrice)
+        return log(state, `Minimipris för förvärv är ${msek(minPrice)} (130 % av eget kapital).`, "warn");
       const down = Math.round(action.amount * 0.25);
       if (state.cash < down)
         return log(state, `Otillräcklig kassa – behöver minst ${msek(down)} (25 % handpenning).`, "warn");
@@ -867,6 +871,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "SNOOZE_DECISION": {
+      if (!state.pendingDecision) return state;
+      return {
+        ...state,
+        pendingDecision: null,
+        reputation: Math.max(0, +(state.reputation - 2).toFixed(1)),
+        log: [{ t: `⏸ Sköt upp beslutet "${state.pendingDecision.title}". Reputation −2.`, kind: "warn" }, ...state.log],
+      };
+    }
+    case "SET_SCENARIO": {
+      return { ...state, scenarioId: action.scenarioId, gameWon: false };
+    }
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {
@@ -880,8 +896,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "LOAD":
       return action.state;
-    case "RESET":
-      return initState();
+    case "RESET": {
+      const fresh = initState();
+      return action.scenarioId ? { ...fresh, scenarioId: action.scenarioId } : fresh;
+    }
     default:
       return state;
   }

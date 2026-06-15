@@ -36,6 +36,14 @@ export function DecisionModal({ state, dispatch }: Props) {
             </button>
           ))}
         </div>
+        <div style={{ marginTop: 14, borderTop: `1px solid ${C.brassDim}`, paddingTop: 10, textAlign: "center" }}>
+          <button
+            style={{ background: "none", border: "none", fontSize: 12, color: C.inkSoft, cursor: "pointer", textDecoration: "underline" }}
+            onClick={() => dispatch({ type: "SNOOZE_DECISION" })}
+          >
+            Skjut upp beslutet (−2 reputation)
+          </button>
+        </div>
       </div>
     </div>
   );

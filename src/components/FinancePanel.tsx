@@ -123,42 +123,48 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>
           Byt bank för att påverka ränta och belåningsgrad. Aktiv: <strong>{LENDERS.find(l => l.id === state.selectedLender)?.name ?? "Standard (ingen bank vald)"}</strong>
         </div>
-        {LENDERS.map((lender) => {
-          const locked = state.reputation < lender.minReputation;
-          const active = state.selectedLender === lender.id;
-          return (
-            <div
-              key={lender.id}
-              onClick={() => !locked && dispatch({ type: "SELECT_LENDER", lenderId: lender.id })}
-              style={{
-                marginBottom: 8,
-                padding: "10px 14px",
-                borderRadius: 6,
-                border: `2px solid ${active ? BURGUNDY : locked ? "#ddd" : C.brassDim}`,
-                background: active ? "#fdf6e3" : locked ? "#f5f5f5" : "#fff",
-                cursor: locked ? "default" : "pointer",
-                opacity: locked ? 0.55 : 1,
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: active ? BURGUNDY : "#333" }}>
-                  {lender.name}
-                </span>
-                {active && <span style={{ fontSize: 11, fontWeight: 700, color: BURGUNDY }}>AKTIV</span>}
-                {locked && <span style={{ fontSize: 11, color: "#bbb" }}>Kräver rep. {lender.minReputation}</span>}
+        {(() => {
+          const baseLtv = 0.55 + (state.reputation / 100) * 0.19;
+          const baseSpread = Math.max(0.3, 2.5 - (state.reputation / 100) * 1.7);
+          return LENDERS.map((lender) => {
+            const locked = state.reputation < lender.minReputation;
+            const active = state.selectedLender === lender.id;
+            const actualRate = +(state.interestRate + baseSpread + lender.rateBonus).toFixed(2);
+            const actualLtv = Math.max(0.5, Math.min(0.85, baseLtv + lender.ltvBonus));
+            return (
+              <div
+                key={lender.id}
+                onClick={() => !locked && dispatch({ type: "SELECT_LENDER", lenderId: lender.id })}
+                style={{
+                  marginBottom: 8,
+                  padding: "10px 14px",
+                  borderRadius: 6,
+                  border: `2px solid ${active ? BURGUNDY : locked ? "#ddd" : C.brassDim}`,
+                  background: active ? "#fdf6e3" : locked ? "#f5f5f5" : "#fff",
+                  cursor: locked ? "default" : "pointer",
+                  opacity: locked ? 0.55 : 1,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: active ? BURGUNDY : "#333" }}>
+                    {lender.name}
+                  </span>
+                  {active && <span style={{ fontSize: 11, fontWeight: 700, color: BURGUNDY }}>AKTIV</span>}
+                  {locked && <span style={{ fontSize: 11, color: "#bbb" }}>Kräver rep. {lender.minReputation}</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#888", marginTop: 3 }}>{lender.desc}</div>
+                <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 12 }}>
+                  <span style={{ color: lender.rateBonus <= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
+                    Ränta: {actualRate.toFixed(2)} %
+                  </span>
+                  <span style={{ color: lender.ltvBonus >= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
+                    Max LTV: {(actualLtv * 100).toFixed(0)} %
+                  </span>
+                </div>
               </div>
-              <div style={{ fontSize: 11.5, color: "#888", marginTop: 3 }}>{lender.desc}</div>
-              <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 12 }}>
-                <span style={{ color: lender.rateBonus <= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
-                  Ränta {lender.rateBonus > 0 ? "+" : ""}{lender.rateBonus.toFixed(1)} %
-                </span>
-                <span style={{ color: lender.ltvBonus >= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
-                  LTV {lender.ltvBonus > 0 ? "+" : ""}{(lender.ltvBonus * 100).toFixed(0)} pp
-                </span>
-              </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
     </div>
   );

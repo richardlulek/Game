@@ -190,9 +190,9 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
               .filter((c) => (c.portfolio ?? []).length > 0)
               .map((comp) => {
                 const synergyValue = comp.portfolio.reduce((a, p) => a + p.askPrice * 1.05, 0);
-                const minPrice = Math.round(comp.equity * 0.80);
+                const minPrice = Math.round(comp.equity * 1.30);
                 const maxPrice = Math.round(comp.equity * 1.50);
-                const defaultPrice = Math.round(comp.equity * 1.20);
+                const defaultPrice = Math.round(comp.equity * 1.35);
                 const curPrice = maBids[comp.name] ?? defaultPrice;
                 const downPayment = Math.round(curPrice * 0.25);
                 const canAfford = state.cash >= downPayment;
@@ -216,7 +216,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                     </div>
                     <div style={{ marginTop: 12 }}>
                       <label style={{ fontSize: 11, color: C.creamSoft }}>
-                        Förvärvspris: {msek(curPrice)} ({pct(curPrice / comp.equity - 1)} premie)
+                        Förvärvspris: {msek(curPrice)} (Lägst möjligt: 130 % av eget kapital)
                       </label>
                       <input
                         type="range"

@@ -25,6 +25,11 @@ export function advanceMonth(state: GameState): GameState {
   const events: LogEntry[] = [];
   const prevSent = state.marketSentiment ?? 1; // sentiment innan månadens händelser
 
+  // Decrement recession counter
+  if ((s.recessionMonthsLeft ?? 0) > 0) {
+    s.recessionMonthsLeft = (s.recessionMonthsLeft ?? 0) - 1;
+  }
+
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
     // Bygge fortskrider
@@ -69,7 +74,8 @@ export function advanceMonth(state: GameState): GameState {
     // Hyresgästlogik
     const nextTenants: typeof np.tenants = [];
     for (const t of np.tenants) {
-      if (Math.random() < t.defaultRisk) {
+      const effectiveDefaultRisk = (s.recessionMonthsLeft ?? 0) > 0 ? t.defaultRisk * 2.5 : t.defaultRisk;
+      if (Math.random() < effectiveDefaultRisk) {
         events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Plats ledig.`, kind: "expense" });
         continue;
       }
@@ -366,6 +372,8 @@ export function advanceMonth(state: GameState): GameState {
       ...s.listings,
       ...toReveal.map((p) => ({
         ...p,
+        askPrice: Math.round(p.askPrice * s.marketMod),
+        baseRent: Math.round(p.baseRent * s.marketMod),
         listedMonth: born,
         expiresMonth: born + 3 + Math.floor(Math.random() * 2),
       })),
@@ -389,6 +397,18 @@ export function advanceMonth(state: GameState): GameState {
     s.month = 1;
     s.year += 1;
     s.marketMod = +(s.marketMod * rnd(0.99, 1.04)).toFixed(3);
+  }
+
+  // Win condition check
+  if (!s.gameWon && s.scenarioId && s.scenarioId !== "sandbox") {
+    const sc = SCENARIOS.find((x) => x.id === s.scenarioId);
+    if (sc?.check(s)) {
+      s.gameWon = true;
+      s.log = [
+        { t: `🏆 MÅL UPPNÅTT: ${sc.title} – ${sc.subtitle}! Spelat klart år ${s.year}.`, kind: "income" },
+        ...s.log,
+      ];
+    }
   }
 
   const net = monthlyNOI - interest;

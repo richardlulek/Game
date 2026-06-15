@@ -38,6 +38,9 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     worldTotal: 0,
     selectedLender: undefined,
     globalManager: undefined,
+    scenarioId: undefined,
+    gameWon: false,
+    recessionMonthsLeft: 0,
     ...over,
   };
 }
