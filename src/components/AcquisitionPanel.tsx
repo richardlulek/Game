@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
+import { loanTerms } from "../engine/finance";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
 
@@ -27,11 +28,72 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 6);
 
+  // Köpkalkylator
+  const [calcPrice, setCalcPrice] = useState(5_000_000);
+  const [calcRent, setCalcRent] = useState(30_000);
+  const [calcOpex, setCalcOpex] = useState(25);
+  const [calcVacancy, setCalcVacancy] = useState(8);
+  const terms = loanTerms(state);
+  const calcDown = Math.round(calcPrice * (1 - terms.maxLtv));
+  const calcLoan = calcPrice - calcDown;
+  const calcAnnualRent = calcRent * 12;
+  const calcAnnualOpex = calcAnnualRent * (calcOpex / 100);
+  const calcAnnualVacancy = calcAnnualRent * (calcVacancy / 100);
+  const calcNOI = calcAnnualRent - calcAnnualOpex - calcAnnualVacancy;
+  const calcInterest = calcLoan * (terms.rate / 100);
+  const calcCashflow = calcNOI - calcInterest;
+  const calcYield = calcPrice > 0 ? (calcNOI / calcPrice) * 100 : 0;
+  const calcCashOnCash = calcDown > 0 ? (calcCashflow / calcDown) * 100 : 0;
+
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
       <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 20 }}>
         Förvärvsflöde
       </h2>
+
+      {/* ── Köpkalkylator ─────────────────────────────────────────── */}
+      <section style={{ ...sectionStyle, background: "#1a1208", border: `1px solid ${C.brass}` }}>
+        <h3 style={sectionHeadStyle}>Köpkalkylator</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px", fontSize: 13 }}>
+          <div>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Köppris: {msek(calcPrice)}</label>
+            <input type="range" min={500000} max={100_000_000} step={500000}
+              value={calcPrice} onChange={(e) => setCalcPrice(+e.target.value)}
+              style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Månadshy. (per enhet): {kr(calcRent)}</label>
+            <input type="range" min={2000} max={200_000} step={1000}
+              value={calcRent} onChange={(e) => setCalcRent(+e.target.value)}
+              style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Driftkostnad: {calcOpex} %</label>
+            <input type="range" min={5} max={40} step={1}
+              value={calcOpex} onChange={(e) => setCalcOpex(+e.target.value)}
+              style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Vakans: {calcVacancy} %</label>
+            <input type="range" min={0} max={30} step={1}
+              value={calcVacancy} onChange={(e) => setCalcVacancy(+e.target.value)}
+              style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 14 }}>
+          {[
+            { l: "Handpenning", v: msek(calcDown), c: C.negative },
+            { l: "NOI / år", v: kr(calcNOI), c: calcNOI > 0 ? C.positive : C.negative },
+            { l: "Direktavk.", v: `${calcYield.toFixed(1)} %`, c: calcYield >= 5 ? C.positive : C.gold },
+            { l: "Kassa-avk.", v: `${calcCashOnCash.toFixed(1)} %`, c: calcCashflow > 0 ? C.positive : C.negative },
+          ].map(({ l, v, c }) => (
+            <div key={l} style={{ background: "#0e0b06", border: `1px solid ${C.brass}44`, borderRadius: 5, padding: "8px 10px", textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: C.creamSoft, marginBottom: 3 }}>{l}</div>
+              <div style={{ fontWeight: 700, color: c, fontSize: 14 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ── Sektion 1: Deal flow ─────────────────────────────────── */}
       <section style={sectionStyle}>

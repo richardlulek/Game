@@ -66,6 +66,8 @@ export interface Tenant {
   monthsLeft: number;
   termTotal: number;
   rent: number;
+  consecutiveMonths?: number;
+  isAnchor?: boolean;
 }
 
 /** Ett inkommande erbjudande (t.ex. en rival som vill köpa din fastighet). */
@@ -152,6 +154,9 @@ export interface Property {
   expiresMonth?: number;
   txHistory?: TxRecord[];
   managerSettings?: ManagerSettings;
+  shortTerm?: boolean;
+  pendingZoneChange?: { targetType: PropTypeKey; monthsLeft: number };
+  builtYear?: number;
 }
 
 /** En byggbar tomt. */
@@ -309,6 +314,14 @@ export interface GameState {
   scenarioId?: ScenarioId;
   gameWon?: boolean;
   recessionMonthsLeft?: number;
+  rateMode?: "variable" | "fixed";
+  fixedRate?: number;
+  fixedUntilAbs?: number;
+  revolving?: { limit: number; used: number };
+  dividendsPaid?: number;
+  advisors?: string[];
+  ipoActive?: boolean;
+  ipoLastQuarterlyNOI?: number;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -353,6 +366,14 @@ export type GameAction =
   | { type: "ACQUIRE_RIVAL"; competitorName: string; amount: number }
   | { type: "SNOOZE_DECISION" }
   | { type: "SET_SCENARIO"; scenarioId: ScenarioId }
+  | { type: "SET_RATE_MODE"; mode: "variable" | "fixed"; months?: number }
+  | { type: "DRAW_REVOLVING"; amount: number }
+  | { type: "REPAY_REVOLVING"; amount: number }
+  | { type: "PAY_DIVIDEND"; amount: number }
+  | { type: "TOGGLE_SHORT_TERM"; id: number }
+  | { type: "APPLY_ZONE_CHANGE"; id: number; targetType: PropTypeKey }
+  | { type: "INVEST_DISTRICT"; districtId: string; amount: number }
+  | { type: "DO_IPO" }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

@@ -230,6 +230,39 @@ export const RARE_EVENTS: GameEvent[] = [
   },
 ];
 
+/** Lokala distriktshändelser – en händelse per distrikt med ~8 % chans/mån. */
+export const DISTRICT_EVENTS: GameEvent[] = [
+  {
+    id: "tunnelbana",
+    text: "Ny tunnelbanestation planeras. Distriktets attraktivitet stiger.",
+    apply: (s) => ({ ...s, demandMod: +(s.demandMod * 1.03).toFixed(3) }),
+  },
+  {
+    id: "byggstörning",
+    text: "Stort byggprojekt skapar störningar. Tillfällig vakansökning.",
+    apply: (s) => ({ ...s, demandMod: +(s.demandMod * 0.97).toFixed(3) }),
+  },
+  {
+    id: "stadsfornyelese",
+    text: "Stadsförnyelse i distriktet lockar nya invånare och företag.",
+    apply: (s) => ({
+      ...s,
+      marketMod: +(s.marketMod * 1.02).toFixed(3),
+      demandMod: +(s.demandMod * 1.02).toFixed(3),
+    }),
+  },
+  {
+    id: "oversv",
+    text: "Översvämningsrisk i kustområdet. Fastighetsvärden dämpas tillfälligt.",
+    apply: (s) => ({ ...s, marketMod: +(s.marketMod * 0.98).toFixed(3) }),
+  },
+  {
+    id: "brottsvag",
+    text: "Ökad brottslighet rapporteras. Hyresefterfrågan sjunker lokalt.",
+    apply: (s) => ({ ...s, demandMod: +(s.demandMod * 0.97).toFixed(3) }),
+  },
+];
+
 export const AI_NAMES = [
   "Nordhem Fastigheter",
   "Brunnsparken Invest",

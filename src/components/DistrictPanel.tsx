@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { DISTRICTS } from "../engine/data";
-import { msek, pct } from "../engine/format";
+import { kr, msek, pct } from "../engine/format";
 import { propMarketValue } from "../engine/property";
-import type { GameState } from "../engine/types";
+import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";
 
 interface Props {
   state: GameState;
+  dispatch: (a: GameAction) => void;
 }
 
 function demandLabel(demand: number): string {
@@ -14,7 +16,9 @@ function demandLabel(demand: number): string {
   return "Låg";
 }
 
-export function DistrictPanel({ state }: Props) {
+export function DistrictPanel({ state, dispatch }: Props) {
+  const [investAmts, setInvestAmts] = useState<Record<string, number>>({});
+
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
       <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 20 }}>
@@ -159,6 +163,43 @@ export function DistrictPanel({ state }: Props) {
                     Inga rivaler i detta distrikt
                   </div>
                 )}
+              </div>
+
+              {/* Invest in district */}
+              <div style={{ borderTop: `1px solid ${C.brass}44`, paddingTop: 10, marginTop: 8 }}>
+                <div style={{ fontSize: 11, color: C.creamSoft, marginBottom: 6 }}>
+                  Investera direkt i distriktet (höjer områdesutveckling)
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="range"
+                    min={500000}
+                    max={Math.min(state.cash, 10_000_000)}
+                    step={500000}
+                    value={investAmts[d.id] ?? 1_000_000}
+                    onChange={(e) => setInvestAmts({ ...investAmts, [d.id]: +e.target.value })}
+                    style={{ flex: 1, accentColor: C.brass }}
+                  />
+                  <span style={{ fontSize: 12, minWidth: 60 }}>{msek(investAmts[d.id] ?? 1_000_000)}</span>
+                </div>
+                <button
+                  onClick={() => dispatch({ type: "INVEST_DISTRICT", districtId: d.id, amount: investAmts[d.id] ?? 1_000_000 })}
+                  disabled={state.cash < 500_000 || state.gameOver}
+                  style={{
+                    marginTop: 6,
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    borderRadius: 4,
+                    border: `1px solid ${C.brass}`,
+                    background: state.cash >= 500_000 ? C.burgundy : "#666",
+                    color: C.brassBright,
+                    cursor: state.cash >= 500_000 ? "pointer" : "default",
+                    fontWeight: 700,
+                    width: "100%",
+                  }}
+                >
+                  Investera i {d.name}
+                </button>
               </div>
             </div>
           );

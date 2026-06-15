@@ -11,7 +11,7 @@ import type { GameState } from "../engine/types";
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 interface SaveFile {
   version: number;
@@ -114,6 +114,31 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     scenarioId: (s as any).scenarioId ?? "sandbox",
     gameWon: (s as any).gameWon ?? false,
     recessionMonthsLeft: (s as any).recessionMonthsLeft ?? 0,
+  }),
+  12: (s) => ({
+    ...s,
+    rateMode: (s as any).rateMode ?? "variable",
+    fixedRate: (s as any).fixedRate ?? undefined,
+    fixedUntilAbs: (s as any).fixedUntilAbs ?? undefined,
+    revolving: (s as any).revolving ?? undefined,
+    dividendsPaid: (s as any).dividendsPaid ?? 0,
+    advisors: (s as any).advisors ?? [],
+    ipoActive: (s as any).ipoActive ?? false,
+    ipoLastQuarterlyNOI: (s as any).ipoLastQuarterlyNOI ?? undefined,
+    portfolio: (s.portfolio ?? []).map((p: any) => ({
+      ...p,
+      shortTerm: p.shortTerm ?? false,
+      pendingZoneChange: p.pendingZoneChange ?? undefined,
+      builtYear: p.builtYear ?? undefined,
+    })),
+    competitors: (s.competitors ?? []).map((c: any) => ({
+      ...c,
+      portfolio: (c.portfolio ?? []).map((p: any) => ({
+        ...p,
+        shortTerm: p.shortTerm ?? false,
+        builtYear: p.builtYear ?? undefined,
+      })),
+    })),
   }),
 };
 

@@ -38,7 +38,8 @@ export const LENDERS: Lender[] = [
 /** Reputationsbaserade lånevillkor (ränta, påslag, max belåningsgrad). */
 export function loanTerms(state: GameState): LoanTerms {
   const rep = state.reputation;
-  const spread = Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state));
+  const advisorBonus = (state.advisors ?? []).includes("kapitalstrateg") ? 0.2 : 0;
+  const spread = Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus);
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;
@@ -67,7 +68,8 @@ export function equityOf(state: GameState): number {
   );
 }
 
-/** Belåningsgrad (LTV). 0 om portföljen är tom. */
+/** Belåningsgrad (LTV). 0 om portföljen är tom. Inkluderar revolverande kredit. */
 export function ltvOf(state: GameState): number {
-  return state.portfolio.length ? state.debt / portfolioValue(state) : 0;
+  const totalDebt = state.debt + (state.revolving?.used ?? 0);
+  return state.portfolio.length ? totalDebt / portfolioValue(state) : 0;
 }

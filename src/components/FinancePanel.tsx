@@ -18,6 +18,9 @@ interface FinancePanelProps {
 export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePanelProps) {
   const [amortAmt, setAmortAmt] = useState(1000000);
   const [refiAmt, setRefiAmt] = useState(1000000);
+  const [drawAmt, setDrawAmt] = useState(500000);
+  const [repayAmt, setRepayAmt] = useState(500000);
+  const [divAmt, setDivAmt] = useState(1000000);
 
   const totalValue = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
   const totalNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0);
@@ -116,6 +119,89 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         >
           Amortera
         </button>
+      </div>
+
+      <div style={S.financeCol}>
+        <h3 style={S.h3}>Räntestrategi</h3>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+            Nuvarande: <strong>{state.rateMode === "fixed" ? `Fast ${state.fixedRate?.toFixed(2)} %` : `Rörlig ${terms.rate.toFixed(2)} %`}</strong>
+            {state.rateMode === "fixed" && state.fixedUntilAbs != null && (
+              <span style={{ color: "#c0392b", marginLeft: 6 }}>
+                ({Math.max(0, state.fixedUntilAbs - (state.year * 12 + state.month))} mån kvar)
+              </span>
+            )}
+          </div>
+          {state.rateMode !== "fixed" ? (
+            <button
+              style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 4 }}
+              onClick={() => dispatch({ type: "SET_RATE_MODE", mode: "fixed", months: 36 })}
+              disabled={state.debt === 0}
+            >
+              Lås ränta i 36 mån (avgift 0,5 % av skuld)
+            </button>
+          ) : (
+            <button
+              style={{ ...S.amortBtn, background: "#555" }}
+              onClick={() => dispatch({ type: "SET_RATE_MODE", mode: "variable" })}
+            >
+              Byt till rörlig ränta
+            </button>
+          )}
+        </div>
+
+        <h3 style={{ ...S.h3, marginTop: 14 }}>Revolverande kredit</h3>
+        {state.revolving ? (
+          <>
+            <Line l="Kreditgräns" v={kr(state.revolving.limit)} />
+            <Line l="Utnyttjad" v={kr(state.revolving.used)} />
+            <Line l="Tillgänglig" v={kr(state.revolving.limit - state.revolving.used)} accent="#27660a" />
+            <div style={S.amortRow}>
+              <input type="range" min="0" max={state.revolving.limit - state.revolving.used}
+                step="100000" value={Math.min(drawAmt, state.revolving.limit - state.revolving.used)}
+                onChange={(e) => setDrawAmt(+e.target.value)} style={{ flex: 1, accentColor: "#27660a" }} />
+              <span style={{ minWidth: 90, textAlign: "right" }}>{msek(drawAmt)}</span>
+            </div>
+            <button style={{ ...S.amortBtn, background: "#27660a", marginBottom: 6 }}
+              onClick={() => dispatch({ type: "DRAW_REVOLVING", amount: drawAmt })}>
+              Utnyttja kredit
+            </button>
+            {state.revolving.used > 0 && (
+              <>
+                <div style={S.amortRow}>
+                  <input type="range" min="0" max={Math.min(state.revolving.used, state.cash)}
+                    step="100000" value={Math.min(repayAmt, state.revolving.used, state.cash)}
+                    onChange={(e) => setRepayAmt(+e.target.value)} style={{ flex: 1, accentColor: BURGUNDY }} />
+                  <span style={{ minWidth: 90, textAlign: "right" }}>{msek(repayAmt)}</span>
+                </div>
+                <button style={S.amortBtn} onClick={() => dispatch({ type: "REPAY_REVOLVING", amount: repayAmt })}>
+                  Återbetala
+                </button>
+              </>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 12, color: "#888" }}>
+            Revolverande kredit aktiveras automatiskt när du uppnår reputation 40.
+          </div>
+        )}
+
+        <h3 style={{ ...S.h3, marginTop: 14 }}>Utdelning</h3>
+        <Line l="Totalt utdelat" v={kr(state.dividendsPaid ?? 0)} />
+        <div style={S.amortRow}>
+          <input type="range" min="0" max={Math.max(0, state.cash - 500000)}
+            step="100000" value={Math.min(divAmt, Math.max(0, state.cash - 500000))}
+            onChange={(e) => setDivAmt(+e.target.value)} style={{ flex: 1, accentColor: C.gold }} />
+          <span style={{ minWidth: 90, textAlign: "right" }}>{msek(divAmt)}</span>
+        </div>
+        <button
+          style={{ ...S.amortBtn, background: "#7a5c00" }}
+          onClick={() => dispatch({ type: "PAY_DIVIDEND", amount: divAmt })}
+          disabled={state.cash < 600000}
+        >
+          Betala utdelning
+        </button>
+        <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Minst 500 000 kr i kassa behålls.</div>
       </div>
 
       <div style={S.financeCol}>

@@ -883,6 +883,134 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "SET_SCENARIO": {
       return { ...state, scenarioId: action.scenarioId, gameWon: false };
     }
+    case "SET_RATE_MODE": {
+      if (action.mode === "fixed") {
+        const { rate } = loanTerms(state);
+        const months = Math.max(12, Math.min(60, action.months ?? 36));
+        const nowAbs = state.year * 12 + state.month;
+        const fee = Math.round(state.debt * 0.005);
+        if (state.cash < fee)
+          return log(state, `Fast ränta kräver ${kr(fee)} i uppläggningsavgift.`, "warn");
+        return {
+          ...state,
+          cash: state.cash - fee,
+          rateMode: "fixed",
+          fixedRate: rate,
+          fixedUntilAbs: nowAbs + months,
+          log: [{ t: `🔒 Fast ränta ${rate} % låst i ${months} månader (avgift ${kr(fee)}).`, kind: "info" }, ...state.log],
+        };
+      }
+      return { ...state, rateMode: "variable", fixedRate: undefined, fixedUntilAbs: undefined,
+        log: [{ t: "Bytt till rörlig ränta.", kind: "info" }, ...state.log] };
+    }
+    case "DRAW_REVOLVING": {
+      const rev = state.revolving;
+      if (!rev) return log(state, "Ingen revolverande kredit aktiv.", "warn");
+      const avail = rev.limit - rev.used;
+      const amt = Math.min(action.amount, avail);
+      if (amt <= 0) return log(state, "Kreditgränsen är uppnådd.", "warn");
+      return {
+        ...state,
+        cash: state.cash + amt,
+        revolving: { ...rev, used: rev.used + amt },
+        log: [{ t: `Utnyttjat ${kr(amt)} ur revolverande kredit.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "REPAY_REVOLVING": {
+      const rev = state.revolving;
+      if (!rev || rev.used <= 0) return log(state, "Inget att återbetala.", "warn");
+      const amt = Math.min(action.amount, rev.used, state.cash);
+      if (amt <= 0) return log(state, "För lite kassa för återbetalning.", "warn");
+      return {
+        ...state,
+        cash: state.cash - amt,
+        revolving: { ...rev, used: Math.max(0, rev.used - amt) },
+        log: [{ t: `Återbetalat ${kr(amt)} på revolverande kredit.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "PAY_DIVIDEND": {
+      const amt = Math.min(action.amount, state.cash);
+      if (amt <= 100000) return log(state, "Minsta utdelning är 100 000 kr.", "warn");
+      return {
+        ...state,
+        cash: state.cash - amt,
+        dividendsPaid: (state.dividendsPaid ?? 0) + amt,
+        log: [{ t: `💰 Utdelning: ${msek(amt)} utbetald till aktieägarna.`, kind: "income" }, ...state.log],
+      };
+    }
+    case "TOGGLE_SHORT_TERM": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.type !== "bostad") return log(state, "Korttidsuthyrning är bara möjlig för bostadsfastigheter.", "warn");
+      const nowShort = !p.shortTerm;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) =>
+          x.id === action.id
+            ? { ...x, shortTerm: nowShort, tenants: nowShort ? [] : x.tenants }
+            : x,
+        ),
+        log: [{
+          t: nowShort
+            ? `🏖️ ${p.typeLabel} i ${p.districtName} ställd om till korttidsuthyrning (+30 % hyra, +60 % vakans).`
+            : `🏠 ${p.typeLabel} i ${p.districtName} tillbaka till ordinarie uthyrning.`,
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "APPLY_ZONE_CHANGE": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.status === "bygger") return log(state, "Kan ej omklassa fastighet under byggnation.", "warn");
+      if (p.pendingZoneChange) return log(state, "Omklassning pågår redan.", "warn");
+      const cost = 500_000;
+      if (state.cash < cost) return log(state, `Omklassning kostar ${kr(cost)}.`, "warn");
+      const months = state.staff?.["jurist"] ? 2 : 5;
+      return {
+        ...state,
+        cash: state.cash - cost,
+        portfolio: state.portfolio.map((x) =>
+          x.id === action.id ? { ...x, pendingZoneChange: { targetType: action.targetType, monthsLeft: months } } : x,
+        ),
+        log: [{
+          t: `📋 Omklassning av ${p.typeLabel} i ${p.districtName} → ${action.targetType} startad (${months} månader, ${kr(cost)}).`,
+          kind: "upg",
+        }, ...state.log],
+      };
+    }
+    case "INVEST_DISTRICT": {
+      const amount = Math.max(500_000, Math.min(action.amount, state.cash));
+      if (state.cash < amount) return log(state, "För lite kassa.", "warn");
+      const boost = amount / 10_000_000;
+      const dev = { ...(state.districtDev ?? {}) };
+      dev[action.districtId] = Math.min(1.6, +(((dev[action.districtId] ?? 1) + boost)).toFixed(4));
+      return {
+        ...state,
+        cash: state.cash - amount,
+        districtDev: dev,
+        log: [{
+          t: `🏗 Investerade ${msek(amount)} i distriktet – områdesutveckling +${(boost * 100).toFixed(1)} %.`,
+          kind: "upg",
+        }, ...state.log],
+      };
+    }
+    case "DO_IPO": {
+      if (state.ipoActive) return log(state, "Bolaget är redan börsnoterat.", "warn");
+      const portVal = state.portfolio.reduce((a, p) => {
+        const d = { centrum: 32000, hamnen: 21000, industri: 11000, förort: 16000, kulle: 28000 } as Record<string,number>;
+        return a + p.askPrice;
+      }, 0);
+      const raised = Math.round(portVal * 0.20);
+      if (raised < 1_000_000) return log(state, "Portföljvärdet är för lågt för en börsnotering.", "warn");
+      return {
+        ...state,
+        cash: state.cash + raised,
+        ipoActive: true,
+        reputation: Math.min(100, state.reputation + 10),
+        log: [{
+          t: `🎉 IPO genomförd! Bolaget börsnoterat – ${msek(raised)} insamlat (20 % av portföljvärdet). Reputation +10.`,
+          kind: "income",
+        }, ...state.log],
+      };
+    }
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {

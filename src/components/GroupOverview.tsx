@@ -310,6 +310,55 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
           </div>
         )}
       </div>
+
+      {/* ── IPO ── */}
+      <div style={{ ...card, marginTop: 20 }}>
+        <h3 style={heading}>Börsnotering (IPO)</h3>
+        <GoldRule />
+        {state.ipoActive ? (
+          <>
+            <Row label="Status" value="Börsnoterat ✓" accent={BURGUNDY} bold />
+            <Row label="Totalt utdelat" value={kr(state.dividendsPaid ?? 0)} />
+            <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 8 }}>
+              Bolaget är börsnoterat. Utdelningar kan betalas via Finanspanelen.
+            </div>
+          </>
+        ) : (
+          <>
+            <Row label="Status" value="Ej börsnoterat" />
+            {(() => {
+              const portVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
+              const raised = Math.round(portVal * 0.20);
+              return (
+                <>
+                  <Row label="Estimerat insamlat kapital" value={msek(raised)} accent="#27660a" />
+                  <Row label="Reputation-bonus" value="+10" accent={BURGUNDY} />
+                  <div style={{ fontSize: 12, color: C.inkSoft, margin: "8px 0" }}>
+                    En IPO tar in 20 % av portföljvärdet i nytt kapital. Kräver minst 5 MSEK portföljvärde.
+                  </div>
+                  <button
+                    onClick={() => dispatch({ type: "DO_IPO" })}
+                    disabled={portVal < 5_000_000 || state.gameOver}
+                    style={{
+                      padding: "10px 20px",
+                      borderRadius: 5,
+                      border: `1px solid ${C.brass}`,
+                      background: portVal >= 5_000_000 ? BURGUNDY : "#888",
+                      color: C.brassBright,
+                      fontFamily: FONTS.heading,
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: portVal >= 5_000_000 ? "pointer" : "default",
+                    }}
+                  >
+                    Genomför börsnotering
+                  </button>
+                </>
+              );
+            })()}
+          </>
+        )}
+      </div>
     </div>
   );
 }

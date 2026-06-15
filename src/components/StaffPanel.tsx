@@ -8,6 +8,12 @@ interface Props {
   dispatch: (a: GameAction) => void;
 }
 
+const ADVISOR_DEFS = [
+  { id: "ekonom", name: "Ekonomisk rådgivare", repRequired: 60, effect: "Ger analysstöd och marknadsöversikter.", icon: "📊" },
+  { id: "jurist", name: "Juridisk rådgivare", repRequired: 80, effect: "Halverar omklasningstid för zon-ändringar.", icon: "⚖️" },
+  { id: "kapitalstrateg", name: "Kapitalstrateg", repRequired: 95, effect: "Sänker räntepåslag med 0,2 %.", icon: "💼" },
+];
+
 export function StaffPanel({ state, dispatch }: Props) {
   const salaries = salariesTotal(state);
 
@@ -70,6 +76,37 @@ export function StaffPanel({ state, dispatch }: Props) {
             </div>
           );
         })}
+      </div>
+
+      {/* Advisory Board */}
+      <div style={{ ...strip, marginTop: 20, flexDirection: "column", alignItems: "flex-start" }}>
+        <div style={stripTitle}>RÅDGIVARSTYRELSE</div>
+        <div style={{ ...stripSub, marginBottom: 12 }}>Låses upp automatiskt vid reputation-milstolpar. Ger passiva bolagsfördelar.</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 12, width: "100%" }}>
+          {ADVISOR_DEFS.map((adv) => {
+            const unlocked = (state.advisors ?? []).includes(adv.id);
+            return (
+              <div key={adv.id} style={{
+                ...card,
+                opacity: unlocked ? 1 : 0.5,
+                border: `1px solid ${unlocked ? C.brass : C.brassDim}`,
+              }}>
+                <div style={{ fontSize: 22, marginBottom: 4 }}>{adv.icon}</div>
+                <div style={cardTitle}>{adv.name}</div>
+                <div style={{ fontSize: 12, color: C.inkSoft, margin: "4px 0 6px" }}>{adv.effect}</div>
+                <div style={gold} />
+                {unlocked ? (
+                  <span style={{ ...effectChip, background: "#e2ecd9" }}>AKTIV</span>
+                ) : (
+                  <span style={{ fontSize: 11, color: C.inkSoft }}>
+                    Kräver reputation {adv.repRequired}
+                    {" "}(nuvarande: {Math.round(state.reputation)})
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

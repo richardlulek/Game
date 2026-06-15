@@ -3,7 +3,7 @@
    Logiken är oförändrad från prototypen.
    ============================================================ */
 
-import { AI_NAMES, DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
+import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
 import { SCENARIOS } from "./scenarios";
 import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
@@ -29,6 +29,25 @@ export function advanceMonth(state: GameState): GameState {
   if ((s.recessionMonthsLeft ?? 0) > 0) {
     s.recessionMonthsLeft = (s.recessionMonthsLeft ?? 0) - 1;
   }
+
+  // Fixed rate expiry
+  const nowAbs = s.year * 12 + s.month;
+  if (s.rateMode === "fixed" && s.fixedUntilAbs && nowAbs >= s.fixedUntilAbs) {
+    s.rateMode = "variable";
+    s.fixedRate = undefined;
+    s.fixedUntilAbs = undefined;
+    events.push({ t: "🔓 Fast ränteperiod avslutad – tillbaka till rörlig ränta.", kind: "info" });
+  }
+
+  // Revolving credit monthly interest (1.5 % / year on used amount)
+  if (s.revolving && s.revolving.used > 0) {
+    const revInterest = Math.round((s.revolving.used * 0.015) / 12);
+    s.cash -= revInterest;
+    monthlyNOI -= revInterest;
+  }
+
+  // Seasonal vacancy modifier (residential: higher summer, lower winter)
+  const season = s.month >= 6 && s.month <= 8 ? 1.08 : s.month === 12 || s.month <= 2 ? 0.94 : 1.0;
 
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
@@ -69,32 +88,66 @@ export function advanceMonth(state: GameState): GameState {
         }
       }
     }
-    // Slitage (långsammare med smart förvaltning)
-    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7) * wearMult(s));
+    // Building age extra wear
+    const propAge = s.year - (np.builtYear ?? s.year);
+    const ageFactor = propAge >= 30 ? 1.4 : propAge >= 15 ? 1.2 : 1.0;
+    // Seasonal effect on vacancy for residential
+    const seasonFactor = np.type === "bostad" ? season : 1.0;
+    // Short-term rental: higher effective rent but higher vacancy, no tenants
+    if (np.shortTerm) {
+      const shortRent = Math.round((propPotentialRent(np, s) / np.capacity / 12) * 1.3 * (1 - 0.60 * seasonFactor));
+      monthlyNOI += shortRent * np.capacity;
+      np.totalEarnedRent = (np.totalEarnedRent ?? 0) + shortRent * np.capacity;
+      // Wear is higher with short-term rentals
+      np.condition = Math.max(10, np.condition - rnd(0.4, 1.0) * wearMult(s) * ageFactor);
+      return np;
+    }
+    // Slitage (långsammare med smart förvaltning, mer med byggnadsålder)
+    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7) * wearMult(s) * ageFactor);
+    // Zone change countdown
+    if (np.pendingZoneChange) {
+      if (np.pendingZoneChange.monthsLeft <= 1) {
+        const newType = np.pendingZoneChange.targetType;
+        const typeDef = { bostad: "Bostadshus", kontor: "Kontor", butik: "Butik", industri: "Industri/Lager" } as Record<string, string>;
+        np.typeLabel = typeDef[newType] ?? newType;
+        np.type = newType;
+        np.pendingZoneChange = undefined;
+        events.push({ t: `✅ Omklassning klar: ${np.districtName} är nu ${typeDef[newType]}.`, kind: "upg" });
+      } else {
+        np.pendingZoneChange = { ...np.pendingZoneChange, monthsLeft: np.pendingZoneChange.monthsLeft - 1 };
+      }
+    }
     // Hyresgästlogik
     const nextTenants: typeof np.tenants = [];
     for (const t of np.tenants) {
-      const effectiveDefaultRisk = (s.recessionMonthsLeft ?? 0) > 0 ? t.defaultRisk * 2.5 : t.defaultRisk;
-      if (Math.random() < effectiveDefaultRisk) {
+      // Tenant loyalty: consecutiveMonths halves default risk after 24+ months
+      const consMonths = (t.consecutiveMonths ?? 0) + 1;
+      const loyaltyFactor = consMonths >= 24 ? 0.5 : 1.0;
+      const recFactor = (s.recessionMonthsLeft ?? 0) > 0 ? 2.5 : 1.0;
+      // Seasonal effect on default risk for residential
+      const effDefaultRisk = t.defaultRisk * loyaltyFactor * recFactor * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
+      if (Math.random() < effDefaultRisk) {
         events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Plats ledig.`, kind: "expense" });
         continue;
       }
+      // Anchor tenant designation at 36+ consecutive months
+      const isAnchor = consMonths >= 36;
       if (t.monthsLeft <= 1) {
         if (effectiveManaged) {
           const rentTargetPct = effectiveRentTargetPct;
           const marketMo = propPotentialRent(np, s) / np.capacity / 12;
           const baseRent = Math.round(marketMo * t.quality);
           const targetRent = Math.round(baseRent * rentTargetPct);
-          // Risk att hyresgäst lämnar ökar vid mål >10 % över marknad
           const premiumRatio = targetRent / Math.max(1, baseRent);
-          const willStay = premiumRatio <= 1.10 || Math.random() < 0.40;
+          // Anchor tenants have higher willingness to stay
+          const willStay = premiumRatio <= 1.10 || Math.random() < (isAnchor ? 0.65 : 0.40);
           if (willStay) {
             const newRent = rentTargetPct < 1.0
               ? Math.min(t.rent, targetRent)
               : Math.max(t.rent, targetRent);
             monthlyNOI += t.rent;
             np.totalEarnedRent = (np.totalEarnedRent ?? 0) + t.rent;
-            nextTenants.push({ ...t, monthsLeft: t.termTotal, rent: newRent });
+            nextTenants.push({ ...t, monthsLeft: t.termTotal, rent: newRent, consecutiveMonths: consMonths, isAnchor });
             events.push({ t: `📄 Förvaltare förnyade avtal med ${t.name} i ${np.districtName}: ${kr(newRent)}/mån.`, kind: "info" });
           } else {
             events.push({ t: `📄 ${t.name} lämnade ${np.districtName} – för hög hyra vid förlängning.`, kind: "info" });
@@ -106,7 +159,7 @@ export function advanceMonth(state: GameState): GameState {
       }
       monthlyNOI += t.rent;
       np.totalEarnedRent = (np.totalEarnedRent ?? 0) + t.rent;
-      nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1 });
+      nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1, consecutiveMonths: consMonths, isAnchor });
     }
     np.tenants = nextTenants;
     // Global portföljdirektör: auto-uthyr lediga platser (~30 % chans/plats/mån)
@@ -134,7 +187,8 @@ export function advanceMonth(state: GameState): GameState {
     monthlyNOI -= gmCost;
   }
 
-  const interest = (s.debt * (loanTerms(s).rate / 100)) / 12;
+  const effectiveRate = (s.rateMode === "fixed" && s.fixedRate != null) ? s.fixedRate : loanTerms(s).rate;
+  const interest = (s.debt * (effectiveRate / 100)) / 12;
   s.cash += monthlyNOI - interest;
 
   // Makrohändelse
@@ -148,6 +202,33 @@ export function advanceMonth(state: GameState): GameState {
     const ev = pick(RARE_EVENTS);
     s = ev.apply(s);
     events.push({ t: `🚨 ${ev.text}`, kind: "warn" });
+  }
+
+  // ── Rival merger (~2 % chans/mån) ──────────────────────────────
+  if (s.competitors.length >= 2 && Math.random() < 0.02) {
+    const idxA = Math.floor(Math.random() * s.competitors.length);
+    let idxB = Math.floor(Math.random() * (s.competitors.length - 1));
+    if (idxB >= idxA) idxB++;
+    const ca = s.competitors[idxA];
+    const cb = s.competitors[idxB];
+    const merged = {
+      ...ca,
+      cash: ca.cash + cb.cash,
+      portfolio: [...(ca.portfolio ?? []), ...(cb.portfolio ?? [])],
+      units: (ca.portfolio ?? []).length + (cb.portfolio ?? []).length,
+      equity: ca.equity + cb.equity,
+      monthlyNOI: (ca.monthlyNOI ?? 0) + (cb.monthlyNOI ?? 0),
+    };
+    s.competitors = s.competitors.filter((_, i) => i !== idxA && i !== idxB);
+    s.competitors = [...s.competitors, merged];
+    events.push({ t: `🤝 FUSION: ${ca.name} och ${cb.name} slås ihop till en starkare aktör!`, kind: "warn" });
+  }
+
+  // ── Lokala distriktshändelser (~8 % chans/distrikt/mån) ─────────
+  if (Math.random() < 0.08) {
+    const ev = DISTRICT_EVENTS[Math.floor(Math.random() * DISTRICT_EVENTS.length)];
+    s = ev.apply(s);
+    events.push({ t: `🏘️ Lokalt: ${ev.text}`, kind: "event" });
   }
 
   // ── AI-konkurrenter agerar (riktiga portföljer + personligheter) ─
@@ -308,6 +389,29 @@ export function advanceMonth(state: GameState): GameState {
   const repGain = monthlyReputation(s);
   if (repGain > 0) s.reputation = Math.min(100, s.reputation + repGain);
 
+  // Revolving credit auto-unlock at rep 40
+  if (s.reputation >= 40 && !s.revolving) {
+    const portVal = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    const limit = Math.max(500_000, Math.round(portVal * 0.05));
+    s.revolving = { limit, used: 0 };
+    events.push({ t: `💳 Revolverande kredit aktiverad: ${kr(limit)} tillgängligt (5 % av portföljvärde).`, kind: "income" });
+  }
+
+  // Advisory board auto-unlock at rep milestones
+  const advisors = s.advisors ?? [];
+  if (s.reputation >= 60 && !advisors.includes("ekonom")) {
+    s.advisors = [...advisors, "ekonom"];
+    events.push({ t: "🎓 Rådgivarstyrelse: Ekonomisk rådgivare tillkommen (rep 60+). Ger analysstöd.", kind: "info" });
+  }
+  if (s.reputation >= 80 && !advisors.includes("jurist") && !(s.advisors ?? []).includes("jurist")) {
+    s.advisors = [...(s.advisors ?? advisors), "jurist"];
+    events.push({ t: "⚖️ Rådgivarstyrelse: Juridisk rådgivare tillkommen (rep 80+). Halverar omklasningstid.", kind: "info" });
+  }
+  if (s.reputation >= 95 && !advisors.includes("kapitalstrateg") && !(s.advisors ?? []).includes("kapitalstrateg")) {
+    s.advisors = [...(s.advisors ?? advisors), "kapitalstrateg"];
+    events.push({ t: "📊 Rådgivarstyrelse: Kapitalstrateg tillkommen (rep 95+). Sänker räntepåslag.", kind: "info" });
+  }
+
   // ── Forskning fortskrider ───────────────────────────────────────
   if (s.activeResearch) {
     const left = s.activeResearch.monthsLeft - 1;
@@ -342,10 +446,10 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── Utgångna listings återgår till världspoolen ─────────────────
-  const nowAbs = s.year * 12 + s.month;
+  const nowAbs2 = s.year * 12 + s.month;
   const expiredListings: typeof s.listings = [];
   s.listings = s.listings.filter((p) => {
-    if ((p.expiresMonth ?? Infinity) <= nowAbs) {
+    if ((p.expiresMonth ?? Infinity) <= nowAbs2) {
       expiredListings.push({ ...p, listedMonth: undefined, expiresMonth: undefined });
       return false;
     }
@@ -353,7 +457,7 @@ export function advanceMonth(state: GameState): GameState {
   });
   s.worldPool = [...(s.worldPool ?? []), ...expiredListings];
   s.lots = s.lots.filter((l) => {
-    if (!l.owned && (l.expiresMonth ?? Infinity) <= nowAbs) {
+    if (!l.owned && (l.expiresMonth ?? Infinity) <= nowAbs2) {
       events.push({ t: `📋 Tomt i ${l.districtName} drogs tillbaka.`, kind: "info" });
       return false;
     }
@@ -367,7 +471,7 @@ export function advanceMonth(state: GameState): GameState {
   if (s.listings.length < MAX_LISTINGS && pool.length > 0) {
     const reveal = 1 + Math.floor(Math.random() * Math.min(3, pool.length));
     const toReveal = pool.slice(0, reveal);
-    const born = nowAbs;
+    const born = nowAbs2;
     s.listings = [
       ...s.listings,
       ...toReveal.map((p) => ({

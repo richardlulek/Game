@@ -29,6 +29,7 @@ import { StaffPanel } from "./StaffPanel";
 import { PortfolioTable } from "./PortfolioTable";
 import { AcquisitionPanel } from "./AcquisitionPanel";
 import { DistrictPanel } from "./DistrictPanel";
+import { ContractCalendar } from "./ContractCalendar";
 
 const TABS = [
   { id: "portfolio", label: "Portfölj" },
@@ -45,6 +46,7 @@ const TABS = [
   { id: "overview",     label: "Översikt" },
   { id: "acquisition",  label: "Förvärv" },
   { id: "districts",    label: "Distrikt" },
+  { id: "calendar",     label: "Kalender" },
 ];
 
 export default function FastighetsImperium() {
@@ -215,7 +217,8 @@ export default function FastighetsImperium() {
 
         {tab === "overview"    && <PortfolioTable state={state} dispatch={dispatch} />}
         {tab === "acquisition" && <AcquisitionPanel state={state} dispatch={dispatch} />}
-        {tab === "districts"   && <DistrictPanel state={state} />}
+        {tab === "districts"   && <DistrictPanel state={state} dispatch={dispatch} />}
+        {tab === "calendar"    && <ContractCalendar state={state} />}
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}
