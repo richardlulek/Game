@@ -565,6 +565,29 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       <Divider />
 
+      {/* Insurance */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: p.insurance ? "#27660a" : C.inkSoft }}>
+            {p.insurance ? "🛡️ Försäkrad" : "⚠️ Ej försäkrad"}
+          </span>
+          <span style={{ fontSize: 11, color: C.inkSoft, marginLeft: 6 }}>
+            {p.insurance ? "(2 000 kr/mån)" : "(brand, vatten, skadeansvar)"}
+          </span>
+        </div>
+        <button
+          style={{
+            padding: "5px 12px", borderRadius: 4, fontSize: 12, fontWeight: 700, cursor: "pointer",
+            border: `1px solid ${p.insurance ? "#c0392b" : "#27660a"}`,
+            background: "transparent", color: p.insurance ? "#c0392b" : "#27660a",
+          }}
+          disabled={state.gameOver || p.status !== "klar"}
+          onClick={() => dispatch({ type: p.insurance ? "CANCEL_INSURANCE" : "BUY_INSURANCE", id: p.id })}
+        >
+          {p.insurance ? "Avsluta" : "Teckna"}
+        </button>
+      </div>
+
       <ActionBtn
         label={`Sälj fastighet · ${msek(value)}`}
         sub="Realiserar vinst/förlust mot inköpspris"
@@ -578,7 +601,10 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
 // ── Sub-komponenter ─────────────────────────────────────────────
 
+const ESG_COLOR: Record<string, string> = { A: "#1a7a1a", B: "#2d8a2d", C: "#8a7a10", D: "#8a5a10", E: "#8a3010", F: "#7a1010" };
+
 function CardHeader({ p, managed, month }: { p: Property; managed?: boolean; month?: number }) {
+  const esg = p.energyClass;
   return (
     <div style={banner}>
       <BuildingArt p={p} month={month} />
@@ -586,6 +612,14 @@ function CardHeader({ p, managed, month }: { p: Property; managed?: boolean; mon
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span style={badge}>{p.typeLabel}</span>
           {managed && <span style={managedBadge}>🤝</span>}
+          {esg && (
+            <span style={{
+              fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 3,
+              background: ESG_COLOR[esg] ?? "#555", color: "#fff", letterSpacing: 0.5,
+            }}>
+              {esg}
+            </span>
+          )}
         </div>
         <span style={bannerDistrict}>{p.districtName}</span>
       </div>

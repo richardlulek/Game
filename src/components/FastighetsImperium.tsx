@@ -30,6 +30,9 @@ import { PortfolioTable } from "./PortfolioTable";
 import { AcquisitionPanel } from "./AcquisitionPanel";
 import { DistrictPanel } from "./DistrictPanel";
 import { ContractCalendar } from "./ContractCalendar";
+import { KPIPanel } from "./KPIPanel";
+import { TenantPanel } from "./TenantPanel";
+import { MilestonesPanel } from "./MilestonesPanel";
 
 const TABS = [
   { id: "portfolio", label: "Portfölj" },
@@ -47,6 +50,9 @@ const TABS = [
   { id: "acquisition",  label: "Förvärv" },
   { id: "districts",    label: "Distrikt" },
   { id: "calendar",     label: "Kalender" },
+  { id: "kpi",          label: "KPI" },
+  { id: "tenants",      label: "Hyresgäster" },
+  { id: "milestones",   label: "Milstolpar" },
 ];
 
 export default function FastighetsImperium() {
@@ -219,6 +225,9 @@ export default function FastighetsImperium() {
         {tab === "acquisition" && <AcquisitionPanel state={state} dispatch={dispatch} />}
         {tab === "districts"   && <DistrictPanel state={state} dispatch={dispatch} />}
         {tab === "calendar"    && <ContractCalendar state={state} />}
+        {tab === "kpi"         && <KPIPanel state={state} dispatch={dispatch} />}
+        {tab === "tenants"     && <TenantPanel state={state} />}
+        {tab === "milestones"  && <MilestonesPanel state={state} />}
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}
@@ -288,6 +297,43 @@ export default function FastighetsImperium() {
         <OffersModal state={state} dispatch={dispatch} onClose={() => setShowOffers(false)} />
       )}
       <DecisionModal state={state} dispatch={dispatch} />
+
+      {/* ── Competing bid banner ────────────────────────────── */}
+      {state.competingBid && (() => {
+        const cb = state.competingBid!;
+        const listing = state.listings.find((p) => p.id === cb.listingId);
+        return (
+          <div style={{
+            position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+            background: "#1a0a00", border: `2px solid ${BURGUNDY}`, borderRadius: 8,
+            padding: "14px 20px", zIndex: 9999, maxWidth: 460, width: "90%",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ fontFamily: FONTS.heading, color: BURGUNDY, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>
+              ⚡ BUDGIVNING PÅGÅR
+            </div>
+            <div style={{ fontSize: 13, color: C.parchment, marginBottom: 12 }}>
+              {cb.rivalName} har lagt <strong style={{ color: C.gold }}>{(cb.amount / 1_000_000).toFixed(1)} MSEK</strong>
+              {listing ? ` på ${listing.typeLabel} i ${listing.districtName}` : ""}.
+              Slå budet för att vinna!
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => dispatch({ type: "ACCEPT_COMPETING_BID" })}
+                style={{ flex: 1, padding: "9px", background: BURGUNDY, color: C.parchment, border: "none", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body, fontSize: 13 }}
+              >
+                Lägg motbud ({cb.rivalName}s pris +1 %)
+              </button>
+              <button
+                onClick={() => dispatch({ type: "PASS_COMPETING_BID" })}
+                style={{ padding: "9px 14px", background: "transparent", color: C.creamSoft, border: `1px solid ${C.brass}55`, borderRadius: 4, cursor: "pointer", fontFamily: FONTS.body, fontSize: 12 }}
+              >
+                Låt dem köpa
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

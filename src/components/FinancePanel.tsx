@@ -21,6 +21,8 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
   const [drawAmt, setDrawAmt] = useState(500000);
   const [repayAmt, setRepayAmt] = useState(500000);
   const [divAmt, setDivAmt] = useState(1000000);
+  const [bondAmt, setBondAmt] = useState(5000000);
+  const [bondYears, setBondYears] = useState(5);
 
   const totalValue = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
   const totalNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0);
@@ -202,6 +204,49 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           Betala utdelning
         </button>
         <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Minst 500 000 kr i kassa behålls.</div>
+
+        {/* Bonds */}
+        <h3 style={{ ...S.h3, marginTop: 14 }}>Obligationsemission</h3>
+        {state.reputation < 70 ? (
+          <div style={{ fontSize: 12, color: "#888" }}>Kräver reputation ≥ 70 (nuvarande: {Math.round(state.reputation)}).</div>
+        ) : (
+          <>
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+              Ge ut företagsobligationer för kapital till fast ränta.
+              Estimerad ränta: {(state.interestRate + 1.2).toFixed(2)} %
+            </div>
+            <div style={S.amortRow}>
+              <input type="range" min={1000000} max={50000000} step={1000000}
+                value={bondAmt} onChange={(e) => setBondAmt(+e.target.value)}
+                style={{ flex: 1, accentColor: "#1a4a6b" }} />
+              <span style={{ minWidth: 90, textAlign: "right" }}>{msek(bondAmt)}</span>
+            </div>
+            <div style={S.amortRow}>
+              <input type="range" min={3} max={10} step={1}
+                value={bondYears} onChange={(e) => setBondYears(+e.target.value)}
+                style={{ flex: 1, accentColor: "#1a4a6b" }} />
+              <span style={{ minWidth: 90, textAlign: "right" }}>{bondYears} år</span>
+            </div>
+            <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 6 }}
+              onClick={() => dispatch({ type: "ISSUE_BOND", amount: bondAmt, years: bondYears })}>
+              Emittera obligation
+            </button>
+            {(state.bonds ?? []).length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Utestående obligationer:</div>
+                {(state.bonds ?? []).map((b) => (
+                  <div key={b.id} style={{ fontSize: 12, display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #eee" }}>
+                    <span>{msek(b.amount)} @ {b.rate.toFixed(2)} %</span>
+                    <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #c0392b", background: "transparent", color: "#c0392b", borderRadius: 3, padding: "1px 6px" }}
+                      onClick={() => dispatch({ type: "REPAY_BOND", bondId: b.id })}>
+                      Återbetala
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div style={S.financeCol}>

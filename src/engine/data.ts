@@ -263,6 +263,67 @@ export const DISTRICT_EVENTS: GameEvent[] = [
   },
 ];
 
+/** Milstolpar – låser upp belöningar och berättar spelarprogress. */
+export interface MilestoneDef {
+  id: string;
+  title: string;
+  desc: string;
+  check: (s: import("./types").GameState) => boolean;
+  reward: string;
+}
+
+export const MILESTONES: MilestoneDef[] = [
+  { id: "first_buy",    title: "Första förvärvet",       desc: "Köp din första fastighet.",                        check: (s) => s.portfolio.length >= 1,                                   reward: "Reputation +3" },
+  { id: "first_office", title: "Kontorsdebut",           desc: "Äg en kontorsfastighet.",                          check: (s) => s.portfolio.some((p) => p.type === "kontor"),              reward: "Tillgång till Investmentbanken" },
+  { id: "5props",       title: "Fastighetsmäklare",      desc: "Äg minst 5 färdiga fastigheter.",                  check: (s) => s.portfolio.filter((p) => p.status === "klar").length >= 5, reward: "Reputation +5" },
+  { id: "first_10m",    title: "10 Miljoners-klubben",   desc: "Nå 10 MSEK i eget kapital.",                       check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 10_000_000, reward: "Reputation +5" },
+  { id: "district_dom", title: "Distriktsledare",        desc: "Äg flest fastigheter i ett distrikt.",             check: (s) => checkDistrictLead(s),                                      reward: "Distriktets dragningskraft +5 %" },
+  { id: "first_build",  title: "Byggherren",             desc: "Bygg din första fastighet från grunden.",          check: (s) => s.portfolio.some((p) => (p.txHistory ?? []).some((t) => t.type === "nybygg")), reward: "Byggtid −1 månad" },
+  { id: "no_debt",      title: "Skuldfri",               desc: "Ha noll skulder med minst 3 fastigheter.",         check: (s) => s.debt === 0 && s.portfolio.length >= 3,                   reward: "Reputation +10" },
+  { id: "50_rep",       title: "Etablerat namn",         desc: "Nå 50 i reputation.",                              check: (s) => s.reputation >= 50,                                        reward: "Ränterabatt via bättre långivare" },
+  { id: "50m_equity",   title: "Fastighetsimperium",     desc: "Nå 50 MSEK i eget kapital.",                       check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 50_000_000, reward: "Reputation +15" },
+  { id: "full_coverage",title: "Rikstäckande",           desc: "Äg minst en fastighet i varje distrikt.",          check: (s) => new Set(s.portfolio.map((p) => p.district)).size >= 5,     reward: "Distriktsdiversifiering −5 % vakans" },
+];
+
+function checkDistrictLead(s: import("./types").GameState): boolean {
+  const counts: Record<string, number> = {};
+  for (const p of s.portfolio) counts[p.district] = (counts[p.district] ?? 0) + 1;
+  for (const d of Object.keys(counts)) {
+    const rivalMax = Math.max(0, ...s.competitors.map((c) => (c.portfolio ?? []).filter((p) => p.district === d).length));
+    if (counts[d] > rivalMax) return true;
+  }
+  return false;
+}
+
+/** Politiska partier – kommunalval var 4:e år. */
+export interface PoliticalParty {
+  id: string;
+  name: string;
+  desc: string;
+  apply: (s: import("./types").GameState) => import("./types").GameState;
+}
+
+export const POLITICAL_PARTIES: PoliticalParty[] = [
+  {
+    id: "rödgrön",
+    name: "Rödgrön koalition",
+    desc: "Skärpt hyresreglering och höjd fastighetsskatt.",
+    apply: (s) => ({ ...s, taxMod: +(s.taxMod * 1.06).toFixed(3), demandMod: +(s.demandMod * 0.96).toFixed(3) }),
+  },
+  {
+    id: "borgerlig",
+    name: "Borgerlig majoritet",
+    desc: "Sänkt fastighetsskatt och enklare bygglov.",
+    apply: (s) => ({ ...s, taxMod: +(s.taxMod * 0.95).toFixed(3), buildCostMod: +((s.buildCostMod ?? 1) * 0.92).toFixed(3) }),
+  },
+  {
+    id: "mittenkoalition",
+    name: "Mittenkoalition",
+    desc: "Stabil politik. Inga dramatiska förändringar.",
+    apply: (s) => ({ ...s, demandMod: +(s.demandMod * 1.01).toFixed(3) }),
+  },
+];
+
 export const AI_NAMES = [
   "Nordhem Fastigheter",
   "Brunnsparken Invest",

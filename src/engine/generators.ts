@@ -54,6 +54,10 @@ export function genWorldProperty(state: GameState): Property {
   const condFactor = 0.6 + (condition / 100) * 0.6;
   const value = area * d.base * condFactor * state.marketMod * rnd(0.85, 1.15);
   const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
+  // ESG energy class based on condition (newer/better condition = better class)
+  const energyClasses = ["F", "E", "D", "C", "B", "A"] as const;
+  const energyClass = energyClasses[Math.min(5, Math.floor(condition / 17))];
+
   const p: Property = {
     id: newId(),
     district: d.id,
@@ -74,6 +78,7 @@ export function genWorldProperty(state: GameState): Property {
     capacity: calcCapacity(area),
     status: "klar",
     buildLeft: 0,
+    energyClass,
   };
   if (Math.random() < 0.4) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
   return p;

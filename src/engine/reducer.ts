@@ -883,6 +883,93 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "SET_SCENARIO": {
       return { ...state, scenarioId: action.scenarioId, gameWon: false };
     }
+    case "BUY_INSURANCE": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p) return state;
+      if (p.insurance) return log(state, "Fastigheten är redan försäkrad.", "warn");
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) => x.id === action.id ? { ...x, insurance: true } : x),
+        log: [{ t: `🛡️ Försäkring tecknad för ${p.typeLabel} i ${p.districtName} (2 000 kr/mån).`, kind: "info" }, ...state.log],
+      };
+    }
+    case "CANCEL_INSURANCE": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p) return state;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) => x.id === action.id ? { ...x, insurance: false } : x),
+        log: [{ t: `Försäkring avslutad för ${p.typeLabel} i ${p.districtName}.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "ISSUE_BOND": {
+      if (state.reputation < 70) return log(state, "Obligationsemission kräver reputation ≥ 70.", "warn");
+      const amount = Math.min(action.amount, 50_000_000);
+      if (amount < 1_000_000) return log(state, "Minsta obligation är 1 MSEK.", "warn");
+      const rate = Math.max(3.5, state.interestRate + 1.2);
+      const matureAbs = state.year * 12 + state.month + action.years * 12;
+      const newBond = { id: String(Date.now()), amount, rate, matureAbs };
+      return {
+        ...state,
+        cash: state.cash + amount,
+        bonds: [...(state.bonds ?? []), newBond],
+        log: [{ t: `📜 Obligationsemission: ${msek(amount)} insamlat till ${rate.toFixed(2)} % ränta, ${action.years} år löptid.`, kind: "income" }, ...state.log],
+      };
+    }
+    case "REPAY_BOND": {
+      const bond = (state.bonds ?? []).find((b) => b.id === action.bondId);
+      if (!bond) return state;
+      if (state.cash < bond.amount) return log(state, `Otillräcklig kassa. Behöver ${msek(bond.amount)}.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - bond.amount,
+        bonds: (state.bonds ?? []).filter((b) => b.id !== action.bondId),
+        log: [{ t: `🏦 Obligation på ${msek(bond.amount)} återbetalad i förtid.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "SALE_LEASEBACK": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.status === "bygger") return log(state, "Kan inte sale-leaseback under byggnation.", "warn");
+      const salePrice = Math.round(propMarketValue(p, state) * 1.0);
+      const monthlyLease = Math.round(salePrice * 0.065 / 12);
+      const payoff = Math.min(state.debt, (p.purchasePrice ?? salePrice) * 0.6);
+      const lbTenant = { id: newId(), profile: "stat", name: "Originalägaren (SLB)", profileName: "Sale-Leaseback", quality: 1.1, defaultRisk: 0.001, monthsLeft: 120, termTotal: 120, rent: monthlyLease };
+      return {
+        ...state,
+        cash: state.cash + salePrice - payoff,
+        debt: Math.max(0, state.debt - payoff),
+        portfolio: state.portfolio.map((x) =>
+          x.id === action.id ? { ...x, owned: false, tenants: [lbTenant] } : x,
+        ).filter((x) => x.id !== action.id),
+        listings: [...state.listings, { ...p, owned: false, askPrice: salePrice, tenants: [lbTenant], listedMonth: state.year * 12 + state.month, expiresMonth: state.year * 12 + state.month + 3 }],
+        log: [{ t: `🔄 Sale-Leaseback: ${p.typeLabel} i ${p.districtName} såld för ${msek(salePrice)}, hyrt tillbaka till ${kr(monthlyLease)}/mån i 10 år.`, kind: "income" }, ...state.log],
+      };
+    }
+    case "ACCEPT_COMPETING_BID": {
+      const cb = state.competingBid;
+      if (!cb) return state;
+      const listing = state.listings.find((p) => p.id === cb.listingId);
+      if (!listing) return { ...state, competingBid: undefined };
+      const { maxLtv } = loanTerms(state);
+      const down = cb.amount * (1 - maxLtv);
+      if (state.cash < down)
+        return log(state, `Behöver ${msek(down)} i handpenning för att vinna budgivningen.`, "warn");
+      const loan = cb.amount - down;
+      return {
+        ...state,
+        cash: state.cash - down,
+        debt: state.debt + loan,
+        reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
+        portfolio: [...state.portfolio, { ...listing, owned: true, purchasePrice: cb.amount }],
+        listings: state.listings.filter((p) => p.id !== listing.id),
+        competingBid: undefined,
+        log: [{ t: `✅ Du vann budgivningen! ${listing.typeLabel} i ${listing.districtName} köpt för ${msek(cb.amount)}.`, kind: "buy" }, ...state.log],
+      };
+    }
+    case "PASS_COMPETING_BID": {
+      return { ...state, competingBid: undefined,
+        log: [{ t: "Du valde att inte delta i budgivningen.", kind: "info" }, ...state.log] };
+    }
     case "SET_RATE_MODE": {
       if (action.mode === "fixed") {
         const { rate } = loanTerms(state);

@@ -11,7 +11,7 @@ import type { GameState } from "../engine/types";
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 interface SaveFile {
   version: number;
@@ -114,6 +114,21 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     scenarioId: (s as any).scenarioId ?? "sandbox",
     gameWon: (s as any).gameWon ?? false,
     recessionMonthsLeft: (s as any).recessionMonthsLeft ?? 0,
+  }),
+  13: (s) => ({
+    ...s,
+    competingBid: (s as any).competingBid ?? undefined,
+    bonds: (s as any).bonds ?? [],
+    politicalCycle: (s as any).politicalCycle ?? undefined,
+    electionResult: (s as any).electionResult ?? undefined,
+    milestones: (s as any).milestones ?? [],
+    prevEquity: (s as any).prevEquity ?? undefined,
+    insuranceCost: (s as any).insuranceCost ?? 0,
+    portfolio: (s.portfolio ?? []).map((p: any) => ({
+      ...p,
+      energyClass: p.energyClass ?? "D",
+      insurance: p.insurance ?? false,
+    })),
   }),
   12: (s) => ({
     ...s,

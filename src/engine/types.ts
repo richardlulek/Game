@@ -157,6 +157,8 @@ export interface Property {
   shortTerm?: boolean;
   pendingZoneChange?: { targetType: PropTypeKey; monthsLeft: number };
   builtYear?: number;
+  energyClass?: "A" | "B" | "C" | "D" | "E" | "F";
+  insurance?: boolean;
 }
 
 /** En byggbar tomt. */
@@ -267,6 +269,22 @@ export interface LoanTerms {
   maxLtv: number;
 }
 
+/** Ett aktiv konkurrentbud på en annonserad fastighet. */
+export interface CompetingBid {
+  listingId: number;
+  rivalName: string;
+  amount: number;
+  expiresAbs: number;
+}
+
+/** En emitterad företagsobligation. */
+export interface Bond {
+  id: string;
+  amount: number;
+  rate: number;
+  matureAbs: number;
+}
+
 /** Inställningar för den globala portföljdirektören. */
 export interface GlobalManagerSettings {
   active: boolean;
@@ -322,6 +340,13 @@ export interface GameState {
   advisors?: string[];
   ipoActive?: boolean;
   ipoLastQuarterlyNOI?: number;
+  competingBid?: CompetingBid;
+  bonds?: Bond[];
+  politicalCycle?: number;
+  electionResult?: string;
+  milestones?: string[];
+  prevEquity?: number;
+  insuranceCost?: number;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -374,6 +399,13 @@ export type GameAction =
   | { type: "APPLY_ZONE_CHANGE"; id: number; targetType: PropTypeKey }
   | { type: "INVEST_DISTRICT"; districtId: string; amount: number }
   | { type: "DO_IPO" }
+  | { type: "BUY_INSURANCE"; id: number }
+  | { type: "CANCEL_INSURANCE"; id: number }
+  | { type: "ISSUE_BOND"; amount: number; years: number }
+  | { type: "REPAY_BOND"; bondId: string }
+  | { type: "SALE_LEASEBACK"; id: number }
+  | { type: "ACCEPT_COMPETING_BID" }
+  | { type: "PASS_COMPETING_BID" }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

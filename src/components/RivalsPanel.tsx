@@ -1,4 +1,5 @@
 import { kr, msek, pct } from "../engine/format";
+import { equityOf } from "../engine/finance";
 import type { GameState } from "../engine/types";
 import { S } from "../styles/styles";
 import { BURGUNDY, C } from "../styles/tokens";
@@ -24,6 +25,9 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
     (s, p) => s + p.tenants.reduce((a, t) => a + t.rent, 0),
     0,
   );
+  const prevEq = state.prevEquity ?? equity;
+  const myDelta = equity - prevEq;
+
   const all: RankRow[] = [
     { name: "DU", equity, units: state.portfolio.filter(p => p.status === "klar").length, me: true, monthlyNOI: myMonthlyNOI },
     ...state.competitors.map((c) => ({
@@ -49,9 +53,14 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
               <span style={{ fontWeight: c.me ? 700 : 600, color: c.me ? BURGUNDY : "#333", fontSize: 14 }}>
                 #{i + 1} &nbsp; {c.name}
               </span>
-              <span style={{ fontWeight: 700, fontSize: 14, color: c.me ? BURGUNDY : "#333" }}>
-                {msek(c.equity)}
-              </span>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: c.me ? BURGUNDY : "#333" }}>{msek(c.equity)}</div>
+                {c.me && myDelta !== 0 && (
+                  <div style={{ fontSize: 11, color: myDelta > 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
+                    {myDelta > 0 ? "▲" : "▼"} {msek(Math.abs(myDelta))} denna månad
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ fontSize: 12, color: "#888", marginTop: 3, display: "flex", gap: 12, flexWrap: "wrap" }}>
               <span>{c.units} objekt</span>

@@ -3,7 +3,7 @@
    Logiken är oförändrad från prototypen.
    ============================================================ */
 
-import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
+import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
 import { SCENARIOS } from "./scenarios";
 import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
@@ -25,10 +25,34 @@ export function advanceMonth(state: GameState): GameState {
   const events: LogEntry[] = [];
   const prevSent = state.marketSentiment ?? 1; // sentiment innan månadens händelser
 
+  // Track previous equity for delta display
+  s.prevEquity = equityOf(state);
+
   // Decrement recession counter
   if ((s.recessionMonthsLeft ?? 0) > 0) {
     s.recessionMonthsLeft = (s.recessionMonthsLeft ?? 0) - 1;
   }
+
+  // Bond interest payments
+  for (const bond of s.bonds ?? []) {
+    const bondInterest = Math.round((bond.amount * bond.rate) / 100 / 12);
+    s.cash -= bondInterest;
+    monthlyNOI -= bondInterest;
+  }
+  // Maturing bonds: auto-repay if possible, else penalize
+  const nowAbsBond = s.year * 12 + s.month;
+  const maturingBonds = (s.bonds ?? []).filter((b) => b.matureAbs <= nowAbsBond);
+  for (const bond of maturingBonds) {
+    if (s.cash >= bond.amount) {
+      s.cash -= bond.amount;
+      events.push({ t: `🏦 Obligation på ${msek(bond.amount)} återbetalad vid förfall.`, kind: "info" });
+    } else {
+      s.reputation = Math.max(0, s.reputation - 10);
+      s.cash -= bond.amount * 0.5;
+      events.push({ t: `⚠️ Obligation på ${msek(bond.amount)} kunde ej återbetalas! Reputation −10.`, kind: "warn" });
+    }
+  }
+  s.bonds = (s.bonds ?? []).filter((b) => b.matureAbs > nowAbsBond);
 
   // Fixed rate expiry
   const nowAbs = s.year * 12 + s.month;
@@ -187,6 +211,46 @@ export function advanceMonth(state: GameState): GameState {
     monthlyNOI -= gmCost;
   }
 
+  // Insurance monthly cost + catastrophe events
+  const insuredProps = s.portfolio.filter((p) => p.insurance && p.status === "klar");
+  if (insuredProps.length > 0) {
+    const insCost = insuredProps.length * 2000;
+    s.cash -= insCost;
+    monthlyNOI -= insCost;
+    s.insuranceCost = insCost;
+  } else {
+    s.insuranceCost = 0;
+  }
+  // Catastrophe: ~1.5% chance per month affects uninsured properties
+  if (Math.random() < 0.015 && s.portfolio.filter((p) => p.status === "klar").length > 0) {
+    const uninsured = s.portfolio.filter((p) => !p.insurance && p.status === "klar");
+    if (uninsured.length > 0) {
+      const victim = pick(uninsured);
+      const damage = Math.round(propMarketValue(victim, s) * 0.08);
+      s.cash -= damage;
+      monthlyNOI -= damage;
+      s.portfolio = s.portfolio.map((p) =>
+        p.id === victim.id ? { ...p, condition: Math.max(10, p.condition - 25) } : p,
+      );
+      events.push({ t: `🔥 Skadehändelse: ${victim.typeLabel} i ${victim.districtName} drabbades (${kr(damage)} i skadekostnader). Teckning av försäkring rekommenderas!`, kind: "warn" });
+    }
+  }
+
+  // CPI rent indexing at start of each year (month === 1)
+  if (s.month === 1 && s.year > 1) {
+    const cpiRate = 0.02; // 2 % per år
+    let indexCount = 0;
+    s.portfolio = s.portfolio.map((p) => ({
+      ...p,
+      tenants: p.tenants.map((t) => {
+        indexCount++;
+        return { ...t, rent: Math.round(t.rent * (1 + cpiRate)) };
+      }),
+    }));
+    if (indexCount > 0)
+      events.push({ t: `📊 Hyresindex: alla hyror justerade +2 % (KPI-indexering, ${indexCount} kontrakt).`, kind: "income" });
+  }
+
   const effectiveRate = (s.rateMode === "fixed" && s.fixedRate != null) ? s.fixedRate : loanTerms(s).rate;
   const interest = (s.debt * (effectiveRate / 100)) / 12;
   s.cash += monthlyNOI - interest;
@@ -202,6 +266,62 @@ export function advanceMonth(state: GameState): GameState {
     const ev = pick(RARE_EVENTS);
     s = ev.apply(s);
     events.push({ t: `🚨 ${ev.text}`, kind: "warn" });
+  }
+
+  // ── Politiska val var 4:e år (absolut månad % 48 === 0) ────────
+  {
+    const absM = s.year * 12 + s.month;
+    if (absM % 48 === 0) {
+      const party = pick(POLITICAL_PARTIES);
+      s = party.apply(s);
+      s.electionResult = party.name;
+      events.push({ t: `🗳️ KOMMUNALVAL: ${party.name} vann. ${party.desc}`, kind: "warn" });
+    }
+  }
+
+  // ── Distressed competitor sales ─────────────────────────────────
+  for (const comp of s.competitors) {
+    if (comp.cash < 0 && (comp.portfolio ?? []).length > 0 && Math.random() < 0.30) {
+      const selling = comp.portfolio[Math.floor(Math.random() * comp.portfolio.length)];
+      const distressedPrice = Math.round(selling.askPrice * rnd(0.75, 0.88));
+      const born = s.year * 12 + s.month;
+      s.listings = [
+        ...s.listings,
+        { ...selling, owned: false, askPrice: distressedPrice, listedMonth: born, expiresMonth: born + 2 },
+      ];
+      s.competitors = s.competitors.map((c) =>
+        c.name === comp.name ? { ...c, portfolio: c.portfolio.filter((p) => p.id !== selling.id) } : c,
+      );
+      events.push({ t: `🚨 Nödförsäljning! ${comp.name} tvingas sälja ${selling.typeLabel} i ${selling.districtName} för ${msek(distressedPrice)} (−${Math.round((1 - distressedPrice / selling.askPrice) * 100)} %).`, kind: "warn" });
+    }
+  }
+
+  // ── Competing bid on active listing (~12 % chans/mån) ──────────
+  if (!s.competingBid && s.listings.length > 0 && Math.random() < 0.12) {
+    const target = pick(s.listings.filter((p) => p.status === "klar"));
+    if (target) {
+      const rival = pick(s.competitors);
+      const amount = Math.round(target.askPrice * rnd(1.02, 1.15));
+      const absNow = s.year * 12 + s.month;
+      s.competingBid = { listingId: target.id, rivalName: rival.name, amount, expiresAbs: absNow + 1 };
+      events.push({ t: `⚡ BUDGIVNING: ${rival.name} lade ${msek(amount)} på ${target.typeLabel} i ${target.districtName}! Slå budet eller låt dem köpa.`, kind: "warn" });
+    }
+  } else if (s.competingBid) {
+    // Expire competing bid and let rival buy
+    const absNow = s.year * 12 + s.month;
+    if (absNow > s.competingBid.expiresAbs) {
+      const listing = s.listings.find((p) => p.id === s.competingBid!.listingId);
+      if (listing) {
+        s.listings = s.listings.filter((p) => p.id !== listing.id);
+        s.competitors = s.competitors.map((c) =>
+          c.name === s.competingBid!.rivalName
+            ? { ...c, portfolio: [...(c.portfolio ?? []), listing], units: (c.portfolio ?? []).length + 1 }
+            : c,
+        );
+        events.push({ t: `🏢 ${s.competingBid.rivalName} köpte ${listing.typeLabel} i ${listing.districtName} för ${msek(s.competingBid.amount)}.`, kind: "event" });
+      }
+      s.competingBid = undefined;
+    }
   }
 
   // ── Rival merger (~2 % chans/mån) ──────────────────────────────
@@ -512,6 +632,16 @@ export function advanceMonth(state: GameState): GameState {
         { t: `🏆 MÅL UPPNÅTT: ${sc.title} – ${sc.subtitle}! Spelat klart år ${s.year}.`, kind: "income" },
         ...s.log,
       ];
+    }
+  }
+
+  // Milestone checking
+  const doneMilestones = s.milestones ?? [];
+  for (const ms of MILESTONES) {
+    if (!doneMilestones.includes(ms.id) && ms.check(s)) {
+      s.milestones = [...doneMilestones, ms.id];
+      s.reputation = Math.min(100, s.reputation + 3);
+      events.push({ t: `🏅 MILSTOLPE: ${ms.title} – ${ms.desc} (Belöning: ${ms.reward})`, kind: "income" });
     }
   }
 
