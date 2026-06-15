@@ -820,6 +820,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "SET_MANAGER_SETTINGS": {
+      return {
+        ...state,
+        portfolio: state.portfolio.map((p) =>
+          p.id === action.id ? { ...p, managerSettings: action.settings } : p,
+        ),
+      };
+    }
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {

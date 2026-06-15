@@ -114,6 +114,14 @@ export interface TxRecord {
   party: string;
 }
 
+/** Konfiguration för en anställd förvaltare på en enskild fastighet. */
+export interface ManagerSettings {
+  /** Skicknivå (0-100) som utlöser auto-underhåll. Standard 45. */
+  maintainThreshold: number;
+  /** Hyresmål som bråkdel av marknadshyran, t.ex. 1.05 = 105 %. Standard 1.0. */
+  rentTargetPct: number;
+}
+
 /** En fastighet (till salu eller ägd). */
 export interface Property {
   id: number;
@@ -141,6 +149,7 @@ export interface Property {
   listedMonth?: number;
   expiresMonth?: number;
   txHistory?: TxRecord[];
+  managerSettings?: ManagerSettings;
 }
 
 /** En byggbar tomt. */
@@ -325,6 +334,7 @@ export type GameAction =
   | { type: "OFFER_TO_RIVAL"; competitorName: string; propertyId: number; amount: number }
   | { type: "SELECT_LENDER"; lenderId: string }
   | { type: "BID_OFFMARKET"; propertyId: number; amount: number }
+  | { type: "SET_MANAGER_SETTINGS"; id: number; settings: ManagerSettings }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
