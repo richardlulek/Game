@@ -970,6 +970,66 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return { ...state, competingBid: undefined,
         log: [{ t: "Du valde att inte delta i budgivningen.", kind: "info" }, ...state.log] };
     }
+    case "IMPROVE_ENERGY": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.status !== "klar") return state;
+      const CLASSES = ["F", "E", "D", "C", "B", "A"] as const;
+      const curClass = (p.energyClass ?? "D") as (typeof CLASSES)[number];
+      const curIdx = CLASSES.indexOf(curClass);
+      if (curIdx >= 5) return log(state, "Fastigheten har redan energiklass A — maximalt möjlig.", "warn");
+      const COSTS: Record<string, number> = { F: 80_000, E: 120_000, D: 180_000, C: 250_000, B: 350_000 };
+      const cost = COSTS[curClass] ?? 150_000;
+      if (state.cash < cost)
+        return log(state, `Energiuppgradering till klass ${CLASSES[curIdx + 1]} kostar ${kr(cost)}.`, "warn");
+      const nextClass = CLASSES[curIdx + 1];
+      return {
+        ...state,
+        cash: state.cash - cost,
+        portfolio: state.portfolio.map((x) =>
+          x.id === action.id
+            ? { ...x, energyClass: nextClass as Property["energyClass"], condition: Math.min(100, x.condition + 5), rentMult: +(x.rentMult * 1.03).toFixed(3) }
+            : x,
+        ),
+        log: [{ t: `⚡ Energiuppgradering: ${p.typeLabel} i ${p.districtName} → klass ${nextClass} (−${kr(cost)}, +3 % hyra, +5 skick).`, kind: "upg" }, ...state.log],
+      };
+    }
+    case "NEGOTIATE_RENEWAL": {
+      const { propertyId, tenantId } = action;
+      const prop = state.portfolio.find((x) => x.id === propertyId);
+      const renewal = (state.pendingRenewals ?? []).find(
+        (r) => r.propertyId === propertyId && r.tenantId === tenantId,
+      );
+      if (!prop || !renewal) return state;
+      const remaining = (state.pendingRenewals ?? []).filter(
+        (r) => !(r.propertyId === propertyId && r.tenantId === tenantId),
+      );
+      if (action.action === "evict") {
+        return {
+          ...state,
+          pendingRenewals: remaining,
+          portfolio: state.portfolio.map((p) =>
+            p.id === propertyId ? { ...p, tenants: p.tenants.filter((t) => t.id !== tenantId) } : p,
+          ),
+          log: [{ t: `🚪 Avhyste ${renewal.tenantName} i ${renewal.districtName}.`, kind: "info" }, ...state.log],
+        };
+      }
+      const mult = action.action === "raise" ? 1.10 : action.action === "lower" ? 0.90 : 1.0;
+      const newRent = Math.round(renewal.currentRent * mult);
+      const label = action.action === "raise" ? "+10 %" : action.action === "lower" ? "−10 %" : "oförändrad";
+      return {
+        ...state,
+        pendingRenewals: remaining,
+        portfolio: state.portfolio.map((p) =>
+          p.id === propertyId
+            ? { ...p, tenants: p.tenants.map((t) => t.id === tenantId ? { ...t, rent: newRent, monthsLeft: renewal.termTotal } : t) }
+            : p,
+        ),
+        log: [{ t: `📄 Avtal förnyat med ${renewal.tenantName} i ${renewal.districtName}: ${kr(newRent)}/mån (${label}).`, kind: "income" }, ...state.log],
+      };
+    }
+    case "DISMISS_TUTORIAL": {
+      return { ...state, tutorialDismissed: true };
+    }
     case "SET_RATE_MODE": {
       if (action.mode === "fixed") {
         const { rate } = loanTerms(state);

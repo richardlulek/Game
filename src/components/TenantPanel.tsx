@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { kr } from "../engine/format";
-import type { GameState } from "../engine/types";
+import type { GameAction, GameState } from "../engine/types";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
 
 interface Props {
   state: GameState;
+  dispatch: (a: GameAction) => void;
 }
 
 type SortKey = "rent" | "monthsLeft" | "quality" | "district" | "consecutive";
 
-export function TenantPanel({ state }: Props) {
+export function TenantPanel({ state, dispatch }: Props) {
   const [sort, setSort] = useState<SortKey>("monthsLeft");
   const [asc, setAsc] = useState(true);
   const [filter, setFilter] = useState("");
@@ -57,8 +58,46 @@ export function TenantPanel({ state }: Props) {
 
   const urgentColor = (m: number) => m <= 3 ? C.negative : m <= 12 ? C.gold : C.positive;
 
+  const pendingRenewals = state.pendingRenewals ?? [];
+
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
+
+      {/* Pending renewals */}
+      {pendingRenewals.length > 0 && (
+        <div style={{ background: "#2a1a00", border: `2px solid ${C.gold}`, borderRadius: 8, padding: 16, marginBottom: 20 }}>
+          <div style={{ fontFamily: FONTS.heading, color: C.gold, fontWeight: 800, fontSize: 15, marginBottom: 10 }}>
+            ⏰ Avtalsförnyelser ({pendingRenewals.length}) — besluta senast nästa tick
+          </div>
+          {pendingRenewals.map((r) => (
+            <div key={`${r.propertyId}-${r.tenantId}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${C.gold}33` }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.tenantName}</div>
+                <div style={{ fontSize: 11, color: C.creamSoft }}>{r.districtName} · nuvarande {kr(r.currentRent)}/mån</div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button style={{ ...btnStyle, background: "#27660a", color: "#fff" }}
+                  onClick={() => dispatch({ type: "NEGOTIATE_RENEWAL", propertyId: r.propertyId, tenantId: r.tenantId, action: "raise" })}>
+                  +10 %
+                </button>
+                <button style={{ ...btnStyle, background: "#555", color: "#fff" }}
+                  onClick={() => dispatch({ type: "NEGOTIATE_RENEWAL", propertyId: r.propertyId, tenantId: r.tenantId, action: "keep" })}>
+                  Behåll
+                </button>
+                <button style={{ ...btnStyle, background: "#7a5a00", color: "#fff" }}
+                  onClick={() => dispatch({ type: "NEGOTIATE_RENEWAL", propertyId: r.propertyId, tenantId: r.tenantId, action: "lower" })}>
+                  −10 %
+                </button>
+                <button style={{ ...btnStyle, background: "#7a0a0a", color: "#fff" }}
+                  onClick={() => dispatch({ type: "NEGOTIATE_RENEWAL", propertyId: r.propertyId, tenantId: r.tenantId, action: "evict" })}>
+                  Avhys
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, margin: 0 }}>
           Hyresgästportfölj ({sorted.length} kontrakt)
@@ -147,3 +186,8 @@ export function TenantPanel({ state }: Props) {
     </div>
   );
 }
+
+const btnStyle: React.CSSProperties = {
+  padding: "4px 10px", borderRadius: 4, border: "none", cursor: "pointer",
+  fontWeight: 700, fontSize: 12,
+};

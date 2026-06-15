@@ -269,6 +269,22 @@ export interface LoanTerms {
   maxLtv: number;
 }
 
+/** Konjunkturcykel – styr marknadspriser och efterfrågan. */
+export interface MarketCycle {
+  phase: "boom" | "stable" | "bust";
+  monthsRemaining: number;
+}
+
+/** En kontraktsförnyelse som väntar på spelarens beslut. */
+export interface PendingRenewal {
+  propertyId: number;
+  tenantId: number;
+  tenantName: string;
+  districtName: string;
+  currentRent: number;
+  termTotal: number;
+}
+
 /** Ett aktiv konkurrentbud på en annonserad fastighet. */
 export interface CompetingBid {
   listingId: number;
@@ -347,6 +363,11 @@ export interface GameState {
   milestones?: string[];
   prevEquity?: number;
   insuranceCost?: number;
+  marketCycle?: MarketCycle;
+  pendingRenewals?: PendingRenewal[];
+  totalTaxPaid?: number;
+  tutorialDismissed?: boolean;
+  saveSlot?: number;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -406,6 +427,9 @@ export type GameAction =
   | { type: "SALE_LEASEBACK"; id: number }
   | { type: "ACCEPT_COMPETING_BID" }
   | { type: "PASS_COMPETING_BID" }
+  | { type: "IMPROVE_ENERGY"; id: number }
+  | { type: "NEGOTIATE_RENEWAL"; propertyId: number; tenantId: number; action: "raise" | "keep" | "lower" | "evict" }
+  | { type: "DISMISS_TUTORIAL" }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

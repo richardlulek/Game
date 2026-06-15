@@ -28,6 +28,33 @@ export function advanceMonth(state: GameState): GameState {
   // Track previous equity for delta display
   s.prevEquity = equityOf(state);
 
+  // Market cycle management (boom / stable / bust)
+  if (!s.marketCycle) {
+    s.marketCycle = { phase: "stable", monthsRemaining: 18 };
+  }
+  s.marketCycle = { ...s.marketCycle, monthsRemaining: s.marketCycle.monthsRemaining - 1 };
+  if (s.marketCycle.monthsRemaining <= 0) {
+    const cur = s.marketCycle.phase;
+    const next: "boom" | "stable" | "bust" = cur === "stable"
+      ? (Math.random() < 0.55 ? "boom" : "bust")
+      : "stable";
+    const dur = next === "boom" ? 10 + Math.floor(Math.random() * 14)
+              : next === "bust" ? 6 + Math.floor(Math.random() * 10)
+              : 12 + Math.floor(Math.random() * 12);
+    s.marketCycle = { phase: next, monthsRemaining: dur };
+    if (next === "boom") {
+      s.marketMod = +(s.marketMod * 1.08).toFixed(3);
+      s.demandMod = +(s.demandMod * 1.04).toFixed(3);
+      events.push({ t: `📈 KONJUNKTURUPPGÅNG! Fastighetsmarknaden stiger (${dur} mån kvar).`, kind: "income" });
+    } else if (next === "bust") {
+      s.marketMod = +(s.marketMod * 0.92).toFixed(3);
+      s.demandMod = +(s.demandMod * 0.96).toFixed(3);
+      events.push({ t: `📉 KONJUNKTURNEDGÅNG! Marknaden sviktar (${dur} mån kvar).`, kind: "warn" });
+    } else {
+      events.push({ t: `📊 Konjunkturen stabiliseras — stabilt läge (${dur} mån).`, kind: "event" });
+    }
+  }
+
   // Decrement recession counter
   if ((s.recessionMonthsLeft ?? 0) > 0) {
     s.recessionMonthsLeft = (s.recessionMonthsLeft ?? 0) - 1;
@@ -177,7 +204,25 @@ export function advanceMonth(state: GameState): GameState {
             events.push({ t: `📄 ${t.name} lämnade ${np.districtName} – för hög hyra vid förlängning.`, kind: "info" });
           }
         } else {
-          events.push({ t: `📄 Kontrakt med ${t.name} i ${np.districtName} löpte ut.`, kind: "info" });
+          // Pending renewal: player has one month to decide
+          const alreadyPending = (s.pendingRenewals ?? []).some(
+            r => r.propertyId === np.id && r.tenantId === t.id,
+          );
+          if (alreadyPending) {
+            events.push({ t: `📄 ${t.name} lämnade ${np.districtName} (kontraktet ej förnyat).`, kind: "info" });
+            s.pendingRenewals = (s.pendingRenewals ?? []).filter(
+              r => !(r.propertyId === np.id && r.tenantId === t.id),
+            );
+          } else {
+            s.pendingRenewals = [
+              ...(s.pendingRenewals ?? []),
+              { propertyId: np.id, tenantId: t.id, tenantName: t.name, districtName: np.districtName, currentRent: t.rent, termTotal: t.termTotal },
+            ];
+            nextTenants.push({ ...t, monthsLeft: 1, consecutiveMonths: consMonths, isAnchor });
+            monthlyNOI += t.rent;
+            np.totalEarnedRent = (np.totalEarnedRent ?? 0) + t.rent;
+            events.push({ t: `⏰ Kontrakt med ${t.name} i ${np.districtName} löper ut — förhandla i Hyresgäster-fliken!`, kind: "warn" });
+          }
         }
         continue;
       }
@@ -254,6 +299,28 @@ export function advanceMonth(state: GameState): GameState {
   const effectiveRate = (s.rateMode === "fixed" && s.fixedRate != null) ? s.fixedRate : loanTerms(s).rate;
   const interest = (s.debt * (effectiveRate / 100)) / 12;
   s.cash += monthlyNOI - interest;
+
+  // Monthly property tax (22% of positive net income, offset by depreciation + ESG class A bonus)
+  {
+    const netIncome = monthlyNOI - interest;
+    if (netIncome > 0) {
+      const monthlyDepreciation = s.portfolio.reduce((sum, p) => {
+        if (p.status !== "klar") return sum;
+        return sum + ((p.purchasePrice ?? p.askPrice) * 0.02) / 12;
+      }, 0);
+      const taxableIncome = Math.max(0, netIncome - monthlyDepreciation);
+      const energyACount = s.portfolio.filter(p => p.energyClass === "A" && p.status === "klar").length;
+      const taxRate = Math.max(0.10, 0.22 - (energyACount > 0 ? 0.03 : 0));
+      const monthlyTax = Math.round(taxableIncome * taxRate);
+      if (monthlyTax > 0) {
+        s.cash -= monthlyTax;
+        s.totalTaxPaid = (s.totalTaxPaid ?? 0) + monthlyTax;
+        if (s.month % 3 === 0) {
+          events.push({ t: `🏛️ Fastighetsskatt: ${kr(monthlyTax)}/mån (avdrag ${kr(Math.round(monthlyDepreciation))}/mån, skattesats ${Math.round(taxRate * 100)} %).`, kind: "expense" });
+        }
+      }
+    }
+  }
 
   // Makrohändelse
   if (Math.random() < 0.35) {

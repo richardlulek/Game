@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
+import { msek } from "../engine/format";
 import { propNOI } from "../engine/property";
 import { SCENARIOS } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
+import { listSaveSlots } from "../store/persistence";
 import { S } from "../styles/styles";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
 import { Animations } from "./Animations";
@@ -33,6 +35,8 @@ import { ContractCalendar } from "./ContractCalendar";
 import { KPIPanel } from "./KPIPanel";
 import { TenantPanel } from "./TenantPanel";
 import { MilestonesPanel } from "./MilestonesPanel";
+import { NewsFeedPanel } from "./NewsFeedPanel";
+import { OnboardingOverlay } from "./OnboardingOverlay";
 
 const TABS = [
   { id: "portfolio", label: "Portfölj" },
@@ -53,14 +57,15 @@ const TABS = [
   { id: "kpi",          label: "KPI" },
   { id: "tenants",      label: "Hyresgäster" },
   { id: "milestones",   label: "Milstolpar" },
+  { id: "nyheter",      label: "Nyheter" },
 ];
 
 export default function FastighetsImperium() {
-  const state    = useGameStore((s) => s.state);
-  const dispatch = useGameStore((s) => s.dispatch);
-  const save     = useGameStore((s) => s.save);
-  const load     = useGameStore((s) => s.load);
-  const hasSaveFn = useGameStore((s) => s.hasSave);
+  const state      = useGameStore((s) => s.state);
+  const dispatch   = useGameStore((s) => s.dispatch);
+  const save       = useGameStore((s) => s.save);
+  const load       = useGameStore((s) => s.load);
+  const setSlotFn  = useGameStore((s) => s.setSlot);
 
   const [started, setStarted] = useState(false);
   const [tab, setTab]         = useState("portfolio");
@@ -69,11 +74,12 @@ export default function FastighetsImperium() {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [showVictory, setShowVictory] = useState(false);
 
-  const startNew = (scenarioId: ScenarioId) => {
+  const startNew = (scenarioId: ScenarioId, slot: number) => {
+    setSlotFn(slot);
     dispatch({ type: "RESET", scenarioId });
     setStarted(true);
   };
-  const startContinue = () => { load(); setStarted(true); };
+  const startContinue = (slot: number) => { load(slot); setStarted(true); };
 
   // Månadspuls – ett kort svep när månaden växlar.
   const [pulseKey, setPulseKey] = useState(0);
@@ -109,7 +115,7 @@ export default function FastighetsImperium() {
     return (
       <>
         <Animations />
-        <TitleScreen hasSave={hasSaveFn()} onNew={startNew} onContinue={startContinue} />
+        <TitleScreen slots={listSaveSlots()} onNew={startNew} onContinue={startContinue} />
       </>
     );
   }
@@ -226,8 +232,9 @@ export default function FastighetsImperium() {
         {tab === "districts"   && <DistrictPanel state={state} dispatch={dispatch} />}
         {tab === "calendar"    && <ContractCalendar state={state} />}
         {tab === "kpi"         && <KPIPanel state={state} dispatch={dispatch} />}
-        {tab === "tenants"     && <TenantPanel state={state} />}
+        {tab === "tenants"     && <TenantPanel state={state} dispatch={dispatch} />}
         {tab === "milestones"  && <MilestonesPanel state={state} />}
+        {tab === "nyheter"     && <NewsFeedPanel state={state} />}
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}
@@ -266,12 +273,34 @@ export default function FastighetsImperium() {
             </div>
             {(() => {
               const sc = SCENARIOS.find((x) => x.id === state.scenarioId);
-              return sc ? (
-                <div style={{ fontSize: 15, color: C.inkSoft, marginBottom: 18 }}>
-                  {sc.title}: {sc.subtitle}<br />
-                  <span style={{ fontSize: 13 }}>Spelat klart år {state.year}, månad {state.month}</span>
-                </div>
-              ) : null;
+              const totalRentEarned = state.portfolio.reduce((a, p) => a + (p.totalEarnedRent ?? 0), 0);
+              const portfolioVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
+              const milestonesCount = (state.milestones ?? []).length;
+              return (
+                <>
+                  {sc && (
+                    <div style={{ fontSize: 15, color: C.inkSoft, marginBottom: 12 }}>
+                      {sc.title}: {sc.subtitle}<br />
+                      <span style={{ fontSize: 13 }}>Spelat klart år {state.year}, månad {state.month}</span>
+                    </div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18, textAlign: "left" }}>
+                    {[
+                      ["Eget kapital", msek(equity)],
+                      ["Portföljvärde", msek(portfolioVal)],
+                      ["Fastigheter", `${state.portfolio.length} st`],
+                      ["Totalt i hyror", msek(totalRentEarned)],
+                      ["Reputation", `${Math.round(state.reputation)}`],
+                      ["Milstolpar", `${milestonesCount} / 10`],
+                    ].map(([label, val]) => (
+                      <div key={label as string} style={{ background: "#f0e8d0", borderRadius: 4, padding: "8px 12px" }}>
+                        <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+                        <div style={{ fontWeight: 800, fontSize: 16, color: BURGUNDY }}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
             })()}
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <button
@@ -297,6 +326,7 @@ export default function FastighetsImperium() {
         <OffersModal state={state} dispatch={dispatch} onClose={() => setShowOffers(false)} />
       )}
       <DecisionModal state={state} dispatch={dispatch} />
+      <OnboardingOverlay state={state} dispatch={dispatch} />
 
       {/* ── Competing bid banner ────────────────────────────── */}
       {state.competingBid && (() => {

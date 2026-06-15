@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { SCENARIOS } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
+import { msek } from "../engine/format";
+import type { SlotInfo } from "../store/persistence";
 import { C, FONTS, THEME } from "../styles/tokens";
 
 interface Props {
-  hasSave: boolean;
-  onNew: (scenarioId: ScenarioId) => void;
-  onContinue: () => void;
+  slots: SlotInfo[];
+  onNew: (scenarioId: ScenarioId, slot: number) => void;
+  onContinue: (slot: number) => void;
 }
 
 /** Art-deco titelskärm – "spelets entré". */
-export function TitleScreen({ hasSave, onNew, onContinue }: Props) {
-  const [phase, setPhase] = useState<"start" | "scenario">("start");
+export function TitleScreen({ slots, onNew, onContinue }: Props) {
+  const [phase, setPhase] = useState<"start" | "slots-continue" | "slots-new" | "scenario">("start");
   const [selectedId, setSelectedId] = useState<ScenarioId>("equity50");
+  const [selectedSlot, setSelectedSlot] = useState(1);
+  const anySave = slots.some((s) => s.exists);
 
   return (
     <div style={wrap}>
@@ -73,14 +77,71 @@ export function TitleScreen({ hasSave, onNew, onContinue }: Props) {
             <div style={subtitle}>Res ett imperium kvarter för kvarter</div>
 
             <div style={btnRow}>
-              {hasSave && (
-                <button style={contBtn} onClick={onContinue}>
+              {anySave && (
+                <button style={contBtn} onClick={() => setPhase("slots-continue")}>
                   Fortsätt spela
                 </button>
               )}
-              <button style={newBtn} onClick={() => setPhase("scenario")}>
-                {hasSave ? "Nytt spel" : "Börja spela"}
+              <button style={newBtn} onClick={() => setPhase("slots-new")}>
+                {anySave ? "Nytt spel" : "Börja spela"}
               </button>
+            </div>
+          </>
+        )}
+
+        {(phase === "slots-continue" || phase === "slots-new") && (
+          <>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 20, fontWeight: 700, color: C.brassBright, marginBottom: 16 }}>
+              {phase === "slots-continue" ? "Välj sparslot" : "Välj slot för nytt spel"}
+            </div>
+            <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", justifyContent: "center" }}>
+              {slots.map((sl) => (
+                <div
+                  key={sl.slot}
+                  onClick={() => {
+                    if (phase === "slots-continue" && !sl.exists) return;
+                    setSelectedSlot(sl.slot);
+                  }}
+                  style={{
+                    padding: "16px 20px", borderRadius: 6, minWidth: 160, textAlign: "center",
+                    border: selectedSlot === sl.slot ? `2px solid ${C.brass}` : `1px solid ${C.brassDim}`,
+                    background: sl.exists ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)",
+                    cursor: phase === "slots-continue" && !sl.exists ? "default" : "pointer",
+                    opacity: phase === "slots-continue" && !sl.exists ? 0.4 : 1,
+                  }}
+                >
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>
+                    {sl.exists ? "💾" : "➕"}
+                  </div>
+                  <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.brassBright, fontSize: 14 }}>
+                    Slot {sl.slot}
+                  </div>
+                  {sl.exists ? (
+                    <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 4 }}>
+                      År {sl.year} · {sl.month ? `Mån ${sl.month}` : ""}<br />
+                      {sl.equity !== undefined ? msek(sl.equity) : ""}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: C.brassDim, marginTop: 4 }}>Tom slot</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={btnRow}>
+              <button style={contBtn} onClick={() => setPhase("start")}>← Tillbaka</button>
+              {phase === "slots-continue" ? (
+                <button
+                  style={{ ...newBtn, opacity: slots.find(s => s.slot === selectedSlot)?.exists ? 1 : 0.4 }}
+                  disabled={!slots.find(s => s.slot === selectedSlot)?.exists}
+                  onClick={() => onContinue(selectedSlot)}
+                >
+                  Ladda spel
+                </button>
+              ) : (
+                <button style={newBtn} onClick={() => setPhase("scenario")}>
+                  Välj spelläge →
+                </button>
+              )}
             </div>
           </>
         )}
@@ -88,7 +149,7 @@ export function TitleScreen({ hasSave, onNew, onContinue }: Props) {
         {phase === "scenario" && (
           <>
             <div style={{ fontFamily: FONTS.heading, fontSize: 22, fontWeight: 700, color: C.brassBright, marginBottom: 16 }}>
-              Välj spelläge
+              Välj spelläge (Slot {selectedSlot})
             </div>
             <div style={{
               display: "grid",
@@ -119,10 +180,10 @@ export function TitleScreen({ hasSave, onNew, onContinue }: Props) {
               ))}
             </div>
             <div style={btnRow}>
-              <button style={contBtn} onClick={() => setPhase("start")}>
+              <button style={contBtn} onClick={() => setPhase("slots-new")}>
                 ← Tillbaka
               </button>
-              <button style={newBtn} onClick={() => onNew(selectedId)}>
+              <button style={newBtn} onClick={() => onNew(selectedId, selectedSlot)}>
                 Starta
               </button>
             </div>

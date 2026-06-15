@@ -588,6 +588,38 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         </button>
       </div>
 
+      {/* Energy upgrade */}
+      {p.status === "klar" && (p.energyClass ?? "D") !== "A" && (() => {
+        const CLASSES = ["F", "E", "D", "C", "B", "A"] as const;
+        const COSTS: Record<string, number> = { F: 80_000, E: 120_000, D: 180_000, C: 250_000, B: 350_000 };
+        const cur = (p.energyClass ?? "D") as string;
+        const idx = CLASSES.indexOf(cur as (typeof CLASSES)[number]);
+        const next = CLASSES[idx + 1];
+        const cost = COSTS[cur] ?? 150_000;
+        return (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft }}>
+                ⚡ Energiuppgradering: {cur} → {next}
+              </span>
+              <span style={{ fontSize: 11, color: C.inkSoft, marginLeft: 6 }}>
+                +3 % hyra · +5 skick · −3 % skatt (klass A)
+              </span>
+            </div>
+            <button
+              style={{
+                padding: "5px 12px", borderRadius: 4, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                border: `1px solid ${C.brass}`, background: "transparent", color: C.brass,
+              }}
+              disabled={state.gameOver || state.cash < cost}
+              onClick={() => dispatch({ type: "IMPROVE_ENERGY", id: p.id })}
+            >
+              {kr(cost)}
+            </button>
+          </div>
+        );
+      })()}
+
       <ActionBtn
         label={`Sälj fastighet · ${msek(value)}`}
         sub="Realiserar vinst/förlust mot inköpspris"

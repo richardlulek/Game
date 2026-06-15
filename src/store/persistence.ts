@@ -8,10 +8,51 @@ import { syncIdCounter } from "../engine/random";
 import { initStocks } from "../engine/stocks";
 import type { GameState } from "../engine/types";
 
-const SAVE_KEY = "fastighetsimperium:save";
+const SAVE_KEY_LEGACY = "fastighetsimperium:save"; // slot 1 (bakåtkompatibel nyckel)
+const SAVE_KEY_PREFIX = "fastighetsimperium:save";
+const ACTIVE_SLOT_KEY = "fastighetsimperium:slot";
+
+function getSaveKey(slot: number): string {
+  return slot === 1 ? SAVE_KEY_LEGACY : `${SAVE_KEY_PREFIX}:${slot}`;
+}
+
+export function getActiveSlot(): number {
+  try { return Math.max(1, Math.min(3, parseInt(localStorage.getItem(ACTIVE_SLOT_KEY) ?? "1") || 1)); }
+  catch { return 1; }
+}
+
+export function setActiveSlot(slot: number): void {
+  try { localStorage.setItem(ACTIVE_SLOT_KEY, String(slot)); } catch { /* ignore */ }
+}
+
+export interface SlotInfo {
+  slot: number;
+  exists: boolean;
+  savedAt?: string;
+  year?: number;
+  month?: number;
+  equity?: number;
+}
+
+export function listSaveSlots(): SlotInfo[] {
+  return [1, 2, 3].map((slot) => {
+    try {
+      const raw = localStorage.getItem(getSaveKey(slot));
+      if (!raw) return { slot, exists: false };
+      const parsed = JSON.parse(raw) as Partial<SaveFile>;
+      const st = parsed.state as GameState | undefined;
+      const equity = st
+        ? Math.round(st.cash + (st.portfolio ?? []).reduce((a, p) => a + p.askPrice, 0) - st.debt)
+        : undefined;
+      return { slot, exists: true, savedAt: parsed.savedAt, year: st?.year, month: st?.month, equity };
+    } catch {
+      return { slot, exists: false };
+    }
+  });
+}
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 interface SaveFile {
   version: number;
@@ -115,6 +156,13 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     gameWon: (s as any).gameWon ?? false,
     recessionMonthsLeft: (s as any).recessionMonthsLeft ?? 0,
   }),
+  14: (s) => ({
+    ...s,
+    marketCycle: (s as any).marketCycle ?? { phase: "stable", monthsRemaining: 18 },
+    pendingRenewals: (s as any).pendingRenewals ?? [],
+    totalTaxPaid: (s as any).totalTaxPaid ?? 0,
+    tutorialDismissed: (s as any).tutorialDismissed ?? true, // existing saves skip tutorial
+  }),
   13: (s) => ({
     ...s,
     competingBid: (s as any).competingBid ?? undefined,
@@ -157,15 +205,16 @@ const migrations: Record<number, (state: GameState) => GameState> = {
   }),
 };
 
-/** Sparar nuvarande tillstånd till localStorage. */
-export function saveGame(state: GameState): boolean {
+/** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */
+export function saveGame(state: GameState, slot?: number): boolean {
+  const s = slot ?? getActiveSlot();
   const payload: SaveFile = {
     version: SAVE_VERSION,
     savedAt: new Date().toISOString(),
     state,
   };
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    localStorage.setItem(getSaveKey(s), JSON.stringify(payload));
     return true;
   } catch (e) {
     console.warn("Kunde inte spara spelet:", e);
@@ -174,10 +223,11 @@ export function saveGame(state: GameState): boolean {
 }
 
 /** Laddar sparat tillstånd, kör eventuella migreringar, eller null om inget finns. */
-export function loadGame(): GameState | null {
+export function loadGame(slot?: number): GameState | null {
+  const s = slot ?? getActiveSlot();
   let raw: string | null;
   try {
-    raw = localStorage.getItem(SAVE_KEY);
+    raw = localStorage.getItem(getSaveKey(s));
   } catch {
     return null;
   }
@@ -204,19 +254,21 @@ export function loadGame(): GameState | null {
   }
 }
 
-/** Finns det en sparfil? */
-export function hasSave(): boolean {
+/** Finns det en sparfil i given slot (standard: aktiv slot)? */
+export function hasSave(slot?: number): boolean {
+  const s = slot ?? getActiveSlot();
   try {
-    return localStorage.getItem(SAVE_KEY) != null;
+    return localStorage.getItem(getSaveKey(s)) != null;
   } catch {
     return false;
   }
 }
 
-/** Raderar sparfilen. */
-export function clearSave(): void {
+/** Raderar sparfilen i given slot (standard: aktiv slot). */
+export function clearSave(slot?: number): void {
+  const s = slot ?? getActiveSlot();
   try {
-    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(getSaveKey(s));
   } catch {
     /* ignoreras */
   }

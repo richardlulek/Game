@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LENDERS } from "../engine/finance";
+import { LENDERS, loanTerms } from "../engine/finance";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
 import type { GameAction, GameState, LoanTerms } from "../engine/types";
@@ -247,6 +247,36 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
             )}
           </>
         )}
+      </div>
+
+      <div style={S.financeCol}>
+        <h3 style={S.h3}>Skatteoptimering</h3>
+        {(() => {
+          const netIncome = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0) / 12
+            - (state.debt * ((state.rateMode === "fixed" && state.fixedRate != null ? state.fixedRate : loanTerms(state).rate) / 100)) / 12;
+          const monthlyDep = state.portfolio.reduce((sum, p) => {
+            if (p.status !== "klar") return sum;
+            return sum + ((p.purchasePrice ?? p.askPrice) * 0.02) / 12;
+          }, 0);
+          const energyACount = state.portfolio.filter(p => p.energyClass === "A" && p.status === "klar").length;
+          const taxRate = Math.max(0.10, 0.22 - (energyACount > 0 ? 0.03 : 0));
+          const taxableIncome = Math.max(0, netIncome - monthlyDep);
+          const monthlyTax = Math.round(taxableIncome * taxRate);
+          return (
+            <>
+              <Line l="Beräknad skattesats" v={`${Math.round(taxRate * 100)} %${energyACount > 0 ? " (−3 % via klass A)" : ""}`} />
+              <Line l="Avdrag (avskrivning/mån)" v={kr(Math.round(monthlyDep))} />
+              <Line l="Skattebar inkomst/mån" v={kr(Math.max(0, Math.round(taxableIncome)))} />
+              <Line l="Beräknad skatt/mån" v={kr(monthlyTax)} />
+              <Line l="Totalt betald skatt" v={kr(state.totalTaxPaid ?? 0)} />
+              {energyACount === 0 && (
+                <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 10px", background: "#f9f5ec", borderRadius: 4 }}>
+                  💡 Uppgradera fastigheter till energiklass A för att sänka skattesatsen med 3 procentenheter.
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       <div style={S.financeCol}>

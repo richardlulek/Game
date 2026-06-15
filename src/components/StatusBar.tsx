@@ -63,6 +63,18 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
       {(state.recessionMonthsLeft ?? 0) > 0 && (
         <Chip label="Lågkonjunktur" value={`${state.recessionMonthsLeft} mån`} valueColor="#f87a7a" />
       )}
+      {state.marketCycle?.phase === "boom" && (
+        <Chip label="Konjunktur" value={`📈 BOOM (${state.marketCycle.monthsRemaining} mån)`} valueColor="#80e080" />
+      )}
+      {state.marketCycle?.phase === "bust" && (
+        <Chip label="Konjunktur" value={`📉 BUST (${state.marketCycle.monthsRemaining} mån)`} valueColor="#f87a7a" />
+      )}
+      {(state.pendingRenewals ?? []).length > 0 && (
+        <Chip label="Förhandlingar" value={`⏰ ${state.pendingRenewals!.length} avtal`} valueColor="#f5c842" />
+      )}
+      {(state.totalTaxPaid ?? 0) > 0 && (
+        <Chip label="Skatt i år" value={kr(state.totalTaxPaid ?? 0)} />
+      )}
     </div>
   );
 }
