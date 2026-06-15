@@ -9,7 +9,7 @@ import { rnd } from "./random";
 import { initStocks } from "./stocks";
 import type { Competitor, CompetitorStrategy, GameState, Property } from "./types";
 
-const WORLD_SIZE = 100;
+const WORLD_SIZE = 150;
 
 /** Skapar ett nytt speltillstånd med en ändlig fastighetsmarknad. */
 export function initState(): GameState {
@@ -53,8 +53,8 @@ export function initState(): GameState {
   for (let i = 0; i < WORLD_SIZE; i++) allProps.push(genWorldProperty(base));
 
   // ── Skapa konkurrenter ──────────────────────────────────────────
-  // Varje konkurrent får 10-14 fastigheter från världspoolen.
-  const compPortfolioSize = Math.floor(WORLD_SIZE * 0.12); // ~12 per konkurrent
+  // Varje konkurrent får ~10 fastigheter från världspoolen.
+  const compPortfolioSize = 10;
   const STRATEGIES: CompetitorStrategy[] = ["tillväxt", "utdelning", "värde", "distrikt"];
   const competitors: Competitor[] = AI_NAMES.map((n, i) => {
     const strategy = STRATEGIES[i % STRATEGIES.length];

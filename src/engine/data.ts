@@ -225,7 +225,15 @@ export const RARE_EVENTS: GameEvent[] = [
   },
 ];
 
-export const AI_NAMES = ["Nordhem Fastigheter", "Brunnsparken Invest", "Kustlinjen AB"];
+export const AI_NAMES = [
+  "Nordhem Fastigheter",
+  "Brunnsparken Invest",
+  "Kustlinjen AB",
+  "Stadskärnan Gruppen",
+  "Hamnvikens Kapital",
+  "Silverberg & Partners",
+  "Lundqvist Fastigheter",
+];
 
 /** Affärsnamn per hyresgästprofil – ger varje kontrakt en egen identitet. */
 export const TENANT_NAMES: Record<string, string[]> = {
