@@ -5,6 +5,8 @@
 
 export type PropTypeKey = "bostad" | "kontor" | "butik" | "industri";
 
+export type ScenarioId = "equity50" | "equity200" | "districts3" | "units25" | "sandbox";
+
 export type PropStatus = "klar" | "bygger";
 
 export type LogKind = "info" | "warn" | "buy" | "sell" | "upg" | "income" | "expense" | "event";
@@ -304,6 +306,9 @@ export interface GameState {
   worldTotal: number;
   selectedLender?: string;
   globalManager?: GlobalManagerSettings;
+  scenarioId?: ScenarioId;
+  gameWon?: boolean;
+  recessionMonthsLeft?: number;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -346,7 +351,9 @@ export type GameAction =
   | { type: "SET_MANAGER_SETTINGS"; id: number; settings: ManagerSettings }
   | { type: "SET_GLOBAL_MANAGER"; settings: GlobalManagerSettings }
   | { type: "ACQUIRE_RIVAL"; competitorName: string; amount: number }
+  | { type: "SNOOZE_DECISION" }
+  | { type: "SET_SCENARIO"; scenarioId: ScenarioId }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
-  | { type: "RESET" };
+  | { type: "RESET"; scenarioId?: ScenarioId };

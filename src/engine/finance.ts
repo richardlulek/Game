@@ -39,11 +39,11 @@ export const LENDERS: Lender[] = [
 export function loanTerms(state: GameState): LoanTerms {
   const rep = state.reputation;
   const spread = Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state));
-  const baseLtv = 0.6 + (rep / 100) * 0.2;
+  const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;
   const ltvAdj = lender?.ltvBonus ?? 0;
-  const maxLtv = Math.max(0.5, Math.min(0.9, baseLtv + ltvAdj));
+  const maxLtv = Math.max(0.5, Math.min(0.85, baseLtv + ltvAdj));
   return {
     rate: +(state.interestRate + spread + rateAdj).toFixed(2),
     spread: +(spread + rateAdj).toFixed(2),

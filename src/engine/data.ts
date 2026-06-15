@@ -38,7 +38,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   },
   kontor: {
     label: "Kontor",
-    rentFactor: 0.0062,   // was 0.0055 → +13 %
+    rentFactor: 0.0055,   // was 0.0062 → balanced down
     opexFactor: 0.26,     // was 0.32  → −19 %
     vacancyBase: 0.10,    // oförändrad (kontorsmarknaden rörlig)
     buildCostM2: 22000,   // was 28000
@@ -46,7 +46,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   },
   butik: {
     label: "Butik",
-    rentFactor: 0.0070,   // was 0.006 → +17 %
+    rentFactor: 0.0060,   // was 0.0070 → balanced down
     opexFactor: 0.23,     // was 0.30  → −23 %
     vacancyBase: 0.13,    // was 0.12  (lite svårare att fylla)
     buildCostM2: 20000,   // was 26000
@@ -222,6 +222,11 @@ export const RARE_EVENTS: GameEvent[] = [
       demandMod: +(s.demandMod * 1.06).toFixed(3),
       marketSentiment: +((s.marketSentiment ?? 1) * 1.12).toFixed(3),
     }),
+  },
+  {
+    id: "recession",
+    text: "Finanskris! Lågkonjunktur pressar hyresgäster de kommande 3 månaderna. Konkursrisken stiger kraftigt.",
+    apply: (s) => ({ ...s, recessionMonthsLeft: 3, marketMod: +(s.marketMod * 0.88).toFixed(3), demandMod: +(s.demandMod * 0.92).toFixed(3) }),
   },
 ];
 

@@ -4,6 +4,7 @@
    ============================================================ */
 
 import { AI_NAMES, DISTRICTS, EVENTS, RARE_EVENTS } from "./data";
+import { SCENARIOS } from "./scenarios";
 import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";

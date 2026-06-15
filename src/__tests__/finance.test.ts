@@ -6,21 +6,21 @@ describe("loanTerms (reputationsbaserade lånevillkor)", () => {
   it("ger sämsta villkor vid reputation 0", () => {
     const t = loanTerms(makeState({ reputation: 0, interestRate: 4.0 }));
     expect(t.spread).toBe(2.5);
-    expect(t.maxLtv).toBeCloseTo(0.6, 6);
+    expect(t.maxLtv).toBeCloseTo(0.55, 6);
     expect(t.rate).toBe(6.5); // 4.0 + 2.5
   });
 
   it("ger mellanvillkor vid reputation 50", () => {
     const t = loanTerms(makeState({ reputation: 50, interestRate: 4.0 }));
     expect(t.spread).toBe(1.65); // 2.5 − 0.85
-    expect(t.maxLtv).toBeCloseTo(0.7, 6);
+    expect(t.maxLtv).toBeCloseTo(0.645, 6);
     expect(t.rate).toBe(5.65);
   });
 
   it("ger bästa villkor vid reputation 100", () => {
     const t = loanTerms(makeState({ reputation: 100, interestRate: 4.0 }));
     expect(t.spread).toBe(0.8); // 2.5 − 1.7
-    expect(t.maxLtv).toBeCloseTo(0.8, 6);
+    expect(t.maxLtv).toBeCloseTo(0.74, 6);
     expect(t.rate).toBe(4.8);
   });
 
