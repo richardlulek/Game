@@ -434,12 +434,35 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
-    case "REFRESH_LISTINGS": {
-      const listings = [];
-      for (let i = 0; i < 6; i++) listings.push(genListing(state));
-      const lots = [];
-      for (let i = 0; i < 3; i++) lots.push(genLot(state));
-      return { ...state, listings, lots };
+    case "HIRE_BROKER": {
+      const BROKER_FEE = 75_000;
+      if (state.cash < BROKER_FEE)
+        return log(state, "Mäklararvodet är 75 000 kr – för lite kontanter.", "warn");
+      const extra = genListing(state);
+      return {
+        ...state,
+        cash: state.cash - BROKER_FEE,
+        listings: [...state.listings, extra],
+        log: [
+          { t: `Anlitade mäklare (75 000 kr). Nytt off-market objekt: ${extra.typeLabel} i ${extra.districtName}.`, kind: "buy" },
+          ...state.log,
+        ],
+      };
+    }
+    case "HIRE_BROKER_LOTS": {
+      const BROKER_FEE = 75_000;
+      if (state.cash < BROKER_FEE)
+        return log(state, "Mäklararvodet är 75 000 kr – för lite kontanter.", "warn");
+      const extra = genLot(state);
+      return {
+        ...state,
+        cash: state.cash - BROKER_FEE,
+        lots: [...state.lots, extra],
+        log: [
+          { t: `Anlitade markmäklare (75 000 kr). Ny off-market tomt i ${extra.districtName} hittades.`, kind: "buy" },
+          ...state.log,
+        ],
+      };
     }
     case "RESOLVE_DECISION": {
       const d = state.pendingDecision;

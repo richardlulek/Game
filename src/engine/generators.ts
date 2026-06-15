@@ -41,6 +41,8 @@ export function makeTenant(baseRent: number, demandMod: number, condition: numbe
 /** Beräknar maxantal hyresgäster baserat på yta. */
 export function calcCapacity(area: number): number { return Math.min(4, Math.floor(area / 1000) + 1); }
 
+const absMonth = (state: GameState) => state.year * 12 + state.month;
+
 /** Genererar ett marknadsobjekt till salu. */
 export function genListing(state: GameState): Property {
   const d = pick(DISTRICTS);
@@ -52,6 +54,7 @@ export function genListing(state: GameState): Property {
   const condFactor = 0.6 + (condition / 100) * 0.6;
   const value = area * d.base * condFactor * state.marketMod * rnd(0.9, 1.12);
   const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
+  const born = absMonth(state);
   const p: Property = {
     id: newId(),
     district: d.id,
@@ -72,6 +75,8 @@ export function genListing(state: GameState): Property {
     capacity: calcCapacity(area),
     status: "klar",
     buildLeft: 0,
+    listedMonth: born,
+    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
   };
   // ~55 % chans att objektet redan har hyresgäst
   if (Math.random() < 0.55) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
@@ -83,5 +88,14 @@ export function genLot(state: GameState): Lot {
   const d = pick(DISTRICTS);
   const area = Math.round(rnd(600, 3500));
   const price = Math.round(area * d.base * 0.18 * state.marketMod);
-  return { id: newId(), district: d.id, districtName: d.name, area, price };
+  const born = absMonth(state);
+  return {
+    id: newId(),
+    district: d.id,
+    districtName: d.name,
+    area,
+    price,
+    listedMonth: born,
+    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+  };
 }

@@ -4,6 +4,7 @@ import { PROP_TYPES } from "../engine/data";
 import { buildCostMult, buildMonthsDelta } from "../engine/progression";
 import type { GameAction, GameState, PropTypeKey } from "../engine/types";
 import { S } from "../styles/styles";
+import { C } from "../styles/tokens";
 
 interface BuildPanelProps {
   state: GameState;
@@ -15,21 +16,44 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
   return (
     <div>
       <div style={S.marketBar}>
-        <span>Tomter till salu</span>
-        <button style={S.smallBtn} onClick={() => dispatch({ type: "REFRESH_LISTINGS" })}>
-          ↻ Nya tomter
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span>Tomter till salu ({state.lots.filter((l) => !l.owned).length})</span>
+          <span style={{ fontSize: 10, color: C.inkSoft }}>Nya tomter tillkommer varje månad</span>
+        </div>
+        <button
+          style={{ ...S.smallBtn, ...(state.cash < 75_000 ? S.btnDisabled : {}), fontSize: 12 }}
+          disabled={state.cash < 75_000}
+          onClick={() => dispatch({ type: "HIRE_BROKER_LOTS" })}
+        >
+          🔍 Anlita markmäklare · {msek(75_000)}
         </button>
       </div>
       <div style={S.grid}>
         {state.lots
           .filter((l) => !l.owned)
-          .map((l) => (
+          .map((l) => {
+            const now = state.year * 12 + state.month;
+            const monthsLeft = l.expiresMonth !== undefined && l.expiresMonth < 9999
+              ? l.expiresMonth - now
+              : null;
+            return (
             <div key={l.id} style={S.card}>
               <div style={S.cardHead}>
                 <span style={S.badge}>Tomt</span>
                 <span style={S.cardDistrict}>{l.districtName}</span>
               </div>
               <div style={S.cardValue}>{msek(l.price)}</div>
+              {monthsLeft !== null && monthsLeft <= 2 && (
+                <div style={{
+                  fontSize: 11, padding: "3px 8px", borderRadius: 4, marginBottom: 6,
+                  background: monthsLeft <= 1 ? "#fde8e8" : "#fff3cc",
+                  color: monthsLeft <= 1 ? C.negative : "#9a6a10",
+                  fontWeight: 700,
+                  border: `1px solid ${monthsLeft <= 1 ? C.negative + "44" : "transparent"}`,
+                }}>
+                  {monthsLeft <= 0 ? "Utgår snart!" : `Utgår om ${monthsLeft} mån`}
+                </div>
+              )}
               <div style={S.cardRow}>
                 <span>Yta</span>
                 <strong>{l.area} m²</strong>
@@ -42,7 +66,8 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
                 Köp tomt
               </button>
             </div>
-          ))}
+            );
+          })}
       </div>
       <h3 style={{ ...S.h3, marginTop: 24 }}>Mina tomter</h3>
       <div style={S.grid}>

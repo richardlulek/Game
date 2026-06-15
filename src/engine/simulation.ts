@@ -8,6 +8,7 @@ import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
+import { genListing, genLot } from "./generators";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
 import { applyStockNews, executeLimitOrders, priceStocks, stepSentiment, stockHoldingsValue } from "./stocks";
@@ -251,6 +252,33 @@ export function advanceMonth(state: GameState): GameState {
     s.pendingDecision = decision;
     events.push({ t: `🤔 Beslut krävs: ${decision.title}`, kind: "event" });
   }
+
+  // ── Marknadstillflöde: 1–3 nya objekt, 0–1 ny tomt per månad ──────
+  const MAX_LISTINGS = 12;
+  const MAX_FREE_LOTS = 6;
+  const newListings = 1 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < newListings; i++) {
+    if (s.listings.length < MAX_LISTINGS) s.listings = [...s.listings, genListing(s)];
+  }
+  if (Math.random() < 0.5 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS) {
+    s.lots = [...s.lots, genLot(s)];
+  }
+  // ── Utgångna objekt försvinner ──────────────────────────────────
+  const nowAbs = s.year * 12 + s.month;
+  s.listings = s.listings.filter((p) => {
+    if ((p.expiresMonth ?? Infinity) <= nowAbs) {
+      events.push({ t: `📋 ${p.typeLabel} i ${p.districtName} drogs tillbaka från marknaden.`, kind: "info" });
+      return false;
+    }
+    return true;
+  });
+  s.lots = s.lots.filter((l) => {
+    if (!l.owned && (l.expiresMonth ?? Infinity) <= nowAbs) {
+      events.push({ t: `📋 Tomt i ${l.districtName} drogs tillbaka.`, kind: "info" });
+      return false;
+    }
+    return true;
+  });
 
   // Tid
   s.month += 1;

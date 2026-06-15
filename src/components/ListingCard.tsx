@@ -29,7 +29,26 @@ function bidEstimate(ratio: number): { label: string; color: string } {
   return { label: "Mycket låg", color: C.negative };
 }
 
+const ageChipStyle = (monthsLeft: number | null): React.CSSProperties => ({
+  fontSize: 11,
+  padding: "3px 8px",
+  borderRadius: 4,
+  marginBottom: 6,
+  display: "flex",
+  justifyContent: "space-between",
+  background:
+    monthsLeft !== null && monthsLeft <= 1 ? "#fde8e8" :
+    monthsLeft !== null && monthsLeft <= 2 ? "#fff3cc" : "#eef5ee",
+  color:
+    monthsLeft !== null && monthsLeft <= 1 ? C.negative :
+    monthsLeft !== null && monthsLeft <= 2 ? "#9a6a10" : C.inkSoft,
+  border: `1px solid ${monthsLeft !== null && monthsLeft <= 1 ? C.negative + "44" : "transparent"}`,
+});
+
 export function ListingCard({ p, state, dispatch }: ListingCardProps) {
+  const now         = state.year * 12 + state.month;
+  const monthsOnMkt = p.listedMonth !== undefined ? Math.max(0, now - p.listedMonth) : null;
+  const monthsLeft  = p.expiresMonth !== undefined && p.expiresMonth < 9999 ? p.expiresMonth - now : null;
   const terms     = loanTerms(state);
   const noi       = propPotentialRent(p, state) - propAnnualOpex(p, state);
   const yld       = noi / p.askPrice;
@@ -58,6 +77,17 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
       </div>
 
       <div style={S.cardValue}>{msek(p.askPrice)}</div>
+
+      {monthsOnMkt !== null && (
+        <div style={ageChipStyle(monthsLeft)}>
+          <span>{monthsOnMkt === 0 ? "Ny idag" : `${monthsOnMkt} mån på marknaden`}</span>
+          {monthsLeft !== null && monthsLeft <= 2 && (
+            <span style={{ fontWeight: 700 }}>
+              {monthsLeft <= 0 ? "Utgår snart!" : `Utgår om ${monthsLeft} mån`}
+            </span>
+          )}
+        </div>
+      )}
 
       <div style={S.cardRow}>
         <span>Yta</span>

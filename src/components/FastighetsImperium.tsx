@@ -11,7 +11,7 @@ import { DecisionModal } from "./DecisionModal";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
 import { CityMap } from "./CityMap";
-import { ListingCard } from "./ListingCard";
+import { MarketPanel } from "./MarketPanel";
 import { LogPanel } from "./LogPanel";
 import { OffersModal } from "./OffersModal";
 import { PortfolioCard } from "./PortfolioCard";
@@ -148,26 +148,7 @@ export default function FastighetsImperium() {
           </div>
         )}
 
-        {tab === "market" && (
-          <div>
-            <div style={S.marketBar}>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>
-                Objekt till salu ({state.listings.length})
-              </span>
-              <button
-                style={S.smallBtn}
-                onClick={() => dispatch({ type: "REFRESH_LISTINGS" })}
-              >
-                ↻ Nya objekt
-              </button>
-            </div>
-            <div style={S.grid}>
-              {state.listings.map((p) => (
-                <ListingCard key={p.id} p={p} state={state} dispatch={dispatch} />
-              ))}
-            </div>
-          </div>
-        )}
+        {tab === "market" && <MarketPanel state={state} dispatch={dispatch} />}
 
         {tab === "map" && <CityMap state={state} dispatch={dispatch} />}
 

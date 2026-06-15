@@ -129,6 +129,8 @@ export interface Property {
   buildLeft: number;
   totalEarnedRent?: number;
   managed?: boolean;
+  listedMonth?: number;
+  expiresMonth?: number;
 }
 
 /** En byggbar tomt. */
@@ -139,6 +141,8 @@ export interface Lot {
   area: number;
   price: number;
   owned?: boolean;
+  listedMonth?: number;
+  expiresMonth?: number;
 }
 
 /** En AI-konkurrent. */
@@ -275,7 +279,8 @@ export type GameAction =
   | { type: "LOWER_RENT"; id: number; tenantId: number; decreasePercent: number }
   | { type: "TOGGLE_MANAGER"; id: number }
   | { type: "MARKET_BOOST"; id: number }
-  | { type: "REFRESH_LISTINGS" }
+  | { type: "HIRE_BROKER" }
+  | { type: "HIRE_BROKER_LOTS" }
   | { type: "RESOLVE_DECISION"; optionIndex: number }
   | { type: "ACCEPT_OFFER"; offerId: number }
   | { type: "DECLINE_OFFER"; offerId: number }
