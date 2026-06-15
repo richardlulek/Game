@@ -40,18 +40,19 @@ export function advanceMonth(state: GameState): GameState {
       }
       return np;
     }
-    // Förvaltare: avanstalt månadskostnad + auto-underhåll
+    // Förvaltare: månadskostnad + auto-underhåll med konfigurerbar tröskel
     if (np.managed) {
       const managerCost = Math.max(2000, Math.round(np.tenants.reduce((a, t) => a + t.rent, 0) * 0.03));
       s.cash -= managerCost;
       monthlyNOI -= managerCost;
-      if (np.condition < 45) {
+      const maintainThreshold = np.managerSettings?.maintainThreshold ?? 45;
+      if (np.condition < maintainThreshold) {
         const maintainCost = Math.round(propMarketValue(np, s) * 0.02);
         if (s.cash >= maintainCost) {
           s.cash -= maintainCost;
           monthlyNOI -= maintainCost;
           np.condition = Math.min(100, np.condition + 15);
-          events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName}.`, kind: "upg" });
+          events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName} (tröskel ${maintainThreshold}).`, kind: "upg" });
         }
       }
     }
@@ -66,13 +67,24 @@ export function advanceMonth(state: GameState): GameState {
       }
       if (t.monthsLeft <= 1) {
         if (np.managed) {
-          // Auto-förnya till marknadshyra (ej lägre än befintlig)
+          const rentTargetPct = np.managerSettings?.rentTargetPct ?? 1.0;
           const marketMo = propPotentialRent(np, s) / np.capacity / 12;
-          const newRent = Math.max(t.rent, Math.round(marketMo * t.quality));
-          monthlyNOI += t.rent;
-          np.totalEarnedRent = (np.totalEarnedRent ?? 0) + t.rent;
-          nextTenants.push({ ...t, monthsLeft: t.termTotal, rent: newRent });
-          events.push({ t: `📄 Förvaltare förnyade avtal med ${t.name} i ${np.districtName}: ${kr(newRent)}/mån.`, kind: "info" });
+          const baseRent = Math.round(marketMo * t.quality);
+          const targetRent = Math.round(baseRent * rentTargetPct);
+          // Risk att hyresgäst lämnar ökar vid mål >10 % över marknad
+          const premiumRatio = targetRent / Math.max(1, baseRent);
+          const willStay = premiumRatio <= 1.10 || Math.random() < 0.40;
+          if (willStay) {
+            const newRent = rentTargetPct < 1.0
+              ? Math.min(t.rent, targetRent)
+              : Math.max(t.rent, targetRent);
+            monthlyNOI += t.rent;
+            np.totalEarnedRent = (np.totalEarnedRent ?? 0) + t.rent;
+            nextTenants.push({ ...t, monthsLeft: t.termTotal, rent: newRent });
+            events.push({ t: `📄 Förvaltare förnyade avtal med ${t.name} i ${np.districtName}: ${kr(newRent)}/mån.`, kind: "info" });
+          } else {
+            events.push({ t: `📄 ${t.name} lämnade ${np.districtName} – för hög hyra vid förlängning.`, kind: "info" });
+          }
         } else {
           events.push({ t: `📄 Kontrakt med ${t.name} i ${np.districtName} löpte ut.`, kind: "info" });
         }

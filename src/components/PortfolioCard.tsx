@@ -55,12 +55,13 @@ function genCandidates(p: Property, state: GameState, enhanced = false): Tenant[
 }
 
 export function PortfolioCard({ p, state, dispatch }: Props) {
-  const [showDetails,       setShowDetails]       = useState(false);
-  const [candidateSlot,     setCandidateSlot]     = useState<number | null>(null);
-  const [candidates,        setCandidates]        = useState<Tenant[] | null>(null);
-  const [marketingActive,   setMarketingActive]   = useState(false);
-  const [showRaiseTenantId, setShowRaiseTenantId] = useState<number | null>(null);
-  const [showLowerTenantId, setShowLowerTenantId] = useState<number | null>(null);
+  const [showDetails,        setShowDetails]        = useState(false);
+  const [candidateSlot,      setCandidateSlot]      = useState<number | null>(null);
+  const [candidates,         setCandidates]         = useState<Tenant[] | null>(null);
+  const [marketingActive,    setMarketingActive]    = useState(false);
+  const [showRaiseTenantId,  setShowRaiseTenantId]  = useState<number | null>(null);
+  const [showLowerTenantId,  setShowLowerTenantId]  = useState<number | null>(null);
+  const [showMgrSettings,    setShowMgrSettings]    = useState(false);
 
   // ── Beräknade värden ────────────────────────────────────────────
   const value        = propMarketValue(p, state);
@@ -85,6 +86,8 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
   const propShare    = portVal > 0 ? value / portVal : 0;
   const interestMo   = (state.debt * propShare * (terms.rate / 100)) / 12;
   const netCashflow  = grossRentMo - opexMo - interestMo;
+
+  const currentMgrSettings = p.managerSettings ?? { maintainThreshold: 45, rentTargetPct: 1.0 };
 
   const slotPotential  = Math.round(propPotentialRent(p, state) / p.capacity / 12);
   const maxPossibleMo  = Math.round(propPotentialRent(p, state) / 12);
@@ -477,13 +480,88 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         }
         sub={
           p.managed
-            ? "Auto-förnyar kontrakt och underhåller vid skick < 45. Klicka för att avsluta."
+            ? `Auto-förnyar kontrakt och underhåller vid skick < ${currentMgrSettings.maintainThreshold}. Klicka för att avsluta.`
             : "Auto-förnyar kontrakt vid utgång och underhåller automatiskt."
         }
         color={p.managed ? "#27660a" : "#2a4a6a"}
         disabled={state.gameOver}
         onClick={() => dispatch({ type: "TOGGLE_MANAGER", id: p.id })}
       />
+
+      {p.managed && (
+        <>
+          <button
+            onClick={() => setShowMgrSettings(!showMgrSettings)}
+            style={detailToggleBtn}
+          >
+            {showMgrSettings ? "▲ Dölj förvaltningsinstruktioner" : "▼ Justera förvaltarens instruktioner"}
+          </button>
+          {showMgrSettings && (
+            <div style={detailBox}>
+              <div style={sectionLabel}>Underhållströskel</div>
+              <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
+                Förvaltaren underhåller automatiskt när skicket sjunker under denna nivå.
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <input
+                  type="range" min={20} max={80} step={5}
+                  value={currentMgrSettings.maintainThreshold}
+                  onChange={(e) =>
+                    dispatch({
+                      type: "SET_MANAGER_SETTINGS",
+                      id: p.id,
+                      settings: { ...currentMgrSettings, maintainThreshold: +e.target.value },
+                    })
+                  }
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontWeight: 700, fontSize: 13, minWidth: 26 }}>{currentMgrSettings.maintainThreshold}</span>
+                <Chip
+                  label={currentMgrSettings.maintainThreshold <= 30 ? "Låg standard" : currentMgrSettings.maintainThreshold <= 55 ? "Standard" : "Hög standard"}
+                  color={currentMgrSettings.maintainThreshold <= 30 ? "#b07010" : currentMgrSettings.maintainThreshold <= 55 ? "#2a4a8a" : "#27660a"}
+                />
+              </div>
+
+              <div style={sectionLabel}>Hyresmål vid förlängning</div>
+              <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
+                Andel av marknadshyran som förvaltaren siktar på. Mål&nbsp;&gt;&nbsp;110 % ökar risken att hyresgästen lämnar.
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input
+                  type="range" min={80} max={130} step={5}
+                  value={Math.round(currentMgrSettings.rentTargetPct * 100)}
+                  onChange={(e) =>
+                    dispatch({
+                      type: "SET_MANAGER_SETTINGS",
+                      id: p.id,
+                      settings: { ...currentMgrSettings, rentTargetPct: +e.target.value / 100 },
+                    })
+                  }
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontWeight: 700, fontSize: 13, minWidth: 38 }}>{Math.round(currentMgrSettings.rentTargetPct * 100)} %</span>
+                <Chip
+                  label={
+                    currentMgrSettings.rentTargetPct < 0.95 ? "Trygg" :
+                    currentMgrSettings.rentTargetPct <= 1.05 ? "Marknad" :
+                    currentMgrSettings.rentTargetPct <= 1.15 ? "Premium" : "Aggressiv"
+                  }
+                  color={
+                    currentMgrSettings.rentTargetPct < 0.95 ? "#2a4a8a" :
+                    currentMgrSettings.rentTargetPct <= 1.05 ? "#27660a" :
+                    currentMgrSettings.rentTargetPct <= 1.15 ? "#b07010" : "#c0392b"
+                  }
+                />
+              </div>
+              {currentMgrSettings.rentTargetPct > 1.10 && (
+                <div style={{ fontSize: 11, color: "#b07010", marginTop: 6 }}>
+                  ⚠ Mål {Math.round(currentMgrSettings.rentTargetPct * 100)} % – 60 % chans att hyresgäster lämnar vid förlängning.
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
 
       <Divider />
 
