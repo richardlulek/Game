@@ -782,6 +782,44 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [{ t: `Bytte långivare.`, kind: "info" }, ...state.log],
       };
     }
+    case "BID_OFFMARKET": {
+      const prop = (state.worldPool ?? []).find((p) => p.id === action.propertyId);
+      if (!prop) return state;
+      const ref = prop.askPrice;
+      const { maxLtv } = loanTerms(state);
+      const down = action.amount * (1 - maxLtv);
+      if (state.cash < down)
+        return log(state, `Du behöver ${msek(down)} i handpenning för off-market köpet.`, "warn");
+      // Accepteras garanterat vid ≥110 %, 50 % chans vid 105–110 %
+      const accepted =
+        action.amount >= ref * 1.10 ||
+        (action.amount >= ref * 1.05 && Math.random() < 0.5);
+      if (!accepted) {
+        return log(
+          state,
+          `Fastighetsägaren avböjde budet ${msek(action.amount)}. Höj till minst ${msek(Math.round(ref * 1.10))} (+10 %) för garanterat svar.`,
+          "warn",
+        );
+      }
+      const loan = action.amount - down;
+      const txEntry = { type: "köp" as const, price: action.amount, month: state.month, year: state.year, party: "Spelaren (off-market)" };
+      const boughtProp: Property = { ...prop, owned: true, purchasePrice: action.amount, txHistory: [...(prop.txHistory ?? []), txEntry] };
+      return {
+        ...state,
+        cash: state.cash - down,
+        debt: state.debt + loan,
+        reputation: Math.min(100, state.reputation + 1),
+        portfolio: [...state.portfolio, boughtProp],
+        worldPool: (state.worldPool ?? []).filter((p) => p.id !== action.propertyId),
+        log: [
+          {
+            t: `🤝 Off-market köp: ${prop.typeLabel} i ${prop.districtName} för ${msek(action.amount)} (premie +${pct(action.amount / ref - 1)}, lån ${msek(loan)}).`,
+            kind: "buy",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {

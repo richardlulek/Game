@@ -324,6 +324,7 @@ export type GameAction =
   | { type: "CANCEL_LIMIT_ORDER"; orderId: string }
   | { type: "OFFER_TO_RIVAL"; competitorName: string; propertyId: number; amount: number }
   | { type: "SELECT_LENDER"; lenderId: string }
+  | { type: "BID_OFFMARKET"; propertyId: number; amount: number }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

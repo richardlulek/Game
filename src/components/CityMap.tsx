@@ -68,7 +68,8 @@ type SelKey =
   | { kind: "listing"; id: number }
   | { kind: "owned"; id: number }
   | { kind: "lot"; id: number }
-  | { kind: "rival"; competitorName: string; id: number };
+  | { kind: "rival"; competitorName: string; id: number }
+  | { kind: "offmarket"; id: number };
 
 function sameSel(a: SelKey | null, b: SelKey): boolean {
   if (a === null) return false;
@@ -113,7 +114,7 @@ export function CityMap({ state, dispatch }: Props) {
   const [hovered, setHovered] = useState<string | null>(null); // serialiserad SelKey
   const [selected, setSelected] = useState<SelKey | null>(null);
 
-  // Lägg ut alla enheter per zon (ägda + till salu + tomter + konkurrenter).
+  // Lägg ut alla enheter per zon (ägda + till salu + tomter + rivals + off-market).
   const placedByZone = useMemo(() => {
     const map: Record<string, Placed[]> = {};
     for (const zone of ZONES) {
@@ -126,17 +127,21 @@ export function CityMap({ state, dispatch }: Props) {
           if (p.district === zone.id) rivals.push({ kind: "rival", competitorName: comp.name, id: p.id });
         }
       }
+      const offmarket: SelKey[] = (state.worldPool ?? [])
+        .filter((p) => p.district === zone.id)
+        .map((p): SelKey => ({ kind: "offmarket", id: p.id }));
       const keys: SelKey[] = [
         ...owned.map((p): SelKey => ({ kind: "owned", id: p.id })),
         ...listings.map((p): SelKey => ({ kind: "listing", id: p.id })),
         ...lots.map((l): SelKey => ({ kind: "lot", id: l.id })),
         ...rivals,
+        ...offmarket,
       ];
       const slots = layoutZone(zone, keys.length);
       map[zone.id] = keys.map((key, i) => ({ key, x: slots[i].x, y: slots[i].y }));
     }
     return map;
-  }, [state.portfolio, state.listings, state.lots, state.competitors]);
+  }, [state.portfolio, state.listings, state.lots, state.competitors, state.worldPool]);
 
   // Slå upp valt objekt → konkret data till detaljpanelen.
   const selProperty =
@@ -156,6 +161,10 @@ export function CityMap({ state, dispatch }: Props) {
           const prop = comp?.portfolio.find((p) => p.id === selected.id) ?? null;
           return comp && prop ? { comp, prop } : null;
         })()
+      : null;
+  const selOffmarket =
+    selected && selected.kind === "offmarket"
+      ? (state.worldPool ?? []).find((p) => p.id === selected.id) ?? null
       : null;
 
   return (
@@ -235,9 +244,11 @@ export function CityMap({ state, dispatch }: Props) {
         <LotDetail lot={selLot} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
       ) : selRival ? (
         <RivalDetail comp={selRival.comp} prop={selRival.prop} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
+      ) : selOffmarket ? (
+        <OffMarketDetail prop={selOffmarket} state={state} dispatch={dispatch} onClose={() => setSelected(null)} />
       ) : (
         <div style={hintBox}>
-          Klicka en byggnad för detaljer, köp eller lägg bud. Konkurrenternas byggnader är markerade i lila, orange och turkos.
+          Klicka en byggnad för detaljer, köp eller lägg bud. Genomskinliga byggnader är off-market — lägg ett bud direkt med premie.
         </div>
       )}
     </div>
@@ -248,7 +259,7 @@ export function CityMap({ state, dispatch }: Props) {
 
 function serialize(k: SelKey): string {
   if (k.kind === "rival") return `rival:${k.competitorName}:${k.id}`;
-  return `${k.kind}:${k.id}`;
+  return `${k.kind}:${k.id}`; // listing/owned/lot/offmarket all unique by kind+id
 }
 
 // ── Gator ───────────────────────────────────────────────────────
@@ -363,6 +374,7 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
   let isLot = false;
   let lotOwned = false;
   let isRival = false;
+  let isOffmarket = false;
   let building: Property | undefined;
   let lot: Lot | undefined;
 
@@ -377,6 +389,10 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
     roof = RIVAL_COLORS[compIdx % RIVAL_COLORS.length];
     building = state.competitors[compIdx]?.portfolio.find((p) => p.id === key.id);
     isRival = true;
+  } else if (key.kind === "offmarket") {
+    building = (state.worldPool ?? []).find((p) => p.id === key.id);
+    roof = "#7a8a9a";
+    isOffmarket = true;
   } else {
     lot = state.lots.find((l) => l.id === key.id);
     isLot = true;
@@ -388,7 +404,7 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
 
   return (
     <g
-      style={{ cursor: "pointer", transition: "transform 0.1s ease" }}
+      style={{ cursor: "pointer", transition: "transform 0.1s ease", opacity: isOffmarket ? (lift ? 0.65 : 0.28) : 1 }}
       transform={lift ? `translate(${cx} ${cy}) scale(1.12) translate(${-cx} ${-cy})` : undefined}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
@@ -483,6 +499,21 @@ function Footprint({ placed, state, isHovered, isSelected, onEnter, onLeave, onC
           {isRival && (
             <circle cx={x + 5} cy={y + 5} r={3.5} fill={roof} stroke="#00000033" strokeWidth={0.8} style={{ pointerEvents: "none" }} />
           )}
+          {/* Off-market → "?" text i mitten */}
+          {isOffmarket && (
+            <text
+              x={cx}
+              y={cy + 4}
+              textAnchor="middle"
+              fontFamily={FONTS.body}
+              fontSize={11}
+              fontWeight={700}
+              fill="#ccd5dd"
+              style={{ pointerEvents: "none" }}
+            >
+              ?
+            </text>
+          )}
         </>
       )}
     </g>
@@ -501,6 +532,7 @@ function Legend({ competitors }: { competitors: import("../engine/types").Compet
       {competitors.map((c, i) => (
         <LegendChip key={c.name} color={RIVAL_COLORS[i % RIVAL_COLORS.length]} label={c.name.split(" ")[0]} />
       ))}
+      <LegendChip color="#7a8a9a" label="Off-market" faded />
     </div>
   );
 }
@@ -510,14 +542,16 @@ function LegendChip({
   label,
   dashed,
   flag,
+  faded,
 }: {
   color: string;
   label: string;
   dashed?: boolean;
   flag?: boolean;
+  faded?: boolean;
 }) {
   return (
-    <span style={legendChip}>
+    <span style={{ ...legendChip, opacity: faded ? 0.55 : 1 }}>
       <span
         style={{
           width: 14,
@@ -896,6 +930,85 @@ function Row({
 
 function GoldRule() {
   return <div style={{ height: 1, background: THEME.goldRule, margin: "8px 0" }} />;
+}
+
+// ── Off-market: direktbud med premie ────────────────────────────
+
+function OffMarketDetail({
+  prop,
+  state,
+  dispatch,
+  onClose,
+}: {
+  prop: Property;
+  state: GameState;
+  dispatch: (a: GameAction) => void;
+  onClose: () => void;
+}) {
+  const ref = prop.askPrice;
+  const minOffer = Math.round(ref * 1.0);
+  const maxOffer = Math.round(ref * 1.5);
+  const [offer, setOffer] = useState(Math.round(ref * 1.12));
+  const { maxLtv } = loanTerms(state);
+  const down = offer * (1 - maxLtv);
+  const canOffer = state.cash >= down && !state.gameOver;
+  const ratio = offer / ref;
+  const likelyText =
+    ratio >= 1.10 ? { label: "Garanterat svar (+10 %)", color: C.positive } :
+    ratio >= 1.05 ? { label: "50 % chans",              color: "#9a6a10" } :
+                   { label: "Troligen avvisas",          color: C.negative };
+
+  return (
+    <DetailShell
+      title={prop.typeLabel}
+      sub={`${prop.districtName} · ${prop.area} m² · Off-market`}
+      onClose={onClose}
+      accent="#7a8a9a"
+    >
+      <div style={{ fontSize: 12, color: "#7a8a9a", fontWeight: 600, marginBottom: 8 }}>
+        Denna fastighet är inte till salu — lägg ett direktbud med premie för att locka fram ett svar.
+      </div>
+      <Row label="Typ · distrikt" value={`${prop.typeLabel} · ${prop.districtName}`} />
+      <Row label="Yta" value={`${prop.area} m²`} />
+      <Row label="Skick" value={`${Math.round(prop.condition)} / 100`} />
+      <GoldRule />
+      <Row label="Uppskattat värde" value={msek(ref)} strong />
+      <Row label="Min. premie (+10 %)" value={msek(Math.round(ref * 1.10))} />
+      <Row label="Handpenning" value={msek(down)} />
+      <div style={{ marginTop: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+          <span style={bidLabel}>Ditt bud</span>
+          <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 18, color: C.ink }}>
+            {msek(offer)}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={minOffer}
+          max={maxOffer}
+          step={Math.max(1, Math.round(ref / 40))}
+          value={offer}
+          onChange={(e) => setOffer(Number(e.target.value))}
+          style={{ width: "100%", accentColor: "#7a8a9a", marginBottom: 4 }}
+        />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.inkSoft }}>
+          <span>{msek(minOffer)}</span>
+          <span>{msek(maxOffer)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+          <span style={{ fontSize: 12, color: C.inkSoft }}>Acceptanschans</span>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: likelyText.color }}>{likelyText.label}</span>
+        </div>
+        <button
+          style={{ ...primaryBtn, ...(canOffer ? {} : disabledBtn), marginTop: 10 }}
+          disabled={!canOffer}
+          onClick={() => dispatch({ type: "BID_OFFMARKET", propertyId: prop.id, amount: offer })}
+        >
+          {canOffer ? `Lägg off-market bud ${msek(offer)}` : "Otillräcklig handpenning"}
+        </button>
+      </div>
+    </DetailShell>
+  );
 }
 
 // ── Rival (konkurrentägd): direkterbjudande ──────────────────────
