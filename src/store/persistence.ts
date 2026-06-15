@@ -11,7 +11,7 @@ import type { GameState } from "../engine/types";
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 interface SaveFile {
   version: number;
@@ -105,6 +105,10 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       })),
     };
   },
+  10: (s) => ({
+    ...s,
+    globalManager: (s as any).globalManager ?? undefined,
+  }),
 };
 
 /** Sparar nuvarande tillstånd till localStorage. */

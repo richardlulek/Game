@@ -8,7 +8,7 @@ import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
-import { genListing, genLot } from "./generators";
+import { genListing, genLot, makeTenant } from "./generators";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
 import { applyStockNews, executeLimitOrders, priceStocks, stepSentiment, stockHoldingsValue } from "./stocks";
@@ -40,19 +40,26 @@ export function advanceMonth(state: GameState): GameState {
       }
       return np;
     }
+    // Global portföljdirektör – effektiva inställningar
+    const gm = s.globalManager;
+    const effectiveManaged = np.managed || (gm?.active ?? false);
+    const effectiveMaintainThreshold = np.managerSettings?.maintainThreshold ?? gm?.minCondition ?? 45;
+    const effectiveRentTargetPct = np.managerSettings?.rentTargetPct ?? gm?.rentTargetPct ?? 1.0;
     // Förvaltare: månadskostnad + auto-underhåll med konfigurerbar tröskel
-    if (np.managed) {
-      const managerCost = Math.max(2000, Math.round(np.tenants.reduce((a, t) => a + t.rent, 0) * 0.03));
-      s.cash -= managerCost;
-      monthlyNOI -= managerCost;
-      const maintainThreshold = np.managerSettings?.maintainThreshold ?? 45;
-      if (np.condition < maintainThreshold) {
+    if (effectiveManaged) {
+      if (np.managed) {
+        // per-property manager fee
+        const managerCost = Math.max(2000, Math.round(np.tenants.reduce((a, t) => a + t.rent, 0) * 0.03));
+        s.cash -= managerCost;
+        monthlyNOI -= managerCost;
+      }
+      if (np.condition < effectiveMaintainThreshold) {
         const maintainCost = Math.round(propMarketValue(np, s) * 0.02);
         if (s.cash >= maintainCost) {
           s.cash -= maintainCost;
           monthlyNOI -= maintainCost;
           np.condition = Math.min(100, np.condition + 15);
-          events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName} (tröskel ${maintainThreshold}).`, kind: "upg" });
+          events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName} (tröskel ${effectiveMaintainThreshold}).`, kind: "upg" });
         }
       }
     }
@@ -66,8 +73,8 @@ export function advanceMonth(state: GameState): GameState {
         continue;
       }
       if (t.monthsLeft <= 1) {
-        if (np.managed) {
-          const rentTargetPct = np.managerSettings?.rentTargetPct ?? 1.0;
+        if (effectiveManaged) {
+          const rentTargetPct = effectiveRentTargetPct;
           const marketMo = propPotentialRent(np, s) / np.capacity / 12;
           const baseRent = Math.round(marketMo * t.quality);
           const targetRent = Math.round(baseRent * rentTargetPct);
@@ -95,10 +102,30 @@ export function advanceMonth(state: GameState): GameState {
       nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1 });
     }
     np.tenants = nextTenants;
+    // Global portföljdirektör: auto-uthyr lediga platser (~30 % chans/plats/mån)
+    if (gm?.active && np.status === "klar") {
+      const emptyNow = np.capacity - np.tenants.length;
+      for (let i = 0; i < emptyNow; i++) {
+        if (Math.random() > 0.30) continue;
+        const base = propPotentialRent(np, s) / np.capacity / 12;
+        const candidate = makeTenant(base, s.demandMod, np.condition);
+        if (candidate.quality >= (gm.minTenantQuality ?? 0)) {
+          np.tenants = [...np.tenants, candidate];
+          events.push({ t: `👔 Portföljdirektör hyrde ut i ${np.typeLabel} ${np.districtName}: ${kr(candidate.rent)}/mån.`, kind: "info" });
+        }
+      }
+    }
     // Opex dras alltid
     monthlyNOI -= propAnnualOpex(np, s) / 12;
     return np;
   });
+
+  // Global portföljdirektör: månadsarvode
+  if (s.globalManager?.active) {
+    const gmCost = 15000 + s.portfolio.length * 1500;
+    s.cash -= gmCost;
+    monthlyNOI -= gmCost;
+  }
 
   const interest = (s.debt * (loanTerms(s).rate / 100)) / 12;
   s.cash += monthlyNOI - interest;

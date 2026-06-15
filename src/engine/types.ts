@@ -260,6 +260,14 @@ export interface LoanTerms {
   maxLtv: number;
 }
 
+/** Inställningar för den globala portföljdirektören. */
+export interface GlobalManagerSettings {
+  active: boolean;
+  minCondition: number;      // auto-maintain below this (default 40)
+  minTenantQuality: number;  // auto-accept tenants with quality >= this (default 0.8)
+  rentTargetPct: number;     // lease renewal target fraction (default 1.0)
+}
+
 /** Hela speltillståndet. */
 export interface GameState {
   month: number;
@@ -295,6 +303,7 @@ export interface GameState {
   worldPool: Property[];
   worldTotal: number;
   selectedLender?: string;
+  globalManager?: GlobalManagerSettings;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -335,6 +344,8 @@ export type GameAction =
   | { type: "SELECT_LENDER"; lenderId: string }
   | { type: "BID_OFFMARKET"; propertyId: number; amount: number }
   | { type: "SET_MANAGER_SETTINGS"; id: number; settings: ManagerSettings }
+  | { type: "SET_GLOBAL_MANAGER"; settings: GlobalManagerSettings }
+  | { type: "ACQUIRE_RIVAL"; competitorName: string; amount: number }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

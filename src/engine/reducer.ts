@@ -828,6 +828,45 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
       };
     }
+    case "SET_GLOBAL_MANAGER": {
+      return { ...state, globalManager: action.settings };
+    }
+    case "ACQUIRE_RIVAL": {
+      const rival = state.competitors.find((c) => c.name === action.competitorName);
+      if (!rival) return state;
+      if ((rival.portfolio ?? []).length === 0)
+        return log(state, `${rival.name} äger inga fastigheter att förvärva.`, "warn");
+      const down = Math.round(action.amount * 0.25);
+      if (state.cash < down)
+        return log(state, `Otillräcklig kassa – behöver minst ${msek(down)} (25 % handpenning).`, "warn");
+      const loan = action.amount - down;
+      const acquired = (rival.portfolio ?? []).map((p) => ({
+        ...p,
+        owned: true,
+        purchasePrice: p.askPrice,
+        txHistory: [
+          ...(p.txHistory ?? []),
+          { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: `Förvärv av ${rival.name}` },
+        ],
+      }));
+      const subIncome = Math.round(((rival.monthlyNOI ?? 0) || Math.round((rival.equity * 0.04) / 12)));
+      return {
+        ...state,
+        cash: state.cash - down,
+        debt: state.debt + loan,
+        portfolio: [...state.portfolio, ...acquired],
+        competitors: state.competitors.filter((c) => c.name !== action.competitorName),
+        subsidiaries: [...(state.subsidiaries ?? []), { name: rival.name, monthlyIncome: subIncome }],
+        reputation: Math.min(100, state.reputation + 8),
+        log: [
+          {
+            t: `🏢 FÖRVÄRV: ${rival.name} förvärvat för ${msek(action.amount)} – ${acquired.length} fastigheter tillföll portföljen!`,
+            kind: "buy",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {

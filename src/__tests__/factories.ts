@@ -37,6 +37,7 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     worldPool: [],
     worldTotal: 0,
     selectedLender: undefined,
+    globalManager: undefined,
     ...over,
   };
 }

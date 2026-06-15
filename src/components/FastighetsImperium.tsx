@@ -24,6 +24,9 @@ import { StockExchange } from "./StockExchange";
 import { GroupOverview } from "./GroupOverview";
 import { ResearchPanel } from "./ResearchPanel";
 import { StaffPanel } from "./StaffPanel";
+import { PortfolioTable } from "./PortfolioTable";
+import { AcquisitionPanel } from "./AcquisitionPanel";
+import { DistrictPanel } from "./DistrictPanel";
 import { C, FONTS } from "../styles/tokens";
 
 const TABS = [
@@ -38,6 +41,9 @@ const TABS = [
   { id: "group",     label: "Koncern" },
   { id: "rivals",    label: "Topp" },
   { id: "log",       label: "Logg" },
+  { id: "overview",     label: "Översikt" },
+  { id: "acquisition",  label: "Förvärv" },
+  { id: "districts",    label: "Distrikt" },
 ];
 
 export default function FastighetsImperium() {
@@ -177,6 +183,10 @@ export default function FastighetsImperium() {
         {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
 
         {tab === "log" && <LogPanel log={state.log} />}
+
+        {tab === "overview"    && <PortfolioTable state={state} dispatch={dispatch} />}
+        {tab === "acquisition" && <AcquisitionPanel state={state} dispatch={dispatch} />}
+        {tab === "districts"   && <DistrictPanel state={state} />}
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}
