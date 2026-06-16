@@ -4,7 +4,7 @@
    ============================================================ */
 
 import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
-import { SCENARIOS } from "./scenarios";
+import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
@@ -244,12 +244,23 @@ export function advanceMonth(state: GameState): GameState {
         return true;
       });
     }
-    // Förvaltare (per-fastighet eller global portföljdirektör): auto-uthyr lediga platser (~30 % chans/plats/mån)
+    // Förvaltare: auto-uthyr med hyresgästmarknadskonkurrens
     if (effectiveManaged && np.status === "klar") {
       const emptyNow = np.capacity - np.tenants.length;
       const minQuality = gm?.minTenantQuality ?? 0;
+      // Konkurrens: rivals med fastigheter i samma distrikt minskar fill-chansen
+      const rivalUnits = s.competitors.reduce(
+        (a, c) => a + c.portfolio.filter((p) => p.district === np.district).length, 0,
+      );
+      const playerUnits = s.portfolio.filter(
+        (p) => p.district === np.district && p.status === "klar",
+      ).length;
+      const dominance = playerUnits / Math.max(1, playerUnits + rivalUnits); // 0–1
+      const condFactor = Math.max(0.3, np.condition / 100);
+      // fill-chans: 8–45 % beroende på kondition och marknadsandel
+      const fillChance = Math.min(0.45, condFactor * (0.15 + 0.30 * (0.5 + dominance)));
       for (let i = 0; i < emptyNow; i++) {
-        if (Math.random() > 0.30) continue;
+        if (Math.random() > fillChance) continue;
         const base = propPotentialRent(np, s) / np.capacity / 12;
         const candidate = makeTenant(base, s.demandMod, np.condition);
         if (candidate.quality >= minQuality) {
@@ -360,6 +371,21 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
+  // Obligatorisk amortering: 0.5 % av skulden/mån när LTV > 40 %
+  if (s.debt > 0) {
+    const portValAmort = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    const ltvAmort = portValAmort > 0 ? s.debt / portValAmort : 1;
+    if (ltvAmort > 0.40) {
+      const amort = Math.round(s.debt * 0.005);
+      s.cash -= amort;
+      s.debt = Math.max(0, s.debt - amort);
+      monthlyNOI -= amort;
+      if (s.month % 3 === 0) {
+        events.push({ t: `🏦 Obligatorisk amortering: ${kr(amort)}/mån (LTV ${Math.round(ltvAmort * 100)} %). Skulden minskar.`, kind: "expense" });
+      }
+    }
+  }
+
   // Makrohändelse
   if (Math.random() < 0.35) {
     const ev = pick(EVENTS);
@@ -401,8 +427,21 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
+  // ── Rivalrace: beräkna ledande rivals framsteg ──────────────────
+  const leadRival = s.scenarioId && s.scenarioId !== "sandbox" && s.competitors.length > 0
+    ? s.competitors.reduce(
+        (best, c) =>
+          rivalScenarioProgress(c, s.scenarioId!, s) > rivalScenarioProgress(best, s.scenarioId!, s)
+            ? c : best,
+        s.competitors[0],
+      )
+    : null;
+  const leadProgress = leadRival && s.scenarioId
+    ? rivalScenarioProgress(leadRival, s.scenarioId, s) : 0;
+  const rivalIsClose = leadProgress > 0.75; // rival within striking distance
+
   // ── Competing bid on active listing (~12 % chans/mån) ──────────
-  if (!s.competingBid && s.listings.length > 0 && Math.random() < 0.12) {
+  if (!s.competingBid && s.listings.length > 0 && Math.random() < (rivalIsClose ? 0.28 : 0.12)) {
     const target = pick(s.listings.filter((p) => p.status === "klar"));
     if (target) {
       const rival = pick(s.competitors);
@@ -490,7 +529,7 @@ export function advanceMonth(state: GameState): GameState {
     return nc;
   });
   // Konkurrent köper från marknaden med strategi-filtrering
-  if (s.listings.length > 3 && Math.random() < 0.25) {
+  if (s.listings.length > 3 && Math.random() < (rivalIsClose ? 0.55 : 0.25)) {
     const buyer = pick(s.competitors);
     const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
     const buyable = s.listings.filter((p) => {
@@ -601,6 +640,73 @@ export function advanceMonth(state: GameState): GameState {
     s.cash += subIncome;
     if (s.month % 3 === 0)
       events.push({ t: `🏛️ Dotterbolagen bidrog med ${kr(subIncome * 3)} i kvartalet.`, kind: "income" });
+  }
+
+  // ── IPO: uppdatera aktiekurs + beräkna uppköpstryck ────────────
+  if (s.ipoActive && s.ipoShares) {
+    // Uppdatera FBAB-kurs baserat på eget kapital
+    s.stocks = s.stocks.map((st) => {
+      if (st.id !== "FBAB") return st;
+      const newPrice = Math.max(0.01, equityOf(s) / s.ipoShares!.total);
+      return { ...st, prevPrice: st.price, price: newPrice, history: [...st.history, newPrice].slice(-32) };
+    });
+    // Beräkna uppköpstryck (0–100)
+    const fbabStock = s.stocks.find((st) => st.id === "FBAB");
+    const curPrice = fbabStock?.price ?? 1;
+    const ipoRef = s.ipoPrice ?? curPrice;
+    let pressureDelta = 1.5; // bas per månad
+    if (s.marketCycle?.phase === "bust") pressureDelta += 3;
+    if ((s.recessionMonthsLeft ?? 0) > 0) pressureDelta += 2;
+    if (s.reputation > 70) pressureDelta -= 2;
+    if (ipoRef > 0 && curPrice < ipoRef * 0.70) pressureDelta += 5; // kurs rasat >30 %
+    const oldPressure = s.takeoverPressure ?? 0;
+    s.takeoverPressure = Math.max(0, Math.min(100, oldPressure + pressureDelta));
+    if (s.takeoverPressure >= 75 && oldPressure < 75) {
+      events.push({ t: `⚠️ Uppköpstrycket stiger (${Math.round(s.takeoverPressure)} %)! Aktivister samlar aktier i ditt bolag.`, kind: "warn" });
+    }
+    if (s.takeoverPressure >= 100 && !s.pendingDecision) {
+      const portVal2 = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+      const buybackCost = Math.round(portVal2 * 0.08);
+      s.pendingDecision = {
+        id: "hostile_takeover",
+        title: "Fientligt uppköpsbud",
+        text: "PE Nordic Activist Fund har ackumulerat aktier och kräver nu att bolaget säljs. Försvara dig eller sälj.",
+        options: [
+          {
+            label: "Köp tillbaka aktier",
+            detail: `${msek(buybackCost)} · tryck → 20 · rep +3`,
+            effect: {
+              cash: -buybackCost,
+              reputation: 3,
+              takeoverPressure: -80,
+              log: "Köpte tillbaka aktier och försvarade kontrollen. Uppköpstrycket sjunker markant.",
+              logKind: "income",
+            },
+          },
+          {
+            label: "PR-offensiv",
+            detail: "2 MSEK · tryck −40 · rep +8",
+            effect: {
+              cash: -2_000_000,
+              reputation: 8,
+              takeoverPressure: -40,
+              log: "PR-kampanj stärkte varumärket och dämpar uppköpstrycket tillfälligt.",
+              logKind: "income",
+            },
+          },
+          {
+            label: "Acceptera uppköpsbudet",
+            detail: "Bolaget säljs — spelet avslutas",
+            effect: {
+              gameOver: true,
+              log: "Bolaget såldes till PE Nordic Activist Fund. Spelet är slut.",
+              logKind: "warn",
+            },
+          },
+        ],
+      };
+      events.push({ t: "🚨 FIENTLIGT BUD: PE Nordic kräver att bolaget säljs. Beslut krävs omedelbart!", kind: "warn" });
+    }
   }
 
   // ── Löner (anställda) ───────────────────────────────────────────
@@ -759,6 +865,20 @@ export function advanceMonth(state: GameState): GameState {
         { t: `🏆 MÅL UPPNÅTT: ${sc.title} – ${sc.subtitle}! Spelat klart år ${s.year}.`, kind: "income" },
         ...s.log,
       ];
+    }
+  }
+
+  // Rival race: rival som når scenariomålet före spelaren = förlust för spelaren
+  if (!s.gameOver && !s.gameWon && s.scenarioId && s.scenarioId !== "sandbox") {
+    for (const rival of s.competitors) {
+      if (rivalWinsScenario(rival, s.scenarioId, s)) {
+        s.gameOver = true;
+        s.log = [
+          { t: `🏳️ ${rival.name} nådde målet "${s.scenarioId}" före dig — du förlorade racet!`, kind: "warn" },
+          ...s.log,
+        ];
+        break;
+      }
     }
   }
 

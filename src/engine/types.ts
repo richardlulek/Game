@@ -105,6 +105,8 @@ export interface DecisionEffect {
   marketMod?: number;
   taxMod?: number;
   addLot?: boolean;
+  takeoverPressure?: number; // delta (positive = increase, negative = decrease)
+  gameOver?: boolean;
   log: string;
   logKind: LogKind;
 }
@@ -369,6 +371,9 @@ export interface GameState {
   tutorialDismissed?: boolean;
   saveSlot?: number;
   debtMatureAbs?: number;
+  ipoShares?: { total: number; public: number };
+  takeoverPressure?: number;
+  ipoPrice?: number;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -431,6 +436,7 @@ export type GameAction =
   | { type: "IMPROVE_ENERGY"; id: number }
   | { type: "NEGOTIATE_RENEWAL"; propertyId: number; tenantId: number; action: "raise" | "keep" | "lower" | "evict" }
   | { type: "DISMISS_TUTORIAL" }
+  | { type: "MARKET_ORDER"; stockId: string; side: "buy" | "sell"; qty: number }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

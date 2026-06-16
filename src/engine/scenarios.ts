@@ -1,6 +1,6 @@
 import { equityOf } from "./finance";
 import { msek } from "./format";
-import type { GameState, ScenarioId } from "./types";
+import type { Competitor, GameState, ScenarioId } from "./types";
 
 export interface Scenario {
   id: ScenarioId;
@@ -83,3 +83,41 @@ export const SCENARIOS: Scenario[] = [
     progress: () => ({ value: 0, max: 1, label: "–" }),
   },
 ];
+
+const SCENARIO_DISTRICT_IDS = ["centrum", "hamnen", "industri", "förort", "kulle"] as const;
+
+export function rivalScenarioProgress(rival: Competitor, scenarioId: ScenarioId, s: GameState): number {
+  switch (scenarioId) {
+    case "equity50": return Math.min(1, rival.equity / 50_000_000);
+    case "equity200": return Math.min(1, rival.equity / 200_000_000);
+    case "units25": return Math.min(1, rival.portfolio.filter((p) => p.status === "klar").length / 25);
+    case "districts3": {
+      let n = 0;
+      for (const d of SCENARIO_DISTRICT_IDS) {
+        const rc = rival.portfolio.filter((p) => p.district === d).length;
+        const pc = s.portfolio.filter((p) => p.district === d && p.status === "klar").length;
+        if (rc >= 2 && rc > pc) n++;
+      }
+      return Math.min(1, n / 3);
+    }
+    default: return 0;
+  }
+}
+
+export function rivalWinsScenario(rival: Competitor, scenarioId: ScenarioId, s: GameState): boolean {
+  switch (scenarioId) {
+    case "equity50": return rival.equity >= 50_000_000;
+    case "equity200": return rival.equity >= 200_000_000;
+    case "units25": return rival.portfolio.filter((p) => p.status === "klar").length >= 25;
+    case "districts3": {
+      let n = 0;
+      for (const d of SCENARIO_DISTRICT_IDS) {
+        const rc = rival.portfolio.filter((p) => p.district === d).length;
+        const pc = s.portfolio.filter((p) => p.district === d && p.status === "klar").length;
+        if (rc >= 2 && rc > pc) n++;
+      }
+      return n >= 3;
+    }
+    default: return false;
+  }
+}

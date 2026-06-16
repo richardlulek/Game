@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
-import { loanTerms } from "./finance";
+import { equityOf, loanTerms } from "./finance";
 import { kr, msek, pct } from "./format";
 import { genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
@@ -21,7 +21,7 @@ import {
 import { newId } from "./random";
 import { advanceMonth } from "./simulation";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
-import type { GameAction, GameState, LogKind, Property } from "./types";
+import type { GameAction, GameState, LogKind, Property, Stock } from "./types";
 
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
 function log(state: GameState, t: string, kind: LogKind): GameState {
@@ -493,6 +493,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (e.marketMod) s.marketMod = +(s.marketMod * e.marketMod).toFixed(3);
       if (e.taxMod) s.taxMod = +(s.taxMod * e.taxMod).toFixed(3);
       if (e.addLot) s = { ...s, lots: [...s.lots, genLot(s)] };
+      if (e.takeoverPressure !== undefined) {
+        s.takeoverPressure = Math.max(0, (s.takeoverPressure ?? 0) + e.takeoverPressure);
+      }
+      if (e.gameOver) s.gameOver = true;
       return { ...s, log: [{ t: e.log, kind: e.logKind }, ...s.log] };
     }
     case "ACCEPT_OFFER": {
@@ -1141,22 +1145,74 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "DO_IPO": {
       if (state.ipoActive) return log(state, "Bolaget är redan börsnoterat.", "warn");
-      const portVal = state.portfolio.reduce((a, p) => {
-        const d = { centrum: 32000, hamnen: 21000, industri: 11000, förort: 16000, kulle: 28000 } as Record<string,number>;
-        return a + p.askPrice;
-      }, 0);
+      const portVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
       const raised = Math.round(portVal * 0.20);
       if (raised < 1_000_000) return log(state, "Portföljvärdet är för lågt för en börsnotering.", "warn");
+      const TOTAL_SHARES = 10_000_000;
+      const sharePrice = Math.max(0.01, equityOf(state) / TOTAL_SHARES);
+      const playerStock: Stock = {
+        id: "FBAB",
+        name: "Fastighets AB (ditt bolag)",
+        sector: "fastighet",
+        price: sharePrice,
+        prevPrice: sharePrice,
+        sharesOutstanding: TOTAL_SHARES,
+        owned: 0,
+        avgCost: 0,
+        dividendYield: 0.025,
+        beta: 1.2,
+        drift: 0.001,
+        volatility: 0.045,
+        history: [sharePrice],
+        competitorName: "__player__",
+      };
       return {
         ...state,
         cash: state.cash + raised,
         ipoActive: true,
+        ipoShares: { total: TOTAL_SHARES, public: 3_000_000 },
+        ipoPrice: sharePrice,
+        takeoverPressure: 0,
         reputation: Math.min(100, state.reputation + 10),
+        stocks: state.stocks.some((s) => s.id === "FBAB")
+          ? state.stocks
+          : [...state.stocks, playerStock],
         log: [{
-          t: `🎉 IPO genomförd! Bolaget börsnoterat – ${msek(raised)} insamlat (20 % av portföljvärdet). Reputation +10.`,
+          t: `🎉 IPO genomförd! ${msek(raised)} insamlat (20 % av portföljvärde). 10 M aktier emitterade, 3 M i publik handel @ ${sharePrice.toFixed(2)} kr/aktie. Reputation +10.`,
           kind: "income",
         }, ...state.log],
       };
+    }
+    case "MARKET_ORDER": {
+      const st = state.stocks.find((s) => s.id === action.stockId);
+      if (!st) return state;
+      if (st.competitorName === "__player__") return log(state, "Du kan inte handla aktier i ditt eget bolag.", "warn");
+      const COURTAGE = 0.003;
+      if (action.side === "buy") {
+        const cost = Math.round(st.price * action.qty * (1 + COURTAGE));
+        if (state.cash < cost) return log(state, "Inte tillräckligt med kapital för köpet.", "warn");
+        const newOwned = st.owned + action.qty;
+        const newAvg = (st.avgCost * st.owned + st.price * action.qty) / newOwned;
+        return {
+          ...state,
+          cash: state.cash - cost,
+          stocks: state.stocks.map((s) =>
+            s.id === action.stockId ? { ...s, owned: newOwned, avgCost: newAvg } : s,
+          ),
+          log: [{ t: `📈 Marknadsorder: köpte ${action.qty} aktier i ${st.name} @ ${st.price.toFixed(2)} kr. Totalt ${kr(cost)}.`, kind: "income" }, ...state.log],
+        };
+      } else {
+        if (st.owned < action.qty) return log(state, "Inte tillräckligt med aktier att sälja.", "warn");
+        const proceeds = Math.round(st.price * action.qty * (1 - COURTAGE));
+        return {
+          ...state,
+          cash: state.cash + proceeds,
+          stocks: state.stocks.map((s) =>
+            s.id === action.stockId ? { ...s, owned: s.owned - action.qty } : s,
+          ),
+          log: [{ t: `📉 Marknadsorder: sålde ${action.qty} aktier i ${st.name} @ ${st.price.toFixed(2)} kr. Erhöll ${kr(proceeds)}.`, kind: "expense" }, ...state.log],
+        };
+      }
     }
     case "NEXT_MONTH":
       return advanceMonth(state);

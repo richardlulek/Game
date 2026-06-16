@@ -3,7 +3,7 @@ import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propNOI } from "../engine/property";
-import { SCENARIOS } from "../engine/scenarios";
+import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import { listSaveSlots } from "../store/persistence";
@@ -170,13 +170,38 @@ export default function FastighetsImperium() {
         if (!sc) return null;
         const prog = sc.progress(state);
         const pct = Math.min(1, prog.value / prog.max);
+        const leadRival = state.competitors.length > 0
+          ? state.competitors.reduce(
+              (best, c) =>
+                rivalScenarioProgress(c, state.scenarioId!, state) >
+                rivalScenarioProgress(best, state.scenarioId!, state)
+                  ? c : best,
+              state.competitors[0],
+            )
+          : null;
+        const rivalPct = leadRival ? rivalScenarioProgress(leadRival, state.scenarioId!, state) : 0;
         return (
           <div style={{ background: C.woodDark, padding: "4px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.brass}44` }}>
             <span style={{ fontSize: 11, color: C.brass, fontWeight: 700, whiteSpace: "nowrap" }}>{sc.icon} {sc.title}</span>
-            <div style={{ flex: 1, height: 6, background: "#2a1a0a", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ width: `${pct * 100}%`, height: "100%", background: pct >= 1 ? "#ffd700" : C.brass, borderRadius: 3, transition: "width 0.5s" }} />
+            {/* Player bar */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ height: 5, background: "#2a1a0a", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: `${pct * 100}%`, height: "100%", background: pct >= 1 ? "#ffd700" : C.brass, borderRadius: 3, transition: "width 0.5s" }} />
+              </div>
+              {leadRival && (
+                <div style={{ height: 4, background: "#2a1a0a", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: `${rivalPct * 100}%`, height: "100%", background: rivalPct > pct ? "#f87a7a" : "#888", borderRadius: 3, transition: "width 0.5s" }} />
+                </div>
+              )}
             </div>
-            <span style={{ fontSize: 11, color: C.creamSoft, whiteSpace: "nowrap" }}>{prog.label}</span>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <span style={{ fontSize: 10, color: C.creamSoft, whiteSpace: "nowrap" }}>Du: {prog.label}</span>
+              {leadRival && (
+                <span style={{ fontSize: 10, color: rivalPct > pct ? "#f87a7a" : "#aaa", whiteSpace: "nowrap" }}>
+                  {leadRival.name}: {Math.round(rivalPct * 100)} %{rivalPct > pct ? " ⚠️" : ""}
+                </span>
+              )}
+            </div>
           </div>
         );
       })()}

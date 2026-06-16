@@ -81,6 +81,13 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
       {(state.totalTaxPaid ?? 0) > 0 && (
         <Chip label="Skatt i år" value={kr(state.totalTaxPaid ?? 0)} />
       )}
+      {state.ipoActive && (state.takeoverPressure ?? 0) > 30 && (
+        <Chip
+          label="Uppköpstryck"
+          value={`${Math.round(state.takeoverPressure ?? 0)} %`}
+          valueColor={(state.takeoverPressure ?? 0) >= 75 ? "#f87a7a" : "#f5c842"}
+        />
+      )}
     </div>
   );
 }
