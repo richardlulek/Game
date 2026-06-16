@@ -178,7 +178,10 @@ export function advanceMonth(state: GameState): GameState {
       // Seasonal effect on default risk for residential
       const effDefaultRisk = t.defaultRisk * loyaltyFactor * recFactor * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
       if (Math.random() < effDefaultRisk) {
-        events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Plats ledig.`, kind: "expense" });
+        const evictionCost = Math.round(t.rent * 2);
+        s.cash -= evictionCost;
+        monthlyNOI -= evictionCost;
+        events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Vräkningskostnad: ${kr(evictionCost)}.`, kind: "expense" });
         continue;
       }
       // Anchor tenant designation at 36+ consecutive months
@@ -231,6 +234,16 @@ export function advanceMonth(state: GameState): GameState {
       nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1, consecutiveMonths: consMonths, isAnchor });
     }
     np.tenants = nextTenants;
+    // Konditionskaskad: fastighet under 35 % skick driver ut hyresgäster (~8 % chans/hyresgäst/mån)
+    if (np.condition < 35 && !effectiveManaged && np.tenants.length > 0) {
+      np.tenants = np.tenants.filter((t) => {
+        if (Math.random() < 0.08) {
+          events.push({ t: `😟 ${t.name} lämnade ${np.districtName} pga eftersatt underhåll (skick ${Math.round(np.condition)} %).`, kind: "warn" });
+          return false;
+        }
+        return true;
+      });
+    }
     // Förvaltare (per-fastighet eller global portföljdirektör): auto-uthyr lediga platser (~30 % chans/plats/mån)
     if (effectiveManaged && np.status === "klar") {
       const emptyNow = np.capacity - np.tenants.length;
@@ -260,7 +273,11 @@ export function advanceMonth(state: GameState): GameState {
   // Insurance monthly cost + catastrophe events
   const insuredProps = s.portfolio.filter((p) => p.insurance && p.status === "klar");
   if (insuredProps.length > 0) {
-    const insCost = insuredProps.length * 2000;
+    // Premium: 0.40 % av marknadsvärde per år (min 2 000 kr/mån per fastighet)
+    const insCost = insuredProps.reduce(
+      (sum, p) => sum + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)),
+      0,
+    );
     s.cash -= insCost;
     monthlyNOI -= insCost;
     s.insuranceCost = insCost;
@@ -319,6 +336,26 @@ export function advanceMonth(state: GameState): GameState {
         if (s.month % 3 === 0) {
           events.push({ t: `🏛️ Fastighetsskatt: ${kr(monthlyTax)}/mån (avdrag ${kr(Math.round(monthlyDepreciation))}/mån, skattesats ${Math.round(taxRate * 100)} %).`, kind: "expense" });
         }
+      }
+    }
+  }
+
+  // LTV-covenant (gäller från år 2): banken straffar överkreditering
+  if (s.year > 1 && s.debt > 0) {
+    const portfolioVal = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    if (portfolioVal > 0) {
+      const ltv = s.debt / portfolioVal;
+      if (ltv > 0.85) {
+        const penalty = Math.round((s.debt * 0.015) / 12);
+        s.cash -= penalty;
+        monthlyNOI -= penalty;
+        s.reputation = Math.max(0, s.reputation - 1);
+        events.push({ t: `🏦 LTV-VARNING: Skuldkvot ${Math.round(ltv * 100)} % överstiger 85 %! Bankavgift ${kr(penalty)}/mån (rep −1).`, kind: "warn" });
+      } else if (ltv > 0.75) {
+        const surcharge = Math.round((s.debt * 0.005) / 12);
+        s.cash -= surcharge;
+        monthlyNOI -= surcharge;
+        events.push({ t: `⚠️ Skuldkvot ${Math.round(ltv * 100)} % (gräns 75 %) — räntepåslag ${kr(surcharge)}/mån.`, kind: "expense" });
       }
     }
   }
@@ -683,6 +720,28 @@ export function advanceMonth(state: GameState): GameState {
     s.lots = [...s.lots, genLot(s)];
   }
 
+  // Lånelöptid: refinansiering var 48–72 månad
+  if (s.debt > 0) {
+    const nowAbs3 = s.year * 12 + s.month;
+    if (!s.debtMatureAbs) {
+      s.debtMatureAbs = nowAbs3 + 48 + Math.floor(Math.random() * 24);
+    } else if (nowAbs3 >= s.debtMatureAbs) {
+      const cycle = s.marketCycle?.phase ?? "stable";
+      const recSpread = (s.recessionMonthsLeft ?? 0) > 0 ? 2.0 : 0;
+      const cycleSpread = cycle === "bust" ? 1.5 : cycle === "boom" ? -0.5 : 0;
+      const repSpread = s.reputation < 40 ? 2.5 : s.reputation < 60 ? 1.0 : 0;
+      const oldRate = s.interestRate;
+      const baseRate = loanTerms(s).rate + cycleSpread + recSpread + repSpread;
+      s.interestRate = +(Math.min(12, Math.max(2, baseRate)).toFixed(2));
+      s.debtMatureAbs = nowAbs3 + 48 + Math.floor(Math.random() * 24);
+      const rateDiff = +(s.interestRate - oldRate).toFixed(2);
+      events.push({
+        t: `🏦 REFINANSIERING: Lånet förfaller. Ny ränta ${s.interestRate.toFixed(1)} % (${rateDiff >= 0 ? "+" : ""}${rateDiff.toFixed(1)} %). Marknad: ${cycle}${recSpread > 0 ? ", lågkonjunktur" : ""}.`,
+        kind: rateDiff > 0.25 ? "warn" : "income",
+      });
+    }
+  }
+
   // Tid
   s.month += 1;
   if (s.month > 12) {
@@ -723,9 +782,12 @@ export function advanceMonth(state: GameState): GameState {
   const equity = equityOf(s);
   s.history = [...s.history, { month: s.history.length, equity }].slice(-120);
 
-  if (s.cash < -2_000_000) {
+  if (s.cash < -200_000 && s.cash >= -1_000_000 && !s.gameOver) {
+    s.log = [{ t: `🚨 KASSAVARNING: Kassan ${kr(s.cash)}. Konkurs vid −1 000 000 kr!`, kind: "warn" }, ...s.log];
+  }
+  if (s.cash < -1_000_000) {
     s.gameOver = true;
-    s.log = [{ t: "💥 KONKURS! Spelet är slut.", kind: "warn" }, ...s.log];
+    s.log = [{ t: "💥 KONKURS! Kassan under −1 000 000 kr. Spelet är slut.", kind: "warn" }, ...s.log];
   }
   return s;
 }

@@ -40,13 +40,19 @@ function NumChip({ label, value, format, valueColor }: {
 export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyInterest, myRank }: StatusBarProps) {
   const cashFlow = monthlyNOI - monthlyInterest;
   const rankColor = myRank === 1 ? "#ffd700" : undefined;
+  const ltvColor = ltv > 0.85 ? "#f87a7a" : ltv > 0.75 ? "#f5c842" : ltv > 0.60 ? "#e0c050" : undefined;
+  const nowAbs = state.year * 12 + state.month;
+  const monthsToMaturity = state.debtMatureAbs ? state.debtMatureAbs - nowAbs : null;
 
   return (
     <div style={S.statusBar}>
-      <NumChip label="Kassa" value={state.cash} format={msek} valueColor={state.cash < 0 ? "#f87a7a" : "#80e080"} />
+      <NumChip label="Kassa" value={state.cash} format={msek} valueColor={state.cash < -200_000 ? "#f87a7a" : state.cash < 0 ? "#f5c842" : "#80e080"} />
       <NumChip label="Eget kapital" value={equity} format={msek} />
       <NumChip label="Skuld" value={state.debt} format={msek} />
-      <Chip label="LTV" value={pct(ltv)} />
+      <Chip label="LTV" value={pct(ltv)} valueColor={ltvColor} />
+      {state.debt > 0 && monthsToMaturity !== null && monthsToMaturity <= 12 && (
+        <Chip label="Lån förfaller" value={`${monthsToMaturity} mån`} valueColor={monthsToMaturity <= 6 ? "#f87a7a" : "#f5c842"} />
+      )}
       <NumChip label="Kassaflöde/mån" value={cashFlow} format={kr} valueColor={cashFlow >= 0 ? "#80e080" : "#f87a7a"} />
       <Chip label="Ränta" value={terms.rate + " %"} />
       <Chip label="Reputation" value={String(Math.round(state.reputation))} />

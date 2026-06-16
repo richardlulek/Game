@@ -368,6 +368,7 @@ export interface GameState {
   totalTaxPaid?: number;
   tutorialDismissed?: boolean;
   saveSlot?: number;
+  debtMatureAbs?: number;
 }
 
 /** Alla actions som reducern hanterar. */
