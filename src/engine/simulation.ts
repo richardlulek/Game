@@ -231,16 +231,17 @@ export function advanceMonth(state: GameState): GameState {
       nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1, consecutiveMonths: consMonths, isAnchor });
     }
     np.tenants = nextTenants;
-    // Global portföljdirektör: auto-uthyr lediga platser (~30 % chans/plats/mån)
-    if (gm?.active && np.status === "klar") {
+    // Förvaltare (per-fastighet eller global portföljdirektör): auto-uthyr lediga platser (~30 % chans/plats/mån)
+    if (effectiveManaged && np.status === "klar") {
       const emptyNow = np.capacity - np.tenants.length;
+      const minQuality = gm?.minTenantQuality ?? 0;
       for (let i = 0; i < emptyNow; i++) {
         if (Math.random() > 0.30) continue;
         const base = propPotentialRent(np, s) / np.capacity / 12;
         const candidate = makeTenant(base, s.demandMod, np.condition);
-        if (candidate.quality >= (gm.minTenantQuality ?? 0)) {
+        if (candidate.quality >= minQuality) {
           np.tenants = [...np.tenants, candidate];
-          events.push({ t: `👔 Portföljdirektör hyrde ut i ${np.typeLabel} ${np.districtName}: ${kr(candidate.rent)}/mån.`, kind: "info" });
+          events.push({ t: `👔 Förvaltare hyrde ut i ${np.typeLabel} ${np.districtName}: ${kr(candidate.rent)}/mån.`, kind: "info" });
         }
       }
     }
