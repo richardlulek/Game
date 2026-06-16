@@ -52,7 +52,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 interface SaveFile {
   version: number;
@@ -155,6 +155,12 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     scenarioId: (s as any).scenarioId ?? "sandbox",
     gameWon: (s as any).gameWon ?? false,
     recessionMonthsLeft: (s as any).recessionMonthsLeft ?? 0,
+  }),
+  15: (s) => ({
+    ...s,
+    ipoShares: (s as any).ipoShares ?? undefined,
+    takeoverPressure: (s as any).ipoActive ? ((s as any).takeoverPressure ?? 0) : undefined,
+    ipoPrice: (s as any).ipoPrice ?? undefined,
   }),
   14: (s) => ({
     ...s,
