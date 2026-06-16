@@ -45,10 +45,26 @@ export function applyStockNews(
   const mult = lo + Math.random() * (hi - lo);
   const newPrice = Math.max(1, Math.round(target.price * mult * 100) / 100);
   const text = tmpl.text.replace("{n}", target.name);
+  // Determine analyst rating change from news text
+  let newRating: "Köp" | "Behåll" | "Sälj" | undefined = undefined;
+  if (tmpl.text.includes("höjer riktkurs") || tmpl.text.includes("Köp")) newRating = "Köp";
+  else if (tmpl.text.includes("sänker riktkurs") || tmpl.text.includes("Finansinspektionen") || tmpl.text.includes("sämre än väntat")) newRating = "Sälj";
+  else if (tmpl.text.includes("bättre än väntat") || tmpl.text.includes("storkontrakt") || tmpl.text.includes("förvärvsrykte") || tmpl.text.includes("aktieåterköp") || tmpl.text.includes("rekordutdelning")) newRating = "Köp";
+  // Update EPS based on earnings beat/miss
+  let epsMultiplier = 1.0;
+  if (tmpl.text.includes("vinst bättre än väntat")) epsMultiplier = 1 + (Math.random() * 0.12 + 0.05);
+  if (tmpl.text.includes("vinst sämre än väntat")) epsMultiplier = 1 - (Math.random() * 0.12 + 0.05);
+
   return {
     stocks: stocks.map((s) =>
       s.id === target.id
-        ? { ...s, price: newPrice, history: [...s.history, newPrice].slice(-32) }
+        ? {
+            ...s,
+            price: newPrice,
+            eps: s.eps !== undefined ? Math.max(0.01, Math.round(s.eps * epsMultiplier * 100) / 100) : s.eps,
+            analystRating: newRating ?? s.analystRating,
+            history: [...s.history, newPrice].slice(-32),
+          }
         : s,
     ),
     newsEntry: `📊 ${text}.`,
@@ -66,15 +82,16 @@ interface CompanyDef {
   beta: number;
   drift: number;
   volatility: number;
+  eps?: number;
 }
 
 const OTHER_COMPANIES: CompanyDef[] = [
-  { id: "handelsbk", name: "Handelsbanken",  sector: "bank",     price: 112, sharesOutstanding: 2_000_000, dividendYield: 0.052, beta: 1.15, drift: 0.0030, volatility: 0.035 },
-  { id: "skanska",   name: "Skanska Bygg",   sector: "bygg",     price: 168, sharesOutstanding: 1_400_000, dividendYield: 0.040, beta: 1.40, drift: 0.0035, volatility: 0.050 },
-  { id: "ica",       name: "ICA Gruppen",    sector: "handel",   price: 240, sharesOutstanding: 1_000_000, dividendYield: 0.030, beta: 0.80, drift: 0.0030, volatility: 0.028 },
-  { id: "sandvik",   name: "Sandvik",        sector: "industri", price: 196, sharesOutstanding: 1_600_000, dividendYield: 0.028, beta: 1.10, drift: 0.0040, volatility: 0.042 },
-  { id: "sbb",       name: "SBB Norden",     sector: "fastighet",price: 88,  sharesOutstanding: 2_200_000, dividendYield: 0.045, beta: 1.30, drift: 0.0025, volatility: 0.055 },
-  { id: "volvo",     name: "Volvo Group",    sector: "industri", price: 154, sharesOutstanding: 1_800_000, dividendYield: 0.035, beta: 1.05, drift: 0.0038, volatility: 0.040 },
+  { id: "handelsbk", name: "Handelsbanken",  sector: "bank",     price: 112, sharesOutstanding: 2_000_000, dividendYield: 0.052, beta: 1.15, drift: 0.0030, volatility: 0.035, eps: 9.80 },
+  { id: "skanska",   name: "Skanska Bygg",   sector: "bygg",     price: 168, sharesOutstanding: 1_400_000, dividendYield: 0.040, beta: 1.40, drift: 0.0035, volatility: 0.050, eps: 12.60 },
+  { id: "ica",       name: "ICA Gruppen",    sector: "handel",   price: 240, sharesOutstanding: 1_000_000, dividendYield: 0.030, beta: 0.80, drift: 0.0030, volatility: 0.028, eps: 16.80 },
+  { id: "sandvik",   name: "Sandvik",        sector: "industri", price: 196, sharesOutstanding: 1_600_000, dividendYield: 0.028, beta: 1.10, drift: 0.0040, volatility: 0.042, eps: 14.20 },
+  { id: "sbb",       name: "SBB Norden",     sector: "fastighet",price: 88,  sharesOutstanding: 2_200_000, dividendYield: 0.045, beta: 1.30, drift: 0.0025, volatility: 0.055, eps: 5.50 },
+  { id: "volvo",     name: "Volvo Group",    sector: "industri", price: 154, sharesOutstanding: 1_800_000, dividendYield: 0.035, beta: 1.05, drift: 0.0038, volatility: 0.040, eps: 12.80 },
 ];
 
 /** Bygger den initiala aktielistan: noterade konkurrenter + andra bolag. */
@@ -97,6 +114,8 @@ export function initStocks(competitors: Competitor[]): Stock[] {
       volatility: 0.045,
       history: [price],
       competitorName: c.name,
+      eps: Math.round(price * 0.07 * 100) / 100,
+      analystRating: "Behåll" as const,
     };
   });
   const others: Stock[] = OTHER_COMPANIES.map((d) => ({
@@ -105,6 +124,8 @@ export function initStocks(competitors: Competitor[]): Stock[] {
     owned: 0,
     avgCost: 0,
     history: [d.price],
+    eps: d.eps ?? Math.round(d.price * 0.07),
+    analystRating: "Behåll" as const,
   }));
   return [...compStocks, ...others];
 }
@@ -245,6 +266,47 @@ export function executeLimitOrders(
 
   s.stockOrders = remaining;
   return { state: s, fills };
+}
+
+/**
+ * Kvartalsvinster – stor kursrörelse baserad på "beat/miss" relativt konsensus.
+ * Anropas var tredje månad i simulation.ts.
+ */
+export function quarterlyEarnings(
+  stocks: Stock[],
+  marketSentiment: number,
+): { stocks: Stock[]; events: string[] } {
+  const events: string[] = [];
+  const next = stocks.map((st) => {
+    if (st.competitorName === "__player__") return st; // FBAB hanteras separat
+    // Sannolikhet för "beat": högre när sentiment är bra
+    const beatProb = 0.45 + (marketSentiment - 1) * 0.25;
+    const beat = Math.random() < beatProb;
+    const surprise = beat
+      ? 1.0 + rnd(0.04, 0.18) // +4 till +18 %
+      : 1.0 - rnd(0.04, 0.16); // −4 till −16 %
+    const newPrice = Math.max(1, Math.round(st.price * surprise * 100) / 100);
+    // EPS uppdateras med kvartalets utfall
+    const newEps = st.eps !== undefined
+      ? Math.max(0.01, Math.round(st.eps * (beat ? rnd(1.02, 1.10) : rnd(0.90, 0.98)) * 100) / 100)
+      : st.eps;
+    const newRating: "Köp" | "Behåll" | "Sälj" = beat
+      ? (surprise > 1.10 ? "Köp" : "Behåll")
+      : (surprise < 0.92 ? "Sälj" : "Behåll");
+    if (Math.abs(surprise - 1) > 0.08) {
+      events.push(
+        `📊 ${st.name}: ${beat ? "slog" : "missade"} kvartalsprognosen (${beat ? "+" : ""}${((surprise - 1) * 100).toFixed(0)} %).`,
+      );
+    }
+    return {
+      ...st,
+      price: newPrice,
+      eps: newEps,
+      analystRating: newRating,
+      history: [...st.history, newPrice].slice(-32),
+    };
+  });
+  return { stocks: next, events };
 }
 
 export { COURTAGE };

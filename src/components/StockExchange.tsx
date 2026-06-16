@@ -315,6 +315,17 @@ function StockRow({
   const marketCap = stock.price * stock.sharesOutstanding;
   const unrealized = stock.owned > 0 ? stock.owned * (stock.price - stock.avgCost) : 0;
 
+  const shortQty = stock.shortQty ?? 0;
+  const shortPnl = shortQty > 0 && stock.shortAvgPrice
+    ? Math.round(shortQty * (stock.shortAvgPrice - stock.price))
+    : 0;
+  const pe = stock.eps && stock.eps > 0 ? Math.round(stock.price / stock.eps * 10) / 10 : null;
+  const high52 = stock.history.length > 0 ? Math.max(...stock.history) : stock.price;
+  const low52 = stock.history.length > 0 ? Math.min(...stock.history) : stock.price;
+  const fromHigh = (stock.price - high52) / high52;
+  const [shortQtyInput, setShortQtyInput] = useState(100);
+  const isPlayerCompany = stock.competitorName === "__player__";
+
   const linkedComp = stock.competitorName
     ? state.competitors.find((c) => c.name === stock.competitorName)
     : undefined;
@@ -331,6 +342,16 @@ function StockRow({
               {stock.name}
             </span>
             <SectorChip sector={stock.sector} />
+            {stock.analystRating && (
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                background: stock.analystRating === "Köp" ? C.green : stock.analystRating === "Sälj" ? "#b83030" : C.wood,
+                color: C.creamText,
+                padding: "2px 7px", borderRadius: 10,
+              }}>
+                {stock.analystRating}
+              </span>
+            )}
             {stock.owned > 0 && (
               <span style={{
                 fontSize: 10, fontWeight: 700, background: C.green, color: "#fff",
@@ -397,6 +418,34 @@ function StockRow({
             {pct(ownShare)}
           </div>
         </div>
+        {pe !== null && (
+          <div>
+            <div style={subLabel}>P/E-tal</div>
+            <div style={{ ...num, fontSize: 15, fontWeight: 700, color: pe < 10 ? C.green : pe > 25 ? "#b83030" : C.ink }}>
+              {pe}×
+            </div>
+          </div>
+        )}
+        <div>
+          <div style={subLabel}>52v Intervall</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft }}>
+            {kr(low52)} – {kr(high52)}
+          </div>
+          <div style={{ fontSize: 10, color: fromHigh < -0.15 ? "#b83030" : C.inkSoft }}>
+            {((stock.price - high52) / high52 * 100).toFixed(0)} % från topp
+          </div>
+        </div>
+        {shortQty > 0 && (
+          <div>
+            <div style={subLabel}>Blankat</div>
+            <div style={{ ...num, fontSize: 15, fontWeight: 700, color: shortPnl >= 0 ? C.green : "#b83030" }}>
+              {shortQty.toLocaleString("sv-SE")} st
+            </div>
+            <div style={{ ...num, fontSize: 12, fontWeight: 700, color: shortPnl >= 0 ? C.green : "#b83030" }}>
+              {shortPnl >= 0 ? "+" : ""}{kr(shortPnl)}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Förvärvsknapp / hint */}
@@ -499,6 +548,52 @@ function StockRow({
           dispatch={dispatch}
           onClose={() => setShowLimit(false)}
         />
+      )}
+
+      {/* Blankning */}
+      {!isPlayerCompany && (
+        <>
+          <GoldRule />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, color: C.inkSoft, fontWeight: 600 }}>Blankning:</span>
+            {shortQty === 0 ? (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <button style={stepBtn} onClick={() => setShortQtyInput(Math.max(1, shortQtyInput - 100))}>−</button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={shortQtyInput}
+                    onChange={(e) => setShortQtyInput(Math.max(1, Math.floor(+e.target.value) || 1))}
+                    style={{ ...qtyInput, width: 72 }}
+                  />
+                  <button style={stepBtn} onClick={() => setShortQtyInput(shortQtyInput + 100)}>+</button>
+                </div>
+                <button
+                  style={{ ...secondaryBtn, border: "1px solid #b83030", color: "#b83030" }}
+                  onClick={() => dispatch({ type: "SHORT_STOCK", stockId: stock.id, qty: shortQtyInput })}
+                >
+                  Sälj blankt
+                </button>
+                <span style={{ fontSize: 10, color: C.inkSoft }}>
+                  Marginal: {kr(Math.round(stock.price * shortQtyInput * 1.5))}
+                </span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: 12, color: shortPnl >= 0 ? C.green : "#b83030" }}>
+                  {shortQty.toLocaleString("sv-SE")} aktier blankade @ {stock.shortAvgPrice ? kr(stock.shortAvgPrice) : "—"}
+                </span>
+                <button
+                  style={{ ...primaryBtn, background: shortPnl >= 0 ? C.green : "#b83030" }}
+                  onClick={() => dispatch({ type: "COVER_SHORT", stockId: stock.id })}
+                >
+                  Täck blankning ({shortPnl >= 0 ? "+" : ""}{kr(shortPnl)})
+                </button>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -664,7 +759,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
 
   // ── Filtrering ──────────────────────────────────────────────
   const competitorStocks = state.stocks.filter(
-    (s) => s.competitorName && (sectorFilter === "alla" || s.sector === sectorFilter),
+    (s) => s.competitorName && s.competitorName !== "__player__" && (sectorFilter === "alla" || s.sector === sectorFilter),
   );
   const otherStocks = state.stocks.filter(
     (s) => !s.competitorName && (sectorFilter === "alla" || s.sector === sectorFilter),
@@ -752,11 +847,75 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
               {kr(state.dividendsReceived)}
             </div>
           </div>
+          <div>
+            <div style={subLabel}>Total avkastning</div>
+            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: trendColor(unrealizedPct) }}>
+              {signed(unrealizedPct)}
+            </div>
+            {costBasis > 0 && (
+              <div style={{ fontSize: 11, color: C.inkSoft }}>på {kr(costBasis)} invest.</div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ── Portföljhistorik ─────────────────────────────────── */}
       <PortfolioHistoryCard history={state.portfolioValueHistory ?? []} />
+
+      {/* ── Ditt börsnoterade bolag (FBAB) ─────────────────────── */}
+      {state.ipoActive && (() => {
+        const fbab = state.stocks.find((s) => s.id === "FBAB");
+        const pressure = state.takeoverPressure ?? 0;
+        const pressureColor = pressure >= 75 ? "#f87a7a" : pressure >= 50 ? "#f5c842" : C.positive;
+        return (
+          <div style={{ ...card, border: `2px solid ${C.brass}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 17, color: BURGUNDY }}>
+                  🏛 Fastighets AB (FBAB) — Ditt bolag
+                </div>
+                <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
+                  {(state.ipoShares?.total ?? 0).toLocaleString("sv-SE")} aktier ·{" "}
+                  {(state.ipoShares?.public ?? 0).toLocaleString("sv-SE")} i publik handel
+                </div>
+              </div>
+              {fbab && (
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ ...num, fontSize: 22, fontWeight: 700, color: C.ink }}>
+                    {kr(fbab.price)}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.inkSoft }}>
+                    IPO-kurs: {state.ipoPrice ? kr(state.ipoPrice) : "—"}
+                    {state.ipoPrice && fbab.price !== state.ipoPrice && (
+                      <span style={{ color: fbab.price >= state.ipoPrice ? C.green : "#b83030", marginLeft: 6, fontWeight: 700 }}>
+                        {fbab.price >= state.ipoPrice ? "+" : ""}{(((fbab.price / state.ipoPrice) - 1) * 100).toFixed(1)} %
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {fbab && <Spark data={fbab.history} width={300} height={40} color={C.brass} />}
+            <GoldRule />
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: pressureColor }}>
+                  Uppköpstryck: {Math.round(pressure)} %
+                </span>
+                <span style={{ fontSize: 11, color: C.inkSoft }}>
+                  {pressure >= 75 ? "🚨 Kritiskt — aktivister samlar aktier!" : pressure >= 50 ? "⚠️ Förhöjt tryck" : "✅ Under kontroll"}
+                </span>
+              </div>
+              <div style={{ height: 8, background: "#2a1a0a", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ width: `${pressure}%`, height: "100%", background: pressureColor, borderRadius: 4, transition: "width 0.5s" }} />
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: C.inkSoft }}>
+              Trycket ökar varje månad. Håll reputation {">"}70 (−2/mån) och undvik börsnedgångar för att dämpa det.
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Öppna limitorder ─────────────────────────────────── */}
       <LimitOrdersPanel orders={openOrders} state={state} dispatch={dispatch} />

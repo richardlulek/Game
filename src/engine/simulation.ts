@@ -12,7 +12,7 @@ import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { genListing, genLot, makeTenant } from "./generators";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
-import { applyStockNews, executeLimitOrders, priceStocks, stepSentiment, stockHoldingsValue } from "./stocks";
+import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
 import type { GameState, LogEntry, Offer } from "./types";
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
@@ -623,6 +623,36 @@ export function advanceMonth(state: GameState): GameState {
   s.stocks = stockNewsResult.stocks;
   if (stockNewsResult.newsEntry)
     events.push({ t: stockNewsResult.newsEntry, kind: "event" });
+  // Kvartalsvinster var tredje månad (Q1=3, Q2=6, Q3=9, Q4=12)
+  if (s.month % 3 === 0) {
+    const earnings = quarterlyEarnings(s.stocks, s.marketSentiment ?? 1);
+    s.stocks = earnings.stocks;
+    for (const ev of earnings.events) {
+      events.push({ t: ev, kind: "event" });
+    }
+  }
+  // Blankningskostnad: 0.5 %/mån av blankad position (lånar aktier)
+  const shortCost = s.stocks.reduce((a, st) => {
+    if (!(st.shortQty ?? 0)) return a;
+    return a + Math.round(st.price * st.shortQty! * 0.005);
+  }, 0);
+  if (shortCost > 0) {
+    s.cash -= shortCost;
+    events.push({ t: `📉 Blankningskostnad: ${kr(shortCost)}/mån (låneavgift 0,5 %).`, kind: "expense" });
+  }
+  // Tvångstäckning om aktie stigit > 80 % från blankningspris
+  s.stocks = s.stocks.map((st) => {
+    if (!(st.shortQty ?? 0) || !st.shortAvgPrice) return st;
+    if (st.price > st.shortAvgPrice * 1.80) {
+      const qty = st.shortQty!;
+      const pnl = Math.round(qty * (st.shortAvgPrice - st.price));
+      const collateral = Math.round(st.shortAvgPrice * qty * 1.5);
+      s.cash += Math.max(0, collateral + pnl);
+      events.push({ t: `🚨 Marginalkrav! Blankning i ${st.name} tvångstäckt @ ${kr(st.price)}. Förlust: ${kr(Math.abs(pnl))}.`, kind: "warn" });
+      return { ...st, shortQty: 0, shortAvgPrice: 0 };
+    }
+    return st;
+  });
   // Exekvera limitorder mot nya kurser
   const orderResult = executeLimitOrders(s);
   s = orderResult.state;

@@ -1214,6 +1214,50 @@ export function reducer(state: GameState, action: GameAction): GameState {
         };
       }
     }
+    case "SHORT_STOCK": {
+      const st = state.stocks.find((s) => s.id === action.stockId);
+      if (!st) return state;
+      if (st.competitorName === "__player__") return log(state, "Kan inte blanka ditt eget bolag.", "warn");
+      if (action.qty <= 0) return state;
+      const collateral = Math.round(st.price * action.qty * 1.5); // 150% marginal
+      if (state.cash < collateral) return log(state, `Otillräckligt kapital för blankning. Kräver ${kr(collateral)} (150 % marginal).`, "warn");
+      const existingShort = st.shortQty ?? 0;
+      const existingAvg = st.shortAvgPrice ?? st.price;
+      const newQty = existingShort + action.qty;
+      const newAvg = (existingShort * existingAvg + action.qty * st.price) / newQty;
+      return {
+        ...state,
+        cash: state.cash - collateral,
+        stocks: state.stocks.map((s) =>
+          s.id === action.stockId
+            ? { ...s, shortQty: newQty, shortAvgPrice: Math.round(newAvg * 100) / 100 }
+            : s,
+        ),
+        log: [{ t: `📉 Blankning: Sålde ${action.qty} aktier i ${st.name} kort @ ${kr(st.price)}. Marginal: ${kr(collateral)}.`, kind: "warn" }, ...state.log],
+      };
+    }
+    case "COVER_SHORT": {
+      const st = state.stocks.find((s) => s.id === action.stockId);
+      if (!st || !(st.shortQty ?? 0)) return log(state, "Ingen blankningsposition att täcka.", "warn");
+      const qty = st.shortQty!;
+      const avgShortPrice = st.shortAvgPrice ?? st.price;
+      const pnl = Math.round(qty * (avgShortPrice - st.price)); // positive if price fell
+      const collateral = Math.round(avgShortPrice * qty * 1.5);
+      const received = collateral + pnl; // get collateral back + gain (or - loss)
+      return {
+        ...state,
+        cash: state.cash + Math.max(0, received),
+        stocks: state.stocks.map((s) =>
+          s.id === action.stockId
+            ? { ...s, shortQty: 0, shortAvgPrice: 0 }
+            : s,
+        ),
+        log: [{
+          t: `✅ Täckte blankning i ${st.name}: ${qty} aktier @ ${kr(st.price)} (snitt ${kr(avgShortPrice)}). Resultat: ${pnl >= 0 ? "+" : ""}${kr(pnl)}.`,
+          kind: pnl >= 0 ? "income" : "expense",
+        }, ...state.log],
+      };
+    }
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {

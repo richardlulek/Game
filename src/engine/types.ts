@@ -209,6 +209,10 @@ export interface Stock {
   volatility: number;
   history: number[];       // senaste priserna
   competitorName?: string; // länk till en Competitor om det är en rival
+  eps?: number;          // earnings per share (quarterly)
+  analystRating?: "Köp" | "Behåll" | "Sälj";
+  shortQty?: number;     // player's short position (shares)
+  shortAvgPrice?: number;
 }
 
 /** Ett förvärvat dotterbolag som ger månadsintäkt. */
@@ -437,6 +441,8 @@ export type GameAction =
   | { type: "NEGOTIATE_RENEWAL"; propertyId: number; tenantId: number; action: "raise" | "keep" | "lower" | "evict" }
   | { type: "DISMISS_TUTORIAL" }
   | { type: "MARKET_ORDER"; stockId: string; side: "buy" | "sell"; qty: number }
+  | { type: "SHORT_STOCK"; stockId: string; qty: number }
+  | { type: "COVER_SHORT"; stockId: string }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
