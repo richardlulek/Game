@@ -37,6 +37,8 @@ import { TenantPanel } from "./TenantPanel";
 import { MilestonesPanel } from "./MilestonesPanel";
 import { NewsFeedPanel } from "./NewsFeedPanel";
 import { OnboardingOverlay } from "./OnboardingOverlay";
+import { IndustryPanel } from "./IndustryPanel";
+import { IndustryMarket } from "./IndustryMarket";
 
 const TABS = [
   { id: "portfolio", label: "Portfölj" },
@@ -58,6 +60,8 @@ const TABS = [
   { id: "tenants",      label: "Hyresgäster" },
   { id: "milestones",   label: "Milstolpar" },
   { id: "nyheter",      label: "Nyheter" },
+  { id: "industri",    label: "Industri" },
+  { id: "ind_marknad", label: "Ind. Marknad" },
 ];
 
 export default function FastighetsImperium() {
@@ -159,6 +163,8 @@ export default function FastighetsImperium() {
           >
             {t.id === "portfolio"
               ? `Portfölj (${state.portfolio.length})`
+              : t.id === "industri"
+              ? `Industri (${(state.industryPortfolio ?? []).length})`
               : t.label}
           </button>
         ))}
@@ -260,6 +266,8 @@ export default function FastighetsImperium() {
         {tab === "tenants"     && <TenantPanel state={state} dispatch={dispatch} />}
         {tab === "milestones"  && <MilestonesPanel state={state} />}
         {tab === "nyheter"     && <NewsFeedPanel state={state} />}
+        {tab === "industri"    && <IndustryPanel state={state} dispatch={dispatch} />}
+        {tab === "ind_marknad" && <IndustryMarket state={state} dispatch={dispatch} />}
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}

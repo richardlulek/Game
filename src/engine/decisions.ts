@@ -115,7 +115,134 @@ const TEMPLATES: Template[] = [
   }),
 ];
 
+// ── Industribeslut (triggas bara om spelaren äger relevant sektor) ─────────
+
+const INDUSTRY_TEMPLATES: Template[] = [
+  // Hotell 1: Stjärnuppgradering
+  (s) => ({
+    id: "stjarn_upg",
+    title: "Hotellguide vill uppgradera er rating",
+    text: "En ledande hotellguide erbjuder er att ansöka om en högre stjärnklassning – men kräver renovering och tjänsteförbättringar.",
+    options: [
+      {
+        label: `Investera i uppgradering (500 000 kr)`,
+        detail: "−500 000 kr · Reputation +6",
+        effect: { cash: -500_000, reputation: 6, log: "Hotellets stjärnklassning kan höjas – imponerande!", logKind: "upg" },
+      },
+      {
+        label: "Tacka nej",
+        detail: "Reputation −1",
+        effect: { reputation: -1, log: "Tackade nej till stjärnuppgraderingen.", logKind: "info" },
+      },
+    ],
+  }),
+
+  // Hotell 2: Kritisk recension
+  (s) => ({
+    id: "kritisk_recension",
+    title: "Kritisk recension på nätet",
+    text: "En influencer publicerade en negativ recension av ett av era hotell. Ryktespoäng sjunker snabbt om ni inte agerar.",
+    options: [
+      {
+        label: "Bjud in recensenten (25 000 kr)",
+        detail: "−25 000 kr · Reputation +2",
+        effect: { cash: -25_000, reputation: 2, log: "Bjöd in kritikern – positiv uppföljning publicerades.", logKind: "income" },
+      },
+      {
+        label: "Ignorera kritiken",
+        detail: "Reputation −3",
+        effect: { reputation: -3, log: "Ignorerade recensionen – negativ stämning kvarstår.", logKind: "warn" },
+      },
+    ],
+  }),
+
+  // Energi 1: Elmarknadsreform
+  (s) => ({
+    id: "elreform",
+    title: "Riksdagen ser över elcertifikaten",
+    text: "En ny utredning föreslår sänkta elcertifikat. Ni kan lobbya för att bevara subventionen eller acceptera förändringen.",
+    options: [
+      {
+        label: "Lobbya (150 000 kr, 60 % chans att lyckas)",
+        detail: "−150 000 kr · möjlig bevarad subvention",
+        effect: { cash: -150_000, reputation: 1, log: "Lobbade mot sänkta elcertifikat – resultatet avgörs i riksdagen.", logKind: "expense" },
+      },
+      {
+        label: "Acceptera förändringen",
+        detail: "Ingen kostnad, men lägre energiintäkter",
+        effect: { log: "Accepterade elmarknadsreformen – intäkterna kan påverkas.", logKind: "info" },
+      },
+    ],
+  }),
+
+  // Energi 2: Nätanslutningsinvestering
+  (s) => ({
+    id: "nätanslutning",
+    title: "Kraftnätet vill ansluta ny kapacitet",
+    text: "Svenska Kraftnät erbjuder nätförstärkning för er park, men kräver medfinansiering.",
+    options: [
+      {
+        label: "Investera i nätförstärkning (800 000 kr)",
+        detail: "−800 000 kr · Reputation +3 · ökad kapacitetspotential",
+        effect: { cash: -800_000, reputation: 3, log: "Nätanslutning förstärkt – kapacitetsökning möjlig.", logKind: "upg" },
+      },
+      {
+        label: "Avvakta (gratisalternativ om 6 månader)",
+        detail: "Ingen kostnad nu",
+        effect: { log: "Avvaktar nätanslutningserbjudandet.", logKind: "info" },
+      },
+    ],
+  }),
+
+  // Logistik 1: Automationsupphandling
+  (s) => ({
+    id: "automationsupphandling",
+    title: "Robotleverantör med subventionerat erbjudande",
+    text: "En ledande robotleverantör erbjuder komplett automationssystem till 30 % rabatt – men affären måste slutas nu.",
+    options: [
+      {
+        label: "Köp automationssystemet (600 000 kr)",
+        detail: "−600 000 kr · Reputation +2 · direkt automationsboost",
+        effect: { cash: -600_000, reputation: 2, log: "Investerade i automationssystem – logistikeffektiviteten ökar.", logKind: "upg" },
+      },
+      {
+        label: "Vänta på ordinarie uppgradering",
+        detail: "Ingen kostnad nu",
+        effect: { log: "Tackade nej till subventionerat automationserbjudande.", logKind: "info" },
+      },
+    ],
+  }),
+
+  // Logistik 2: Strejkhot
+  (s) => ({
+    id: "strejkhot",
+    title: "Lagerarbetare hotar med strejk",
+    text: "Facket kräver löneförhöjning. Vägrar ni höja löner riskerar ni att kontrakt bryts och reputation skadas allvarligt.",
+    options: [
+      {
+        label: "Höj lönerna (300 000 kr engångskostnad)",
+        detail: "−300 000 kr · undvik strejk",
+        effect: { cash: -300_000, reputation: 1, log: "Kom överens med facket – strejk undviken.", logKind: "expense" },
+      },
+      {
+        label: "Håll fast vid lönerna",
+        detail: "Reputation −4 · risk att kontrakt bryts",
+        effect: { reputation: -4, log: "Strejk utbryter – driftstörning och skadat rykte.", logKind: "warn" },
+      },
+    ],
+  }),
+];
+
 /** Genererar ett slumpmässigt beslut givet nuvarande tillstånd. */
 export function makeDecision(state: GameState): PendingDecision {
-  return pick(TEMPLATES)(state);
+  const hasHotell = (state.industryPortfolio ?? []).some((a) => a.sector === "hotell" && a.status === "klar");
+  const hasEnergi = (state.industryPortfolio ?? []).some((a) => a.sector === "energi" && a.status === "klar");
+  const hasLogistik = (state.industryPortfolio ?? []).some((a) => a.sector === "logistik" && a.status === "klar");
+
+  const pool: Template[] = [...TEMPLATES];
+  if (hasHotell)   pool.push(INDUSTRY_TEMPLATES[0], INDUSTRY_TEMPLATES[1]);
+  if (hasEnergi)   pool.push(INDUSTRY_TEMPLATES[2], INDUSTRY_TEMPLATES[3]);
+  if (hasLogistik) pool.push(INDUSTRY_TEMPLATES[4], INDUSTRY_TEMPLATES[5]);
+
+  return pick(pool)(state);
 }

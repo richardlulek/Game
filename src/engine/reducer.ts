@@ -9,6 +9,8 @@ import { equityOf, loanTerms } from "./finance";
 import { kr, msek, pct } from "./format";
 import { genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
+import { INDUSTRY_UPGRADES } from "./industryData";
+import { industryAssetValue } from "./industries";
 import { propMarketValue, propPotentialRent } from "./property";
 import {
   RESEARCH,
@@ -21,7 +23,7 @@ import {
 import { newId } from "./random";
 import { advanceMonth } from "./simulation";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
-import type { GameAction, GameState, LogKind, Property, Stock } from "./types";
+import type { GameAction, GameState, IndustryAsset, LogKind, Property, Stock } from "./types";
 
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
 function log(state: GameState, t: string, kind: LogKind): GameState {
@@ -1258,6 +1260,149 @@ export function reducer(state: GameState, action: GameAction): GameState {
         }, ...state.log],
       };
     }
+    // ── Industrisektorer ─────────────────────────────────────────────────────
+
+    case "BUY_INDUSTRY": {
+      const asset = (state.industryListings ?? []).find((a) => a.id === action.id);
+      if (!asset) return state;
+      if (state.cash < asset.purchasePrice) return log(state, "❌ Otillräckliga medel.", "warn");
+      const bought: IndustryAsset = { ...asset, txHistory: [{ type: "köp", price: asset.purchasePrice, month: state.month, year: state.year, party: "Spelare" }, ...(asset.txHistory ?? [])] };
+      return {
+        ...state,
+        cash: state.cash - asset.purchasePrice,
+        industryPortfolio: [...(state.industryPortfolio ?? []), bought],
+        industryListings: (state.industryListings ?? []).filter((a) => a.id !== action.id),
+        reputation: Math.min(100, state.reputation + 1),
+        log: [{ t: `🏢 Köpte ${asset.name} för ${msek(asset.purchasePrice)}.`, kind: "buy" }, ...state.log],
+      };
+    }
+
+    case "SELL_INDUSTRY": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
+      if (!asset) return state;
+      const salePrice = Math.round(industryAssetValue(asset, state) * 0.95);
+      return {
+        ...state,
+        cash: state.cash + salePrice,
+        industryPortfolio: (state.industryPortfolio ?? []).filter((a) => a.id !== action.id),
+        reputation: Math.min(100, state.reputation + 0.5),
+        log: [{ t: `💰 Sålde ${asset.name} för ${msek(salePrice)}.`, kind: "sell" }, ...state.log],
+      };
+    }
+
+    case "UPGRADE_INDUSTRY": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
+      const upg = INDUSTRY_UPGRADES.find((u) => u.id === action.upg);
+      if (!asset || !upg) return state;
+      if (asset.upgrades.includes(action.upg)) return log(state, "❌ Uppgradering redan installerad.", "warn");
+      const cost = Math.round(industryAssetValue(asset, state) * upg.cost);
+      if (state.cash < cost) return log(state, `❌ Saknar ${msek(cost)} för uppgraderingen.`, "warn");
+      const newCond = upg.condBoost ? Math.min(100, asset.condition + upg.condBoost) : asset.condition;
+      return {
+        ...state,
+        cash: state.cash - cost,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.id ? { ...a, upgrades: [...a.upgrades, action.upg], condition: newCond } : a,
+        ),
+        log: [{ t: `⬆️ Uppgraderade ${asset.name}: ${upg.name} (${msek(cost)}).`, kind: "upg" }, ...state.log],
+      };
+    }
+
+    case "MAINTAIN_INDUSTRY": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
+      if (!asset) return state;
+      const cost = Math.round(industryAssetValue(asset, state) * 0.02);
+      if (state.cash < cost) return log(state, `❌ Saknar ${msek(cost)} för underhåll.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cost,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.id ? { ...a, condition: Math.min(100, a.condition + 15) } : a,
+        ),
+        log: [{ t: `🔧 Underhåll på ${asset.name}: skick +15 (${msek(cost)}).`, kind: "expense" }, ...state.log],
+      };
+    }
+
+    case "ADD_PPA": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.assetId);
+      if (!asset || asset.sector !== "energi" || !asset.energyMeta) return state;
+      return {
+        ...state,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.assetId && a.energyMeta
+            ? { ...a, energyMeta: { ...a.energyMeta, ppaContracts: [...a.energyMeta.ppaContracts, action.contract] } }
+            : a,
+        ),
+        log: [{ t: `⚡ PPA-avtal tecknat med ${action.contract.clientName} för ${asset.name}.`, kind: "income" }, ...state.log],
+      };
+    }
+
+    case "CANCEL_PPA": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.assetId);
+      if (!asset || !asset.energyMeta) return state;
+      return {
+        ...state,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.assetId && a.energyMeta
+            ? { ...a, energyMeta: { ...a.energyMeta, ppaContracts: a.energyMeta.ppaContracts.filter((c) => c.id !== action.contractId) } }
+            : a,
+        ),
+        log: [{ t: `❌ PPA-kontrakt annullerat för ${asset.name}.`, kind: "info" }, ...state.log],
+      };
+    }
+
+    case "ADD_THROUGHPUT_CONTRACT": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.assetId);
+      if (!asset || asset.sector !== "logistik" || !asset.logisticsMeta) return state;
+      return {
+        ...state,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.assetId && a.logisticsMeta
+            ? { ...a, logisticsMeta: { ...a.logisticsMeta, throughputContracts: [...a.logisticsMeta.throughputContracts, action.contract] } }
+            : a,
+        ),
+        log: [{ t: `📦 Logistikkontrakt tecknat med ${action.contract.clientName} för ${asset.name}.`, kind: "income" }, ...state.log],
+      };
+    }
+
+    case "SET_HOTEL_CHANNEL": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.assetId);
+      if (!asset || asset.sector !== "hotell" || !asset.hotelMeta) return state;
+      return {
+        ...state,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.assetId && a.hotelMeta
+            ? { ...a, hotelMeta: { ...a.hotelMeta, bookingChannels: action.channels } }
+            : a,
+        ),
+        log: [{ t: `🏨 Bokningskanaler uppdaterade för ${asset.name}.`, kind: "info" }, ...state.log],
+      };
+    }
+
+    case "TOGGLE_INDUSTRY_MANAGER": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
+      if (!asset) return state;
+      return {
+        ...state,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.id ? { ...a, managed: !a.managed } : a,
+        ),
+        log: [{ t: `${!asset.managed ? "✅ Förvaltare aktiverad" : "🔴 Förvaltare inaktiverad"} för ${asset.name}.`, kind: "info" }, ...state.log],
+      };
+    }
+
+    case "BUY_INDUSTRY_INSURANCE": {
+      const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
+      if (!asset) return state;
+      return {
+        ...state,
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          a.id === action.id ? { ...a, insurance: !a.insurance } : a,
+        ),
+        log: [{ t: `${!asset.insurance ? "🛡️ Försäkring tecknad" : "❌ Försäkring avslutad"} för ${asset.name}.`, kind: "info" }, ...state.log],
+      };
+    }
+
     case "NEXT_MONTH":
       return advanceMonth(state);
     case "FAST_FORWARD": {

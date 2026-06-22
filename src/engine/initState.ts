@@ -7,7 +7,9 @@ import { AI_NAMES, DISTRICTS } from "./data";
 import { genLot, genWorldProperty } from "./generators";
 import { rnd } from "./random";
 import { initStocks } from "./stocks";
-import type { Competitor, CompetitorStrategy, GameState, Property } from "./types";
+import { makeIndustryAssetFromTemplate } from "./industries";
+import { INDUSTRY_TEMPLATES } from "./industryData";
+import type { Competitor, CompetitorStrategy, GameState, IndustryAsset, Property } from "./types";
 
 const WORLD_SIZE = 150;
 
@@ -46,6 +48,10 @@ export function initState(): GameState {
     portfolioValueHistory: [0],
     worldPool: [],
     worldTotal: WORLD_SIZE,
+    industryPortfolio: [],
+    industryListings: [],
+    energyOwnedMW: 0,
+    hotelHighOccConsecutiveMonths: 0,
   };
 
   // ── Generera hela världen (WORLD_SIZE fastigheter) ──────────────
@@ -87,6 +93,15 @@ export function initState(): GameState {
 
   // ── Aktier ──────────────────────────────────────────────────────
   base.stocks = initStocks(base.competitors);
+
+  // ── Industrimarknadslistor (5 slumpmässiga från INDUSTRY_TEMPLATES) ─
+  const shuffled = [...INDUSTRY_TEMPLATES].sort(() => Math.random() - 0.5);
+  const industryListings: IndustryAsset[] = [];
+  let indId = 2000;
+  for (const tmpl of shuffled.slice(0, 5)) {
+    industryListings.push(makeIndustryAssetFromTemplate(tmpl, indId++, base));
+  }
+  base.industryListings = industryListings;
 
   return base;
 }

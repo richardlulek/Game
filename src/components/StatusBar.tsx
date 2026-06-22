@@ -2,6 +2,7 @@ import { kr, msek, pct } from "../engine/format";
 import type { GameState, LoanTerms } from "../engine/types";
 import { S } from "../styles/styles";
 import { AnimatedNumber } from "./AnimatedNumber";
+import { hotelMonthlyRevenue, hotelMonthlyOpex, energyMonthlyRevenue, energyMonthlyOpex, logisticsMonthlyRevenue, logisticsMonthlyOpex } from "../engine/industries";
 
 interface StatusBarProps {
   state: GameState;
@@ -35,6 +36,16 @@ function NumChip({ label, value, format, valueColor }: {
       />
     </div>
   );
+}
+
+function calcIndustryNOI(state: GameState): number {
+  return (state.industryPortfolio ?? []).reduce((sum, a) => {
+    if (a.status !== "klar") return sum;
+    if (a.sector === "hotell")   return sum + hotelMonthlyRevenue(a, state) - hotelMonthlyOpex(a, state);
+    if (a.sector === "energi")   return sum + energyMonthlyRevenue(a, state) - energyMonthlyOpex(a, state);
+    if (a.sector === "logistik") return sum + logisticsMonthlyRevenue(a, state) - logisticsMonthlyOpex(a, state);
+    return sum;
+  }, 0);
 }
 
 export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyInterest, myRank }: StatusBarProps) {
@@ -88,6 +99,12 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
           valueColor={(state.takeoverPressure ?? 0) >= 75 ? "#f87a7a" : "#f5c842"}
         />
       )}
+      {(state.industryPortfolio ?? []).length > 0 && (() => {
+        const noi = calcIndustryNOI(state);
+        return (
+          <NumChip label="Industri NOI/mån" value={noi} format={kr} valueColor={noi >= 0 ? "#80e080" : "#f87a7a"} />
+        );
+      })()}
     </div>
   );
 }

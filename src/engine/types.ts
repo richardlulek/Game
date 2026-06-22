@@ -5,7 +5,101 @@
 
 export type PropTypeKey = "bostad" | "kontor" | "butik" | "industri";
 
-export type ScenarioId = "equity50" | "equity200" | "districts3" | "units25" | "sandbox";
+export type ScenarioId =
+  | "equity50" | "equity200" | "districts3" | "units25" | "sandbox"
+  | "diversified" | "energyBaron" | "hotelKing";
+
+// ── Industrisektorer ────────────────────────────────────────────────────────
+
+export type IndustrySectorKey = "hotell" | "energi" | "logistik";
+
+export type BookingChannel = "direktbokning" | "ota" | "grupp" | "företag";
+export type LogisticsClientProfile = "ehandel" | "livsmedel" | "industri_kund" | "3pl";
+
+export interface HotelMeta {
+  starRating: 1 | 2 | 3 | 4 | 5;
+  totalRooms: number;
+  baseAdr: number;          // Average Daily Rate (kr/natt, bas)
+  bookingChannels: BookingChannel[];
+  reputationScore: number;  // 0–100, påverkar OCC
+  revParHistory: number[];  // senaste 12 månaders RevPAR
+  highOccStreak?: number;   // konsekutiva månader med OCC ≥ 80 %
+}
+
+export interface PpaContract {
+  id: number;
+  clientName: string;
+  mwh: number;           // garanterad MWh/mån
+  pricePerMwh: number;   // fast pris kr/MWh
+  monthsLeft: number;
+  termTotal: number;
+  defaultRisk: number;
+}
+
+export interface EnergyMeta {
+  subType: "sol" | "vind";
+  installedMW: number;
+  capacityFactor: number;   // 0–1 effektivitetskvot
+  ppaContracts: PpaContract[];
+  degradationPct: number;   // kumulativ kapacitetsförsämring %
+  subsidyActive: boolean;   // elcertifikat
+  commissionedAbs?: number; // absolut månad idrifttagning (for 15 yr subsidy)
+}
+
+export interface ThroughputContract {
+  id: number;
+  clientName: string;
+  clientProfile: LogisticsClientProfile;
+  guaranteedM3: number;   // min genomflöde per månad
+  ratePerM3: number;      // kr per m³
+  monthsLeft: number;
+  termTotal: number;
+  penaltyRisk: number;    // sannolikhet att missa SLA
+  defaultRisk: number;    // sannolikhet att klienten går i konkurs
+  requiresKyl?: boolean;  // kräver kylkedja-uppgradering
+}
+
+export interface LogisticsMeta {
+  totalBays: number;
+  automationLevel: 0 | 1 | 2 | 3;
+  throughputContracts: ThroughputContract[];
+  peakSurchargeActive: boolean;
+}
+
+export interface IndustryAsset {
+  id: number;
+  sector: IndustrySectorKey;
+  name: string;
+  district: string;
+  districtName: string;
+  purchasePrice: number;
+  condition: number;       // 0–100, samma skala som Property
+  upgrades: string[];
+  managed: boolean;
+  insurance: boolean;
+  status: "klar" | "bygger";
+  buildLeft: number;
+  monthlyRevenue: number;  // senaste simulerade månaden
+  monthlyOpex: number;     // senaste simulerade månaden
+  totalRevenue: number;    // livstidsackumulering
+  txHistory: TxRecord[];
+  hotelMeta: HotelMeta | null;
+  energyMeta: EnergyMeta | null;
+  logisticsMeta: LogisticsMeta | null;
+}
+
+export interface IndustryUpgrade {
+  id: string;
+  sector: IndustrySectorKey | "all";
+  name: string;
+  cost: number;          // bråkdel av currentValue
+  desc: string;
+  revenueBoost?: number;
+  opexCut?: number;
+  condBoost?: number;
+  valueBoost?: number;
+  capacityBoost?: number;
+}
 
 export type PropStatus = "klar" | "bygger";
 
@@ -378,6 +472,10 @@ export interface GameState {
   ipoShares?: { total: number; public: number };
   takeoverPressure?: number;
   ipoPrice?: number;
+  industryPortfolio?: IndustryAsset[];
+  industryListings?: IndustryAsset[];
+  energyOwnedMW?: number;
+  hotelHighOccConsecutiveMonths?: number;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -443,6 +541,16 @@ export type GameAction =
   | { type: "MARKET_ORDER"; stockId: string; side: "buy" | "sell"; qty: number }
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
+  | { type: "BUY_INDUSTRY"; id: number }
+  | { type: "SELL_INDUSTRY"; id: number }
+  | { type: "UPGRADE_INDUSTRY"; id: number; upg: string }
+  | { type: "MAINTAIN_INDUSTRY"; id: number }
+  | { type: "ADD_PPA"; assetId: number; contract: PpaContract }
+  | { type: "CANCEL_PPA"; assetId: number; contractId: number }
+  | { type: "ADD_THROUGHPUT_CONTRACT"; assetId: number; contract: ThroughputContract }
+  | { type: "SET_HOTEL_CHANNEL"; assetId: number; channels: BookingChannel[] }
+  | { type: "TOGGLE_INDUSTRY_MANAGER"; id: number }
+  | { type: "BUY_INDUSTRY_INSURANCE"; id: number }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }

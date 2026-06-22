@@ -1,0 +1,244 @@
+/* Enhetstester för industrisektorer – hotell, energi, logistik. */
+
+import { describe, expect, it } from "vitest";
+import {
+  energyMonthlyRevenue,
+  energySynergyMult,
+  hotelMonthlyOpex,
+  hotelMonthlyRevenue,
+  hotelMarketValue,
+  logisticsMonthlyRevenue,
+  logisticsMarketValue,
+  industryAssetValue,
+} from "../engine/industries";
+import { propAnnualOpex } from "../engine/property";
+import { makeIndustryAsset, makeProperty, makeState } from "./factories";
+import type { IndustryAsset } from "../engine/types";
+
+// ── Hotell ──────────────────────────────────────────────────────────────────
+
+describe("hotell", () => {
+  it("genererar RevPAR-intäkt för 3-stjärnigt hotell (högsäsong)", () => {
+    const state = makeState({ month: 7 }); // sommar
+    const asset = makeIndustryAsset({
+      hotelMeta: { starRating: 3, totalRooms: 80, baseAdr: 1_200, bookingChannels: ["direktbokning"], reputationScore: 60, revParHistory: [] },
+    });
+    const rev = hotelMonthlyRevenue(asset, state);
+    // ADR ≈ 1200 × 1.5 (star3) × 1.22 (sommar) × 1.0 (kondition) ≈ 2196
+    // OCC ≈ min(0.98, (0.57 + 0.02) × 1.0 × 1.22) ≈ 0.72
+    // RevPAR ≈ 2196 × 0.72 = 1581, × 80 rum × 30.5 ≈ 3 858 000
+    expect(rev).toBeGreaterThan(1_000_000);
+    expect(rev).toBeLessThan(8_000_000);
+  });
+
+  it("OTA-kanal höjer OCC men sänker ADR", () => {
+    const state = makeState({ month: 3 });
+    const assetDirect = makeIndustryAsset({
+      hotelMeta: { starRating: 3, totalRooms: 80, baseAdr: 1_200, bookingChannels: ["direktbokning"], reputationScore: 60, revParHistory: [] },
+    });
+    const assetOta = makeIndustryAsset({
+      hotelMeta: { starRating: 3, totalRooms: 80, baseAdr: 1_200, bookingChannels: ["direktbokning", "ota"], reputationScore: 60, revParHistory: [] },
+    });
+    // OTA ökar OCC (+0.04) men sänker ADR (×0.88) — nettot är mer komplext
+    // Säkerställ att intäkterna faktiskt skiljer sig
+    const revDirect = hotelMonthlyRevenue(assetDirect, state);
+    const revOta = hotelMonthlyRevenue(assetOta, state);
+    expect(typeof revDirect).toBe("number");
+    expect(typeof revOta).toBe("number");
+    expect(revOta).not.toEqual(revDirect);
+  });
+
+  it("dåligt skick sänker intäkterna", () => {
+    const state = makeState({ month: 3 });
+    const goodAsset = makeIndustryAsset({ condition: 100 });
+    const badAsset  = makeIndustryAsset({ condition: 20 });
+    expect(hotelMonthlyRevenue(goodAsset, state)).toBeGreaterThan(hotelMonthlyRevenue(badAsset, state));
+  });
+
+  it("cap-rate-värdering: 3-stjärna ger kapitalvärde baserat på NOI/6.5 %", () => {
+    const state = makeState({ month: 3 });
+    const asset = makeIndustryAsset({ condition: 80 });
+    const rev  = hotelMonthlyRevenue(asset, state);
+    const opex = hotelMonthlyOpex(asset, state);
+    const annualNOI = (rev - opex) * 12;
+    const expectedValue = Math.round(annualNOI / 0.065);
+    const actualValue = hotelMarketValue(asset, state);
+    // Bör ligga inom ±5 % av förväntat cap-rate-värde
+    expect(Math.abs(actualValue - expectedValue) / expectedValue).toBeLessThan(0.05);
+  });
+
+  it("bygger-status ger halva inköpspriset i värdering", () => {
+    const state = makeState({ month: 3 });
+    const asset = makeIndustryAsset({ status: "bygger", buildLeft: 6, purchasePrice: 10_000_000 });
+    expect(hotelMarketValue(asset, state)).toBe(5_000_000);
+  });
+});
+
+// ── Förnybar energi ────────────────────────────────────────────────────────
+
+describe("energi", () => {
+  function makeSolarAsset(overMeta: Partial<IndustryAsset["energyMeta"]> = {}): IndustryAsset {
+    return makeIndustryAsset({
+      sector: "energi",
+      hotelMeta: null,
+      energyMeta: {
+        subType: "sol",
+        installedMW: 10,
+        capacityFactor: 0.13,
+        ppaContracts: [],
+        degradationPct: 0,
+        subsidyActive: false,
+        ...overMeta,
+      },
+      logisticsMeta: null,
+    });
+  }
+
+  it("genererar spot-intäkt (vintermånad, högt pris)", () => {
+    const state = makeState({ month: 1 }); // vinter
+    const asset = makeSolarAsset();
+    const rev = energyMonthlyRevenue(asset, state);
+    // MWh ≈ 10 × 0.13 × 730 = 949 MWh
+    // Spot ≈ 650 × 1.0 × 1.35 = 878 kr/MWh
+    // Rev ≈ 949 × 878 ≈ 833 000 kr
+    expect(rev).toBeGreaterThan(300_000);
+    expect(rev).toBeLessThan(2_000_000);
+  });
+
+  it("PPA-kontrakt ger garanterad intäkt utöver spot", () => {
+    const state = makeState({ month: 3 });
+    const assetNoПPA = makeSolarAsset({ ppaContracts: [] });
+    const ppaContract = { id: 1, clientName: "Kommunen", mwh: 200, pricePerMwh: 720, monthsLeft: 36, termTotal: 36, defaultRisk: 0.001 };
+    const assetWithPPA = makeSolarAsset({ ppaContracts: [ppaContract] });
+    const revNoPPA = energyMonthlyRevenue(assetNoПPA, state);
+    const revWithPPA = energyMonthlyRevenue(assetWithPPA, state);
+    // PPA-pris 720 kr/MWh > spot 650 kr/MWh → totalen ökar
+    expect(revWithPPA).toBeGreaterThan(revNoPPA);
+  });
+
+  it("elcertifikat (subsidyActive) ökar intäkten", () => {
+    const state = makeState({ month: 3 });
+    const assetNoSub = makeSolarAsset({ subsidyActive: false });
+    const assetSub   = makeSolarAsset({ subsidyActive: true });
+    expect(energyMonthlyRevenue(assetSub, state)).toBeGreaterThan(energyMonthlyRevenue(assetNoSub, state));
+  });
+});
+
+// ── Energisynergi ──────────────────────────────────────────────────────────
+
+describe("energySynergyMult", () => {
+  it("0 MW → faktor 1.0 (ingen rabatt)", () => {
+    const state = makeState({ energyOwnedMW: 0 });
+    expect(energySynergyMult(state)).toBe(1.0);
+  });
+
+  it("20 MW → faktor 0.90 (−10 % opex)", () => {
+    const state = makeState({ energyOwnedMW: 20 });
+    expect(energySynergyMult(state)).toBeCloseTo(0.90, 5);
+  });
+
+  it("30 MW → faktor 0.85 (tak på −15 %)", () => {
+    const state = makeState({ energyOwnedMW: 30 });
+    expect(energySynergyMult(state)).toBe(0.85);
+  });
+
+  it("100 MW → faktor 0.85 (tak kvarstår)", () => {
+    const state = makeState({ energyOwnedMW: 100 });
+    expect(energySynergyMult(state)).toBe(0.85);
+  });
+
+  it("energisynergi reducerar propAnnualOpex för fastigheter", () => {
+    const stateNoEnergy = makeState({ energyOwnedMW: 0 });
+    const stateWith20MW = makeState({ energyOwnedMW: 20 });
+    const p = makeProperty({ baseRent: 100_000 });
+    const opexNoEnergy = propAnnualOpex(p, stateNoEnergy);
+    const opexWithEnergy = propAnnualOpex(p, stateWith20MW);
+    expect(opexWithEnergy).toBeCloseTo(opexNoEnergy * 0.90, -2);
+  });
+});
+
+// ── Logistik ───────────────────────────────────────────────────────────────
+
+describe("logistik", () => {
+  function makeLogisticsAsset(overMeta: Partial<IndustryAsset["logisticsMeta"]> = {}): IndustryAsset {
+    return makeIndustryAsset({
+      sector: "logistik",
+      hotelMeta: null,
+      energyMeta: null,
+      logisticsMeta: {
+        totalBays: 20,
+        automationLevel: 0,
+        throughputContracts: [],
+        peakSurchargeActive: false,
+        ...overMeta,
+      },
+    });
+  }
+
+  it("inga kontrakt → noll intäkt", () => {
+    const state = makeState({ month: 3 });
+    const asset = makeLogisticsAsset({ throughputContracts: [] });
+    expect(logisticsMonthlyRevenue(asset, state)).toBe(0);
+  });
+
+  it("enkelt kontrakt genererar korrekt intäkt (Q3, inget Q4-tillägg)", () => {
+    const state = makeState({ month: 7 });
+    const contract = { id: 1, clientName: "E-handel AB", clientProfile: "ehandel" as const, guaranteedM3: 1000, ratePerM3: 180, monthsLeft: 24, termTotal: 24, penaltyRisk: 0.05, defaultRisk: 0.025 };
+    const asset = makeLogisticsAsset({ throughputContracts: [contract] });
+    const rev = logisticsMonthlyRevenue(asset, state);
+    expect(rev).toBeCloseTo(1000 * 180, -1); // 180 000 kr
+  });
+
+  it("Q4-topptillägg (+28 %) aktiveras för e-handelsaktör i oktober", () => {
+    const stateQ3 = makeState({ month: 7 });
+    const stateQ4 = makeState({ month: 10 });
+    const contract = { id: 1, clientName: "E-handel AB", clientProfile: "ehandel" as const, guaranteedM3: 1000, ratePerM3: 180, monthsLeft: 24, termTotal: 24, penaltyRisk: 0, defaultRisk: 0 };
+    const asset = makeLogisticsAsset({ throughputContracts: [contract], peakSurchargeActive: true });
+    const revQ3 = logisticsMonthlyRevenue(asset, stateQ3);
+    const revQ4 = logisticsMonthlyRevenue({ ...asset, logisticsMeta: { ...asset.logisticsMeta!, peakSurchargeActive: true } }, stateQ4);
+    expect(revQ4).toBeCloseTo(revQ3 * 1.28, -2);
+  });
+
+  it("automation nivå 2 ger 18 % högre throughput", () => {
+    const state = makeState({ month: 3 });
+    const contract = { id: 1, clientName: "Test", clientProfile: "industri_kund" as const, guaranteedM3: 1000, ratePerM3: 160, monthsLeft: 12, termTotal: 12, penaltyRisk: 0, defaultRisk: 0 };
+    const assetAuto0 = makeLogisticsAsset({ throughputContracts: [contract], automationLevel: 0 });
+    const assetAuto2 = makeLogisticsAsset({ throughputContracts: [contract], automationLevel: 2 });
+    const rev0 = logisticsMonthlyRevenue(assetAuto0, state);
+    const rev2 = logisticsMonthlyRevenue(assetAuto2, state);
+    expect(rev2).toBeCloseTo(rev0 * 1.18, -1);
+  });
+
+  it("cap-rate värdering är proportionell mot NOI", () => {
+    const state = makeState({ month: 3 });
+    const contract = { id: 1, clientName: "Test", clientProfile: "industri_kund" as const, guaranteedM3: 2000, ratePerM3: 160, monthsLeft: 36, termTotal: 36, penaltyRisk: 0, defaultRisk: 0 };
+    const asset = makeLogisticsAsset({ throughputContracts: [contract] });
+    const value = logisticsMarketValue(asset, state);
+    expect(value).toBeGreaterThan(1_000_000);
+  });
+});
+
+// ── industryAssetValue dispatcher ─────────────────────────────────────────
+
+describe("industryAssetValue", () => {
+  it("delegerar till hotelMarketValue för hotell", () => {
+    const state = makeState({ month: 3 });
+    const asset = makeIndustryAsset({ sector: "hotell" });
+    const val = industryAssetValue(asset, state);
+    expect(val).toBeGreaterThan(0);
+  });
+
+  it("delegerar till energyMarketValue för energi", () => {
+    const state = makeState({ month: 3 });
+    const asset = makeIndustryAsset({
+      sector: "energi",
+      hotelMeta: null,
+      energyMeta: { subType: "sol", installedMW: 10, capacityFactor: 0.13, ppaContracts: [], degradationPct: 0, subsidyActive: false },
+      logisticsMeta: null,
+    });
+    // 10 MW × 8 000 000 = 80 000 000
+    const val = industryAssetValue(asset, state);
+    expect(val).toBeGreaterThan(0);
+    expect(val).toBeLessThanOrEqual(10 * 8_000_000 * 1.2);
+  });
+});

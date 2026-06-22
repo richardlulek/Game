@@ -13,6 +13,7 @@ import { genListing, genLot, makeTenant } from "./generators";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
 import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
+import { tickHotel, tickEnergy, tickLogistik } from "./industries";
 import type { GameState, LogEntry, Offer } from "./types";
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
@@ -279,6 +280,89 @@ export function advanceMonth(state: GameState): GameState {
     const gmCost = 15000 + s.portfolio.length * 1500;
     s.cash -= gmCost;
     monthlyNOI -= gmCost;
+  }
+
+  // ── Industrisektorer – månadsuppdatering ─────────────────────────────────
+  {
+    const portfolio = s.industryPortfolio ?? [];
+    let allHighOcc = portfolio.filter((a) => a.sector === "hotell" && a.status === "klar").length > 0;
+    s.industryPortfolio = portfolio.map((asset) => {
+      if (asset.status === "bygger") {
+        const newLeft = asset.buildLeft - 1;
+        if (newLeft <= 0) {
+          events.push({ t: `🏗️ ${asset.name} är färdigbyggd!`, kind: "income" });
+          return { ...asset, status: "klar" as const, buildLeft: 0 };
+        }
+        return { ...asset, buildLeft: newLeft };
+      }
+
+      // Skickförsämring
+      const wear = wearMult(s);
+      const newCond = Math.max(10, asset.condition - rnd(0.15, 0.55) * wear);
+      let na = { ...asset, condition: newCond };
+
+      // Sektorspecifik tick
+      let revenue = 0;
+      let opex = 0;
+      let tickEvents: LogEntry[] = [];
+      if (na.sector === "hotell")    [revenue, opex, tickEvents] = tickHotel(na, s);
+      else if (na.sector === "energi")   [revenue, opex, tickEvents] = tickEnergy(na, s);
+      else if (na.sector === "logistik") [revenue, opex, tickEvents] = tickLogistik(na, s);
+
+      const netNOI = revenue - opex;
+      s.cash += netNOI;
+      monthlyNOI += netNOI;
+      na = { ...na, monthlyRevenue: revenue, monthlyOpex: opex, totalRevenue: na.totalRevenue + revenue };
+      tickEvents.forEach((e) => events.push(e));
+
+      // Kreditera PPA-kontrakt (dekrementera monthsLeft)
+      if (na.sector === "energi" && na.energyMeta) {
+        na.energyMeta = {
+          ...na.energyMeta,
+          ppaContracts: na.energyMeta.ppaContracts
+            .map((c) => ({ ...c, monthsLeft: c.monthsLeft - 1 }))
+            .filter((c) => c.monthsLeft > 0),
+        };
+      }
+
+      // Kreditera logistikkontrakt (dekrementera monthsLeft)
+      if (na.sector === "logistik" && na.logisticsMeta) {
+        na.logisticsMeta = {
+          ...na.logisticsMeta,
+          throughputContracts: na.logisticsMeta.throughputContracts
+            .map((c) => ({ ...c, monthsLeft: c.monthsLeft - 1 }))
+            .filter((c) => c.monthsLeft > 0),
+        };
+      }
+
+      // Hotellets OCC-streak för hotelKing
+      if (na.sector === "hotell" && na.hotelMeta) {
+        const streak = na.hotelMeta.highOccStreak ?? 0;
+        if (streak < (na.hotelMeta.highOccStreak ?? 0) || streak === 0) allHighOcc = false;
+      }
+
+      return na;
+    });
+
+    // Aggregera ägt MW för energisynergi
+    s.energyOwnedMW = s.industryPortfolio
+      .filter((a) => a.sector === "energi" && a.status === "klar")
+      .reduce((sum, a) => sum + (a.energyMeta?.installedMW ?? 0), 0);
+
+    // hotelKing-scenario: räkna månader med hög OCC på alla hotell
+    const hotell = s.industryPortfolio.filter((a) => a.sector === "hotell" && a.status === "klar");
+    if (hotell.length > 0) {
+      const allAbove80 = hotell.every((a) => (a.hotelMeta?.highOccStreak ?? 0) >= 1);
+      s.hotelHighOccConsecutiveMonths = allAbove80
+        ? (s.hotelHighOccConsecutiveMonths ?? 0) + 1
+        : 0;
+    }
+
+    // Hotellsynergi: hotell i centrum/kulle ger reputationsbonus
+    const hotelRepBonus = s.industryPortfolio
+      .filter((a) => a.sector === "hotell" && a.status === "klar" && (a.district === "centrum" || a.district === "kulle"))
+      .reduce((sum, a) => sum + (a.hotelMeta?.starRating ?? 0) * 0.05, 0);
+    if (hotelRepBonus > 0) s.reputation = Math.min(100, s.reputation + hotelRepBonus);
   }
 
   // Insurance monthly cost + catastrophe events
@@ -792,7 +876,11 @@ export function advanceMonth(state: GameState): GameState {
     const ownedHere = s.portfolio.filter((p) => p.district === d.id && p.status === "klar").length;
     const cur = dev[d.id] ?? 1;
     const growth = 0.0015 * ownedHere + rnd(-0.0025, 0.004);
-    dev[d.id] = Math.max(0.85, Math.min(1.6, +(cur * (1 + growth)).toFixed(4)));
+    // Hotellsynergi: hotell i distriktet höjer distriktsutvecklingen
+    const hotelBonus = (s.industryPortfolio ?? [])
+      .filter((a) => a.sector === "hotell" && a.district === d.id && a.status === "klar")
+      .reduce((sum, a) => sum + (a.hotelMeta?.starRating ?? 0) * 0.002, 0);
+    dev[d.id] = Math.max(0.85, Math.min(1.6, +(cur * (1 + growth + hotelBonus)).toFixed(4)));
   }
   s.districtDev = dev;
 

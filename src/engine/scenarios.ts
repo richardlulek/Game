@@ -82,6 +82,56 @@ export const SCENARIOS: Scenario[] = [
     check: () => false,
     progress: () => ({ value: 0, max: 1, label: "–" }),
   },
+  {
+    id: "diversified",
+    title: "Diversifierat Imperium",
+    subtitle: "Äg alla fyra sektorer",
+    desc: "Äg minst 1 aktiv tillgång i varje sektor: fastigheter, hotell, energi och logistik.",
+    icon: "🌐",
+    check: (s) => {
+      const hasRE = s.portfolio.some((p) => p.status === "klar");
+      const sects = new Set((s.industryPortfolio ?? []).filter((a) => a.status === "klar").map((a) => a.sector));
+      return hasRE && sects.has("hotell") && sects.has("energi") && sects.has("logistik");
+    },
+    progress: (s) => {
+      const hasRE = s.portfolio.some((p) => p.status === "klar") ? 1 : 0;
+      const sects = new Set((s.industryPortfolio ?? []).filter((a) => a.status === "klar").map((a) => a.sector));
+      const n = hasRE + (sects.has("hotell") ? 1 : 0) + (sects.has("energi") ? 1 : 0) + (sects.has("logistik") ? 1 : 0);
+      return { value: n, max: 4, label: `${n} / 4 sektorer aktiva` };
+    },
+  },
+  {
+    id: "energyBaron",
+    title: "Energibaronens uppgång",
+    subtitle: "500 MWh/mån och 5 Msek/mån",
+    desc: "Bygg ett energiimperium: 500 MWh/månad och minst 5 Msek/månad från förnybar energi.",
+    icon: "⚡🌱",
+    check: (s) => {
+      const energyAssets = (s.industryPortfolio ?? []).filter((a) => a.sector === "energi" && a.status === "klar");
+      const totalRev = energyAssets.reduce((sum, a) => sum + a.monthlyRevenue, 0);
+      const totalMW = energyAssets.reduce((sum, a) => sum + (a.energyMeta?.installedMW ?? 0), 0);
+      const totalMWh = totalMW * 0.20 * 730; // konservativ cf
+      return totalMWh >= 500 && totalRev >= 5_000_000;
+    },
+    progress: (s) => {
+      const energyAssets = (s.industryPortfolio ?? []).filter((a) => a.sector === "energi" && a.status === "klar");
+      const totalRev = energyAssets.reduce((sum, a) => sum + a.monthlyRevenue, 0);
+      const pct = Math.min(100, Math.round(totalRev / 50_000));
+      return { value: pct, max: 100, label: `${msek(totalRev)} / 5 Msek intäkt` };
+    },
+  },
+  {
+    id: "hotelKing",
+    title: "Hotellkungen",
+    subtitle: "80 % OCC i 6 månader i rad",
+    desc: "Håll genomsnittlig beläggningsgrad på 80 % eller mer i alla dina hotell under 6 månader i följd.",
+    icon: "🏨",
+    check: (s) => (s.hotelHighOccConsecutiveMonths ?? 0) >= 6,
+    progress: (s) => {
+      const n = s.hotelHighOccConsecutiveMonths ?? 0;
+      return { value: n, max: 6, label: `${n} / 6 månader med hög beläggning` };
+    },
+  },
 ];
 
 const SCENARIO_DISTRICT_IDS = ["centrum", "hamnen", "industri", "förort", "kulle"] as const;

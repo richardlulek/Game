@@ -6,6 +6,7 @@
 import { propMarketValue } from "./property";
 import { spreadDelta } from "./progression";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
+import { industryAssetValue } from "./industries";
 import type { GameState, Lender, LoanTerms } from "./types";
 
 export const LENDERS: Lender[] = [
@@ -57,11 +58,17 @@ export function portfolioValue(state: GameState): number {
   return state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
 }
 
-/** Eget kapital = kassa + fastighetsvärde + aktier + dotterbolag − skuld. */
+/** Summerat marknadsvärde för industritillgångar. */
+export function industryPortfolioValue(state: GameState): number {
+  return (state.industryPortfolio ?? []).reduce((a, asset) => a + industryAssetValue(asset, state), 0);
+}
+
+/** Eget kapital = kassa + fastighetsvärde + industrivärde + aktier + dotterbolag − skuld. */
 export function equityOf(state: GameState): number {
   return (
     state.cash +
     portfolioValue(state) +
+    industryPortfolioValue(state) +
     stockHoldingsValue(state) +
     subsidiaryValue(state) -
     state.debt

@@ -5,6 +5,7 @@
 
 import { DISTRICTS, PROP_TYPES } from "./data";
 import { opexMult, vacancyMult } from "./progression";
+import { energySynergyMult } from "./industries";
 import type { GameState, Property } from "./types";
 
 /** Områdesutvecklingsfaktor – stiger när distriktet bebyggs (1.0 = neutral). */
@@ -63,9 +64,15 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const clusterRentMult = ownedInDistrict >= 5 ? 1.10 : ownedInDistrict >= 3 ? 1.05 : 1;
   const clusterVacMult  = ownedInDistrict >= 5 ? 0.85 : ownedInDistrict >= 3 ? 0.90 : 1;
 
+  // Logistiksynergi: logistiktillgångar i samma distrikt höjer industrifastigheters hyra
+  const logistikInDistrict = (state.industryPortfolio ?? []).filter(
+    (a) => a.sector === "logistik" && a.district === p.district && a.status === "klar",
+  ).length;
+  const logistikBonus = p.type === "industri" ? 1 + logistikInDistrict * 0.03 : 1.0;
+
   // Områdesutveckling lyfter hyran (halv effekt mot värdet).
   const devRent = 1 + (districtDevOf(state, p.district) - 1) * 0.5;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * logistikBonus;
   const vacancy = Math.max(
     0,
     t.vacancyBase * p.vacancyMult * clusterVacMult * vacancyMult(state) - (p.condition - 60) / 1000,
@@ -77,7 +84,7 @@ export function propPotentialRent(p: Property, state: GameState): number {
 export function propAnnualOpex(p: Property, state: GameState): number {
   if (p.status === "bygger") return 0;
   const t = PROP_TYPES[p.type];
-  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state);
+  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state) * energySynergyMult(state);
 }
 
 /** Driftnetto per år (hyra − driftkostnad). */
