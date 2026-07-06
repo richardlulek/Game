@@ -4,6 +4,7 @@
    denna rena funktion (se src/store/gameStore.ts).
    ============================================================ */
 
+import { usedParcelIds } from "./city";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
 import { loanTerms } from "./finance";
 import { kr, msek, pct } from "./format";
@@ -139,6 +140,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         id: newId(),
         district: lot.district,
         districtName: lot.districtName,
+        parcelId: lot.parcelId,
         type: action.propType,
         typeLabel: t.label,
         area: lot.area,
@@ -183,10 +185,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "REFRESH_LISTINGS": {
-      const listings = [];
-      for (let i = 0; i < 6; i++) listings.push(genListing(state));
-      const lots = [];
-      for (let i = 0; i < 3; i++) lots.push(genLot(state));
+      // Ägda tomter behålls – bara marknadens utbud byts ut.
+      const keptLots = state.lots.filter((l) => l.owned);
+      const occupied = usedParcelIds({ ...state, listings: [], lots: keptLots });
+      const listings: Property[] = [];
+      for (let i = 0; i < 6; i++) listings.push(genListing(state, occupied));
+      const lots = [...keptLots];
+      for (let i = 0; i < 3; i++) lots.push(genLot(state, occupied));
       return { ...state, listings, lots };
     }
     case "NEXT_MONTH":

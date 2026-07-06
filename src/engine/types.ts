@@ -69,6 +69,8 @@ export interface Property {
   id: number;
   district: string;
   districtName: string;
+  /** Tomtruta på stadskartan (se engine/city.ts). */
+  parcelId: string;
   type: PropTypeKey;
   typeLabel: string;
   area: number;
@@ -92,6 +94,8 @@ export interface Lot {
   id: number;
   district: string;
   districtName: string;
+  /** Tomtruta på stadskartan (se engine/city.ts). */
+  parcelId: string;
   area: number;
   price: number;
   owned?: boolean;

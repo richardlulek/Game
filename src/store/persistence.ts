@@ -4,13 +4,14 @@
    in-memory-lösning (window[SAVE_KEY]).
    ============================================================ */
 
+import { claimFirstFreeParcel, parcelById, usedParcelIds } from "../engine/city";
 import { syncIdCounter } from "../engine/random";
 import type { GameState } from "../engine/types";
 
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 interface SaveFile {
   version: number;
@@ -24,6 +25,20 @@ interface SaveFile {
  */
 const migrations: Record<number, (state: GameState) => GameState> = {
   // 1: (s) => ({ ...s, nyttFält: standardvärde }),
+  // v2 → v3: objekten fick en plats på stadskartan (parcelId).
+  2: (s) => {
+    const occupied = usedParcelIds(s);
+    const place = <T extends { district: string; parcelId?: string }>(o: T): T =>
+      o.parcelId && parcelById(o.parcelId)
+        ? o
+        : { ...o, parcelId: claimFirstFreeParcel(o.district, occupied).id };
+    return {
+      ...s,
+      portfolio: s.portfolio.map(place),
+      listings: s.listings.map(place),
+      lots: s.lots.map(place),
+    };
+  },
 };
 
 /** Sparar nuvarande tillstånd till localStorage. */

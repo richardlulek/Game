@@ -1,11 +1,16 @@
 /* ============================================================
    Generatorer för hyresgäster, marknadsobjekt och tomter.
    Använder Math.random (samma beteende som prototypen).
+   Marknadsobjekt och tomter placeras på lediga tomtrutor på
+   stadskartan (se city.ts). Skicka in ett delat occupied-set
+   när flera objekt genereras i följd, annars härleds det ur
+   tillståndet per anrop.
    ============================================================ */
 
+import { claimRandomParcel, districtsWithFreeParcels, usedParcelIds } from "./city";
 import { DISTRICTS, PROP_TYPES, TENANT_PROFILES } from "./data";
 import { newId, pick, rnd } from "./random";
-import type { GameState, Lot, Property, Tenant } from "./types";
+import type { District, GameState, Lot, Property, Tenant } from "./types";
 
 /** Skapar en ny hyresgäst utifrån en slumpad profil. */
 export function makeTenant(baseRent: number, demandMod: number): Tenant {
@@ -23,9 +28,21 @@ export function makeTenant(baseRent: number, demandMod: number): Tenant {
   };
 }
 
+/** Slumpar ett distrikt som fortfarande har lediga tomtrutor. */
+function pickDistrict(occupied: Set<string>): District {
+  const free = districtsWithFreeParcels(occupied);
+  if (!free.length) return pick(DISTRICTS);
+  const id = pick(free);
+  return DISTRICTS.find((x) => x.id === id)!;
+}
+
 /** Genererar ett marknadsobjekt till salu. */
-export function genListing(state: GameState): Property {
-  const d = pick(DISTRICTS);
+export function genListing(
+  state: GameState,
+  occupied: Set<string> = usedParcelIds(state),
+): Property {
+  const d = pickDistrict(occupied);
+  const parcel = claimRandomParcel(d.id, occupied);
   const typeKeys = Object.keys(PROP_TYPES) as Property["type"][];
   const typeKey = pick(typeKeys);
   const t = PROP_TYPES[typeKey];
@@ -38,6 +55,7 @@ export function genListing(state: GameState): Property {
     id: newId(),
     district: d.id,
     districtName: d.name,
+    parcelId: parcel.id,
     type: typeKey,
     typeLabel: t.label,
     area,
@@ -60,9 +78,10 @@ export function genListing(state: GameState): Property {
 }
 
 /** Genererar en byggbar tomt till salu. */
-export function genLot(state: GameState): Lot {
-  const d = pick(DISTRICTS);
+export function genLot(state: GameState, occupied: Set<string> = usedParcelIds(state)): Lot {
+  const d = pickDistrict(occupied);
+  const parcel = claimRandomParcel(d.id, occupied);
   const area = Math.round(rnd(600, 3500));
   const price = Math.round(area * d.base * 0.18 * state.marketMod);
-  return { id: newId(), district: d.id, districtName: d.name, area, price };
+  return { id: newId(), district: d.id, districtName: d.name, parcelId: parcel.id, area, price };
 }

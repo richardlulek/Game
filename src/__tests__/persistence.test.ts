@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { parcelById } from "../engine/city";
 import { newId } from "../engine/random";
 import { clearSave, hasSave, loadGame, SAVE_VERSION, saveGame } from "../store/persistence";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
@@ -47,6 +48,38 @@ describe("persistens", () => {
   it("klarar trasig sparfil utan att krascha", () => {
     localStorage.setItem("fastighetsimperium:save", "{ inte giltig json");
     expect(loadGame()).toBeNull();
+  });
+
+  it("migrerar v2-sparfil: alla objekt får en giltig, unik parcelId", () => {
+    const strip = <T extends { parcelId: string }>(o: T): Omit<T, "parcelId"> => {
+      const { parcelId: _ignored, ...rest } = o;
+      return rest;
+    };
+    const state = makeState({
+      portfolio: [strip(makeProperty({ id: 1, district: "centrum" }))],
+      listings: [strip(makeProperty({ id: 2, district: "hamnen", owned: false }))],
+      lots: [
+        strip({
+          id: 3,
+          district: "kulle",
+          districtName: "Villakullen",
+          parcelId: "x",
+          area: 900,
+          price: 2e6,
+        }),
+      ],
+    } as never);
+    localStorage.setItem(
+      "fastighetsimperium:save",
+      JSON.stringify({ version: 2, savedAt: new Date().toISOString(), state }),
+    );
+
+    const loaded = loadGame()!;
+    const objs = [...loaded.portfolio, ...loaded.listings, ...loaded.lots];
+    const ids = objs.map((o) => o.parcelId);
+    expect(ids.every(Boolean)).toBe(true);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const o of objs) expect(parcelById(o.parcelId)?.district).toBe(o.district);
   });
 
   it("clearSave raderar sparfilen", () => {

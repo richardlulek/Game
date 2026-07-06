@@ -28,6 +28,7 @@ export function makeProperty(over: Partial<Property> = {}): Property {
   return {
     id: 1,
     district: "centrum",
+    parcelId: "centrum-0",
     districtName: "Centrum",
     type: "bostad",
     typeLabel: "Bostadshus",

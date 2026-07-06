@@ -27,8 +27,10 @@ export function initState(): GameState {
     history: [{ month: 0, equity: 5_000_000 }],
     gameOver: false,
   };
-  for (let i = 0; i < 6; i++) base.listings.push(genListing(base));
-  for (let i = 0; i < 3; i++) base.lots.push(genLot(base));
+  // Delat occupied-set så att startobjekten inte hamnar på samma tomtruta.
+  const occupied = new Set<string>();
+  for (let i = 0; i < 6; i++) base.listings.push(genListing(base, occupied));
+  for (let i = 0; i < 3; i++) base.lots.push(genLot(base, occupied));
   AI_NAMES.forEach((n) =>
     base.competitors.push({
       name: n,

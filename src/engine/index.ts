@@ -4,6 +4,7 @@
    ============================================================ */
 
 export * from "./types";
+export * from "./city";
 export * from "./data";
 export * from "./format";
 export * from "./random";
