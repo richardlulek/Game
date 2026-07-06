@@ -35,6 +35,7 @@ export function syncIdCounter(state: GameState): void {
     consider(p.tenant?.id);
   });
   state.lots?.forEach((l) => consider(l.id));
+  state.competitors?.forEach((c) => c.holdings?.forEach((h) => consider(h.id)));
   _id = max + 1;
 }
 

@@ -5,13 +5,14 @@
    ============================================================ */
 
 import { claimFirstFreeParcel, parcelById, usedParcelIds } from "../engine/city";
+import { DISTRICTS, PROP_TYPES, START_DISTRICTS } from "../engine/data";
 import { syncIdCounter } from "../engine/random";
-import type { GameState } from "../engine/types";
+import type { GameState, PropTypeKey, RivalHolding } from "../engine/types";
 
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 interface SaveFile {
   version: number;
@@ -37,6 +38,37 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       portfolio: s.portfolio.map(place),
       listings: s.listings.map(place),
       lots: s.lots.map(place),
+    };
+  },
+  // v3 → v4: konkurrenter fick riktiga innehav och distrikt kan låsas upp.
+  3: (s) => {
+    const occupied = usedParcelIds(s);
+    const typeKeys = Object.keys(PROP_TYPES) as PropTypeKey[];
+    let seed = 0;
+    const competitors = s.competitors.map((c) => {
+      if (c.holdings?.length) return c;
+      const holdings: RivalHolding[] = [];
+      for (let i = 0; i < c.units; i++) {
+        const district = START_DISTRICTS[seed % START_DISTRICTS.length];
+        const parcel = claimFirstFreeParcel(district, occupied);
+        const type = typeKeys[seed % typeKeys.length];
+        holdings.push({
+          id: 100_000 + seed, // syncIdCounter lyfter id-räknaren förbi dessa
+          parcelId: parcel.id,
+          district,
+          districtName: DISTRICTS.find((d) => d.id === district)?.name ?? district,
+          type,
+          typeLabel: PROP_TYPES[type].label,
+          area: 1200,
+        });
+        seed += 1;
+      }
+      return { ...c, holdings, units: holdings.length };
+    });
+    return {
+      ...s,
+      competitors,
+      unlockedDistricts: s.unlockedDistricts ?? [...START_DISTRICTS],
     };
   },
 };

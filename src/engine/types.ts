@@ -101,12 +101,26 @@ export interface Lot {
   owned?: boolean;
 }
 
+/** En fastighet som ägs av en AI-konkurrent. */
+export interface RivalHolding {
+  id: number;
+  parcelId: string;
+  district: string;
+  districtName: string;
+  type: PropTypeKey;
+  typeLabel: string;
+  area: number;
+}
+
 /** En AI-konkurrent. */
 export interface Competitor {
   name: string;
   cash: number;
+  /** Antal fastigheter – hålls synkat med holdings.length. */
   units: number;
   equity: number;
+  /** Konkurrentens innehav – syns som byggnader på kartan. */
+  holdings: RivalHolding[];
 }
 
 /** En rad i händelseloggen. */
@@ -152,6 +166,8 @@ export interface GameState {
   listings: Property[];
   lots: Lot[];
   competitors: Competitor[];
+  /** Distrikt som är öppna för exploatering – nya låses upp när staden växer. */
+  unlockedDistricts: string[];
   log: LogEntry[];
   history: HistoryPoint[];
   gameOver: boolean;

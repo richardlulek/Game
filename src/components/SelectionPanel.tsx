@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { parcelById } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
+import { S } from "../styles/styles";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
 import { ListingCard } from "./ListingCard";
@@ -60,6 +61,14 @@ export function SelectionPanel() {
   const owned = state.portfolio.find((p) => p.parcelId === selectedId);
   const listing = state.listings.find((p) => p.parcelId === selectedId);
   const lot = state.lots.find((l) => l.parcelId === selectedId);
+  let rival: { owner: string; holding: (typeof state.competitors)[0]["holdings"][0] } | null = null;
+  for (const c of state.competitors) {
+    const h = c.holdings.find((x) => x.parcelId === selectedId);
+    if (h) {
+      rival = { owner: c.name, holding: h };
+      break;
+    }
+  }
 
   return (
     <div>
@@ -67,7 +76,27 @@ export function SelectionPanel() {
       {owned && <PortfolioCard p={owned} state={state} dispatch={dispatch} />}
       {listing && <ListingCard p={listing} state={state} dispatch={dispatch} />}
       {lot && <LotCard lot={lot} state={state} dispatch={dispatch} />}
-      {!owned && !listing && !lot && (
+      {rival && (
+        <div style={S.card}>
+          <div style={S.cardHead}>
+            <span style={S.badge}>Konkurrent</span>
+            <span style={S.cardDistrict}>{rival.holding.districtName}</span>
+          </div>
+          <div style={S.cardValue}>{rival.owner}</div>
+          <div style={S.cardRow}>
+            <span>Typ</span>
+            <strong>{rival.holding.typeLabel}</strong>
+          </div>
+          <div style={S.cardRow}>
+            <span>Yta</span>
+            <strong>{rival.holding.area} m²</strong>
+          </div>
+          <div style={{ ...S.cardRow, color: "#999" }}>
+            <span>Inte till salu</span>
+          </div>
+        </div>
+      )}
+      {!owned && !listing && !lot && !rival && (
         <div style={P.ambient}>Den här marken ägs av andra aktörer och är inte till salu.</div>
       )}
     </div>

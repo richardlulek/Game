@@ -3,6 +3,7 @@
    Formlerna är oförändrade från prototypen.
    ============================================================ */
 
+import { locationFactor } from "./city";
 import { DISTRICTS, PROP_TYPES } from "./data";
 import type { GameState, Property } from "./types";
 
@@ -10,7 +11,14 @@ import type { GameState, Property } from "./types";
 export function propMarketValue(p: Property, state: GameState): number {
   const d = DISTRICTS.find((x) => x.id === p.district)!;
   const condFactor = 0.6 + (p.condition / 100) * 0.6;
-  let v = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult;
+  let v =
+    p.area *
+    d.base *
+    condFactor *
+    state.marketMod *
+    d.growth *
+    p.valueMult *
+    locationFactor(p.parcelId);
   if (p.status === "bygger") v *= 0.5; // pågående bygge värderas lägre
   return v;
 }
@@ -31,7 +39,8 @@ export function propAnnualRent(p: Property, state: GameState): number {
 export function propPotentialRent(p: Property, state: GameState): number {
   const t = PROP_TYPES[p.type];
   const d = DISTRICTS.find((x) => x.id === p.district)!;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2;
+  const gross =
+    p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * locationFactor(p.parcelId);
   const vacancy = Math.max(0, t.vacancyBase * p.vacancyMult - (p.condition - 60) / 1000);
   return gross * (1 - vacancy);
 }

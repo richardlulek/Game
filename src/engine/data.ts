@@ -18,7 +18,15 @@ export const DISTRICTS: District[] = [
   { id: "industri", name: "Industriområdet", base: 11000, growth: 0.9, demand: 0.6, prestige: 0.7 },
   { id: "förort", name: "Förorten", base: 16000, growth: 1.1, demand: 0.8, prestige: 0.9 },
   { id: "kulle", name: "Villakullen", base: 28000, growth: 1.05, demand: 0.85, prestige: 1.3 },
+  // Låst vid spelstart – öppnas när staden växer (se simulation.ts).
+  { id: "storängen", name: "Storängen", base: 14000, growth: 1.35, demand: 0.7, prestige: 0.8 },
 ];
+
+/** Distrikt som är öppna från spelstart. */
+export const START_DISTRICTS = ["centrum", "hamnen", "industri", "förort", "kulle"];
+
+/** Distriktet som låses upp av stadsexpansionen. */
+export const EXPANSION_DISTRICT = "storängen";
 
 export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   bostad: {

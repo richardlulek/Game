@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { equityOf, loanTerms, ltvOf, portfolioValue } from "../engine/finance";
+import { locationFactor } from "../engine/city";
 import { makeProperty, makeState } from "./factories";
+
+// Fabrikens standardfastighet står på centrum-0 – lägesfaktorn ingår i värdet.
+const LF = locationFactor("centrum-0");
 
 describe("loanTerms (reputationsbaserade lånevillkor)", () => {
   it("ger sämsta villkor vid reputation 0", () => {
@@ -40,14 +44,14 @@ describe("LTV och eget kapital", () => {
     // Ett objekt värt 38 400 000, skuld 19 200 000 → LTV 0.5
     const p = makeProperty({ area: 1000, condition: 100 });
     const s = makeState({ portfolio: [p], debt: 19_200_000 });
-    expect(portfolioValue(s)).toBe(38_400_000);
-    expect(ltvOf(s)).toBeCloseTo(0.5, 6);
+    expect(portfolioValue(s)).toBeCloseTo(38_400_000 * LF, 4);
+    expect(ltvOf(s)).toBeCloseTo(19_200_000 / (38_400_000 * LF), 6);
   });
 
   it("eget kapital = kassa + fastighetsvärde − skuld", () => {
     const p = makeProperty({ area: 1000, condition: 100 });
     const s = makeState({ portfolio: [p], cash: 1_000_000, debt: 19_200_000 });
-    // 1 000 000 + 38 400 000 − 19 200 000 = 20 200 000
-    expect(equityOf(s)).toBe(20_200_000);
+    // 1 000 000 + 38 400 000 × lägesfaktor − 19 200 000
+    expect(equityOf(s)).toBeCloseTo(1_000_000 + 38_400_000 * LF - 19_200_000, 4);
   });
 });

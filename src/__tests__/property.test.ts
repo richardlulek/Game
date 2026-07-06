@@ -6,14 +6,18 @@ import {
   propNOI,
   propPotentialRent,
 } from "../engine/property";
+import { locationFactor } from "../engine/city";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 
+// Fabrikens standardfastighet står på centrum-0 – lägesfaktorn ingår i värdet.
+const LF = locationFactor("centrum-0");
+
 describe("propMarketValue", () => {
-  it("räknar area × base × condFactor × marketMod × growth × valueMult", () => {
+  it("räknar area × base × condFactor × marketMod × growth × valueMult × läge", () => {
     // Centrum: base 32000, growth 1.0. Skick 100 → condFactor = 0.6 + 0.6 = 1.2.
-    // 1000 × 32000 × 1.2 × 1 × 1 × 1 = 38 400 000
+    // 1000 × 32000 × 1.2 × 1 × 1 × 1 × lägesfaktor
     const p = makeProperty({ area: 1000, condition: 100 });
-    expect(propMarketValue(p, makeState())).toBe(38_400_000);
+    expect(propMarketValue(p, makeState())).toBeCloseTo(38_400_000 * LF, 4);
   });
 
   it("halverar värdet för pågående bygge", () => {

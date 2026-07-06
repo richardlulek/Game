@@ -83,6 +83,28 @@ describe("persistens", () => {
     for (const o of objs) expect(parcelById(o.parcelId)?.district).toBe(o.district);
   });
 
+  it("migrerar v3-sparfil: konkurrenter får innehav och distrikt låses upp", () => {
+    const state = makeState({
+      competitors: [{ name: "Gamla Bolaget", cash: 5e6, units: 3, equity: 20e6 }] as never,
+    });
+    const raw = { ...state } as Record<string, unknown>;
+    delete raw.unlockedDistricts;
+    localStorage.setItem(
+      "fastighetsimperium:save",
+      JSON.stringify({ version: 3, savedAt: new Date().toISOString(), state: raw }),
+    );
+
+    const loaded = loadGame()!;
+    expect(loaded.unlockedDistricts).toContain("centrum");
+    expect(loaded.unlockedDistricts).not.toContain("storängen");
+    const c = loaded.competitors[0];
+    expect(c.holdings).toHaveLength(3);
+    expect(c.units).toBe(3);
+    const ids = c.holdings.map((h) => h.parcelId);
+    expect(new Set(ids).size).toBe(3);
+    for (const h of c.holdings) expect(parcelById(h.parcelId)?.district).toBe(h.district);
+  });
+
   it("clearSave raderar sparfilen", () => {
     saveGame(makeState());
     expect(hasSave()).toBe(true);

@@ -24,6 +24,12 @@ npm run dev        # http://localhost:5173
   glider kameran dit och objektet väljs.
 - **Pågående byggen** har byggkran och en stomme som växer månad för månad; fasader
   mörknar när skicket sjunker.
+- **Konkurrenterna äger riktiga byggnader** (egna färger på kartan) och köper mer
+  medan tiden går – klicka på deras hus för att se vem som äger vad.
+- **Läget spelar roll**: närmare stadskärnan ger högre värde och hyrespotential
+  (visas som "Läge" på objektkorten).
+- **Staden växer**: distriktet Storängen är låst (🔒) tills ditt imperium nått
+  30 MSEK i eget kapital (eller år 4) – då öppnar det för exploatering.
 - **↻ Nya objekt på marknaden** byter ut utbudet av fastigheter och tomter.
 
 ## Kommandon
@@ -82,9 +88,9 @@ Spelet sparas i `localStorage` under nyckeln `fastighetsimperium:save`. Sparfile
 versionerade (`SAVE_VERSION`, nu v3) med migreringar – v2-sparfiler får automatiskt
 platser på stadskartan vid laddning.
 
-## Nästa steg (fas 3+)
+## Nästa steg (fas 4+)
 
-- Konkurrenternas innehav synliga på kartan (kräver riktiga innehav i `Competitor`).
-- Lägesbaserad ekonomi: närhet till centrum påverkar hyra och värde.
-- Stadsexpansion: nya distrikt öppnas när staden växer.
 - Riktiga low-poly-modeller (glTF, t.ex. Kenney City Kit) istället för lådor.
+- Ljud och fler animationer (trafik, dag/natt-cykel).
+- Budgivning mot konkurrenter om marknadsobjekt.
+- Fler expansionsdistrikt och distriktsutveckling (gentrifiering).

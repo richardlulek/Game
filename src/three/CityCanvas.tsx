@@ -6,7 +6,7 @@ import { DISTRICTS } from "../engine/data";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
 import { CameraRig } from "./CameraRig";
-import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
+import { DISTRICT_TINTS, GROUND, LOCKED_TINT, SKY, WATER } from "./colors";
 import { EventMarkers } from "./EventMarkers";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
@@ -24,21 +24,28 @@ const LABEL_STYLE: React.CSSProperties = {
 };
 
 function DistrictPlates() {
+  const unlocked = useGameStore((s) => s.state.unlockedDistricts);
   return (
     <>
-      {DISTRICT_ZONES.map((z) => (
-        <group key={z.district} position={[z.x, 0, z.z]}>
-          <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} receiveShadow>
-            <planeGeometry args={[z.w + 16, z.d + 16]} />
-            <meshStandardMaterial color={DISTRICT_TINTS[z.district] ?? "#bcbcb0"} />
-          </mesh>
-          <Html position={[0, 1, -(z.d / 2 + 16)]} center zIndexRange={[20, 0]}>
-            <div style={LABEL_STYLE}>
-              {DISTRICTS.find((d) => d.id === z.district)?.name ?? z.district}
-            </div>
-          </Html>
-        </group>
-      ))}
+      {DISTRICT_ZONES.map((z) => {
+        const isLocked = !unlocked.includes(z.district);
+        const name = DISTRICTS.find((d) => d.id === z.district)?.name ?? z.district;
+        return (
+          <group key={z.district} position={[z.x, 0, z.z]}>
+            <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} receiveShadow>
+              <planeGeometry args={[z.w + 16, z.d + 16]} />
+              <meshStandardMaterial
+                color={isLocked ? LOCKED_TINT : (DISTRICT_TINTS[z.district] ?? "#bcbcb0")}
+              />
+            </mesh>
+            <Html position={[0, 1, -(z.d / 2 + 16)]} center zIndexRange={[20, 0]}>
+              <div style={{ ...LABEL_STYLE, opacity: isLocked ? 0.55 : 1 }}>
+                {isLocked ? `🔒 ${name}` : name}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
     </>
   );
 }
@@ -47,18 +54,24 @@ function CityParcels() {
   const portfolio = useGameStore((s) => s.state.portfolio);
   const listings = useGameStore((s) => s.state.listings);
   const lots = useGameStore((s) => s.state.lots);
+  const competitors = useGameStore((s) => s.state.competitors);
+  const unlocked = useGameStore((s) => s.state.unlockedDistricts);
 
   const byParcel = useMemo(() => {
     const m = new Map<string, ParcelContent>();
     for (const p of portfolio) m.set(p.parcelId, { kind: "owned", prop: p });
     for (const p of listings) m.set(p.parcelId, { kind: "listing", prop: p });
     for (const l of lots) m.set(l.parcelId, { kind: l.owned ? "lotOwned" : "lotForSale", lot: l });
+    competitors.forEach((c, i) => {
+      for (const h of c.holdings)
+        m.set(h.parcelId, { kind: "rival", holding: h, owner: c.name, ownerIndex: i });
+    });
     return m;
-  }, [portfolio, listings, lots]);
+  }, [portfolio, listings, lots, competitors]);
 
   return (
     <>
-      {PARCELS.map((pc) => (
+      {PARCELS.filter((pc) => unlocked.includes(pc.district)).map((pc) => (
         <ParcelNode key={pc.id} parcel={pc} content={byParcel.get(pc.id)} />
       ))}
     </>

@@ -6,16 +6,24 @@ import type { Parcel } from "../engine/city";
 import { parcelHash } from "../engine/city";
 import { PROP_TYPES } from "../engine/data";
 import { msek } from "../engine/format";
-import type { Lot, Property } from "../engine/types";
+import type { Lot, Property, RivalHolding } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
-import { AMBIENT_COLORS, CONSTRUCTION, PAD, RING_COLORS, TYPE_COLORS } from "./colors";
+import {
+  AMBIENT_COLORS,
+  CONSTRUCTION,
+  PAD,
+  RING_COLORS,
+  RIVAL_COLORS,
+  TYPE_COLORS,
+} from "./colors";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
   | { kind: "owned"; prop: Property }
   | { kind: "listing"; prop: Property }
   | { kind: "lotForSale"; lot: Lot }
-  | { kind: "lotOwned"; lot: Lot };
+  | { kind: "lotOwned"; lot: Lot }
+  | { kind: "rival"; holding: RivalHolding; owner: string; ownerIndex: number };
 
 const FLOOR_HEIGHT = 3;
 const CRANE_COLOR = "#d98e2b";
@@ -55,6 +63,8 @@ function tooltipFor(content: ParcelContent): { title: string; sub: string } {
       };
     case "lotOwned":
       return { title: "Min tomt", sub: `${content.lot.districtName} · redo att bebyggas` };
+    case "rival":
+      return { title: content.holding.typeLabel, sub: `Ägs av ${content.owner}` };
   }
 }
 
@@ -181,6 +191,14 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       w: parcel.w - 4,
       d: parcel.d - 4,
       color: underConstruction ? CONSTRUCTION : facadeColor(TYPE_COLORS[p.type], p.condition),
+    };
+  } else if (content?.kind === "rival") {
+    building = {
+      fullH: floorsFor(content.holding.area) * FLOOR_HEIGHT,
+      targetScale: 1,
+      w: parcel.w - 4,
+      d: parcel.d - 4,
+      color: RIVAL_COLORS[content.ownerIndex % RIVAL_COLORS.length],
     };
   } else if (ambientBuilding) {
     building = {

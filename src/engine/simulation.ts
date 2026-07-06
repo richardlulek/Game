@@ -4,9 +4,11 @@
    specifik fastighet bär parcelId så att kartan kan markera dem.
    ============================================================ */
 
-import { EVENTS } from "./data";
+import { usedParcelIds } from "./city";
+import { DISTRICTS, EVENTS, EXPANSION_DISTRICT } from "./data";
 import { equityOf, loanTerms } from "./finance";
 import { kr } from "./format";
+import { genRivalHolding } from "./generators";
 import { propAnnualOpex } from "./property";
 import { pick, rnd } from "./random";
 import type { GameState, LogEntry } from "./types";
@@ -74,25 +76,50 @@ export function advanceMonth(state: GameState): GameState {
     events.push({ t: `📰 ${ev.text}`, kind: "event" });
   }
 
-  // AI-konkurrenter agerar
+  // AI-konkurrenter agerar. Delat occupied-set så att månadens
+  // förvärv inte krockar med varandra eller med spelarens objekt.
+  const occupied = usedParcelIds(s);
   s.competitors = s.competitors.map((c) => {
-    const nc = { ...c };
-    const noi = nc.units * rnd(60000, 140000);
+    const nc = { ...c, holdings: [...c.holdings] };
+    const noi = nc.holdings.length * rnd(60000, 140000);
     nc.cash += noi;
     if (nc.cash > 4e6 && Math.random() < 0.4) {
-      nc.units += 1;
+      const h = genRivalHolding(s.unlockedDistricts, occupied);
+      nc.holdings.push(h);
       nc.cash -= rnd(3, 5) * 1e6;
-      events.push({ t: `🏢 ${c.name} förvärvade en fastighet.`, kind: "event" });
+      events.push({
+        t: `🏢 ${c.name} förvärvade ${h.typeLabel.toLowerCase()} i ${h.districtName}.`,
+        kind: "event",
+        parcelId: h.parcelId,
+      });
     }
+    nc.units = nc.holdings.length;
     nc.equity = nc.cash + nc.units * rnd(4, 7) * 1e6;
     return nc;
   });
-  // Konkurrenter kan sno ett marknadsobjekt
+  // Konkurrenter kan sno ett marknadsobjekt – byggnaden byter ägare på kartan
   if (s.listings.length > 2 && Math.random() < 0.3) {
     const taken = pick(s.listings);
+    const buyerIdx = Math.floor(Math.random() * s.competitors.length);
     s.listings = s.listings.filter((x) => x.id !== taken.id);
+    s.competitors = s.competitors.map((c, i) => {
+      if (i !== buyerIdx) return c;
+      const holdings = [
+        ...c.holdings,
+        {
+          id: taken.id,
+          parcelId: taken.parcelId,
+          district: taken.district,
+          districtName: taken.districtName,
+          type: taken.type,
+          typeLabel: taken.typeLabel,
+          area: taken.area,
+        },
+      ];
+      return { ...c, holdings, units: holdings.length };
+    });
     events.push({
-      t: `🏷️ En konkurrent köpte ${taken.typeLabel} i ${taken.districtName} före dig.`,
+      t: `🏷️ ${s.competitors[buyerIdx].name} köpte ${taken.typeLabel} i ${taken.districtName} före dig.`,
       kind: "event",
       parcelId: taken.parcelId,
     });
@@ -104,6 +131,19 @@ export function advanceMonth(state: GameState): GameState {
     s.month = 1;
     s.year += 1;
     s.marketMod = +(s.marketMod * rnd(0.99, 1.04)).toFixed(3);
+  }
+
+  // Stadsexpansion: nytt distrikt öppnar när imperiet vuxit (eller med tiden).
+  if (
+    !s.unlockedDistricts.includes(EXPANSION_DISTRICT) &&
+    (equityOf(s) >= 30_000_000 || s.year >= 4)
+  ) {
+    s.unlockedDistricts = [...s.unlockedDistricts, EXPANSION_DISTRICT];
+    const name = DISTRICTS.find((d) => d.id === EXPANSION_DISTRICT)?.name ?? EXPANSION_DISTRICT;
+    events.push({
+      t: `🌆 Staden växer! ${name} öppnar för exploatering – nya objekt dyker upp på marknaden.`,
+      kind: "event",
+    });
   }
 
   const net = monthlyNOI - interest;

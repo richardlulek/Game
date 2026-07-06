@@ -75,3 +75,17 @@ describe("advanceMonth – konkurs", () => {
     expect(next.log[0].t).toContain("KONKURS");
   });
 });
+
+describe("stadsexpansion", () => {
+  it("låser upp Storängen när eget kapital passerar tröskeln", () => {
+    const p = makeProperty({ area: 1000, condition: 100 }); // värde ~40 MSEK
+    const next = advanceMonth(makeState({ portfolio: [p] }));
+    expect(next.unlockedDistricts).toContain("storängen");
+    expect(next.log.some((l) => l.t.includes("Storängen"))).toBe(true);
+  });
+
+  it("låser inte upp Storängen för ett litet imperium tidigt i spelet", () => {
+    const next = advanceMonth(makeState({ cash: 1_000_000, year: 1 }));
+    expect(next.unlockedDistricts).not.toContain("storängen");
+  });
+});

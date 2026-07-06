@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   claimFirstFreeParcel,
+  locationFactor,
   claimRandomParcel,
   districtsWithFreeParcels,
   DISTRICT_ZONES,
@@ -11,7 +12,7 @@ import {
 } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
 import { initState } from "../engine/initState";
-import { makeProperty, makeState } from "./factories";
+import { makeCompetitor, makeProperty, makeState } from "./factories";
 
 describe("stadskartan", () => {
   it("har unika parcel-id:n och positioner", () => {
@@ -54,6 +55,40 @@ describe("stadskartan", () => {
     const a = claimFirstFreeParcel("hamnen", new Set());
     const b = claimFirstFreeParcel("hamnen", new Set());
     expect(a.id).toBe(b.id);
+  });
+
+  it("locationFactor är högre i centrum än i utkanten och håller sig inom spannet", () => {
+    const central = locationFactor("centrum-12"); // mitt i Centrum (0,0)
+    const perifer = locationFactor("storängen-0");
+    expect(central).toBeGreaterThan(perifer);
+    for (const pc of PARCELS) {
+      const f = locationFactor(pc.id);
+      expect(f).toBeGreaterThanOrEqual(0.94);
+      expect(f).toBeLessThanOrEqual(1.12);
+    }
+    expect(locationFactor("okänd-ruta")).toBe(1);
+  });
+
+  it("usedParcelIds räknar även konkurrenternas innehav", () => {
+    const s = makeState({
+      competitors: [
+        makeCompetitor({
+          holdings: [
+            {
+              id: 900,
+              parcelId: "industri-3",
+              district: "industri",
+              districtName: "Industriområdet",
+              type: "industri",
+              typeLabel: "Industri/Lager",
+              area: 1000,
+            },
+          ],
+          units: 1,
+        }),
+      ],
+    });
+    expect(usedParcelIds(s).has("industri-3")).toBe(true);
   });
 
   it("usedParcelIds samlar rutor från portfölj, marknad och tomter", () => {

@@ -1,3 +1,4 @@
+import { locationFactor } from "../engine/city";
 import { kr, msek, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
 import { propAnnualOpex, propPotentialRent } from "../engine/property";
@@ -13,6 +14,7 @@ interface ListingCardProps {
 
 export function ListingCard({ p, state, dispatch }: ListingCardProps) {
   const noi = propPotentialRent(p, state) - propAnnualOpex(p, state);
+  const lf = locationFactor(p.parcelId);
   const y = noi / p.askPrice;
   const down = p.askPrice * (1 - loanTerms(state).maxLtv);
   const ok = state.cash >= down;
@@ -30,6 +32,13 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
       <div style={S.cardRow}>
         <span>Skick</span>
         <CondBar c={p.condition} />
+      </div>
+      <div style={S.cardRow}>
+        <span>Läge</span>
+        <strong style={{ color: lf >= 1 ? "#27660a" : "#c0392b" }}>
+          {lf >= 1 ? "+" : "−"}
+          {Math.abs(Math.round((lf - 1) * 100))} %
+        </strong>
       </div>
       <div style={S.cardRow}>
         <span>{p.tenant ? "Uthyrt till" : "Status"}</span>

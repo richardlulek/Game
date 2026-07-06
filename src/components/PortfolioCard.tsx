@@ -1,3 +1,4 @@
+import { locationFactor } from "../engine/city";
 import { kr, msek } from "../engine/format";
 import { propMarketValue, propNOI, propPotentialRent } from "../engine/property";
 import { PROP_TYPES, UPGRADES } from "../engine/data";
@@ -30,6 +31,7 @@ function DistrictLabel({ name, onLocate }: { name: string; onLocate?: () => void
 export function PortfolioCard({ p, state, dispatch, onLocate }: PortfolioCardProps) {
   const value = propMarketValue(p, state);
   const noi = propNOI(p, state);
+  const lf = locationFactor(p.parcelId);
 
   if (p.status === "bygger") {
     return (
@@ -74,6 +76,13 @@ export function PortfolioCard({ p, state, dispatch, onLocate }: PortfolioCardPro
       <div style={S.cardRow}>
         <span>Skick</span>
         <CondBar c={p.condition} />
+      </div>
+      <div style={S.cardRow}>
+        <span>Läge</span>
+        <strong style={{ color: lf >= 1 ? "#27660a" : "#c0392b" }}>
+          {lf >= 1 ? "+" : "−"}
+          {Math.abs(Math.round((lf - 1) * 100))} %
+        </strong>
       </div>
       {p.tenant ? (
         <div style={S.tenantBox}>

@@ -1,6 +1,7 @@
 /* Testhjälpare – bygger minimala, deterministiska tillstånd. */
 
-import type { GameState, Property, Tenant } from "../engine/types";
+import { START_DISTRICTS } from "../engine/data";
+import type { Competitor, GameState, Property, Tenant } from "../engine/types";
 
 export function makeState(over: Partial<GameState> = {}): GameState {
   return {
@@ -17,9 +18,21 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     listings: [],
     lots: [],
     competitors: [],
+    unlockedDistricts: [...START_DISTRICTS],
     log: [],
     history: [{ month: 0, equity: 5_000_000 }],
     gameOver: false,
+    ...over,
+  };
+}
+
+export function makeCompetitor(over: Partial<Competitor> = {}): Competitor {
+  return {
+    name: "Testbolaget AB",
+    cash: 5_000_000,
+    units: 0,
+    equity: 10_000_000,
+    holdings: [],
     ...over,
   };
 }
