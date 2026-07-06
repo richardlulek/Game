@@ -1,5 +1,7 @@
 import { Html, useCursor } from "@react-three/drei";
-import { useState } from "react";
+import { useFrame } from "@react-three/fiber";
+import { useLayoutEffect, useRef, useState } from "react";
+import { Color, type Group, type Mesh } from "three";
 import type { Parcel } from "../engine/city";
 import { parcelHash } from "../engine/city";
 import { PROP_TYPES } from "../engine/data";
@@ -16,17 +18,17 @@ export type ParcelContent =
   | { kind: "lotOwned"; lot: Lot };
 
 const FLOOR_HEIGHT = 3;
+const CRANE_COLOR = "#d98e2b";
 
 function floorsFor(area: number): number {
   return Math.max(1, Math.min(12, Math.round(area / 450)));
 }
 
-function buildingHeight(p: Property): number {
-  const full = floorsFor(p.area) * FLOOR_HEIGHT;
-  if (p.status !== "bygger") return full;
-  const total = PROP_TYPES[p.type].buildMonths;
-  const progress = 1 - p.buildLeft / total;
-  return Math.max(1.5, full * progress);
+/** Fasadfärg som mörknar/gråtonas när skicket sjunker. */
+function facadeColor(base: string, condition: number): string {
+  const c = new Color(base);
+  c.lerp(new Color("#6f6a61"), ((100 - condition) / 100) * 0.55);
+  return `#${c.getHexString()}`;
 }
 
 function tooltipFor(content: ParcelContent): { title: string; sub: string } {
@@ -69,6 +71,88 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   transform: "translateY(-6px)",
 };
 
+interface BuildingSpec {
+  w: number;
+  d: number;
+  fullH: number;
+  /** Andel av full höjd (byggprogression), 1 för färdig byggnad. */
+  targetScale: number;
+  color: string;
+}
+
+interface PointerHandlers {
+  onClick?: (e: { stopPropagation: () => void }) => void;
+  onPointerOver?: (e: { stopPropagation: () => void }) => void;
+  onPointerOut?: () => void;
+}
+
+/**
+ * Byggnadskropp med mjukt animerad höjd. Skalan sätts aldrig som
+ * React-prop – den ägs av useFrame så att månadsticks inte nollställer
+ * animationen. Nya byggnader växer upp ur marken vid mount.
+ */
+function AnimatedBuilding({
+  spec,
+  selected,
+  handlers,
+}: {
+  spec: BuildingSpec;
+  selected: boolean;
+  handlers: PointerHandlers;
+}) {
+  const ref = useRef<Mesh>(null);
+  useLayoutEffect(() => {
+    const m = ref.current;
+    if (m) {
+      m.scale.y = 0.05;
+      m.position.y = (spec.fullH * 0.05) / 2 + 0.04;
+    }
+  }, [spec.fullH]);
+  useFrame((_, dt) => {
+    const m = ref.current;
+    if (!m) return;
+    const next = m.scale.y + (spec.targetScale - m.scale.y) * Math.min(1, dt * 3);
+    m.scale.y = next;
+    m.position.y = (spec.fullH * next) / 2 + 0.04;
+  });
+  return (
+    <mesh ref={ref} castShadow receiveShadow {...handlers}>
+      <boxGeometry args={[spec.w, spec.fullH, spec.d]} />
+      <meshStandardMaterial
+        color={spec.color}
+        emissive={selected ? "#ffffff" : "#000000"}
+        emissiveIntensity={selected ? 0.18 : 0}
+      />
+    </mesh>
+  );
+}
+
+/** Byggkran med långsamt roterande arm – står vid pågående byggen. */
+function Crane({ towerH }: { towerH: number }) {
+  const jib = useRef<Group>(null);
+  useFrame((_, dt) => {
+    if (jib.current) jib.current.rotation.y += dt * 0.25;
+  });
+  return (
+    <group position={[11, 0, 11]}>
+      <mesh castShadow position={[0, towerH / 2, 0]}>
+        <boxGeometry args={[1, towerH, 1]} />
+        <meshStandardMaterial color={CRANE_COLOR} />
+      </mesh>
+      <group ref={jib} position={[0, towerH, 0]}>
+        <mesh castShadow position={[5.5, 0.4, 0]}>
+          <boxGeometry args={[13, 0.8, 0.8]} />
+          <meshStandardMaterial color={CRANE_COLOR} />
+        </mesh>
+        <mesh position={[10, -2.6, 0]}>
+          <boxGeometry args={[0.15, 5.2, 0.15]} />
+          <meshStandardMaterial color="#555555" />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 /** En tomtruta med ev. byggnad, markeringsring och hover-tooltip. */
 export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: ParcelContent }) {
   const selected = useUiStore((s) => s.selectedParcelId === parcel.id);
@@ -82,18 +166,26 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   const ambientFloors =
     1 + (hash % 4) + (parcel.district === "centrum" ? 2 : 0) + ((hash >> 8) % 3);
 
-  let building: { h: number; w: number; d: number; color: string } | null = null;
+  let building: BuildingSpec | null = null;
+  let underConstruction = false;
   if (content && "prop" in content) {
     const p = content.prop;
+    const fullH = floorsFor(p.area) * FLOOR_HEIGHT;
+    underConstruction = p.status === "bygger";
+    const progress = underConstruction
+      ? Math.max(0.08, 1 - p.buildLeft / PROP_TYPES[p.type].buildMonths)
+      : 1;
     building = {
-      h: buildingHeight(p),
+      fullH,
+      targetScale: progress,
       w: parcel.w - 4,
       d: parcel.d - 4,
-      color: p.status === "bygger" ? CONSTRUCTION : TYPE_COLORS[p.type],
+      color: underConstruction ? CONSTRUCTION : facadeColor(TYPE_COLORS[p.type], p.condition),
     };
   } else if (ambientBuilding) {
     building = {
-      h: ambientFloors * FLOOR_HEIGHT,
+      fullH: ambientFloors * FLOOR_HEIGHT,
+      targetScale: 1,
       w: parcel.w - 6 - (hash % 5),
       d: parcel.d - 6 - ((hash >> 4) % 5),
       color: AMBIENT_COLORS[(hash >> 2) % AMBIENT_COLORS.length],
@@ -105,14 +197,13 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   const vacantOwned =
     content?.kind === "owned" && content.prop.status === "klar" && !content.prop.tenant;
 
-  const interactive = !!content;
-  const handlers = interactive
+  const handlers: PointerHandlers = content
     ? {
-        onClick: (e: { stopPropagation: () => void }) => {
+        onClick: (e) => {
           e.stopPropagation();
           select(parcel.id);
         },
-        onPointerOver: (e: { stopPropagation: () => void }) => {
+        onPointerOver: (e) => {
           e.stopPropagation();
           setHovered(true);
         },
@@ -132,24 +223,20 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
           <meshBasicMaterial color={ringColor} />
         </mesh>
       )}
-      {building && (
-        <mesh castShadow receiveShadow position={[0, building.h / 2 + 0.04, 0]} {...handlers}>
-          <boxGeometry args={[building.w, building.h, building.d]} />
-          <meshStandardMaterial
-            color={building.color}
-            emissive={selected ? "#ffffff" : "#000000"}
-            emissiveIntensity={selected ? 0.18 : 0}
-          />
-        </mesh>
-      )}
+      {building && <AnimatedBuilding spec={building} selected={selected} handlers={handlers} />}
+      {underConstruction && building && <Crane towerH={building.fullH + 7} />}
       {vacantOwned && building && (
-        <mesh position={[0, building.h + 1.2, 0]}>
+        <mesh position={[0, building.fullH + 1.2, 0]}>
           <boxGeometry args={[1.7, 1.7, 1.7]} />
           <meshBasicMaterial color="#d23f2e" />
         </mesh>
       )}
       {hovered && content && (
-        <Html position={[0, (building?.h ?? 0) + 5, 0]} center zIndexRange={[40, 0]}>
+        <Html
+          position={[0, (building ? building.fullH * building.targetScale : 0) + 5, 0]}
+          center
+          zIndexRange={[40, 0]}
+        >
           <div style={TOOLTIP_STYLE}>
             <strong>{tooltipFor(content).title}</strong>
             <br />

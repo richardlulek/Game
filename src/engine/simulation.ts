@@ -1,6 +1,7 @@
 /* ============================================================
    Månadssimulering – kärnan i spelloopen.
-   Logiken är oförändrad från prototypen.
+   Logiken är oförändrad från prototypen; händelser som gäller en
+   specifik fastighet bär parcelId så att kartan kan markera dem.
    ============================================================ */
 
 import { EVENTS } from "./data";
@@ -26,6 +27,7 @@ export function advanceMonth(state: GameState): GameState {
         events.push({
           t: `🏗️ Nyproduktion klar: ${np.typeLabel} i ${np.districtName}.`,
           kind: "income",
+          parcelId: np.parcelId,
         });
       }
       return np;
@@ -40,6 +42,7 @@ export function advanceMonth(state: GameState): GameState {
         events.push({
           t: `⚠️ ${np.tenant.name} i ${np.districtName} gick i konkurs. Lokalen är nu vakant.`,
           kind: "expense",
+          parcelId: np.parcelId,
         });
         np.tenant = null;
       } else {
@@ -48,6 +51,7 @@ export function advanceMonth(state: GameState): GameState {
           events.push({
             t: `📄 Kontraktet med ${np.tenant.name} i ${np.districtName} löpte ut.`,
             kind: "info",
+            parcelId: np.parcelId,
           });
           np.tenant = null;
         } else {
@@ -90,6 +94,7 @@ export function advanceMonth(state: GameState): GameState {
     events.push({
       t: `🏷️ En konkurrent köpte ${taken.typeLabel} i ${taken.districtName} före dig.`,
       kind: "event",
+      parcelId: taken.parcelId,
     });
   }
 

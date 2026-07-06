@@ -19,6 +19,11 @@ npm run dev        # http://localhost:5173
   Spelet autosparas varje månad medan klockan går.
 - **Sidopanelen** visar det valda objektets kort (köp, hyr ut, uppgradera, bygg, sälj) samt
   flikar för portfölj, finans, konkurrenter och händelser.
+- **Händelser syns på kartan**: nya händelser får en tillfällig markör över byggnaden –
+  klicka på den (eller på en 📍-rad i händelseloggen, eller 📍 på ett portföljkort) så
+  glider kameran dit och objektet väljs.
+- **Pågående byggen** har byggkran och en stomme som växer månad för månad; fasader
+  mörknar när skicket sjunker.
 - **↻ Nya objekt på marknaden** byter ut utbudet av fastigheter och tomter.
 
 ## Kommandon
@@ -77,9 +82,9 @@ Spelet sparas i `localStorage` under nyckeln `fastighetsimperium:save`. Sparfile
 versionerade (`SAVE_VERSION`, nu v3) med migreringar – v2-sparfiler får automatiskt
 platser på stadskartan vid laddning.
 
-## Nästa steg (fas 2+)
+## Nästa steg (fas 3+)
 
-- Visuellt liv: byggkranar, interpolerad byggprogression, händelsemarkörer på kartan.
 - Konkurrenternas innehav synliga på kartan (kräver riktiga innehav i `Competitor`).
 - Lägesbaserad ekonomi: närhet till centrum påverkar hyra och värde.
+- Stadsexpansion: nya distrikt öppnas när staden växer.
 - Riktiga low-poly-modeller (glTF, t.ex. Kenney City Kit) istället för lådor.

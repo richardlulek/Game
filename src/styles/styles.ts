@@ -116,6 +116,7 @@ export const S: Record<string, CSSProperties> = {
     borderRadius: 6,
   },
   cardDistrict: { fontSize: 13, color: "#888", fontWeight: 600 },
+  locateBtn: { background: "none", border: "none", fontSize: 14, padding: "0 0 0 6px" },
   cardValue: { fontSize: 22, fontWeight: 800, marginBottom: 10 },
   cardRow: {
     display: "flex",

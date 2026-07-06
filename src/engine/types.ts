@@ -113,6 +113,8 @@ export interface Competitor {
 export interface LogEntry {
   t: string;
   kind: LogKind;
+  /** Tomtruta händelsen gäller – gör den lokaliserbar på kartan. */
+  parcelId?: string;
 }
 
 /** En punkt i utvecklingen av eget kapital. */

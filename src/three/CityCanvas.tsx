@@ -5,7 +5,9 @@ import { DISTRICT_ZONES, PARCELS } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
+import { CameraRig } from "./CameraRig";
 import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
+import { EventMarkers } from "./EventMarkers";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
 
@@ -107,6 +109,8 @@ export function CityCanvas() {
       </mesh>
       <DistrictPlates />
       <CityParcels />
+      <EventMarkers />
+      <CameraRig />
     </Canvas>
   );
 }

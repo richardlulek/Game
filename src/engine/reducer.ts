@@ -45,6 +45,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           {
             t: `Köpte ${p.typeLabel} i ${p.districtName} för ${msek(p.askPrice)} (lån ${msek(loan)}).`,
             kind: "buy",
+            parcelId: p.parcelId,
           },
           ...state.log,
         ],
@@ -64,6 +65,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           {
             t: `Sålde ${p.typeLabel} i ${p.districtName} för ${msek(value)} (netto ${msek(value - payoff)}).`,
             kind: "sell",
+            parcelId: p.parcelId,
           },
           ...state.log,
         ],
@@ -86,7 +88,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) => (x.id === p.id ? np : x)),
         log: [
-          { t: `${u.name} på ${p.typeLabel} i ${p.districtName} (${msek(cost)}).`, kind: "upg" },
+          {
+            t: `${u.name} på ${p.typeLabel} i ${p.districtName} (${msek(cost)}).`,
+            kind: "upg",
+            parcelId: p.parcelId,
+          },
           ...state.log,
         ],
       };
@@ -103,6 +109,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           {
             t: `Tecknade hyresavtal: ${tenant.name} i ${p.districtName}, ${tenant.termTotal} mån, ${kr(tenant.rent)}/mån.`,
             kind: "buy",
+            parcelId: p.parcelId,
           },
           ...state.log,
         ],
@@ -120,6 +127,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           {
             t: `Köpte tomt i ${lot.districtName} (${lot.area} m²) för ${msek(lot.price)}.`,
             kind: "buy",
+            parcelId: lot.parcelId,
           },
           ...state.log,
         ],
@@ -168,6 +176,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           {
             t: `Påbörjade nyproduktion (${t.label}) i ${lot.districtName}. Klart om ${t.buildMonths} mån.`,
             kind: "upg",
+            parcelId: lot.parcelId,
           },
           ...state.log,
         ],

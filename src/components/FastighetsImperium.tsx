@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { kr, msek, pct } from "../engine/format";
 import { propNOI } from "../engine/property";
+import { useEventMarkers } from "../hooks/useEventMarkers";
 import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
@@ -25,9 +26,17 @@ export default function FastighetsImperium() {
   const save = useGameStore((s) => s.save);
   const load = useGameStore((s) => s.load);
   const select = useUiStore((s) => s.select);
+  const requestFocus = useUiStore((s) => s.requestFocus);
 
   // Spelklockan – rullande månadsticks med autospar (fas 0.5).
   useGameClock();
+  // Kartmarkörer för nya logghändelser (fas 2).
+  useEventMarkers();
+
+  const locate = (parcelId: string) => {
+    select(parcelId);
+    requestFocus(parcelId);
+  };
 
   const [tab, setTab] = useState("portfolio");
   const [saved, setSaved] = useState(false);
@@ -146,7 +155,13 @@ export default function FastighetsImperium() {
                   </div>
                 )}
                 {state.portfolio.map((p) => (
-                  <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
+                  <PortfolioCard
+                    key={p.id}
+                    p={p}
+                    state={state}
+                    dispatch={dispatch}
+                    onLocate={() => locate(p.parcelId)}
+                  />
                 ))}
               </div>
             )}
@@ -163,7 +178,7 @@ export default function FastighetsImperium() {
               </div>
             )}
             {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
-            {tab === "log" && <LogPanel log={state.log} />}
+            {tab === "log" && <LogPanel log={state.log} onLocate={locate} />}
           </div>
         </aside>
       </div>

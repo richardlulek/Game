@@ -10,18 +10,33 @@ interface PortfolioCardProps {
   p: Property;
   state: GameState;
   dispatch: (action: GameAction) => void;
+  /** Om satt visas en 📍-knapp som fokuserar fastigheten på kartan. */
+  onLocate?: () => void;
 }
 
-export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
+function DistrictLabel({ name, onLocate }: { name: string; onLocate?: () => void }) {
+  return (
+    <span style={S.cardDistrict}>
+      {name}
+      {onLocate && (
+        <button style={S.locateBtn} title="Visa på kartan" onClick={onLocate}>
+          📍
+        </button>
+      )}
+    </span>
+  );
+}
+
+export function PortfolioCard({ p, state, dispatch, onLocate }: PortfolioCardProps) {
   const value = propMarketValue(p, state);
   const noi = propNOI(p, state);
 
   if (p.status === "bygger") {
     return (
-      <div style={{ ...S.card, borderColor: BURGUNDY + "55" }}>
+      <div style={{ ...S.card, border: `1px solid ${BURGUNDY}55` }}>
         <div style={S.cardHead}>
           <span style={S.badge}>{p.typeLabel}</span>
-          <span style={S.cardDistrict}>{p.districtName}</span>
+          <DistrictLabel name={p.districtName} onLocate={onLocate} />
         </div>
         <div style={{ ...S.cardValue, color: BURGUNDY }}>🏗️ Bygger</div>
         <div style={S.cardRow}>
@@ -49,7 +64,7 @@ export function PortfolioCard({ p, state, dispatch }: PortfolioCardProps) {
     <div style={S.card}>
       <div style={S.cardHead}>
         <span style={S.badge}>{p.typeLabel}</span>
-        <span style={S.cardDistrict}>{p.districtName}</span>
+        <DistrictLabel name={p.districtName} onLocate={onLocate} />
       </div>
       <div style={S.cardValue}>{msek(value)}</div>
       <div style={S.cardRow}>
