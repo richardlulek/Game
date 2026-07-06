@@ -1,0 +1,100 @@
+/* ============================================================
+   Layoutstilar för 3D-skalet: toppbar, kartyta och sidopanel.
+   Kortens och panelernas stilar bor kvar i styles.ts (S).
+   ============================================================ */
+
+import type { CSSProperties } from "react";
+import { BURGUNDY } from "./tokens";
+
+export const L: Record<string, CSSProperties> = {
+  app: {
+    fontFamily: "'Inter', system-ui, sans-serif",
+    color: "#1a1a1a",
+    background: "#faf8f6",
+    height: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+  topbar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 18,
+    padding: "10px 16px",
+    borderBottom: "1px solid #e7e2dc",
+    background: "#fff",
+    flexWrap: "wrap",
+  },
+  title: { fontSize: 20, fontWeight: 800, letterSpacing: -0.5, margin: 0, whiteSpace: "nowrap" },
+  subtitle: {
+    color: "#999",
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  statStrip: {
+    display: "flex",
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+    overflowX: "auto",
+    alignItems: "stretch",
+  },
+  main: { display: "flex", flex: 1, minHeight: 0 },
+  canvasWrap: { position: "relative", flex: 1, minWidth: 0 },
+  sidebar: {
+    width: 360,
+    borderLeft: "1px solid #e7e2dc",
+    background: "#faf8f6",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+  },
+  sidebarSelection: { padding: 14, borderBottom: "1px solid #e7e2dc" },
+  sidebarTabs: { padding: "0 14px" },
+  sidebarContent: { flex: 1, overflowY: "auto", padding: 14 },
+  ticker: {
+    position: "absolute",
+    left: 12,
+    bottom: 12,
+    right: 12,
+    background: "rgba(255,255,255,0.88)",
+    border: "1px solid #e7e2dc",
+    borderRadius: 8,
+    padding: "7px 12px",
+    fontSize: 12.5,
+    color: "#444",
+    pointerEvents: "none",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  refreshFab: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    background: "#fff",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    padding: "8px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  gameOverWrap: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(26,26,26,0.45)",
+  },
+  gameOverBox: {
+    background: "#fff",
+    borderTop: `4px solid ${BURGUNDY}`,
+    borderRadius: 12,
+    padding: "24px 32px",
+    textAlign: "center",
+    fontSize: 15,
+    boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
+  },
+};

@@ -1,19 +1,25 @@
 # Fastighetsimperium
 
-Ett Capitalism-Lab-inspirerat fastighetsspel på svenska. Förvärva, bygg, förvalta och
-dominera marknaden mot AI-konkurrenter.
-
-> **Fristående app.** Denna mapp är helt frikopplad från Estera-webbplatsen i repo-roten
-> – egen `package.json`, egna beroenden och egen byggkedja. Inget här importeras av eller
-> påverkar Estera-plattformen.
+Ett Capitalism-Lab-inspirerat fastighetsspel på svenska i 3D. Förvärva, bygg, förvalta och
+dominera marknaden mot AI-konkurrenter – på en levande stadskarta med rullande tid.
 
 ## Kom igång
 
 ```bash
-cd game
 npm install
 npm run dev        # http://localhost:5173
 ```
+
+## Så spelar du
+
+- **Kartan** är spelet: klicka på en byggnad eller tomt för att välja den.
+  - 🟡 Gul ring = till salu · 🔴 Burgundy ring = din · 🟢 Grön ring = byggbar tomt
+  - Röd markör på taket = vakant lokal (hyr ut!). Grå hus ägs av andra och kan inte köpas.
+- **Tiden rullar**: ► Spela startar klockan (1×/2×/4×), ❚❚ pausar, ⏭ stegar en månad i pausläge.
+  Spelet autosparas varje månad medan klockan går.
+- **Sidopanelen** visar det valda objektets kort (köp, hyr ut, uppgradera, bygg, sälj) samt
+  flikar för portfölj, finans, konkurrenter och händelser.
+- **↻ Nya objekt på marknaden** byter ut utbudet av fastigheter och tomter.
 
 ## Kommandon
 
@@ -31,35 +37,49 @@ npm run dev        # http://localhost:5173
 
 ```
 src/
-  engine/      Ren, typad spellogik – inga React-beroenden
+  engine/      Ren, typad spellogik – inga React- eller Three-beroenden
     types.ts       Domäntyper (Property, Tenant, District, Lot, Competitor, GameState ...)
+    city.ts        Stadskartan: distriktszoner + tomtrutor (parcels), deterministisk layout
     data.ts        Konstanter (DISTRICTS, PROP_TYPES, UPGRADES, TENANT_PROFILES, EVENTS)
     format.ts      kr / msek / pct
     random.ts      rnd / pick / newId (+ syncIdCounter)
     property.ts    propMarketValue, propAnnualRent, propAnnualOpex, propNOI ...
     finance.ts     loanTerms, portfolioValue, equityOf, ltvOf
-    generators.ts  makeTenant, genListing, genLot
+    generators.ts  makeTenant, genListing, genLot (placerar objekt på lediga tomtrutor)
     reducer.ts     Alla spelhändelser (köp, sälj, bygg ...)
     simulation.ts  advanceMonth (månadsloopen)
     initState.ts   Startläge
-  store/       Zustand-store (wrappar reducern) + localStorage-persistens med versionering
-  components/  UI uppbrutet i fristående filer (kort, paneler, diagram ...)
-  styles/      Designtokens (#800020), stilobjekt och global CSS
-  __tests__/   Enhetstester för ekonomifunktionerna
+  store/       Zustand-store (reducer + spelklocka) + localStorage-persistens med versionering
+  hooks/       useGameClock – rullande månadsticks med fast tidssteg och autospar
+  three/       3D-vyn (React Three Fiber): CityCanvas, ParcelNode, färgpalett
+  components/  UI: sidopanelens kort och paneler, klockkontroller, appskalet
+  styles/      Designtokens (#800020), kortstilar (S), layoutstilar (L) och global CSS
+  __tests__/   Enhetstester för ekonomi, simulering, stadskarta och persistens
 ```
 
-### Spellogiken
+### Principen: 3D-vyn är bara en renderare
 
-All ekonomi ligger i `src/engine/` som rena TypeScript-funktioner utan UI-beroenden, vilket
-gör den enkel att testa och vidareutveckla. UI-lagret läser tillstånd från Zustand-storen och
-skickar `GameAction`-objekt genom den rena reducern.
+All spellogik ligger i `src/engine/` som rena TypeScript-funktioner utan UI-beroenden.
+3D-vyn (`src/three/`) läser `GameState` och ritar den – den äger ingen egen speldata.
+Kopplingen är `parcelId`: varje fastighet/tomt refererar en tomtruta på den
+deterministiska stadskartan i `engine/city.ts`.
+
+### Spelklockan
+
+`hooks/useGameClock.ts` driver månadsticks med fast tidssteg (ackumulator ovanpå
+`requestAnimationFrame`). En dold flik ger ingen "catch-up" – dt klipps – och spelet
+autosparas varje månad. Klockans läge (paus/hastighet) bor i Zustand-storen; motorns
+`advanceMonth` är oförändrat den enda vägen framåt i tiden.
 
 ### Persistens
 
 Spelet sparas i `localStorage` under nyckeln `fastighetsimperium:save`. Sparfiler är
-versionerade (`SAVE_VERSION`) med stöd för migreringar, och id-räknaren synkas vid laddning så
-att nya objekt aldrig krockar med sparade.
+versionerade (`SAVE_VERSION`, nu v3) med migreringar – v2-sparfiler får automatiskt
+platser på stadskartan vid laddning.
 
-## Nästa steg
+## Nästa steg (fas 2+)
 
-- Kartbaserad vy (distrikt/tomter på en karta, à la Capitalism Lab).
+- Visuellt liv: byggkranar, interpolerad byggprogression, händelsemarkörer på kartan.
+- Konkurrenternas innehav synliga på kartan (kräver riktiga innehav i `Competitor`).
+- Lägesbaserad ekonomi: närhet till centrum påverkar hyra och värde.
+- Riktiga low-poly-modeller (glTF, t.ex. Kenney City Kit) istället för lådor.

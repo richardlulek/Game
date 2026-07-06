@@ -52,8 +52,9 @@ describe("persistens", () => {
 
   it("migrerar v2-sparfil: alla objekt får en giltig, unik parcelId", () => {
     const strip = <T extends { parcelId: string }>(o: T): Omit<T, "parcelId"> => {
-      const { parcelId: _ignored, ...rest } = o;
-      return rest;
+      const rest: Record<string, unknown> = { ...o };
+      delete rest.parcelId;
+      return rest as Omit<T, "parcelId">;
     };
     const state = makeState({
       portfolio: [strip(makeProperty({ id: 1, district: "centrum" }))],

@@ -101,9 +101,7 @@ export function usedParcelIds(
 
 /** Distrikt som har minst en ledig tomtruta. */
 export function districtsWithFreeParcels(occupied: Set<string>): string[] {
-  return ZONES.map((z) => z.district).filter((d) =>
-    parcelsIn(d).some((p) => !occupied.has(p.id)),
-  );
+  return ZONES.map((z) => z.district).filter((d) => parcelsIn(d).some((p) => !occupied.has(p.id)));
 }
 
 /**
