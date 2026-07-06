@@ -34,6 +34,11 @@ export const PAD = "#d6d3ca";
 export const SKY = "#dfe9f0";
 export const WATER = "#7fa8c4";
 export const CONSTRUCTION = "#c9bda2";
+export const ROAD = "#767d82";
+export const ROAD_DASH = "#e8e5da";
+export const TREE_TRUNK = "#7a5a3a";
+export const TREE_GREENS = ["#5e7f4e", "#6f8f57", "#54754a"];
+export const CAR_COLORS = ["#b6413a", "#3c6ca8", "#d9d9d9", "#3f3f3f", "#c9a13b", "#5a7f66"];
 
 /** Subtil zonton per distrikt. */
 export const DISTRICT_TINTS: Record<string, string> = {

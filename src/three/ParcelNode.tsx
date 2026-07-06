@@ -1,7 +1,7 @@
 import { Html, useCursor } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useRef, useState } from "react";
-import { Color, type Group, type Mesh } from "three";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Color, MeshStandardMaterial, type Group, type Mesh } from "three";
 import type { Parcel } from "../engine/city";
 import { parcelHash } from "../engine/city";
 import { PROP_TYPES } from "../engine/data";
@@ -14,8 +14,11 @@ import {
   PAD,
   RING_COLORS,
   RIVAL_COLORS,
+  TREE_GREENS,
+  TREE_TRUNK,
   TYPE_COLORS,
 } from "./colors";
+import { windowTexture } from "./textures";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
@@ -100,17 +103,53 @@ interface PointerHandlers {
  * Byggnadskropp med mjukt animerad höjd. Skalan sätts aldrig som
  * React-prop – den ägs av useFrame så att månadsticks inte nollställer
  * animationen. Nya byggnader växer upp ur marken vid mount.
+ * Färdiga hus får procedurell fönstertextur på fasaderna och mörkare tak.
  */
 function AnimatedBuilding({
   spec,
   selected,
   handlers,
+  windows,
 }: {
   spec: BuildingSpec;
   selected: boolean;
   handlers: PointerHandlers;
+  windows: boolean;
 }) {
   const ref = useRef<Mesh>(null);
+
+  const { side, top } = useMemo(() => {
+    const sideMat = new MeshStandardMaterial({ color: spec.color });
+    if (windows) {
+      const floors = Math.max(1, Math.round(spec.fullH / FLOOR_HEIGHT));
+      const cols = Math.max(2, Math.round(spec.w / 5));
+      sideMat.map = windowTexture(cols, floors);
+    }
+    const topMat = new MeshStandardMaterial({
+      color: new Color(spec.color).multiplyScalar(0.72),
+    });
+    return { side: sideMat, top: topMat };
+  }, [spec.color, spec.fullH, spec.w, windows]);
+
+  useEffect(
+    () => () => {
+      side.map?.dispose();
+      side.dispose();
+      top.dispose();
+    },
+    [side, top],
+  );
+
+  useEffect(() => {
+    for (const m of [side, top]) {
+      m.emissive.set(selected ? "#ffffff" : "#000000");
+      m.emissiveIntensity = selected ? 0.18 : 0;
+    }
+  }, [selected, side, top]);
+
+  // Materialordning för boxGeometry: +x, −x, +y (tak), −y, +z, −z.
+  const materials = useMemo(() => [side, side, top, top, side, side], [side, top]);
+
   useLayoutEffect(() => {
     const m = ref.current;
     if (m) {
@@ -126,14 +165,46 @@ function AnimatedBuilding({
     m.position.y = (spec.fullH * next) / 2 + 0.04;
   });
   return (
-    <mesh ref={ref} castShadow receiveShadow {...handlers}>
+    <mesh ref={ref} material={materials} castShadow receiveShadow {...handlers}>
       <boxGeometry args={[spec.w, spec.fullH, spec.d]} />
-      <meshStandardMaterial
-        color={spec.color}
-        emissive={selected ? "#ffffff" : "#000000"}
-        emissiveIntensity={selected ? 0.18 : 0}
-      />
     </mesh>
+  );
+}
+
+/** Ett enkelt lågpolyträd. */
+function Tree({ x, z, scale, green }: { x: number; z: number; scale: number; green: string }) {
+  return (
+    <group position={[x, 0, z]} scale={scale}>
+      <mesh castShadow position={[0, 1.1, 0]}>
+        <cylinderGeometry args={[0.35, 0.5, 2.2, 6]} />
+        <meshStandardMaterial color={TREE_TRUNK} />
+      </mesh>
+      <mesh castShadow position={[0, 3.5, 0]}>
+        <coneGeometry args={[2.5, 4.6, 7]} />
+        <meshStandardMaterial color={green} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Träddunge på obebyggda rutor – gör tomrummen till små parker. */
+function ParcelTrees({ hash }: { hash: number }) {
+  const trees = 1 + (hash % 2);
+  return (
+    <>
+      {Array.from({ length: trees }, (_, i) => {
+        const h = (hash >> (i * 5 + 3)) & 0xff;
+        return (
+          <Tree
+            key={i}
+            x={((h % 13) - 6) * 0.9}
+            z={(((h >> 3) % 13) - 6) * 0.9}
+            scale={0.85 + ((h >> 5) % 4) * 0.12}
+            green={TREE_GREENS[(h >> 2) % TREE_GREENS.length]}
+          />
+        );
+      })}
+    </>
   );
 }
 
@@ -229,11 +300,13 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       }
     : {};
 
+  const isPark = !building && !content;
+
   return (
     <group position={[parcel.x, 0, parcel.z]}>
       <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, 0.04, 0]} {...handlers}>
         <planeGeometry args={[parcel.w + 5, parcel.d + 5]} />
-        <meshStandardMaterial color={PAD} />
+        <meshStandardMaterial color={isPark ? "#c3cdb4" : PAD} />
       </mesh>
       {ringColor && (
         <mesh rotation-x={-Math.PI / 2} position={[0, 0.09, 0]}>
@@ -241,7 +314,15 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
           <meshBasicMaterial color={ringColor} />
         </mesh>
       )}
-      {building && <AnimatedBuilding spec={building} selected={selected} handlers={handlers} />}
+      {building && (
+        <AnimatedBuilding
+          spec={building}
+          selected={selected}
+          handlers={handlers}
+          windows={!underConstruction}
+        />
+      )}
+      {isPark && <ParcelTrees hash={hash} />}
       {underConstruction && building && <Crane towerH={building.fullH + 7} />}
       {vacantOwned && building && (
         <mesh position={[0, building.fullH + 1.2, 0]}>

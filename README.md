@@ -31,6 +31,9 @@ npm run dev        # http://localhost:5173
 - **Staden växer**: distriktet Storängen är låst (🔒) tills ditt imperium nått
   30 MSEK i eget kapital (eller år 4) – då öppnar det för exploatering.
 - **↻ Nya objekt på marknaden** byter ut utbudet av fastigheter och tomter.
+- **Staden lever**: huvudvägar binder ihop distrikten med pendlande trafik, husen har
+  procedurella fönsterfasader (ritade på canvas – inga externa 3D-assets) och
+  obebyggda tomter blir små parker med träd.
 
 ## Kommandon
 
@@ -88,9 +91,10 @@ Spelet sparas i `localStorage` under nyckeln `fastighetsimperium:save`. Sparfile
 versionerade (`SAVE_VERSION`, nu v3) med migreringar – v2-sparfiler får automatiskt
 platser på stadskartan vid laddning.
 
-## Nästa steg (fas 4+)
+## Nästa steg (fas 5+)
 
-- Riktiga low-poly-modeller (glTF, t.ex. Kenney City Kit) istället för lådor.
-- Ljud och fler animationer (trafik, dag/natt-cykel).
 - Budgivning mot konkurrenter om marknadsobjekt.
+- Dag/natt-cykel med tända fönster (fönstertexturen kan få emissive-variant).
+- Ljud och ambient stadsljud.
 - Fler expansionsdistrikt och distriktsutveckling (gentrifiering).
+- Riktiga glTF-modeller (t.ex. Kenney City Kit) om lådstilen ska ersättas.

@@ -10,6 +10,7 @@ import { DISTRICT_TINTS, GROUND, LOCKED_TINT, SKY, WATER } from "./colors";
 import { EventMarkers } from "./EventMarkers";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
+import { Roads } from "./Roads";
 
 const LABEL_STYLE: React.CSSProperties = {
   pointerEvents: "none",
@@ -90,7 +91,8 @@ export function CityCanvas() {
     >
       <color attach="background" args={[SKY]} />
       <fog attach="fog" args={[SKY, 700, 1700]} />
-      <ambientLight intensity={0.75} />
+      <ambientLight intensity={0.6} />
+      <hemisphereLight args={["#dfe9f0", "#8a917f", 0.45]} />
       <directionalLight
         position={[240, 320, 140]}
         intensity={1.15}
@@ -120,6 +122,7 @@ export function CityCanvas() {
         <planeGeometry args={[520, 160]} />
         <meshStandardMaterial color={WATER} />
       </mesh>
+      <Roads />
       <DistrictPlates />
       <CityParcels />
       <EventMarkers />
