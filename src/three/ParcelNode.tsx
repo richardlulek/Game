@@ -8,22 +8,9 @@ import { PROP_TYPES } from "../engine/data";
 import { msek } from "../engine/format";
 import type { Lot, Property, PropTypeKey } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
-import {
-  AMBIENT_COLORS,
-  CONSTRUCTION,
-  PAD,
-  RING_COLORS,
-  RIVAL_COLORS,
-  TREE_GREENS,
-  TREE_TRUNK,
-  TYPE_COLORS,
-} from "./colors";
-import {
-  ConstructionShell,
-  FLOOR_HEIGHT,
-  TypedBuilding,
-  type PointerHandlers,
-} from "./BuildingShapes";
+import { CONSTRUCTION, RING_COLORS, RIVAL_COLORS, TREE_GREENS, TREE_TRUNK, TYPE_COLORS } from "./colors";
+import { ConstructionShell, FLOOR_HEIGHT, GrowIn, type PointerHandlers } from "./BuildingShapes";
+import { DistrictBuilding, ambientColorFor, districtFloors } from "./districtBuildings";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
@@ -35,43 +22,22 @@ export type ParcelContent =
 
 const CRANE_COLOR = "#d98e2b";
 
-function floorsFor(area: number): number {
-  return Math.max(1, Math.min(12, Math.round(area / 450)));
-}
+/** Markfärg per distrikt: gårdssten i stan, gräs i ytterområdena. */
+const PLOT_COLORS: Record<string, string> = {
+  centrum: "#cfccc2",
+  finans: "#c6c9cc",
+  innerstad: "#ccc8bc",
+  hamnen: "#b8b8ae",
+  industri: "#a8a69a",
+  förort: "#a9b892",
+  kulle: "#adbb95",
+};
 
 /** Fasadfärg som mörknar/gråtonas när skicket sjunker. */
 function facadeColor(base: string, condition: number): string {
   const c = new Color(base);
   c.lerp(new Color("#6f6a61"), ((100 - condition) / 100) * 0.55);
   return `#${c.getHexString()}`;
-}
-
-/** Distriktstypisk bebyggelse för dekorativa rutor. */
-function ambientType(district: string, hash: number): PropTypeKey {
-  const r = hash % 100;
-  switch (district) {
-    case "kulle":
-      return "bostad"; // villakvarter
-    case "centrum":
-      return r < 50 ? "kontor" : r < 80 ? "butik" : "bostad";
-    case "industri":
-      return r < 75 ? "industri" : "kontor";
-    case "hamnen":
-      return r < 40 ? "industri" : r < 70 ? "kontor" : "butik";
-    default:
-      return r < 55 ? "bostad" : r < 80 ? "butik" : "industri"; // förort
-  }
-}
-
-function ambientFloors(district: string, hash: number): number {
-  switch (district) {
-    case "kulle":
-      return 1 + (hash % 2); // villor
-    case "centrum":
-      return 3 + (hash % 6);
-    default:
-      return 1 + (hash % 4);
-  }
 }
 
 function tooltipFor(content: ParcelContent): { title: string; sub: string } {
@@ -125,7 +91,7 @@ function Crane({ towerH }: { towerH: number }) {
     if (jib.current) jib.current.rotation.y += dt * 0.25;
   });
   return (
-    <group position={[11, 0, 11]}>
+    <group position={[9, 0, 9]}>
       <mesh castShadow position={[0, towerH / 2, 0]}>
         <boxGeometry args={[1, towerH, 1]} />
         <meshStandardMaterial color={CRANE_COLOR} />
@@ -144,44 +110,35 @@ function Crane({ towerH }: { towerH: number }) {
   );
 }
 
-/** Ett enkelt lågpolyträd. */
-function Tree({ x, z, scale, green }: { x: number; z: number; scale: number; green: string }) {
-  return (
-    <group position={[x, 0, z]} scale={scale}>
-      <mesh castShadow position={[0, 1.1, 0]}>
-        <cylinderGeometry args={[0.35, 0.5, 2.2, 6]} />
-        <meshStandardMaterial color={TREE_TRUNK} />
-      </mesh>
-      <mesh castShadow position={[0, 3.5, 0]}>
-        <coneGeometry args={[2.5, 4.6, 7]} />
-        <meshStandardMaterial color={green} />
-      </mesh>
-    </group>
-  );
-}
-
 /** Träddunge på obebyggda rutor – gör tomrummen till små parker. */
-function ParcelTrees({ hash }: { hash: number }) {
-  const trees = 1 + (hash % 2);
+function ParcelTrees({ hash, w, d }: { hash: number; w: number; d: number }) {
+  const trees = 1 + (hash % 3);
   return (
     <>
       {Array.from({ length: trees }, (_, i) => {
         const h = (hash >> (i * 5 + 3)) & 0xff;
         return (
-          <Tree
+          <group
             key={i}
-            x={((h % 13) - 6) * 0.9}
-            z={(((h >> 3) % 13) - 6) * 0.9}
+            position={[(((h % 13) - 6) / 13) * w * 0.7, 0, ((((h >> 3) % 13) - 6) / 13) * d * 0.7]}
             scale={0.85 + ((h >> 5) % 4) * 0.12}
-            green={TREE_GREENS[(h >> 2) % TREE_GREENS.length]}
-          />
+          >
+            <mesh castShadow position={[0, 1.1, 0]}>
+              <cylinderGeometry args={[0.35, 0.5, 2.2, 6]} />
+              <meshStandardMaterial color={TREE_TRUNK} />
+            </mesh>
+            <mesh castShadow position={[0, 3.5, 0]}>
+              <coneGeometry args={[2.5, 4.6, 7]} />
+              <meshStandardMaterial color={TREE_GREENS[(h >> 2) % TREE_GREENS.length]} />
+            </mesh>
+          </group>
         );
       })}
     </>
   );
 }
 
-/** En tomtruta med trottoarkant, ev. byggnad, markeringsring och tooltip. */
+/** En tomtruta: markplatta, trottoar mot gatan, byggnad, ring, tooltip. */
 export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: ParcelContent }) {
   const selected = useUiStore((s) => s.selectedParcelId === parcel.id);
   const select = useUiStore((s) => s.select);
@@ -190,7 +147,14 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   useCursor(hovered && !!content);
 
   const hash = parcelHash(parcel.id);
-  const hasAmbient = !content && hash % 100 < 58;
+  // Täta distrikt fylls nästan helt av dekorativ bebyggelse.
+  const ambientChance =
+    parcel.district === "centrum" || parcel.district === "innerstad"
+      ? 80
+      : parcel.district === "finans" || parcel.district === "hamnen"
+        ? 70
+        : 58;
+  const hasAmbient = !content && hash % 100 < ambientChance;
 
   const handlers: PointerHandlers = content
     ? {
@@ -207,12 +171,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     : {};
 
   // Byggnadsdata
-  let building: {
-    type: PropTypeKey;
-    floors: number;
-    color: string;
-    windows: boolean;
-  } | null = null;
+  let building: { type: PropTypeKey; floors: number; color: string; windows: boolean } | null = null;
   let underConstruction = false;
   let constructionProgress = 1;
   if (content && "prop" in content) {
@@ -233,15 +192,15 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       : baseColor;
     building = {
       type: p.type,
-      floors: floorsFor(p.area),
+      floors: districtFloors(parcel, hash, p.area),
       color,
       windows: !overlayActive,
     };
   } else if (hasAmbient) {
     building = {
-      type: ambientType(parcel.district, hash),
-      floors: ambientFloors(parcel.district, hash),
-      color: overlayActive ? "#b0b4b0" : AMBIENT_COLORS[(hash >> 2) % AMBIENT_COLORS.length],
+      type: "bostad",
+      floors: districtFloors(parcel, hash),
+      color: overlayActive ? "#b0b4b0" : ambientColorFor(parcel.district, hash >> 2),
       windows: !overlayActive,
     };
   }
@@ -253,50 +212,75 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     content.prop.status === "klar" &&
     content.prop.tenants.length === 0;
   const isPark = !building && !content;
-  const bw = parcel.w - 4;
-  const bd = parcel.d - 4;
+  const e = parcel.edges;
 
   return (
     <group position={[parcel.x, 0, parcel.z]}>
-      {/* Trottoarkant – upphöjd kvartersplatta */}
-      <mesh receiveShadow castShadow position={[0, 0.11, 0]} {...handlers}>
-        <boxGeometry args={[parcel.w + 5, 0.22, parcel.d + 5]} />
-        <meshStandardMaterial color={isPark ? "#c3cdb4" : PAD} />
+      {/* Markplatta (exakt tomtstorlek – grannar delar vägg i slutna kvarter) */}
+      <mesh receiveShadow position={[0, 0.07, 0]} {...handlers}>
+        <boxGeometry args={[parcel.w, 0.14, parcel.d]} />
+        <meshStandardMaterial color={isPark ? "#a9bb94" : (PLOT_COLORS[parcel.district] ?? "#c8c5ba")} />
       </mesh>
+      {/* Trottoar längs gatusidorna */}
+      {e.n && (
+        <mesh receiveShadow position={[0, 0.1, -parcel.d / 2 - 1.5]}>
+          <boxGeometry args={[parcel.w + 3, 0.2, 3]} />
+          <meshStandardMaterial color="#c3c0b4" />
+        </mesh>
+      )}
+      {e.s && (
+        <mesh receiveShadow position={[0, 0.1, parcel.d / 2 + 1.5]}>
+          <boxGeometry args={[parcel.w + 3, 0.2, 3]} />
+          <meshStandardMaterial color="#c3c0b4" />
+        </mesh>
+      )}
+      {e.w && (
+        <mesh receiveShadow position={[-parcel.w / 2 - 1.5, 0.1, 0]}>
+          <boxGeometry args={[3, 0.2, parcel.d + 3]} />
+          <meshStandardMaterial color="#c3c0b4" />
+        </mesh>
+      )}
+      {e.e && (
+        <mesh receiveShadow position={[parcel.w / 2 + 1.5, 0.1, 0]}>
+          <boxGeometry args={[3, 0.2, parcel.d + 3]} />
+          <meshStandardMaterial color="#c3c0b4" />
+        </mesh>
+      )}
       {ringColor && (
-        <mesh rotation-x={-Math.PI / 2} position={[0, 0.26, 0]}>
-          <ringGeometry args={[parcel.w / 2 + 0.6, parcel.w / 2 + 2.4, 40]} />
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.24, 0]}>
+          <ringGeometry args={[Math.max(parcel.w, parcel.d) / 2 + 0.4, Math.max(parcel.w, parcel.d) / 2 + 2.2, 40]} />
           <meshBasicMaterial color={ringColor} />
         </mesh>
       )}
-      <group position={[0, 0.22, 0]}>
+      <group position={[0, 0.14, 0]}>
         {building && underConstruction && (
           <ConstructionShell
-            w={bw}
-            d={bd}
-            fullH={fullH}
+            w={parcel.w * 0.9}
+            d={parcel.d * 0.9}
+            fullH={Math.min(fullH, 60)}
             targetScale={constructionProgress}
             color={CONSTRUCTION}
             handlers={handlers}
           />
         )}
         {building && !underConstruction && (
-          <TypedBuilding
-            type={building.type}
-            floors={building.floors}
-            w={bw}
-            d={bd}
-            color={building.color}
-            windows={building.windows}
-            selected={selected}
-            handlers={handlers}
-            seed={hash >> 3}
-          />
+          <GrowIn handlers={{}}>
+            <DistrictBuilding
+              parcel={parcel}
+              type={building.type}
+              floors={building.floors}
+              color={building.color}
+              windows={building.windows}
+              selected={selected}
+              handlers={handlers}
+              seed={hash >> 3}
+            />
+          </GrowIn>
         )}
-        {isPark && <ParcelTrees hash={hash} />}
-        {underConstruction && building && <Crane towerH={fullH + 7} />}
+        {isPark && <ParcelTrees hash={hash} w={parcel.w} d={parcel.d} />}
+        {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
         {vacantOwned && building && (
-          <mesh position={[0, fullH + 1.6, 0]}>
+          <mesh position={[0, Math.min(fullH, 150) + 1.6, 0]}>
             <boxGeometry args={[1.7, 1.7, 1.7]} />
             <meshBasicMaterial color="#d23f2e" />
           </mesh>
@@ -304,7 +288,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       </group>
       {hovered && content && (
         <Html
-          position={[0, (building ? fullH * constructionProgress : 0) + 5.5, 0]}
+          position={[0, (building ? Math.min(fullH, 62) * constructionProgress : 0) + 5.5, 0]}
           center
           zIndexRange={[40, 0]}
         >

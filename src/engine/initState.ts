@@ -12,7 +12,7 @@ import { makeIndustryAssetFromTemplate } from "./industries";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { Competitor, CompetitorStrategy, GameState, IndustryAsset, Property } from "./types";
 
-const WORLD_SIZE = 150;
+const WORLD_SIZE = 190;
 
 /** Skapar ett nytt speltillstånd med en ändlig fastighetsmarknad. */
 export function initState(): GameState {
@@ -40,7 +40,7 @@ export function initState(): GameState {
     sentimentHistory: [1.0],
     subsidiaries: [],
     dividendsReceived: 0,
-    districtDev: { centrum: 1, hamnen: 1, industri: 1, förort: 1, kulle: 1 },
+    districtDev: { centrum: 1, finans: 1, innerstad: 1, hamnen: 1, industri: 1, förort: 1, kulle: 1 },
     buildCostMod: 1,
     researchDone: [],
     activeResearch: null,
@@ -84,9 +84,21 @@ export function initState(): GameState {
   base.competitors = competitors;
 
   // ── 10 fastigheter till salu (listings) ─────────────────────────
+  // Garantera instegsobjekt: minst 3 ska gå att köpa med startkassan
+  // (handpenning ~30–45 % ⇒ utpris under ~9 MSEK).
   const listingProps = allProps.slice(propIdx, propIdx + 10);
-  base.listings = listingProps.map((p) => toListingProp(p, base));
   propIdx += 10;
+  const AFFORDABLE = 9_000_000;
+  let guard = 0;
+  while (listingProps.filter((p) => p.askPrice <= AFFORDABLE).length < 3 && guard < 80) {
+    const candidate = genWorldProperty(base);
+    if (candidate.askPrice <= AFFORDABLE) {
+      const worst = listingProps.reduce((bi, p, i, arr) => (p.askPrice > arr[bi].askPrice ? i : bi), 0);
+      listingProps[worst] = candidate;
+    }
+    guard += 1;
+  }
+  base.listings = listingProps.map((p) => toListingProp(p, base));
 
   // ── Resten går till off-market poolen ────────────────────────────
   base.worldPool = allProps.slice(propIdx).map((p) => ({ ...p, owned: false }));

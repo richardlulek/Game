@@ -12,7 +12,7 @@ export interface Scenario {
   progress: (s: GameState) => { value: number; max: number; label: string };
 }
 
-const DISTRICT_IDS = ["centrum", "hamnen", "industri", "förort", "kulle"];
+const DISTRICT_IDS = ["centrum", "finans", "innerstad", "hamnen", "industri", "förort", "kulle"];
 
 function dominatedDistricts(s: GameState): number {
   let n = 0;
@@ -134,7 +134,7 @@ export const SCENARIOS: Scenario[] = [
   },
 ];
 
-const SCENARIO_DISTRICT_IDS = ["centrum", "hamnen", "industri", "förort", "kulle"] as const;
+const SCENARIO_DISTRICT_IDS = ["centrum", "finans", "innerstad", "hamnen", "industri", "förort", "kulle"] as const;
 
 export function rivalScenarioProgress(rival: Competitor, scenarioId: ScenarioId, s: GameState): number {
   switch (scenarioId) {

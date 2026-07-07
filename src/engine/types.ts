@@ -261,6 +261,9 @@ export interface Property {
    *  återställs vid utgång så priset inte inflateras vid varje ny listning. */
   poolAskPrice?: number;
   poolBaseRent?: number;
+  /** Förortsmodellen: fastigheten är ETT HELT KVARTER med flera huskroppar
+   *  och fler hyresgästplatser – köps, säljs och förvaltas som en enhet. */
+  wholeBlock?: boolean;
 }
 
 /** En byggbar tomt. */

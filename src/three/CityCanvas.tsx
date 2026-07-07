@@ -10,13 +10,13 @@ import { useGameStore } from "../store/gameStore";
 import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
 import { CameraRig } from "./CameraRig";
-import { Birds, Clouds, Harbor, InnerStreets, Landmarks } from "./CityExtras";
+import { Birds, Clouds, Harbor, Landmarks } from "./CityExtras";
 import { Headquarters } from "./Headquarters";
 import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
 import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
-import { LocalTraffic, Roads } from "./Roads";
+import { LocalTraffic, Roads, ZoneStreetGrid } from "./Roads";
 
 const LABEL_STYLE: React.CSSProperties = {
   pointerEvents: "none",
@@ -116,8 +116,8 @@ function Water() {
     g.computeVertexNormals();
   });
   return (
-    <mesh rotation-x={-Math.PI / 2} position={[10, -0.3, 350]}>
-      <planeGeometry ref={geo} args={[620, 160, 56, 14]} />
+    <mesh rotation-x={-Math.PI / 2} position={[20, -0.3, 430]}>
+      <planeGeometry ref={geo} args={[900, 220, 64, 16]} />
       <meshStandardMaterial color={WATER} roughness={0.32} metalness={0.08} />
     </mesh>
   );
@@ -134,7 +134,7 @@ export function CityCanvas() {
     <Canvas
       shadows="soft"
       dpr={[1, 2]}
-      camera={{ position: [200, 250, 340], fov: 38, near: 1, far: 3000 }}
+      camera={{ position: [230, 300, 430], fov: 38, near: 1, far: 3000 }}
       onPointerMissed={() => select(null)}
       onCreated={({ gl }) => {
         gl.toneMappingExposure = 1.22;
@@ -160,11 +160,11 @@ export function CityCanvas() {
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
-        shadow-camera-left={-450}
-        shadow-camera-right={450}
-        shadow-camera-top={450}
-        shadow-camera-bottom={-450}
-        shadow-camera-far={1200}
+        shadow-camera-left={-540}
+        shadow-camera-right={540}
+        shadow-camera-top={540}
+        shadow-camera-bottom={-540}
+        shadow-camera-far={1400}
       />
       <directionalLight position={[-200, 140, -180]} color="#b9cce0" intensity={0.5} />
       <MapControls
@@ -183,7 +183,7 @@ export function CityCanvas() {
       <Water />
       <Roads />
       <DistrictPlates />
-      <InnerStreets />
+      <ZoneStreetGrid />
       <CityParcels />
       <Harbor />
       <Landmarks />

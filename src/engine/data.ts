@@ -13,12 +13,38 @@ import type {
 } from "./types";
 
 export const DISTRICTS: District[] = [
-  { id: "centrum",  name: "Centrum",         base: 32000, growth: 1.0,  demand: 1.00, prestige: 1.4 },
-  { id: "hamnen",   name: "Hamnen",           base: 21000, growth: 1.25, demand: 0.85, prestige: 1.1 },
-  { id: "industri", name: "Industriområdet",  base: 11000, growth: 0.9,  demand: 0.75, prestige: 0.7 },
-  { id: "förort",   name: "Förorten",         base: 16000, growth: 1.1,  demand: 0.90, prestige: 0.9 },
-  { id: "kulle",    name: "Villakullen",      base: 28000, growth: 1.05, demand: 0.95, prestige: 1.3 },
+  { id: "centrum",   name: "Centrum",          base: 32000, growth: 1.0,  demand: 1.00, prestige: 1.4 },
+  { id: "finans",    name: "Finansdistriktet", base: 44000, growth: 1.15, demand: 1.05, prestige: 1.7 },
+  { id: "innerstad", name: "Innerstaden",      base: 26000, growth: 1.1,  demand: 1.00, prestige: 1.2 },
+  { id: "hamnen",    name: "Hamnen",           base: 21000, growth: 1.25, demand: 0.85, prestige: 1.1 },
+  { id: "industri",  name: "Industriområdet",  base: 11000, growth: 0.9,  demand: 0.75, prestige: 0.7 },
+  { id: "förort",    name: "Förorten",         base: 15000, growth: 1.1,  demand: 0.90, prestige: 0.9 },
+  { id: "kulle",     name: "Villakullen",      base: 28000, growth: 1.05, demand: 0.95, prestige: 1.3 },
 ];
+
+/**
+ * Generationsprofil per distrikt: vilka fastighetstyper som byggs där,
+ * typisk storlek, och om objekt säljs som HELA KVARTER (förortsmodellen:
+ * en fastighet = ett kvarter med flera huskroppar och fler hyresplatser).
+ * weight styr hur ofta distriktet dras vid världsgenerering (~tomtantal).
+ */
+export interface DistrictGenProfile {
+  types: [PropTypeKey, number][];
+  areaMin: number;
+  areaMax: number;
+  wholeBlock?: boolean;
+  weight: number;
+}
+
+export const DISTRICT_GEN: Record<string, DistrictGenProfile> = {
+  centrum:   { types: [["kontor", 45], ["butik", 25], ["bostad", 30]], areaMin: 800,  areaMax: 3500, weight: 25 },
+  finans:    { types: [["kontor", 85], ["butik", 15]],                 areaMin: 2500, areaMax: 9000, weight: 9 },
+  innerstad: { types: [["bostad", 45], ["butik", 30], ["kontor", 25]], areaMin: 600,  areaMax: 2500, weight: 27 },
+  hamnen:    { types: [["industri", 40], ["kontor", 35], ["butik", 25]], areaMin: 800, areaMax: 4000, weight: 9 },
+  industri:  { types: [["industri", 85], ["kontor", 15]],              areaMin: 1500, areaMax: 7000, weight: 9 },
+  förort:    { types: [["bostad", 80], ["butik", 20]],                 areaMin: 2800, areaMax: 6000, wholeBlock: true, weight: 8 },
+  kulle:     { types: [["bostad", 90], ["butik", 10]],                 areaMin: 300,  areaMax: 900,  weight: 13 },
+};
 
 /*
  * Balanserade yields (vid 70 % LTV, ränta ~4 %):
@@ -282,7 +308,7 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "no_debt",      title: "Skuldfri",               desc: "Ha noll skulder med minst 3 fastigheter.",         check: (s) => s.debt === 0 && s.portfolio.length >= 3,                   reward: "Reputation +10" },
   { id: "50_rep",       title: "Etablerat namn",         desc: "Nå 50 i reputation.",                              check: (s) => s.reputation >= 50,                                        reward: "Ränterabatt via bättre långivare" },
   { id: "50m_equity",   title: "Fastighetsimperium",     desc: "Nå 50 MSEK i eget kapital.",                       check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 50_000_000, reward: "Reputation +15" },
-  { id: "full_coverage",title: "Rikstäckande",           desc: "Äg minst en fastighet i varje distrikt.",          check: (s) => new Set(s.portfolio.map((p) => p.district)).size >= 5,     reward: "Distriktsdiversifiering −5 % vakans" },
+  { id: "full_coverage",title: "Rikstäckande",           desc: "Äg fastigheter i minst 5 av stadens 7 distrikt.",  check: (s) => new Set(s.portfolio.map((p) => p.district)).size >= 5,     reward: "Distriktsdiversifiering −5 % vakans" },
 ];
 
 function checkDistrictLead(s: import("./types").GameState): boolean {

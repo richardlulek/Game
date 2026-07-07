@@ -1,12 +1,12 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
-import { PITCH, ZONE_GRIDS } from "../engine/city";
+import { ZONE_STREETS } from "../engine/city";
 import { CAR_COLORS, ROAD, ROAD_DASH } from "./colors";
 
 /**
- * Huvudvägar som binder ihop distrikten. Handritade rektanglar i
- * världskoordinater, avstämda mot zonerna i engine/city.ts.
+ * Huvudleder som binder ihop de sju distrikten. Handritade rektanglar
+ * i världskoordinater, avstämda mot zonerna i engine/city.ts.
  */
 interface RoadSeg {
   x: number;
@@ -16,11 +16,16 @@ interface RoadSeg {
 }
 
 const ROADS: RoadSeg[] = [
-  { x: 5, z: 120, w: 12, d: 24 }, // Centrum ↓ Hamnen
-  { x: 126, z: -16, w: 40, d: 12 }, // Centrum → Industriområdet
-  { x: -126, z: 8, w: 40, d: 12 }, // Centrum → Förorten
-  { x: -30, z: -123, w: 12, d: 32 }, // Centrum ↑ Villakullen
-  { x: 252, z: 103, w: 12, d: 58 }, // Industriområdet ↓ mot Hamnenivån
+  { x: 0, z: 165, w: 16, d: 140 }, // Esplanaden: Centrum ↓ Hamnen
+  { x: 0, z: -88, w: 14, d: 26 }, // Centrum ↑ Innerstaden
+  { x: 130, z: 56, w: 12, d: 268 }, // Östra avenyn: Centrum → Finans
+  { x: 168, z: -40, w: 80, d: 12 }, // Mot Industriområdet
+  { x: 214, z: 211, w: 12, d: 46 }, // Finans ↓ Hamnen
+  { x: -148, z: 30, w: 50, d: 12 }, // Centrum ← Förorten
+  { x: -186, z: -190, w: 54, d: 12 }, // Innerstaden ← Villakullen
+  { x: -300, z: -101, w: 12, d: 70 }, // Villakullen ↓ Förorten
+  { x: -295, z: 222, w: 12, d: 90 }, // Förorten ↓ mot kajen
+  { x: -230, z: 262, w: 132, d: 12 }, // Västra kajvägen
 ];
 
 /** Mittlinjens streck för ett vägsegment. */
@@ -45,7 +50,7 @@ function Dashes({ seg }: { seg: RoadSeg }) {
   );
 }
 
-/** En bil som pendlar längs ett vägsegment (egen fil per körfält). */
+/** En bil som pendlar längs ett vägsegment (eget körfält per riktning). */
 function Car({
   seg,
   offset,
@@ -140,7 +145,7 @@ function StreetLamp({ x, z, side, rotY = 0 }: { x: number; z: number; side: numb
 function Lamps({ seg }: { seg: RoadSeg }) {
   const horizontal = seg.w > seg.d;
   const len = horizontal ? seg.w : seg.d;
-  const count = Math.max(2, Math.floor(len / 34));
+  const count = Math.max(2, Math.floor(len / 36));
   const edge = (horizontal ? seg.d : seg.w) / 2 + 1.6;
   return (
     <>
@@ -165,7 +170,7 @@ function Lamps({ seg }: { seg: RoadSeg }) {
   );
 }
 
-/** Vägnätet mellan distrikten, med mittlinjer, lyktor och pendlande trafik. */
+/** Huvudlederna mellan distrikten: körbana, mittlinjer, lyktor, trafik. */
 export function Roads() {
   return (
     <>
@@ -185,39 +190,54 @@ export function Roads() {
             speed={0.11 + (i % 3) * 0.03}
             color={CAR_COLORS[i % CAR_COLORS.length]}
           />
-          <Car
-            seg={seg}
-            offset={i * 0.7 + 1.1}
-            speed={0.09 + ((i + 1) % 3) * 0.03}
-            color={CAR_COLORS[(i + 3) % CAR_COLORS.length]}
-          />
+          {Math.max(seg.w, seg.d) > 60 && (
+            <Car
+              seg={seg}
+              offset={i * 0.7 + 1.1}
+              speed={0.09 + ((i + 1) % 3) * 0.03}
+              color={CAR_COLORS[(i + 3) % CAR_COLORS.length]}
+            />
+          )}
         </group>
       ))}
     </>
   );
 }
 
-/** Lokal trafik: en bil som cirkulerar på varje distrikts kvartersgata. */
-export function LocalTraffic() {
+/** Kvartersgatorna inne i distrikten – härledda ur kvartersmodellen. */
+export function ZoneStreetGrid() {
   return (
     <>
-      {ZONE_GRIDS.map((g, i) => {
-        const seg: RoadSeg = {
-          x: g.cx,
-          z: g.cz + (0.5 - (g.rows - 1) / 2) * PITCH,
-          w: g.cols * PITCH - 14,
-          d: 8.5,
-        };
-        return (
-          <Car
-            key={g.district}
-            seg={seg}
-            offset={i * 0.83 + 0.4}
-            speed={0.05 + (i % 3) * 0.015}
-            color={CAR_COLORS[(i + 2) % CAR_COLORS.length]}
-          />
-        );
-      })}
+      {ZONE_STREETS.map((s, i) => (
+        <mesh
+          key={i}
+          rotation-x={-Math.PI / 2}
+          position={[s.x, 0.012, s.z]}
+          receiveShadow
+        >
+          <planeGeometry args={[s.w, s.d]} />
+          <meshStandardMaterial color={ROAD} roughness={0.95} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+/** Lokal trafik: bilar som cirkulerar på ett urval kvartersgator. */
+export function LocalTraffic() {
+  // Var femte kvartersgata får en bil – deterministiskt urval.
+  const streets = ZONE_STREETS.filter((_, i) => i % 5 === 2);
+  return (
+    <>
+      {streets.map((s, i) => (
+        <Car
+          key={i}
+          seg={{ x: s.x, z: s.z, w: s.w, d: s.d }}
+          offset={i * 0.83 + 0.4}
+          speed={0.05 + (i % 3) * 0.015}
+          color={CAR_COLORS[(i + 2) % CAR_COLORS.length]}
+        />
+      ))}
     </>
   );
 }

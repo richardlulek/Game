@@ -51,8 +51,29 @@ export const CAR_COLORS = ["#b6413a", "#3c6ca8", "#d9d9d9", "#3f3f3f", "#c9a13b"
 /** Subtil zonton per distrikt. */
 export const DISTRICT_TINTS: Record<string, string> = {
   centrum: "#c4bfae",
+  finans: "#b4bec8",
+  innerstad: "#c8c0b0",
   hamnen: "#b7c2c6",
   industri: "#bdbcae",
   förort: "#bcc3b0",
   kulle: "#c6beb0",
 };
+
+/* ── Fasadpaletter per distrikt (dekorativ bebyggelse & materialkänsla) ── */
+
+/** Centrum: sten och puts i varma jordtoner. */
+export const PALETTE_CENTRUM = ["#d9cfc0", "#cfc0a8", "#c8b9a2", "#d6c6b0", "#b9a88f", "#e2d8c6", "#c4a98c"];
+/** Finansdistriktet: glas och stål i blå/grå toner. */
+export const PALETTE_FINANS = ["#8fb0c8", "#7fa3c0", "#6d94b5", "#9db8cc", "#5f88a8"];
+/** Innerstaden – funkisputs. */
+export const PALETTE_FUNKIS = ["#e6e0d2", "#dcd6c4", "#e8e2d8", "#d8cfc0", "#efe9dc"];
+/** Innerstaden – tegel. */
+export const PALETTE_TEGEL = ["#9c5a44", "#8a4f3d", "#a86a50", "#7e4a3a", "#b07454"];
+/** Förorten: puts i mjuka pastelljordtoner. */
+export const PALETTE_FORORT = ["#c9b8a0", "#b8a888", "#d0c0a8", "#a89878", "#c0ae90"];
+/** Industri: plåt och betong. */
+export const PALETTE_INDUSTRI = ["#8a97a0", "#7a8a94", "#9aa8b0", "#708088", "#94a094"];
+/** Hamnen: magasinsteglet och sjöbodsplåt. */
+export const PALETTE_HAMN = ["#96604a", "#7a5a48", "#8a6a55", "#6d7a82", "#856048"];
+/** Villakullen: träfasader. */
+export const PALETTE_VILLA = ["#c8b090", "#b89878", "#d4c0a0", "#a08868", "#c0a888", "#8f4f3f"];

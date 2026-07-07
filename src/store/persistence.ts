@@ -42,6 +42,9 @@ export function listSaveSlots(): SlotInfo[] {
       const raw = localStorage.getItem(getSaveKey(slot));
       if (!raw) return { slot, exists: false };
       const parsed = JSON.parse(raw) as Partial<SaveFile>;
+      // För gamla sparfiler (före stadskartan 3.0) visas som tomma.
+      if ((typeof parsed.version === "number" ? parsed.version : 1) < MIN_SAVE_VERSION)
+        return { slot, exists: false };
       const st = parsed.state as GameState | undefined;
       const equity = st
         ? Math.round(st.cash + (st.portfolio ?? []).reduce((a, p) => a + p.askPrice, 0) - st.debt)
@@ -54,7 +57,11 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
+
+/** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
+ *  distrikten i grunden – äldre sparfiler går inte att migrera. */
+export const MIN_SAVE_VERSION = 19;
 
 interface SaveFile {
   version: number;
@@ -254,6 +261,11 @@ export function loadGame(slot?: number): GameState | null {
     // Stöd även oversionerade/äldre sparfiler som var rå GameState.
     let version = typeof parsed.version === "number" ? parsed.version : 1;
     let state = (parsed.state ?? (parsed as unknown as GameState)) as GameState;
+
+    if (version < MIN_SAVE_VERSION) {
+      console.warn(`Sparfil v${version} är äldre än stadskartan 3.0 (v${MIN_SAVE_VERSION}) – kan inte laddas.`);
+      return null;
+    }
 
     while (version < SAVE_VERSION) {
       const migrate = migrations[version];

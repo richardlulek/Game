@@ -7,6 +7,7 @@
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three";
 
 let sharedWindowCanvas: HTMLCanvasElement | null = null;
+let sharedGlassCanvas: HTMLCanvasElement | null = null;
 let sharedGroundCanvas: HTMLCanvasElement | null = null;
 
 /** Deterministisk PRNG så texturerna blir likadana varje session. */
@@ -89,6 +90,59 @@ function drawWindowTile(): HTMLCanvasElement {
 export function windowTexture(repeatX: number, repeatY: number): CanvasTexture {
   if (!sharedWindowCanvas) sharedWindowCanvas = drawWindowTile();
   const tex = new CanvasTexture(sharedWindowCanvas);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(repeatX / 4, repeatY / 4);
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Glasfasad (curtain wall) för skyskrapor: heltäckande glaspaneler med
+ * smala poster, spegling i band och enstaka tända rutor. 4×4 paneler.
+ */
+function drawGlassTile(): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext("2d")!;
+  const rand = mulberry32(90210);
+  const CELL = 64;
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      const x = col * CELL;
+      const y = row * CELL;
+      const lit = rand() < 0.10;
+      if (lit) {
+        g.fillStyle = "#ffe2a8";
+        g.fillRect(x, y, CELL, CELL);
+      } else {
+        // Glas med vertikal gradient + horisontellt himmelsband
+        const shade = 0.88 + rand() * 0.28;
+        const grad = g.createLinearGradient(0, y, 0, y + CELL);
+        grad.addColorStop(0, `rgb(${200 * shade | 0},${218 * shade | 0},${232 * shade | 0})`);
+        grad.addColorStop(0.45, `rgb(${150 * shade | 0},${175 * shade | 0},${198 * shade | 0})`);
+        grad.addColorStop(1, `rgb(${108 * shade | 0},${132 * shade | 0},${156 * shade | 0})`);
+        g.fillStyle = grad;
+        g.fillRect(x, y, CELL, CELL);
+        if (rand() < 0.35) {
+          g.fillStyle = "rgba(255,255,255,0.18)";
+          g.fillRect(x, y + 10 + rand() * 30, CELL, 6);
+        }
+      }
+      // Poster (mörka linjer mellan paneler)
+      g.strokeStyle = "rgba(30,40,50,0.8)";
+      g.lineWidth = 3;
+      g.strokeRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
+    }
+  }
+  return c;
+}
+
+/** Curtain wall-textur; repeat i paneler (bredd) × våningar (höjd), /4 internt. */
+export function glassTexture(repeatX: number, repeatY: number): CanvasTexture {
+  if (!sharedGlassCanvas) sharedGlassCanvas = drawGlassTile();
+  const tex = new CanvasTexture(sharedGlassCanvas);
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(repeatX / 4, repeatY / 4);

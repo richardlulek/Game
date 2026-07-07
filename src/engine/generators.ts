@@ -3,9 +3,33 @@
    Använder Math.random (samma beteende som prototypen).
    ============================================================ */
 
-import { DISTRICTS, PROP_TYPES, TENANT_NAMES, TENANT_PROFILES } from "./data";
+import { DISTRICTS, DISTRICT_GEN, PROP_TYPES, TENANT_NAMES, TENANT_PROFILES } from "./data";
 import { newId, pick, rnd } from "./random";
-import type { GameState, Lot, Property, Tenant } from "./types";
+import type { District, GameState, Lot, Property, PropTypeKey, Tenant } from "./types";
+
+/** Viktad slumpning av distrikt (vikterna speglar tomtantal per zon). */
+function pickDistrict(): District {
+  const total = DISTRICTS.reduce((a, d) => a + (DISTRICT_GEN[d.id]?.weight ?? 10), 0);
+  let r = Math.random() * total;
+  for (const d of DISTRICTS) {
+    r -= DISTRICT_GEN[d.id]?.weight ?? 10;
+    if (r <= 0) return d;
+  }
+  return DISTRICTS[0];
+}
+
+/** Viktad fastighetstyp enligt distriktets profil. */
+function pickType(district: string): PropTypeKey {
+  const prof = DISTRICT_GEN[district];
+  if (!prof) return pick(Object.keys(PROP_TYPES) as PropTypeKey[]);
+  const total = prof.types.reduce((a, [, w]) => a + w, 0);
+  let r = Math.random() * total;
+  for (const [t, w] of prof.types) {
+    r -= w;
+    if (r <= 0) return t;
+  }
+  return prof.types[0][0];
+}
 
 /** Skapar en ny hyresgäst utifrån en slumpad profil.
  *  condition-parametern filtrerar bort profiler som kräver bättre skick.
@@ -38,8 +62,12 @@ export function makeTenant(baseRent: number, demandMod: number, condition: numbe
   };
 }
 
-/** Beräknar maxantal hyresgäster baserat på yta. */
-export function calcCapacity(area: number): number { return Math.min(4, Math.floor(area / 1000) + 1); }
+/** Beräknar maxantal hyresgäster baserat på yta.
+ *  Hela kvarter (förortsmodellen) rymmer betydligt fler hushåll. */
+export function calcCapacity(area: number, wholeBlock = false): number {
+  if (wholeBlock) return Math.min(9, Math.floor(area / 700) + 2);
+  return Math.min(4, Math.floor(area / 1000) + 1);
+}
 
 /** ESG-energiklass utifrån skick (bättre skick = bättre klass). */
 export function energyClassFor(condition: number): Property["energyClass"] {
@@ -54,25 +82,25 @@ export function builtYearFor(condition: number, currentYear: number): number {
 
 export const absMonth = (state: GameState) => state.year * 12 + state.month;
 
-/** Genererar en fastighet för världspoolen (off-market, ingen datumstämpel). */
-export function genWorldProperty(state: GameState): Property {
-  const d = pick(DISTRICTS);
-  const typeKeys = Object.keys(PROP_TYPES) as Property["type"][];
-  const typeKey = pick(typeKeys);
+/** Gemensam kärna: distriktsprofilstyrd fastighet. */
+function genProperty(state: GameState, priceJitter: [number, number], condMin: number): Property {
+  const d = pickDistrict();
+  const prof = DISTRICT_GEN[d.id];
+  const typeKey = pickType(d.id);
   const t = PROP_TYPES[typeKey];
-  const area = Math.round(rnd(400, 4500));
-  const condition = Math.round(rnd(30, 95));
+  const wholeBlock = prof?.wholeBlock ?? false;
+  const area = Math.round(rnd(prof?.areaMin ?? 400, prof?.areaMax ?? 4500));
+  const condition = Math.round(rnd(condMin, 95));
   const condFactor = 0.6 + (condition / 100) * 0.6;
-  const value = area * d.base * condFactor * state.marketMod * rnd(0.85, 1.15);
+  const value = area * d.base * condFactor * state.marketMod * rnd(priceJitter[0], priceJitter[1]);
   const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
-  const energyClass = energyClassFor(condition);
 
   const p: Property = {
     id: newId(),
     district: d.id,
     districtName: d.name,
     type: typeKey,
-    typeLabel: t.label,
+    typeLabel: wholeBlock ? `Kvarter · ${t.label}` : t.label,
     area,
     condition,
     askPrice: Math.round(value),
@@ -84,61 +112,39 @@ export function genWorldProperty(state: GameState): Property {
     vacancyMult: 1,
     valueMult: 1,
     tenants: [],
-    capacity: calcCapacity(area),
+    capacity: calcCapacity(area, wholeBlock),
     status: "klar",
     buildLeft: 0,
-    energyClass,
+    energyClass: energyClassFor(condition),
     builtYear: builtYearFor(condition, state.year),
+    ...(wholeBlock ? { wholeBlock: true } : {}),
   };
-  if (Math.random() < 0.4) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
+  return p;
+}
+
+/** Genererar en fastighet för världspoolen (off-market, ingen datumstämpel). */
+export function genWorldProperty(state: GameState): Property {
+  const p = genProperty(state, [0.85, 1.15], 30);
+  if (Math.random() < 0.4)
+    p.tenants.push(makeTenant(p.baseRent / p.capacity, state.demandMod, p.condition));
   return p;
 }
 
 /** Genererar ett marknadsobjekt till salu. */
 export function genListing(state: GameState): Property {
-  const d = pick(DISTRICTS);
-  const typeKeys = Object.keys(PROP_TYPES) as Property["type"][];
-  const typeKey = pick(typeKeys);
-  const t = PROP_TYPES[typeKey];
-  const area = Math.round(rnd(400, 4500));
-  const condition = Math.round(rnd(35, 95));
-  const condFactor = 0.6 + (condition / 100) * 0.6;
-  const value = area * d.base * condFactor * state.marketMod * rnd(0.9, 1.12);
-  const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
+  const p = genProperty(state, [0.9, 1.12], 35);
   const born = absMonth(state);
-  const p: Property = {
-    id: newId(),
-    district: d.id,
-    districtName: d.name,
-    type: typeKey,
-    typeLabel: t.label,
-    area,
-    condition,
-    askPrice: Math.round(value),
-    baseRent: Math.round(annualRent),
-    upgrades: [],
-    owned: false,
-    rentMult: 1,
-    opexMult: 1,
-    vacancyMult: 1,
-    valueMult: 1,
-    tenants: [],
-    capacity: calcCapacity(area),
-    status: "klar",
-    buildLeft: 0,
-    listedMonth: born,
-    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
-    energyClass: energyClassFor(condition),
-    builtYear: builtYearFor(condition, state.year),
-  };
+  p.listedMonth = born;
+  p.expiresMonth = born + 3 + Math.floor(Math.random() * 2);
   // ~55 % chans att objektet redan har hyresgäst
-  if (Math.random() < 0.55) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
+  if (Math.random() < 0.55)
+    p.tenants.push(makeTenant(p.baseRent / p.capacity, state.demandMod, p.condition));
   return p;
 }
 
 /** Genererar en byggbar tomt till salu. */
 export function genLot(state: GameState): Lot {
-  const d = pick(DISTRICTS);
+  const d = pickDistrict();
   const area = Math.round(rnd(600, 3500));
   const price = Math.round(area * d.base * 0.18 * state.marketMod);
   const born = absMonth(state);

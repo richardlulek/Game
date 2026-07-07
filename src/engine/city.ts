@@ -1,9 +1,19 @@
 /* ============================================================
-   Stadskarta – deterministisk spatial modell för 3D-vyn.
-   Varje distrikt är en rektangulär zon med ett rutnät av
-   tomtrutor (parcels). Synliga objekt (portfölj, marknad, tomter,
-   konkurrentinnehav) placeras på rutor via placeCity(); världs-
-   poolen är abstrakt och tar ingen plats förrän objekt avslöjas.
+   Stadskarta 3.0 – deterministisk spatial modell i tre nivåer:
+   distrikt (zon) → kvarter (block) → tomtrutor (parcels).
+
+   Sju distrikt med egen kvartersstruktur:
+   Centrum      slutna kvarter 3×2 tomter som delar väggar
+   Finans       fristående skyskrapetomter i tätt rutnät
+   Innerstad    kvarter 2×2 tomter, blandstad
+   Hamnen       kajnära rad längs vattnet
+   Industri     stora fristående industritomter
+   Förorten     hela kvarter = EN fastighet (kvartersköp)
+   Villakullen  små villatomter
+
+   Synliga objekt (portfölj, marknad, tomter, konkurrentinnehav)
+   placeras på tomtrutor via placeCity(); världspoolen är abstrakt
+   och tar ingen plats förrän objekt avslöjas.
    Ren TypeScript utan React- eller Three-beroenden.
    ============================================================ */
 
@@ -17,6 +27,10 @@ export interface Parcel {
   z: number;
   w: number;
   d: number;
+  /** Kvarteret tomten ingår i. */
+  blockId: string;
+  /** Vilka sidor som vetter mot gata (kvarterets ytterkant). */
+  edges: { n: boolean; e: boolean; s: boolean; w: boolean };
 }
 
 /** Ett distrikts zon på kartan (centrum i x/z, total bredd/djup). */
@@ -28,55 +42,104 @@ export interface DistrictZone {
   d: number;
 }
 
-/** Avstånd mellan tomtrutors centrum – mellanrummet blir gata. */
-export const PITCH = 34;
-/** Byggbar yta per tomtruta. */
-export const PARCEL_SIZE = 24;
+/** Gatusegment (används av 3D-vyn för kvartersgator). */
+export interface StreetSeg {
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+  district: string;
+}
 
-interface ZoneSpec {
+interface ZoneDef {
   district: string;
   cx: number;
   cz: number;
-  cols: number;
-  rows: number;
+  /** Kvartersrutnät. */
+  blockCols: number;
+  blockRows: number;
+  /** Tomter per kvarter. */
+  parcelCols: number;
+  parcelRows: number;
+  /** Tomtstorlek. */
+  parcelW: number;
+  parcelD: number;
+  /** Mellanrum mellan tomter i samma kvarter (0 = delar vägg). */
+  innerGap: number;
+  /** Gatubredd mellan kvarteren. */
+  street: number;
 }
 
-// 162 rutor totalt – dimensionerat för spelarens portfölj, 12 listings,
-// tomter och sju konkurrenter med växande innehav.
-const ZONES: ZoneSpec[] = [
-  { district: "centrum", cx: 0, cz: 0, cols: 6, rows: 6 },
-  { district: "hamnen", cx: 10, cz: 205, cols: 8, rows: 4 },
-  { district: "industri", cx: 252, cz: -20, cols: 6, rows: 5 },
-  { district: "förort", cx: -252, cz: 30, cols: 6, rows: 6 },
-  { district: "kulle", cx: -40, cz: -212, cols: 8, rows: 4 },
+const ZONES: ZoneDef[] = [
+  // Centrum: 9 slutna kvarter à 3×2 tomter som delar väggar = 54 fastigheter
+  { district: "centrum", cx: 0, cz: 10, blockCols: 3, blockRows: 3, parcelCols: 3, parcelRows: 2, parcelW: 24, parcelD: 24, innerGap: 0, street: 16 },
+  // Finansdistriktet: 20 skyskrapetomter i tätt rutnät, sydost mot vattnet
+  { district: "finans", cx: 214, cz: 120, blockCols: 5, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 26, parcelD: 26, innerGap: 0, street: 12 },
+  // Innerstaden: 15 kvarter à 2×2 tomter norr om centrum = 60 fastigheter
+  { district: "innerstad", cx: -10, cz: -185, blockCols: 5, blockRows: 3, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, innerGap: 0, street: 15 },
+  // Hamnen: kajnära dubbelrad längs vattnet
+  { district: "hamnen", cx: 0, cz: 262, blockCols: 10, blockRows: 2, parcelCols: 1, parcelRows: 1, parcelW: 24, parcelD: 24, innerGap: 0, street: 10 },
+  // Industriområdet: stora fristående tomter i nordost
+  { district: "industri", cx: 320, cz: -125, blockCols: 5, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, innerGap: 0, street: 12 },
+  // Förorten: 16 storkvarter i väst – varje tomt är ETT helt kvarter
+  { district: "förort", cx: -295, cz: 55, blockCols: 4, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, innerGap: 0, street: 13 },
+  // Villakullen: små villatomter i nordväst
+  { district: "kulle", cx: -305, cz: -195, blockCols: 6, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 22, parcelD: 22, innerGap: 0, street: 11 },
 ];
 
-/** Rutnätsspecar per zon – används av 3D-vyn för kvartersgator. */
-export const ZONE_GRIDS: readonly ZoneSpec[] = ZONES;
-export type { ZoneSpec };
+export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
+export type { ZoneDef };
 
-export const DISTRICT_ZONES: DistrictZone[] = ZONES.map((z) => ({
-  district: z.district,
-  x: z.cx,
-  z: z.cz,
-  w: z.cols * PITCH,
-  d: z.rows * PITCH,
-}));
+function blockSize(z: ZoneDef): { w: number; d: number } {
+  return {
+    w: z.parcelCols * z.parcelW + (z.parcelCols - 1) * z.innerGap,
+    d: z.parcelRows * z.parcelD + (z.parcelRows - 1) * z.innerGap,
+  };
+}
+
+function zoneSize(z: ZoneDef): { w: number; d: number } {
+  const b = blockSize(z);
+  return {
+    w: z.blockCols * b.w + (z.blockCols - 1) * z.street,
+    d: z.blockRows * b.d + (z.blockRows - 1) * z.street,
+  };
+}
+
+export const DISTRICT_ZONES: DistrictZone[] = ZONES.map((z) => {
+  const s = zoneSize(z);
+  return { district: z.district, x: z.cx, z: z.cz, w: s.w, d: s.d };
+});
 
 function buildParcels(): Parcel[] {
   const out: Parcel[] = [];
   for (const zn of ZONES) {
+    const b = blockSize(zn);
+    const s = zoneSize(zn);
     let i = 0;
-    for (let r = 0; r < zn.rows; r++) {
-      for (let c = 0; c < zn.cols; c++) {
-        out.push({
-          id: `${zn.district}-${i++}`,
-          district: zn.district,
-          x: zn.cx + (c - (zn.cols - 1) / 2) * PITCH,
-          z: zn.cz + (r - (zn.rows - 1) / 2) * PITCH,
-          w: PARCEL_SIZE,
-          d: PARCEL_SIZE,
-        });
+    for (let br = 0; br < zn.blockRows; br++) {
+      for (let bc = 0; bc < zn.blockCols; bc++) {
+        const blockX = zn.cx - s.w / 2 + bc * (b.w + zn.street) + b.w / 2;
+        const blockZ = zn.cz - s.d / 2 + br * (b.d + zn.street) + b.d / 2;
+        const blockId = `${zn.district}-kv${br * zn.blockCols + bc}`;
+        for (let pr = 0; pr < zn.parcelRows; pr++) {
+          for (let pc = 0; pc < zn.parcelCols; pc++) {
+            out.push({
+              id: `${zn.district}-${i++}`,
+              district: zn.district,
+              x: blockX - b.w / 2 + pc * (zn.parcelW + zn.innerGap) + zn.parcelW / 2,
+              z: blockZ - b.d / 2 + pr * (zn.parcelD + zn.innerGap) + zn.parcelD / 2,
+              w: zn.parcelW,
+              d: zn.parcelD,
+              blockId,
+              edges: {
+                n: pr === 0,
+                s: pr === zn.parcelRows - 1,
+                w: pc === 0,
+                e: pc === zn.parcelCols - 1,
+              },
+            });
+          }
+        }
       }
     }
   }
@@ -94,6 +157,30 @@ export const parcelById = (id: string): Parcel | undefined => BY_ID.get(id);
 /** Alla tomtrutor i ett distrikt. */
 export const parcelsIn = (district: string): Parcel[] =>
   PARCELS.filter((p) => p.district === district);
+
+/** Kvartersgator inne i zonerna – gatorna MELLAN kvarteren. */
+export function zoneStreets(): StreetSeg[] {
+  const out: StreetSeg[] = [];
+  for (const zn of ZONES) {
+    const b = blockSize(zn);
+    const s = zoneSize(zn);
+    const margin = 6; // gatorna sticker ut lite förbi kvarteren
+    // Vertikala gator mellan kvarterskolumner
+    for (let bc = 0; bc < zn.blockCols - 1; bc++) {
+      const x = zn.cx - s.w / 2 + (bc + 1) * b.w + bc * zn.street + zn.street / 2;
+      out.push({ x, z: zn.cz, w: zn.street * 0.62, d: s.d + margin, district: zn.district });
+    }
+    // Horisontella gator mellan kvartersrader
+    for (let br = 0; br < zn.blockRows - 1; br++) {
+      const z = zn.cz - s.d / 2 + (br + 1) * b.d + br * zn.street + zn.street / 2;
+      out.push({ x: zn.cx, z, w: s.w + margin, d: zn.street * 0.62, district: zn.district });
+    }
+  }
+  return out;
+}
+
+/** Beräknas en gång – gatunätet är statiskt. */
+export const ZONE_STREETS: StreetSeg[] = zoneStreets();
 
 /**
  * Slumpar en ledig tomtruta i distriktet och markerar den som upptagen
@@ -164,18 +251,17 @@ export function placeCity(state: GameState): GameState {
 /**
  * Lägesfaktor: närmare stadskärnan (0,0) är mer attraktivt.
  * ~1,12 mitt i Centrum, ner mot ~0,94 i kartans utkanter.
- * Används av 3D-vyn; kan senare kopplas in i ekonomin.
  */
 export function locationFactor(parcelId: string | undefined): number {
   const p = parcelId ? BY_ID.get(parcelId) : undefined;
   if (!p) return 1;
   const dist = Math.hypot(p.x, p.z);
-  const MAX_DIST = 380; // ungefärlig kartradie
+  const MAX_DIST = 470; // ungefärlig kartradie
   const centrality = Math.max(0, 1 - dist / MAX_DIST);
   return +(0.94 + centrality * 0.18).toFixed(3);
 }
 
-/** Deterministisk hash (FNV-1a) – används för dekorativ stadsbebyggelse i 3D-vyn. */
+/** Deterministisk hash (FNV-1a) – används för variation i 3D-vyn. */
 export function parcelHash(id: string): number {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) {

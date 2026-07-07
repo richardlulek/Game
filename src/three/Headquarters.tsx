@@ -9,7 +9,7 @@ import { MeshStandardMaterial, type Group } from "three";
 import { useGameStore } from "../store/gameStore";
 import { windowTexture } from "./textures";
 
-const POS: [number, number, number] = [-130, 0, -120];
+const POS: [number, number, number] = [-225, 0, 215];
 const CREAM = "#e8e0cd";
 const BURGUNDY = "#6e1a2a";
 const GOLD = "#c9a13b";

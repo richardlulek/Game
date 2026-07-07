@@ -1,7 +1,6 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import type { Group, Mesh, MeshStandardMaterial } from "three";
-import { PITCH, ZONE_GRIDS } from "../engine/city";
 
 /** En rökpuff som stiger, växer och tonar ut i loop. */
 function Puff({ x, y, z, phase, drift }: { x: number; y: number; z: number; phase: number; drift: number }) {
@@ -65,9 +64,9 @@ function Bird({ cx, cz, r, y, phase, speed }: { cx: number; cz: number; r: numbe
 export function Birds() {
   return (
     <>
-      <Bird cx={20} cz={300} r={70} y={42} phase={0} speed={0.25} />
-      <Bird cx={-60} cz={290} r={50} y={36} phase={2.1} speed={0.32} />
-      <Bird cx={120} cz={310} r={60} y={48} phase={4.2} speed={0.21} />
+      <Bird cx={20} cz={340} r={70} y={42} phase={0} speed={0.25} />
+      <Bird cx={-60} cz={330} r={50} y={36} phase={2.1} speed={0.32} />
+      <Bird cx={120} cz={350} r={60} y={48} phase={4.2} speed={0.21} />
     </>
   );
 }
@@ -94,35 +93,8 @@ export function Flag({ x, y, z, color }: { x: number; y: number; z: number; colo
   );
 }
 
-const STREET = "#82898e";
 const CONCRETE = "#b9b4a8";
 const CONTAINER_COLORS = ["#b6413a", "#3c6ca8", "#c9a13b", "#4d8b52", "#7a5c8f", "#3f3f3f"];
-
-/** Kvartersgator: asfaltstråk mellan tomtrutorna inne i varje distrikt. */
-export function InnerStreets() {
-  const strips = useMemo(() => {
-    const out: { x: number; z: number; w: number; d: number }[] = [];
-    for (const g of ZONE_GRIDS) {
-      const W = g.cols * PITCH;
-      const D = g.rows * PITCH;
-      for (let c = 0; c < g.cols - 1; c++)
-        out.push({ x: g.cx + (c + 0.5 - (g.cols - 1) / 2) * PITCH, z: g.cz, w: 8.5, d: D });
-      for (let r = 0; r < g.rows - 1; r++)
-        out.push({ x: g.cx, z: g.cz + (r + 0.5 - (g.rows - 1) / 2) * PITCH, w: W, d: 8.5 });
-    }
-    return out;
-  }, []);
-  return (
-    <>
-      {strips.map((s, i) => (
-        <mesh key={i} rotation-x={-Math.PI / 2} position={[s.x, 0.012, s.z]} receiveShadow>
-          <planeGeometry args={[s.w, s.d]} />
-          <meshStandardMaterial color={STREET} />
-        </mesh>
-      ))}
-    </>
-  );
-}
 
 /** Hamnkran vid kajen – större än byggkranarna, långsamt svängande arm. */
 function HarborCrane({ x, z, phase }: { x: number; z: number; phase: number }) {
@@ -222,17 +194,20 @@ function Boat({ x, z, phase, color }: { x: number; z: number; phase: number; col
 export function Harbor() {
   return (
     <>
-      {/* Kajkant i betong längs vattnet */}
-      <mesh castShadow receiveShadow position={[10, 0.5, 276]}>
-        <boxGeometry args={[560, 1, 14]} />
+      {/* Kajkant i betong längs vattnet, söder om hamnkvarteren */}
+      <mesh castShadow receiveShadow position={[20, 0.5, 312]}>
+        <boxGeometry args={[640, 1, 16]} />
         <meshStandardMaterial color={CONCRETE} />
       </mesh>
-      <HarborCrane x={70} z={276} phase={0} />
-      <HarborCrane x={-90} z={276} phase={2.2} />
-      <Containers x={150} z={276} seed={1} />
-      <Containers x={-170} z={276} seed={4} />
-      <Boat x={10} z={318} phase={0.4} color="#38556a" />
-      <Boat x={190} z={335} phase={2.8} color="#6a4a38" />
+      <HarborCrane x={70} z={312} phase={0} />
+      <HarborCrane x={-90} z={312} phase={2.2} />
+      <HarborCrane x={230} z={312} phase={4.1} />
+      <Containers x={150} z={312} seed={1} />
+      <Containers x={-170} z={312} seed={4} />
+      <Containers x={300} z={312} seed={7} />
+      <Boat x={10} z={352} phase={0.4} color="#38556a" />
+      <Boat x={190} z={368} phase={2.8} color="#6a4a38" />
+      <Boat x={-160} z={360} phase={4.6} color="#4a5e46" />
     </>
   );
 }
@@ -241,8 +216,8 @@ export function Harbor() {
 export function Landmarks() {
   return (
     <>
-      {/* Stadshusets klocktorn – nordost om Centrum */}
-      <group position={[140, 0, -138]}>
+      {/* Stadshusets klocktorn – i parkstråket öster om Centrum */}
+      <group position={[168, 0, -80]}>
         <mesh castShadow receiveShadow position={[0, 1, 0]}>
           <boxGeometry args={[16, 2, 16]} />
           <meshStandardMaterial color={CONCRETE} />
@@ -261,8 +236,8 @@ export function Landmarks() {
         </mesh>
         <Flag x={0} y={29.5} z={0} color="#800020" />
       </group>
-      {/* Vattentorn – väster om Villakullen */}
-      <group position={[-190, 0, -150]}>
+      {/* Vattentorn – norr om Villakullen */}
+      <group position={[-310, 0, -290]}>
         {[0, 1, 2, 3].map((i) => (
           <mesh
             key={i}
@@ -284,7 +259,7 @@ export function Landmarks() {
       </group>
       {/* Fabriksskorstenar öster om Industriområdet */}
       {[-48, 4].map((dz, i) => (
-        <group key={i} position={[372, 0, -20 + dz]}>
+        <group key={i} position={[465, 0, -110 + dz]}>
           <mesh castShadow position={[0, 9, 0]}>
             <cylinderGeometry args={[1.4, 1.9, 18, 10]} />
             <meshStandardMaterial color="#9c5a4a" />
