@@ -1,6 +1,7 @@
 import { playClick } from "../audio/sound";
 import { BURGUNDY } from "../styles/tokens";
 import { S } from "../styles/styles";
+import { ClockControls } from "./ClockControls";
 import type { GameAction, GameState } from "../engine/types";
 
 interface ToolbarProps {
@@ -37,12 +38,14 @@ export function Toolbar({
       <div style={S.toolbarDate}>
         {state.month}/{state.year}
       </div>
+      <ClockControls />
       <button
         style={{ ...S.toolbarNextBtn, ...(blocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
         disabled={blocked}
         onClick={() => next({ type: "NEXT_MONTH" })}
+        title="Stega en månad manuellt"
       >
-        ► Nästa månad
+        ⏭ Månad
       </button>
       <button
         style={S.toolbarFwdBtn}

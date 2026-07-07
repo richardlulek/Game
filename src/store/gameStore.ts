@@ -9,9 +9,15 @@ import { placeCity } from "../engine/city";
 import type { GameAction, GameState } from "../engine/types";
 import { getActiveSlot, hasSave, loadGame, saveGame, setActiveSlot } from "./persistence";
 
+export type ClockSpeed = 1 | 2 | 4;
+
 interface GameStore {
   state: GameState;
   activeSlot: number;
+  /** Spelklockan: rullande månader (se hooks/useGameClock). */
+  clock: { running: boolean; speed: ClockSpeed };
+  setRunning: (running: boolean) => void;
+  setSpeed: (speed: ClockSpeed) => void;
   /** Skickar en action genom den rena reducern. */
   dispatch: (action: GameAction) => void;
   /** Sparar nuvarande tillstånd till localStorage. */
@@ -27,6 +33,9 @@ interface GameStore {
 export const useGameStore = create<GameStore>((set, get) => ({
   state: placeCity(initState()),
   activeSlot: getActiveSlot(),
+  clock: { running: false, speed: 1 },
+  setRunning: (running) => set((s) => ({ clock: { ...s.clock, running } })),
+  setSpeed: (speed) => set((s) => ({ clock: { ...s.clock, speed } })),
   dispatch: (action) => set((s) => ({ state: placeCity(reducer(s.state, action)) })),
   save: () => saveGame(get().state, get().activeSlot),
   load: (slot?: number) => {

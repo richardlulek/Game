@@ -1,7 +1,20 @@
 # Fastighetsimperium
 
-Ett Capitalism-Lab-inspirerat fastighetsspel på svenska. Förvärva, bygg, förvalta och
-dominera marknaden mot AI-konkurrenter.
+Ett Capitalism-Lab-inspirerat fastighetsspel på svenska – nu med 3D-stadskarta och
+rullande realtid. Förvärva, bygg, förvalta och dominera marknaden mot AI-konkurrenter:
+fastigheter, börs, industrisektorer, forskning, scenarier och M&A.
+
+## 3D-staden och klockan
+
+- **Karta-fliken** visar staden i 3D (React Three Fiber): dina hus (burgundy ring),
+  objekt till salu (gul), tomter (grön) och konkurrenternas innehav (egen färg per
+  bolag). Klicka på en byggnad för snabbinfo och genvägar till rätt flik; byggen har
+  kranar som växer, vägarna har trafik och obebyggda rutor blir parker.
+- **Klockan** i verktygsfältet (► Spela, 1×/2×/4×) låter månaderna rulla av sig
+  själva med autospar; den pausar automatiskt vid beslut, game over och vinst.
+  ⏭ Månad / ×3 / ×12 stegar manuellt som förut.
+- Placeringen på kartan sköts av `engine/city.ts` (`placeCity`) – spellogiken är
+  orörd och världspoolen förblir abstrakt tills objekt syns på marknaden.
 
 > **Fristående app.** Denna mapp är helt frikopplad från Estera-webbplatsen i repo-roten
 > – egen `package.json`, egna beroenden och egen byggkedja. Inget här importeras av eller
@@ -10,7 +23,6 @@ dominera marknaden mot AI-konkurrenter.
 ## Kom igång
 
 ```bash
-cd game
 npm install
 npm run dev        # http://localhost:5173
 ```

@@ -5,6 +5,7 @@ import { msek } from "../engine/format";
 import { propNOI } from "../engine/property";
 import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
+import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
 import { listSaveSlots } from "../store/persistence";
 import { S } from "../styles/styles";
@@ -14,7 +15,7 @@ import { BuildPanel } from "./BuildPanel";
 import { DecisionModal } from "./DecisionModal";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
-import { CityMap } from "./CityMap";
+import { Map3D } from "./Map3D";
 import { MarketPanel } from "./MarketPanel";
 import { LogPanel } from "./LogPanel";
 import { OffersModal } from "./OffersModal";
@@ -70,6 +71,9 @@ export default function FastighetsImperium() {
   const save       = useGameStore((s) => s.save);
   const load       = useGameStore((s) => s.load);
   const setSlotFn  = useGameStore((s) => s.setSlot);
+
+  // Rullande realtidsklocka (paus/1x/2x/4x i verktygsfältet).
+  useGameClock();
 
   const [started, setStarted] = useState(false);
   const [tab, setTab]         = useState("portfolio");
@@ -230,7 +234,7 @@ export default function FastighetsImperium() {
 
         {tab === "market" && <MarketPanel state={state} dispatch={dispatch} />}
 
-        {tab === "map" && <CityMap state={state} dispatch={dispatch} />}
+        {tab === "map" && <Map3D setTab={setTab} />}
 
         {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
 
