@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
+import { tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propNOI } from "../engine/property";
@@ -42,8 +43,10 @@ import { NewsFeedPanel } from "./NewsFeedPanel";
 import { OnboardingOverlay } from "./OnboardingOverlay";
 import { IndustryPanel } from "./IndustryPanel";
 import { IndustryMarket } from "./IndustryMarket";
+import { CompanyPanel } from "./CompanyPanel";
 
 const TABS = [
+  { id: "company",   label: "Bolag" },
   { id: "portfolio", label: "Portfölj" },
   { id: "market",    label: "Marknad" },
   { id: "build",     label: "Bygg" },
@@ -84,9 +87,9 @@ export default function FastighetsImperium() {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [showVictory, setShowVictory] = useState(false);
 
-  const startNew = (scenarioId: ScenarioId, slot: number) => {
+  const startNew = (scenarioId: ScenarioId, slot: number, companyName: string) => {
     setSlotFn(slot);
-    dispatch({ type: "RESET", scenarioId });
+    dispatch({ type: "RESET", scenarioId, companyName });
     setStarted(true);
   };
   const startContinue = (slot: number) => { load(slot); setStarted(true); };
@@ -128,6 +131,14 @@ export default function FastighetsImperium() {
   const ltv             = ltvOf(state);
   const myRank          = [...state.competitors.map((c) => c.equity), equity]
     .sort((a, b) => b - a).indexOf(equity) + 1;
+  const companyLevel    = state.companyLevel ?? 1;
+  const unlocked        = unlockedWindows(companyLevel);
+
+  // Stäng fönstret om det inte är upplåst (t.ex. efter laddad sparfil).
+  useEffect(() => {
+    if (win && !unlocked.has(win)) setWin(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [win, companyLevel]);
 
   if (!started) {
     return (
@@ -167,22 +178,46 @@ export default function FastighetsImperium() {
         </div>
       )}
 
-      {/* ── Fönsterknappar (kartan är alltid grundvyn) ───────── */}
+      {/* ── Fönsterknappar (kartan är alltid grundvyn) ─────────
+          Bolagsnivån styr vilka funktioner som är upplåsta – bolaget
+          börjar smått och verktygslådan växer med det. */}
       <div style={tabBarStyle}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            style={{ ...tabStyle, ...(win === t.id ? tabActiveStyle : {}) }}
-            onClick={() => setWin(win === t.id ? null : t.id)}
-            title={win === t.id ? "Stäng fönstret" : `Öppna ${t.label}`}
-          >
-            {t.id === "portfolio"
-              ? `Portfölj (${state.portfolio.length})`
-              : t.id === "industri"
-              ? `Industri (${(state.industryPortfolio ?? []).length})`
-              : t.label}
-          </button>
-        ))}
+        <button
+          style={{ ...tabStyle, ...companyBadgeStyle, ...(win === "company" ? tabActiveStyle : {}) }}
+          onClick={() => setWin(win === "company" ? null : "company")}
+          title="Öppna Bolag"
+        >
+          {tierForLevel(companyLevel).icon} {state.companyName ?? "Mitt Fastighetsbolag"}
+        </button>
+        {TABS.filter((t) => t.id !== "company").map((t) => {
+          const locked = !unlocked.has(t.id);
+          if (locked) {
+            const reqTier = tierForLevel(unlockLevelFor(t.id));
+            return (
+              <button
+                key={t.id}
+                style={{ ...tabStyle, opacity: 0.38, cursor: "default" }}
+                title={`🔒 Låses upp på nivå ${reqTier.level}: ${reqTier.name}`}
+              >
+                🔒 {t.label}
+              </button>
+            );
+          }
+          return (
+            <button
+              key={t.id}
+              style={{ ...tabStyle, ...(win === t.id ? tabActiveStyle : {}) }}
+              onClick={() => setWin(win === t.id ? null : t.id)}
+              title={win === t.id ? "Stäng fönstret" : `Öppna ${t.label}`}
+            >
+              {t.id === "portfolio"
+                ? `Portfölj (${state.portfolio.length})`
+                : t.id === "industri"
+                ? `Industri (${(state.industryPortfolio ?? []).length})`
+                : t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Scenario progress bar ───────────────────────────── */}
@@ -234,13 +269,14 @@ export default function FastighetsImperium() {
         </div>
         <MapLegend />
         <OverlayToggle />
-        <TodoHud openWindow={(id) => setWin(id)} />
-        <MapSelectionCard openWindow={(id) => setWin(id)} />
+        <TodoHud openWindow={(id) => unlocked.has(id) && setWin(id)} />
+        <MapSelectionCard openWindow={(id) => unlocked.has(id) && setWin(id)} />
         {win && (
           <FloatingWindow
             title={TABS.find((t) => t.id === win)?.label ?? ""}
             onClose={() => setWin(null)}
           >
+            {win === "company" && <CompanyPanel state={state} dispatch={dispatch} />}
             {win === "portfolio" && (
               <div style={S.grid}>
                 {state.portfolio.length === 0 && (
@@ -448,5 +484,15 @@ const tabStyle: React.CSSProperties = {
 const tabActiveStyle: React.CSSProperties = {
   color: C.brassBright,
   borderBottom: `2px solid ${C.brass}`,
+};
+
+/** Bolagsknappen – alltid först, med guldkant så ägarskapet syns. */
+const companyBadgeStyle: React.CSSProperties = {
+  color: C.brassBright,
+  fontWeight: 800,
+  borderRight: `1px solid ${C.brass}55`,
+  maxWidth: 260,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 

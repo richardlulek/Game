@@ -3,6 +3,7 @@
    Logiken är oförändrad från prototypen.
    ============================================================ */
 
+import { nextTier, qualifiesFor, unitCount } from "./company";
 import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
@@ -1000,12 +1001,36 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
+  // ── Bolagsresan: nivåhöjning när kraven är uppfyllda ────────────
+  {
+    const tier = nextTier(s.companyLevel ?? 1);
+    if (tier && qualifiesFor(s, tier)) {
+      s.companyLevel = tier.level;
+      s.reputation = Math.min(100, s.reputation + 4);
+      const nyheter = tier.unlocks.length > 0 ? " Nya funktioner har låsts upp!" : "";
+      events.push({
+        t: `${tier.icon} BOLAGET VÄXER: ${s.companyName ?? "Bolaget"} är nu ${tier.name.toLowerCase()}! ${tier.desc}${nyheter} (Reputation +4)`,
+        kind: "income",
+      });
+    }
+  }
+
   // Tid
   s.month += 1;
   if (s.month > 12) {
     s.month = 1;
     s.year += 1;
     s.marketMod = +(s.marketMod * rnd(0.99, 1.04)).toFixed(3);
+    // Årsbokslut: hur gick året för bolaget?
+    const prevYearEq = s.history[s.history.length - 12]?.equity;
+    if (prevYearEq !== undefined && prevYearEq !== 0) {
+      const eqNow = equityOf(s);
+      const diffPct = Math.round(((eqNow - prevYearEq) / Math.abs(prevYearEq)) * 100);
+      events.push({
+        t: `📆 ÅRSBOKSLUT ${s.year - 1}: eget kapital ${msek(eqNow)} (${diffPct >= 0 ? "+" : ""}${diffPct} % under året), ${unitCount(s)} fastigheter i beståndet.`,
+        kind: diffPct >= 0 ? "income" : "warn",
+      });
+    }
   }
 
   // Win condition check

@@ -1542,11 +1542,22 @@ export function reducer(state: GameState, action: GameAction): GameState {
       }
       return s;
     }
+    case "SET_COMPANY_NAME": {
+      const name = action.name.trim().slice(0, 32);
+      if (!name) return state;
+      return log({ ...state, companyName: name }, `Bolaget heter nu ${name}.`, "info");
+    }
     case "LOAD":
       return action.state;
     case "RESET": {
       const fresh = initState();
-      return action.scenarioId ? { ...fresh, scenarioId: action.scenarioId } : fresh;
+      return {
+        ...fresh,
+        ...(action.scenarioId ? { scenarioId: action.scenarioId } : {}),
+        ...(action.companyName?.trim()
+          ? { companyName: action.companyName.trim().slice(0, 32) }
+          : {}),
+      };
     }
     default:
       return state;

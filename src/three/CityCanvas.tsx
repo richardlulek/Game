@@ -11,6 +11,7 @@ import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
 import { CameraRig } from "./CameraRig";
 import { Birds, Clouds, Harbor, InnerStreets, Landmarks } from "./CityExtras";
+import { Headquarters } from "./Headquarters";
 import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
 import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
@@ -186,6 +187,7 @@ export function CityCanvas() {
       <CityParcels />
       <Harbor />
       <Landmarks />
+      <Headquarters />
       <Clouds />
       <Birds />
       <LocalTraffic />

@@ -5,6 +5,7 @@
    ============================================================ */
 
 import { placeCity } from "../engine/city";
+import { DEFAULT_COMPANY_NAME, computedLevel } from "../engine/company";
 import { syncIdCounter } from "../engine/random";
 import { initStocks } from "../engine/stocks";
 import type { GameState } from "../engine/types";
@@ -53,7 +54,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 interface SaveFile {
   version: number;
@@ -212,6 +213,12 @@ const migrations: Record<number, (state: GameState) => GameState> = {
   }),
   // v16 → v17: spatial stadskarta – alla synliga objekt får en tomtruta.
   16: (s) => placeCity(s),
+  // v17 → v18: bolagsresa – namn och nivå (nivån räknas fram ur tillståndet).
+  17: (s) => ({
+    ...s,
+    companyName: s.companyName ?? DEFAULT_COMPANY_NAME,
+    companyLevel: s.companyLevel ?? computedLevel(s),
+  }),
 };
 
 /** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */

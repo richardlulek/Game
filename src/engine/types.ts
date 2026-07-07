@@ -457,6 +457,10 @@ export interface GameState {
   globalManager?: GlobalManagerSettings;
   scenarioId?: ScenarioId;
   gameWon?: boolean;
+  /** Bolagets namn (väljs vid nytt spel). */
+  companyName?: string;
+  /** Bolagsnivå 1–6 – stiger via simulationen, sjunker aldrig. */
+  companyLevel?: number;
   recessionMonthsLeft?: number;
   rateMode?: "variable" | "fixed";
   fixedRate?: number;
@@ -568,4 +572,5 @@ export type GameAction =
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
-  | { type: "RESET"; scenarioId?: ScenarioId };
+  | { type: "SET_COMPANY_NAME"; name: string }
+  | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string };

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DEFAULT_COMPANY_NAME } from "../engine/company";
 import { SCENARIOS } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
 import { msek } from "../engine/format";
@@ -7,7 +8,7 @@ import { C, FONTS, THEME } from "../styles/tokens";
 
 interface Props {
   slots: SlotInfo[];
-  onNew: (scenarioId: ScenarioId, slot: number) => void;
+  onNew: (scenarioId: ScenarioId, slot: number, companyName: string) => void;
   onContinue: (slot: number) => void;
 }
 
@@ -16,6 +17,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
   const [phase, setPhase] = useState<"start" | "slots-continue" | "slots-new" | "scenario">("start");
   const [selectedId, setSelectedId] = useState<ScenarioId>("equity50");
   const [selectedSlot, setSelectedSlot] = useState(1);
+  const [companyName, setCompanyName] = useState("");
   const anySave = slots.some((s) => s.exists);
 
   return (
@@ -179,12 +181,40 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                 </div>
               ))}
             </div>
+            {/* Grunda bolaget: eget namn ger ägarkänsla från första minuten. */}
+            <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <label style={{ fontSize: 12, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>
+                DITT BOLAGS NAMN
+              </label>
+              <input
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value.slice(0, 32))}
+                placeholder={DEFAULT_COMPANY_NAME}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  border: `1px solid ${C.brass}`,
+                  borderRadius: 4,
+                  color: C.brassBright,
+                  fontFamily: FONTS.heading,
+                  fontSize: 17,
+                  fontWeight: 700,
+                  textAlign: "center",
+                  padding: "9px 14px",
+                  width: 300,
+                  maxWidth: "80vw",
+                  outline: "none",
+                }}
+              />
+            </div>
             <div style={btnRow}>
               <button style={contBtn} onClick={() => setPhase("slots-new")}>
                 ← Tillbaka
               </button>
-              <button style={newBtn} onClick={() => onNew(selectedId, selectedSlot)}>
-                Starta
+              <button
+                style={newBtn}
+                onClick={() => onNew(selectedId, selectedSlot, companyName.trim() || DEFAULT_COMPANY_NAME)}
+              >
+                Grunda bolaget
               </button>
             </div>
           </>

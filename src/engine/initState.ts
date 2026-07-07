@@ -3,6 +3,7 @@
    fördelade mellan marknaden, konkurrenter och en off-market pool.
    ============================================================ */
 
+import { DEFAULT_COMPANY_NAME } from "./company";
 import { AI_NAMES, DISTRICTS } from "./data";
 import { genLot, genWorldProperty } from "./generators";
 import { rnd } from "./random";
@@ -52,6 +53,8 @@ export function initState(): GameState {
     industryListings: [],
     energyOwnedMW: 0,
     hotelHighOccConsecutiveMonths: 0,
+    companyName: DEFAULT_COMPANY_NAME,
+    companyLevel: 1,
   };
 
   // ── Generera hela världen (WORLD_SIZE fastigheter) ──────────────
