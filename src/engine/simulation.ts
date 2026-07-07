@@ -350,7 +350,7 @@ export function advanceMonth(state: GameState): GameState {
         return np;
       }
       // Ansökningar in/ut.
-      let apps = (np.applications ?? []).filter((a) => a.expiresAbs > nowAbsApp);
+      const apps = (np.applications ?? []).filter((a) => a.expiresAbs > nowAbsApp);
       const rate = applicationRate(np, s, season);
       let n = Math.floor(rate) + (Math.random() < rate - Math.floor(rate) ? 1 : 0);
       // Inkorgen växer inte i det oändliga.
