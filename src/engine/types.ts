@@ -162,6 +162,10 @@ export interface Tenant {
   rent: number;
   consecutiveMonths?: number;
   isAnchor?: boolean;
+  /** Nöjdhet 0–100 (U3): driver förnyelser, förtida flytt och rekommendationer. */
+  satisfaction?: number;
+  /** Signerad med ankaravtal (U5): rabatterad hyra, lyfter hela kvarteret. */
+  anchorDeal?: boolean;
 }
 
 /** Ett inkommande erbjudande (t.ex. en rival som vill köpa din fastighet). */
@@ -265,11 +269,34 @@ export interface Property {
    *  och fler hyresgästplatser – köps, säljs och förvaltas som en enhet. */
   wholeBlock?: boolean;
   /** Pågående utvecklingsprojekt (status "bygger" med befintligt hus). */
-  renovation?: { kind: RenovationKind };
+  renovation?: { kind: RenovationKind; targetCapacity?: number };
+  /** Utgångshyra som andel av marknadshyran (0.8–1.3, standard 1.0).
+   *  Styr hur många och hur bra ansökningar som kommer in. */
+  askRentPct?: number;
+  /** Inkomna hyresansökningar som väntar på besked. */
+  applications?: Application[];
+  /** Bostadskö-läget (U6): reglerad hyra −20 % men noll vakans och goodwill. */
+  regulated?: boolean;
+  /** Mäklaruppdrag (U8): månadsarvode vid vakans, garanterat kvalificerat flöde. */
+  brokerMandate?: boolean;
 }
 
-/** Utvecklingsprojekt: totalrenovering eller påbyggnad av befintligt hus. */
-export type RenovationKind = "totalrenovering" | "påbyggnad";
+/** Utvecklingsprojekt: totalrenovering, påbyggnad eller lokalanpassning
+ *  (ändrar antalet lokaler – single- vs multi-tenant). */
+export type RenovationKind = "totalrenovering" | "påbyggnad" | "lokalanpassning";
+
+/** Kontraktspaket vid signering av ny hyresgäst. */
+export type ContractKind = "kort" | "standard" | "långt" | "ankare";
+
+/** En inkommen ansökan om att hyra – väntar på spelarens besked. */
+export interface Application {
+  id: number;
+  tenant: Tenant;
+  /** Absolut månad då ansökan dras tillbaka. */
+  expiresAbs: number;
+  /** Kedjor/myndigheter kan erbjudas ankaravtal (U5). */
+  anchorEligible?: boolean;
+}
 
 /** Rivalens långsiktiga mål – syns i Topp-listan och styr beteendet. */
 export interface CompetitorAgenda {
@@ -619,7 +646,12 @@ export type GameAction =
   | { type: "LOAD"; state: GameState }
   | { type: "SET_COMPANY_NAME"; name: string }
   | { type: "UPGRADE_COMPANY" }
-  | { type: "START_RENOVATION"; id: number; kind: RenovationKind }
+  | { type: "START_RENOVATION"; id: number; kind: RenovationKind; targetCapacity?: number }
+  | { type: "SET_ASK_RENT"; id: number; pct: number }
+  | { type: "ACCEPT_APPLICATION"; id: number; applicationId: number; contract: ContractKind }
+  | { type: "REJECT_APPLICATION"; id: number; applicationId: number }
+  | { type: "TOGGLE_REGULATED"; id: number }
+  | { type: "TOGGLE_BROKER"; id: number }
   | { type: "AUCTION_BID" }
   | { type: "AUCTION_PASS" }
   | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string };

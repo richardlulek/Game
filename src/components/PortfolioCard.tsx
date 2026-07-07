@@ -3,9 +3,9 @@ import { blockGap } from "../engine/blocks";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
-import { makeTenant } from "../engine/generators";
+import { CONTRACTS, maxCapacityFor } from "../engine/leasing";
 import { propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "../engine/property";
-import type { GameAction, GameState, Property, Tenant } from "../engine/types";
+import type { GameAction, GameState, Property } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { BuildingArt } from "./BuildingArt";
 import { CondBar } from "./CondBar";
@@ -44,22 +44,16 @@ function acceptProb(newRent: number, marketMo: number) {
   return             { text: "Mycket hög risk",  color: "#c0392b", prob: 10 };
 }
 
-function genCandidates(p: Property, state: GameState, enhanced = false): Tenant[] {
-  const base  = propPotentialRent(p, state) / p.capacity;
-  const count = enhanced ? 5 : 3;
-  const pool  = Array.from({ length: count * 3 }, () =>
-    makeTenant(base, state.demandMod, p.condition),
-  );
-  return enhanced
-    ? pool.sort((a, b) => b.quality - a.quality).slice(0, count)
-    : pool.slice(0, count);
+/** Nöjdhets-chip för en hyresgäst (U3). */
+function satChip(sat: number): { icon: string; color: string } {
+  if (sat >= 75) return { icon: "😀", color: "#27660a" };
+  if (sat >= 50) return { icon: "🙂", color: "#7b8a2e" };
+  if (sat >= 30) return { icon: "😐", color: "#b07010" };
+  return { icon: "☹️", color: "#c0392b" };
 }
 
 export function PortfolioCard({ p, state, dispatch }: Props) {
   const [showDetails,        setShowDetails]        = useState(false);
-  const [candidateSlot,      setCandidateSlot]      = useState<number | null>(null);
-  const [candidates,         setCandidates]         = useState<Tenant[] | null>(null);
-  const [marketingActive,    setMarketingActive]    = useState(false);
   const [showRaiseTenantId,  setShowRaiseTenantId]  = useState<number | null>(null);
   const [showLowerTenantId,  setShowLowerTenantId]  = useState<number | null>(null);
   const [showMgrSettings,    setShowMgrSettings]    = useState(false);
@@ -261,6 +255,10 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                   <span style={{ fontSize: 11, fontWeight: 600, color: marketChip.color }}>
                     {marketChip.label}
                   </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: satChip(t.satisfaction ?? 60).color }} title="Nöjdhet: driver förnyelser och tolerans för hyreshöjningar">
+                    {satChip(t.satisfaction ?? 60).icon} {t.satisfaction ?? 60} %
+                  </span>
+                  {t.anchorDeal && <span style={{ fontSize: 11 }} title="Ankaravtal: lyfter hela kvarteret">⭐</span>}
                 </div>
                 <div style={{ ...tenantMeta, marginTop: 2, color: critical ? "#c05000" : "#888" }}>
                   {critical ? `⚠ löper ut om ${t.monthsLeft} mån` : expiring ? `⚠ ${t.monthsLeft} mån kvar` : `${t.monthsLeft} mån kvar`}
@@ -373,85 +371,114 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         );
       })}
 
-      {/* ── Lediga platser ─────────────────────────────────────── */}
-      {Array.from({ length: emptySlots }).map((_, i) => {
-        const slotIndex   = p.tenants.length + i;
-        const isPicking   = candidateSlot === slotIndex && candidates !== null;
-        return (
-          <div key={`empty-${i}`} style={vacantBox}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <span style={vacantTitle}>Ledig plats</span>
-              <span style={vacantSub}>Potential {kr(slotPotential)}/mån</span>
-            </div>
-
-            {isPicking ? (
-              <div>
-                <div style={{ ...sectionLabel, marginBottom: 6 }}>
-                  {marketingActive ? "5 kvalificerade kandidater (kampanj aktiv)" : "Välj hyresgäst"}
-                </div>
-                {candidates!.map((t, ci) => (
-                  <button
-                    key={ci}
-                    onClick={() => {
-                      dispatch({ type: "LEASE_TENANT", id: p.id, tenant: t });
-                      setCandidates(null);
-                      setCandidateSlot(null);
-                      setMarketingActive(false);
-                    }}
-                    style={candidateBtn}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: "#1a1a1a" }}>{t.name}</span>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: "#27660a" }}>{kr(t.rent)}/mån</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                      {t.termTotal} mån kontrakt · Kvalitet {t.quality.toFixed(2)} · Risk {(t.defaultRisk * 100).toFixed(1)} %
-                    </div>
-                  </button>
-                ))}
-                <button
-                  onClick={() => { setCandidates(null); setCandidateSlot(null); }}
-                  style={{ fontSize: 12, color: "#999", background: "none", border: "none", cursor: "pointer", marginTop: 4 }}
-                >
-                  Avvisa alla
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button
-                  onClick={() => {
-                    setCandidates(genCandidates(p, state, marketingActive));
-                    setCandidateSlot(slotIndex);
-                  }}
-                  disabled={state.gameOver}
-                  style={showCandidatesBtn}
-                >
-                  {marketingActive ? "📣 Visa 5 kvalificerade kandidater" : "Välj hyresgäst →"}
-                </button>
-                {!marketingActive && (
-                  <button
-                    onClick={() => {
-                      if (state.cash >= 25000 && !state.gameOver) {
-                        dispatch({ type: "MARKET_BOOST", id: p.id });
-                        setMarketingActive(true);
-                      }
-                    }}
-                    disabled={state.cash < 25000 || state.gameOver}
-                    style={{
-                      padding: "7px 10px", borderRadius: 8, border: "1px solid #5a4aaa44",
-                      background: state.cash >= 25000 ? "#5a4aaa18" : "#f5f5f5",
-                      color: state.cash >= 25000 ? "#5a4aaa" : "#aaa",
-                      fontSize: 12, fontWeight: 700, cursor: state.cash >= 25000 ? "pointer" : "default",
-                    }}
-                  >
-                    📣 Kampanj 25 k
-                  </button>
-                )}
-              </div>
-            )}
+      {/* ── Uthyrning (U1): utgångshyra + ansökningsinkorg ─────── */}
+      {emptySlots > 0 && !p.regulated && (
+        <div style={vacantBox}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span style={vacantTitle}>
+              {emptySlots} {emptySlots === 1 ? "ledig lokal" : "lediga lokaler"}
+            </span>
+            <span style={vacantSub}>Marknadshyra {kr(slotPotential)}/mån</span>
           </div>
-        );
-      })}
+          {/* Utgångshyra: låg = kö av sökande, hög = glest och sämre mix */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, color: "#666", whiteSpace: "nowrap" }}>Utgångshyra</span>
+            <input
+              type="range"
+              min={80}
+              max={130}
+              step={5}
+              value={Math.round((p.askRentPct ?? 1) * 100)}
+              onChange={(e) => dispatch({ type: "SET_ASK_RENT", id: p.id, pct: +e.target.value / 100 })}
+              style={{ flex: 1, accentColor: "#800020" }}
+            />
+            <strong style={{ fontSize: 12.5, minWidth: 88, color: (p.askRentPct ?? 1) > 1.1 ? "#b5542a" : (p.askRentPct ?? 1) < 0.95 ? "#4d8b52" : "#333" }}>
+              {Math.round((p.askRentPct ?? 1) * 100)} % · {kr(Math.round(slotPotential * (p.askRentPct ?? 1)))}
+            </strong>
+          </div>
+          {/* Inkomna ansökningar */}
+          {(p.applications ?? []).length === 0 ? (
+            <div style={{ fontSize: 12, color: "#997", marginBottom: 6 }}>
+              Inga ansökningar ännu — {(p.askRentPct ?? 1) > 1.05 ? "utgångshyran ligger över marknaden, sänk eller vänta" : "sökande brukar dyka upp inom någon månad"}.
+            </div>
+          ) : (
+            (p.applications ?? []).map((a) => (
+              <div key={a.id} style={candidateBtn}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#1a1a1a" }}>
+                    {a.tenant.name}
+                    {a.anchorEligible ? " ⭐" : ""}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#27660a" }}>{kr(a.tenant.rent)}/mån</span>
+                </div>
+                <div style={{ fontSize: 11, color: "#888", margin: "2px 0 5px" }}>
+                  {a.tenant.profileName ?? a.tenant.profile} · Kvalitet {a.tenant.quality.toFixed(2)} · Risk {(a.tenant.defaultRisk * 100).toFixed(1)} %
+                </div>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {(["kort", "standard", "långt"] as const).map((c) => (
+                    <button
+                      key={c}
+                      title={CONTRACTS[c].desc}
+                      onClick={() => dispatch({ type: "ACCEPT_APPLICATION", id: p.id, applicationId: a.id, contract: c })}
+                      style={contractBtn}
+                    >
+                      {CONTRACTS[c].label}
+                    </button>
+                  ))}
+                  {a.anchorEligible && (
+                    <button
+                      title={CONTRACTS["ankare"].desc}
+                      onClick={() => dispatch({ type: "ACCEPT_APPLICATION", id: p.id, applicationId: a.id, contract: "ankare" })}
+                      style={{ ...contractBtn, background: "#8a6d1a", borderColor: "#8a6d1a", color: "#fff" }}
+                    >
+                      Ankare ⭐
+                    </button>
+                  )}
+                  <button
+                    onClick={() => dispatch({ type: "REJECT_APPLICATION", id: p.id, applicationId: a.id })}
+                    style={{ ...contractBtn, color: "#997", borderColor: "#ddd" }}
+                  >
+                    Avslå
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+            <button
+              onClick={() => dispatch({ type: "MARKET_BOOST", id: p.id })}
+              disabled={state.cash < 25000 || state.gameOver}
+              style={{
+                padding: "6px 10px", borderRadius: 8, border: "1px solid #5a4aaa44",
+                background: state.cash >= 25000 ? "#5a4aaa18" : "#f5f5f5",
+                color: state.cash >= 25000 ? "#5a4aaa" : "#aaa",
+                fontSize: 12, fontWeight: 700, cursor: state.cash >= 25000 ? "pointer" : "default",
+              }}
+            >
+              📣 Annonskampanj 25 k (+3 ansökningar)
+            </button>
+            <button
+              onClick={() => dispatch({ type: "TOGGLE_BROKER", id: p.id })}
+              style={{
+                padding: "6px 10px", borderRadius: 8,
+                border: `1px solid ${p.brokerMandate ? "#27660a" : "#ccc"}`,
+                background: p.brokerMandate ? "#27660a14" : "#fff",
+                color: p.brokerMandate ? "#27660a" : "#666",
+                fontSize: 12, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              {p.brokerMandate ? "✓ Mäklaruppdrag aktivt · 15 k/mån" : "🤝 Mäklaruppdrag 15 k/mån"}
+            </button>
+          </div>
+        </div>
+      )}
+      {p.regulated && emptySlots > 0 && (
+        <div style={{ ...vacantBox, borderColor: "#4d8b52" }}>
+          <span style={{ fontSize: 12.5, color: "#27660a", fontWeight: 700 }}>
+            🏛️ Bostadskön tilldelar {emptySlots} {emptySlots === 1 ? "lägenhet" : "lägenheter"} nästa månad.
+          </span>
+        </div>
+      )}
 
       <Divider />
 
@@ -506,6 +533,41 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
             disabled={p.tenants.length > 0 || state.cash < value * 0.3 || state.gameOver}
             onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "påbyggnad" })}
           />
+          {/* Lokalanpassning: single- vs multi-tenant */}
+          {maxCapacityFor(p) > 1 && (
+            <div style={{ margin: "4px 0 8px" }}>
+              <div style={{ fontSize: 11.5, color: "#666", marginBottom: 4 }}>
+                🔨 Lokalanpassning (3 mån): {p.capacity} {p.capacity === 1 ? "stor lokal" : "lokaler"} idag ·
+                {p.capacity === 1 ? " premiumhyra +10 %" : " riskspridning"} · bygg om till:
+              </div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {Array.from({ length: maxCapacityFor(p) }, (_, i) => i + 1).map((target) => {
+                  if (target === p.capacity) return null;
+                  const cost = Math.max(150_000, Math.round(value * 0.04 * Math.abs(target - p.capacity)));
+                  const blocked = p.tenants.length > target || state.cash < cost || state.gameOver;
+                  return (
+                    <button
+                      key={target}
+                      title={
+                        p.tenants.length > target
+                          ? `Kräver max ${target} uthyrda (nu ${p.tenants.length})`
+                          : `${target === 1 ? "En stor lokal: +10 % hyra/m², −5 % drift" : `${target} lokaler`} · ${msek(cost)}`
+                      }
+                      disabled={blocked}
+                      onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "lokalanpassning", targetCapacity: target })}
+                      style={{
+                        ...contractBtn,
+                        opacity: blocked ? 0.45 : 1,
+                        cursor: blocked ? "default" : "pointer",
+                      }}
+                    >
+                      {target === 1 ? "1 (premium)" : target} · {msek(cost)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -513,6 +575,20 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       {/* ── Förvaltning ─────────────────────────────────────────── */}
       <div style={sectionLabel}>Förvaltning</div>
+
+      {p.type === "bostad" && (
+        <ActionBtn
+          label={p.regulated ? "✓ Ansluten till bostadskön" : "🏛️ Anslut till bostadskön"}
+          sub={
+            p.regulated
+              ? "Reglerad hyra −20 % · noll vakans · +goodwill. Klicka för att lämna."
+              : "Reglerad hyra −20 % men kön fyller alla vakanser direkt och bygger reputation."
+          }
+          color={p.regulated ? "#27660a" : "#2a4a6a"}
+          disabled={state.gameOver}
+          onClick={() => dispatch({ type: "TOGGLE_REGULATED", id: p.id })}
+        />
+      )}
 
       <ActionBtn
         label={
@@ -856,10 +932,10 @@ const candidateBtn: React.CSSProperties = {
   marginBottom: 6, padding: "9px 10px", borderRadius: 4,
   border: `1px solid ${C.brass}`, background: "#fbf5e6", cursor: "pointer",
 };
-const showCandidatesBtn: React.CSSProperties = {
-  padding: "7px 12px", borderRadius: 4,
-  border: `1px solid ${C.brass}`, background: BURGUNDY,
-  color: C.brassBright, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body,
+const contractBtn: React.CSSProperties = {
+  padding: "4px 10px", borderRadius: 5,
+  border: `1px solid ${C.brass}`, background: "#fff",
+  color: "#5a2a3a", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body,
 };
 
 const tenantBox: React.CSSProperties = {

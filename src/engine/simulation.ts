@@ -16,6 +16,14 @@ import {
 } from "./company";
 import { DISTRICT_TIERS, tierOfDev } from "./districtTiers";
 import { esgRatingOf } from "./esg";
+import {
+  BROKER_FEE,
+  applicationRate,
+  bestApplication,
+  makeApplication,
+  satisfactionTarget,
+  signContract,
+} from "./leasing";
 import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
@@ -131,8 +139,15 @@ export function advanceMonth(state: GameState): GameState {
       if (np.buildLeft <= 0) {
         np.status = "klar";
         if (np.renovation) {
-          // Utvecklingsprojekt färdigt: totalrenovering eller påbyggnad.
-          if (np.renovation.kind === "totalrenovering") {
+          // Utvecklingsprojekt färdigt.
+          if (np.renovation.kind === "lokalanpassning") {
+            const target = np.renovation.targetCapacity ?? np.capacity;
+            np.capacity = target;
+            events.push({
+              t: `🔨 Lokalanpassning klar: ${np.typeLabel} i ${np.districtName} har nu ${target} ${target === 1 ? "stor lokal (premiumhyra +10 %)" : "lokaler"}.`,
+              kind: "income",
+            });
+          } else if (np.renovation.kind === "totalrenovering") {
             np.condition = 100;
             np.energyClass = "A";
             np.rentMult = +(np.rentMult * 1.15).toFixed(3);
@@ -218,8 +233,14 @@ export function advanceMonth(state: GameState): GameState {
       }
     }
     // Hyresgästlogik
+    const slotMarketRent = np.capacity > 0 ? propPotentialRent(np, s) / np.capacity / 12 : 0;
     const nextTenants: typeof np.tenants = [];
-    for (const t of np.tenants) {
+    for (const t0 of np.tenants) {
+      // Nöjdhet (U3): driftar 20 %/mån mot målet som sätts av skick,
+      // hyresläge, distriktets öde och kvartersmixen.
+      const sat0 = t0.satisfaction ?? 60;
+      const sat = Math.round(sat0 + (satisfactionTarget(t0, np, s, slotMarketRent) - sat0) * 0.2);
+      const t = { ...t0, satisfaction: sat };
       // Tenant loyalty: consecutiveMonths halves default risk after 24+ months
       const consMonths = (t.consecutiveMonths ?? 0) + 1;
       const loyaltyFactor = consMonths >= 24 ? 0.5 : 1.0;
@@ -232,17 +253,25 @@ export function advanceMonth(state: GameState): GameState {
         events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Vräkningskostnad: ${kr(evictionCost)}.`, kind: "expense" });
         continue;
       }
+      // Djupt missnöjda lämnar i förtid (U3).
+      if (sat < 30 && Math.random() < 0.06) {
+        events.push({ t: `😟 ${t.name} lämnade ${np.districtName} i förtid – missnöjd (nöjdhet ${sat}).`, kind: "warn" });
+        continue;
+      }
       // Anchor tenant designation at 36+ consecutive months
-      const isAnchor = consMonths >= 36;
+      const isAnchor = consMonths >= 36 || !!t.anchorDeal;
       if (t.monthsLeft <= 1) {
         if (effectiveManaged) {
           const rentTargetPct = effectiveRentTargetPct;
-          const marketMo = propPotentialRent(np, s) / np.capacity / 12;
+          const marketMo = slotMarketRent;
           const baseRent = Math.round(marketMo * t.quality);
           const targetRent = Math.round(baseRent * rentTargetPct);
           const premiumRatio = targetRent / Math.max(1, baseRent);
-          // Anchor tenants have higher willingness to stay
-          const willStay = premiumRatio <= 1.10 || Math.random() < (isAnchor ? 0.65 : 0.40);
+          // Nöjda hyresgäster stannar; ankare mest av alla (U3/U5).
+          const satMult = Math.max(0.3, Math.min(1.3, sat / 65));
+          const willStay = premiumRatio <= 1.10 && sat >= 30
+            ? true
+            : Math.random() < (isAnchor ? 0.65 : 0.40) * satMult;
           if (willStay) {
             const newRent = rentTargetPct < 1.0
               ? Math.min(t.rent, targetRent)
@@ -282,45 +311,64 @@ export function advanceMonth(state: GameState): GameState {
       nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1, consecutiveMonths: consMonths, isAnchor });
     }
     np.tenants = nextTenants;
-    // Konditionskaskad: fastighet under 35 % skick driver ut hyresgäster (~8 % chans/hyresgäst/mån)
-    if (np.condition < 35 && !effectiveManaged && np.tenants.length > 0) {
-      np.tenants = np.tenants.filter((t) => {
-        if (Math.random() < 0.08) {
-          events.push({ t: `😟 ${t.name} lämnade ${np.districtName} pga eftersatt underhåll (skick ${Math.round(np.condition)} %).`, kind: "warn" });
-          return false;
-        }
-        return true;
-      });
-    }
-    // Förvaltare: auto-uthyr med hyresgästmarknadskonkurrens
-    if (effectiveManaged && np.status === "klar") {
-      const emptyNow = np.capacity - np.tenants.length;
+    // Förvaltare: accepterar bästa ansökan som möter kvalitetskravet (U1).
+    if (effectiveManaged && np.status === "klar" && np.tenants.length < np.capacity) {
       const minQuality = gm?.minTenantQuality ?? 0;
-      // Konkurrens: rivals med fastigheter i samma distrikt minskar fill-chansen
-      const rivalUnits = s.competitors.reduce(
-        (a, c) => a + c.portfolio.filter((p) => p.district === np.district).length, 0,
-      );
-      const playerUnits = s.portfolio.filter(
-        (p) => p.district === np.district && p.status === "klar",
-      ).length;
-      const dominance = playerUnits / Math.max(1, playerUnits + rivalUnits); // 0–1
-      const condFactor = Math.max(0.3, np.condition / 100);
-      // fill-chans: 8–45 % beroende på kondition och marknadsandel
-      const fillChance = Math.min(0.45, condFactor * (0.15 + 0.30 * (0.5 + dominance)));
-      for (let i = 0; i < emptyNow; i++) {
-        if (Math.random() > fillChance) continue;
-        const base = propPotentialRent(np, s) / np.capacity / 12;
-        const candidate = makeTenant(base, s.demandMod, np.condition);
-        if (candidate.quality >= minQuality) {
-          np.tenants = [...np.tenants, candidate];
-          events.push({ t: `👔 Förvaltare hyrde ut i ${np.typeLabel} ${np.districtName}: ${kr(candidate.rent)}/mån.`, kind: "info" });
-        }
+      const app = bestApplication(np, minQuality);
+      if (app) {
+        const signed = signContract(app.tenant, "standard");
+        np.tenants = [...np.tenants, signed];
+        np.applications = (np.applications ?? []).filter((a) => a.id !== app.id);
+        events.push({ t: `👔 Förvaltare accepterade ansökan i ${np.typeLabel} ${np.districtName}: ${signed.name}, ${kr(signed.rent)}/mån.`, kind: "info" });
       }
     }
     // Opex dras alltid
     monthlyNOI -= propAnnualOpex(np, s) / 12;
     return np;
   });
+
+  // ── U1: Ansökningsflödet – pris möter efterfrågan ────────────────
+  // Utgångna ansökningar rensas, nya strömmar in beroende på utgångshyra,
+  // skick, läge och distriktets öde. Bostadskön fyller reglerade hus direkt.
+  {
+    const nowAbsApp = s.year * 12 + s.month;
+    let queueFilled = 0;
+    s.portfolio = s.portfolio.map((p) => {
+      if (p.status !== "klar") return p;
+      const np = { ...p };
+      const free = np.capacity - np.tenants.length;
+      // Mäklararvode vid vakans (U8).
+      if (np.brokerMandate && free > 0) monthlyNOI -= BROKER_FEE;
+      // Bostadskön (U6): fyller alla vakanser direkt till reglerad hyra.
+      if (np.regulated && free > 0) {
+        const slotRent = propPotentialRent(np, s) / np.capacity / 12; // redan −20 %
+        for (let i = 0; i < free; i++) {
+          const t = makeTenant(slotRent * 12, s.demandMod, np.condition);
+          np.tenants = [...np.tenants, { ...t, rent: Math.round(slotRent * t.quality), satisfaction: 68 }];
+          queueFilled += 1;
+        }
+        return np;
+      }
+      // Ansökningar in/ut.
+      let apps = (np.applications ?? []).filter((a) => a.expiresAbs > nowAbsApp);
+      const rate = applicationRate(np, s, season);
+      let n = Math.floor(rate) + (Math.random() < rate - Math.floor(rate) ? 1 : 0);
+      // Inkorgen växer inte i det oändliga.
+      n = Math.min(n, Math.max(0, free + 3 - apps.length));
+      if (n > 0) {
+        const slotRent = np.capacity > 0 ? propPotentialRent(np, s) / np.capacity / 12 : 0;
+        for (let i = 0; i < n; i++) apps.push(makeApplication(np, s, nowAbsApp, slotRent));
+      }
+      if (apps !== np.applications) np.applications = apps;
+      return np;
+    });
+    if (queueFilled > 0)
+      events.push({ t: `🏛️ Bostadskön tilldelade ${queueFilled} ${queueFilled === 1 ? "lägenhet" : "lägenheter"} i ditt reglerade bestånd.`, kind: "info" });
+    // Goodwill: reglerade bostäder bygger sakta reputation.
+    const regulatedCount = s.portfolio.filter((p) => p.regulated && p.status === "klar").length;
+    if (regulatedCount > 0)
+      s.reputation = Math.min(100, +(s.reputation + Math.min(0.5, regulatedCount * 0.05)).toFixed(2));
+  }
 
   // Städa förhandlingslistan: behåll bara ärenden där fastigheten fortfarande
   // ägs och hyresgästen fortfarande väntar på besked (monthsLeft ≤ 1).

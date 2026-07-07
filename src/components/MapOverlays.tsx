@@ -324,6 +324,7 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
   const vacantSlots = klar
     .filter((p) => !p.shortTerm)
     .reduce((a, p) => a + Math.max(0, p.capacity - p.tenants.length), 0);
+  const totalApps = klar.reduce((a, p) => a + (p.applications ?? []).length, 0);
   const expiring = klar.reduce(
     (a, p) => a + p.tenants.filter((t) => t.monthsLeft <= 3).length,
     0,
@@ -358,11 +359,19 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
         </div>
       )}
       {nothing && <div style={{ color: "#4d8b52" }}>✓ Allt uthyrt, förnyat och i gott skick.</div>}
-      {vacantSlots > 0 && (
+      {totalApps > 0 && (
         <div style={T.hudRow}>
-          <span>🏠 {vacantSlots} vakanta platser</span>
+          <span>📬 {totalApps} ansökningar väntar</span>
           <button style={T.hudBtn} onClick={() => dispatch({ type: "LEASE_ALL" })}>
-            Hyr ut alla
+            Acceptera bästa
+          </button>
+        </div>
+      )}
+      {vacantSlots > 0 && totalApps === 0 && (
+        <div style={T.hudRow}>
+          <span>🏠 {vacantSlots} vakanser, inga sökande</span>
+          <button style={T.hudBtn2} onClick={() => openWindow("portfolio")}>
+            Justera hyror →
           </button>
         </div>
       )}

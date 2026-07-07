@@ -6,6 +6,12 @@
 import { BLOCK_OPEX_CUT, BLOCK_RENT_BONUS, hasBlockBonus } from "./blocks";
 import { locationFactor } from "./city";
 import { DISTRICTS, PROP_TYPES } from "./data";
+import {
+  REGULATED_RENT,
+  SINGLE_TENANT_OPEX_CUT,
+  SINGLE_TENANT_RENT_BONUS,
+  blockMixFor,
+} from "./leasing";
 import { opexMult, vacancyMult } from "./progression";
 import { energySynergyMult } from "./industries";
 import type { GameState, Property } from "./types";
@@ -80,20 +86,30 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const locRent = 1 + (locationFactor(p.parcelId) - 1) * 0.5;
   // Helkvartersbonus: hela kvarteret i bolagets ägo ⇒ samordnad drift.
   const blockRent = hasBlockBonus(p, state) ? BLOCK_RENT_BONUS : 1;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent;
-  const vacancy = Math.max(
-    0,
-    t.vacancyBase * p.vacancyMult * clusterVacMult * vacancyMult(state) - (p.condition - 60) / 1000,
-  );
+  // Single-tenant-premie: EN stor lokal betalar mer per m² (U-lokalanpassning).
+  const single = p.capacity === 1 && !p.wholeBlock ? SINGLE_TENANT_RENT_BONUS : 1;
+  // Kvartersmix (U4): rätt grannar lyfter hyran.
+  const mix = p.owned ? blockMixFor(p, state).rentMult : 1;
+  // Bostadskön (U6): reglerad hyra −20 %, men noll vakans.
+  const reg = p.regulated ? REGULATED_RENT : 1;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent * single * mix * reg;
+  const vacancy = p.regulated
+    ? 0
+    : Math.max(
+        0,
+        t.vacancyBase * p.vacancyMult * clusterVacMult * vacancyMult(state) - (p.condition - 60) / 1000,
+      );
   return gross * (1 - vacancy);
 }
 
-/** Årlig driftkostnad. Helägda kvarter driftas samordnat (−15 %). */
+/** Årlig driftkostnad. Helägda kvarter driftas samordnat (−15 %),
+ *  en enda stor hyresgäst ger lägre administration (−5 %). */
 export function propAnnualOpex(p: Property, state: GameState): number {
   if (p.status === "bygger") return 0;
   const t = PROP_TYPES[p.type];
   const block = hasBlockBonus(p, state) ? BLOCK_OPEX_CUT : 1;
-  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state) * energySynergyMult(state) * block;
+  const single = p.capacity === 1 && !p.wholeBlock ? SINGLE_TENANT_OPEX_CUT : 1;
+  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state) * energySynergyMult(state) * block * single;
 }
 
 /** Driftnetto per år (hyra − driftkostnad). */

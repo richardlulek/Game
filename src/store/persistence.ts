@@ -58,7 +58,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 20;
+export const SAVE_VERSION = 21;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -226,6 +226,16 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     ...s,
     companyName: s.companyName ?? DEFAULT_COMPANY_NAME,
     companyLevel: s.companyLevel ?? computedLevel(s),
+  }),
+  // v20 → v21: uthyrning 2.0 – utgångshyra, ansökningar och nöjdhet.
+  20: (s) => ({
+    ...s,
+    portfolio: s.portfolio.map((p) => ({
+      ...p,
+      askRentPct: p.askRentPct ?? 1,
+      applications: p.applications ?? [],
+      tenants: p.tenants.map((t) => ({ ...t, satisfaction: t.satisfaction ?? 60 })),
+    })),
   }),
   // v19 → v20: mekanikpaketet – rivalagendor och nya spårningsfält.
   19: (s) => ({

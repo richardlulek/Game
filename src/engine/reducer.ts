@@ -11,6 +11,14 @@ import { equityOf, loanTerms } from "./finance";
 import { kr, msek, pct } from "./format";
 import { calcCapacity, genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
+import {
+  BROKER_FEE,
+  CONTRACTS,
+  bestApplication,
+  makeApplication,
+  maxCapacityFor,
+  signContract,
+} from "./leasing";
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { propMarketValue, propPotentialRent } from "./property";
@@ -219,6 +227,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
         // Nytt förhandlat pris – gammal pool-snapshot gäller inte längre.
         poolAskPrice: undefined,
         poolBaseRent: undefined,
+        // Spelarspecifik uthyrningsstyrning följer inte med köpet.
+        applications: undefined,
+        askRentPct: undefined,
+        regulated: undefined,
+        brokerMandate: undefined,
       };
       return {
         ...state,
@@ -259,14 +272,20 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "LEASE": {
-      // Hyr ut en ledig plats till ny hyresgäst
+      // Acceptera bästa inkomna ansökan (standardkontrakt). Utan
+      // ansökningar händer inget – vakanser fylls via ansökningsflödet.
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.tenants.length >= p.capacity || p.status === "bygger") return state;
-      const tenant = makeTenant(propPotentialRent(p, state) / p.capacity, state.demandMod, p.condition);
+      const app = bestApplication(p);
+      if (!app)
+        return log(state, `Inga ansökningar till ${p.typeLabel} i ${p.districtName} ännu – justera utgångshyran eller anlita mäklare.`, "info");
+      const tenant = signContract(app.tenant, "standard");
       return {
         ...state,
         portfolio: state.portfolio.map((x) =>
-          x.id === p.id ? { ...x, tenants: [...x.tenants, tenant] } : x,
+          x.id === p.id
+            ? { ...x, tenants: [...x.tenants, tenant], applications: (x.applications ?? []).filter((a) => a.id !== app.id) }
+            : x,
         ),
         log: [
           {
@@ -277,20 +296,122 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "ACCEPT_APPLICATION": {
+      // U1/U2: acceptera en specifik sökande med valt kontraktspaket.
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.status === "bygger") return state;
+      if (p.tenants.length >= p.capacity)
+        return log(state, "Fastigheten är fullbelagd – bygg om för fler lokaler.", "warn");
+      const app = (p.applications ?? []).find((a) => a.id === action.applicationId);
+      if (!app) return state;
+      if (action.contract === "ankare" && !app.anchorEligible)
+        return log(state, "Ankaravtal kan bara erbjudas kedjor och myndigheter.", "warn");
+      const tenant = signContract(app.tenant, action.contract);
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id
+            ? { ...x, tenants: [...x.tenants, tenant], applications: (x.applications ?? []).filter((a) => a.id !== app.id) }
+            : x,
+        ),
+        log: [
+          {
+            t: `${action.contract === "ankare" ? "⭐ Ankaravtal" : "Hyresavtal"} signerat: ${tenant.name} i ${p.districtName} (${CONTRACTS[action.contract].label}, ${tenant.termTotal} mån, ${kr(tenant.rent)}/mån).`,
+            kind: "buy",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "REJECT_APPLICATION": {
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p) return state;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id
+            ? { ...x, applications: (x.applications ?? []).filter((a) => a.id !== action.applicationId) }
+            : x,
+        ),
+      };
+    }
+    case "SET_ASK_RENT": {
+      const pct = Math.max(0.8, Math.min(1.3, action.pct));
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) =>
+          x.id === action.id ? { ...x, askRentPct: +pct.toFixed(2) } : x,
+        ),
+      };
+    }
+    case "TOGGLE_REGULATED": {
+      // U6: bostadskön – reglerad hyra, noll vakans, goodwill.
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.type !== "bostad")
+        return log(state, "Bostadskön gäller bara bostadsfastigheter.", "warn");
+      const on = !p.regulated;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) =>
+          x.id === action.id ? { ...x, regulated: on, applications: on ? [] : x.applications } : x,
+        ),
+        log: [
+          {
+            t: on
+              ? `🏛️ ${p.typeLabel} i ${p.districtName} ansluten till bostadskön: hyra −20 %, kön fyller vakanser direkt, +goodwill.`
+              : `${p.typeLabel} i ${p.districtName} lämnar bostadskön – marknadshyra och ansökningsflöde gäller.`,
+            kind: "info",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "TOGGLE_BROKER": {
+      // U8: mäklaruppdrag – arvode vid vakans, garanterat kvalificerat flöde.
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p) return state;
+      const on = !p.brokerMandate;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) =>
+          x.id === action.id ? { ...x, brokerMandate: on } : x,
+        ),
+        log: [
+          {
+            t: on
+              ? `🤝 Mäklaruppdrag för ${p.typeLabel} i ${p.districtName}: ${kr(BROKER_FEE)}/mån vid vakans, garanterade kvalificerade sökande.`
+              : `Mäklaruppdraget för ${p.typeLabel} i ${p.districtName} avslutat.`,
+            kind: "info",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "EVICT": {
+      // U7: besittningsskydd – bostadshyresgäster köps ut (3 månadshyror),
+      // kommersiella kontrakt är friare (1 månadshyra, mildare rykte).
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status === "bygger") return state;
       const tenant = p.tenants.find((t) => t.id === action.tenantId);
       if (!tenant) return state;
+      const residential = p.type === "bostad";
+      const buyout = tenant.rent * (residential ? 3 : 1);
+      const repHit = residential ? 3 : 1;
+      if (state.cash < buyout)
+        return log(state, `Uppsägningen kräver ${kr(buyout)} i ${residential ? "avflyttningsersättning (besittningsskydd)" : "kompensation"}.`, "warn");
       return {
         ...state,
-        reputation: Math.max(0, state.reputation - 3),
+        cash: state.cash - buyout,
+        reputation: Math.max(0, state.reputation - repHit),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
         ),
         pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id && r.tenantId === action.tenantId),
         log: [
-          { t: `Sade upp ${tenant.name} i ${p.districtName} (reputation −3).`, kind: "warn" },
+          {
+            t: `Sade upp ${tenant.name} i ${p.districtName}: ${kr(buyout)} i ${residential ? "avflyttningsersättning" : "kompensation"} (rep −${repHit}).`,
+            kind: "warn",
+          },
           ...state.log,
         ],
       };
@@ -342,23 +463,29 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "LEASE_ALL": {
-      // Fyll alla lediga platser i hela portföljen med nya hyresgäster.
+      // Acceptera bästa ansökan för varje vakans i hela portföljen
+      // (standardkontrakt). Vakanser utan ansökningar förblir tomma.
       let signed = 0;
       const portfolio = state.portfolio.map((p) => {
         if (p.status === "bygger" || p.shortTerm || p.tenants.length >= p.capacity) return p;
-        const tenants = [...p.tenants];
-        while (tenants.length < p.capacity) {
-          tenants.push(
-            makeTenant(propPotentialRent(p, state) / p.capacity, state.demandMod, p.condition),
-          );
+        let np = p;
+        while (np.tenants.length < np.capacity) {
+          const app = bestApplication(np);
+          if (!app) break;
           signed += 1;
+          np = {
+            ...np,
+            tenants: [...np.tenants, signContract(app.tenant, "standard")],
+            applications: (np.applications ?? []).filter((a) => a.id !== app.id),
+          };
         }
-        return { ...p, tenants };
+        return np;
       });
-      if (signed === 0) return log(state, "Inga vakanser att fylla.", "info");
+      if (signed === 0)
+        return log(state, "Inga ansökningar att acceptera – justera utgångshyror eller anlita mäklare.", "info");
       return log(
         { ...state, portfolio },
-        `🏠 Uthyrningskampanj: tecknade ${signed} nya hyresavtal i hela portföljen.`,
+        `🏠 Accepterade ${signed} ansökningar – bästa sökande fick kontrakt i hela portföljen.`,
         "buy",
       );
     }
@@ -554,7 +681,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const newRent    = Math.round(tenant.rent * (1 + action.increasePercent / 100));
       const marketMo   = propPotentialRent(p, state) / p.capacity / 12;
       const ratio      = newRent / marketMo;
-      const acceptProb = ratio < 1.0 ? 0.97 : ratio < 1.1 ? 0.80 : ratio < 1.2 ? 0.55 : ratio < 1.35 ? 0.28 : 0.10;
+      const baseProb   = ratio < 1.0 ? 0.97 : ratio < 1.1 ? 0.80 : ratio < 1.2 ? 0.55 : ratio < 1.35 ? 0.28 : 0.10;
+      // Nöjda hyresgäster tål höjningar bättre (U3).
+      const satMult    = Math.max(0.3, Math.min(1.25, (tenant.satisfaction ?? 60) / 65));
+      const acceptProb = Math.min(0.98, baseProb * satMult);
       if (Math.random() < acceptProb) {
         return {
           ...state,
@@ -629,15 +759,22 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "MARKET_BOOST": {
+      // Annonskampanj: genererar direkt tre nya ansökningar (U1).
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p) return state;
-      if (state.cash < 25000) return log(state, "För lite kontanter för marknadsföringskampanj.", "warn");
+      if (!p || p.status !== "klar") return state;
+      if (state.cash < 25000) return log(state, "För lite kontanter för annonskampanj.", "warn");
+      const nowAbs = state.year * 12 + state.month;
+      const slotRent = propPotentialRent(p, state) / p.capacity / 12;
+      const apps = [0, 1, 2].map(() => makeApplication(p, state, nowAbs, slotRent));
       return {
         ...state,
         cash: state.cash - 25000,
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id ? { ...x, applications: [...(x.applications ?? []), ...apps] } : x,
+        ),
         log: [
           {
-            t: `Marknadsföringskampanj för ${p.typeLabel} i ${p.districtName} (25 000 kr) – 5 kvalificerade kandidater tillgängliga.`,
+            t: `📣 Annonskampanj för ${p.typeLabel} i ${p.districtName} (25 000 kr) – 3 nya ansökningar inkom.`,
             kind: "upg",
           },
           ...state.log,
@@ -710,6 +847,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
         expiresMonth: undefined,
         poolAskPrice: undefined,
         poolBaseRent: undefined,
+        applications: undefined,
+        askRentPct: undefined,
+        regulated: undefined,
+        brokerMandate: undefined,
         txHistory: [...(p.txHistory ?? []), soldTx],
       };
       return {
@@ -1622,18 +1763,35 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return s;
     }
     case "START_RENOVATION": {
-      // Utvecklingsprojekt: totalrenovering (skick/energi/hyra) eller
-      // påbyggnad (+yta/kapacitet/värde). Kräver tom fastighet.
+      // Utvecklingsprojekt: totalrenovering (skick/energi/hyra), påbyggnad
+      // (+yta/kapacitet/värde) eller lokalanpassning (ändrat antal lokaler –
+      // single- vs multi-tenant). Lokalanpassning kräver bara att de
+      // berörda lokalerna är tomma; övriga projekt kräver tom fastighet.
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status !== "klar") return state;
-      if (p.tenants.length > 0)
-        return log(state, "Fastigheten måste vara vakant för ett utvecklingsprojekt.", "warn");
       const value = propMarketValue(p, state);
-      const total = action.kind === "totalrenovering";
-      const cost = Math.round(value * (total ? 0.18 : 0.3));
-      const months = total ? 6 : 10;
+      let cost: number;
+      let months: number;
+      let renovation: Property["renovation"];
+      if (action.kind === "lokalanpassning") {
+        const target = Math.max(1, Math.min(maxCapacityFor(p), Math.round(action.targetCapacity ?? p.capacity)));
+        if (target === p.capacity)
+          return log(state, "Fastigheten har redan det antalet lokaler.", "info");
+        if (p.tenants.length > target)
+          return log(state, `Ombyggnad till ${target} ${target === 1 ? "lokal" : "lokaler"} kräver att högst ${target} är uthyrda – säg upp eller vänta ut kontrakt.`, "warn");
+        cost = Math.max(150_000, Math.round(value * 0.04 * Math.abs(target - p.capacity)));
+        months = 3;
+        renovation = { kind: "lokalanpassning", targetCapacity: target };
+      } else {
+        if (p.tenants.length > 0)
+          return log(state, "Fastigheten måste vara vakant för ett utvecklingsprojekt.", "warn");
+        const total = action.kind === "totalrenovering";
+        cost = Math.round(value * (total ? 0.18 : 0.3));
+        months = total ? 6 : 10;
+        renovation = { kind: action.kind };
+      }
       if (state.cash < cost)
-        return log(state, `${total ? "Totalrenoveringen" : "Påbyggnaden"} kostar ${msek(cost)}.`, "warn");
+        return log(state, `Projektet (${action.kind}) kostar ${msek(cost)}.`, "warn");
       return {
         ...state,
         cash: state.cash - cost,
@@ -1643,7 +1801,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
                 ...x,
                 status: "bygger" as const,
                 buildLeft: months,
-                renovation: { kind: action.kind },
+                renovation,
+                applications: [],
                 txHistory: [
                   ...(x.txHistory ?? []),
                   { type: "nybygg" as const, price: cost, month: state.month, year: state.year, party: `Projekt: ${action.kind}` },

@@ -12,21 +12,32 @@ afterEach(() => {
 });
 
 describe("LEASE_ALL", () => {
-  it("fyller alla lediga platser i portföljen", () => {
-    const a = makeProperty({ id: 1, capacity: 3, tenants: [makeTenantFixture({ id: 50 })] });
-    const b = makeProperty({ id: 2, capacity: 2, tenants: [] });
-    const bygger = makeProperty({ id: 3, capacity: 2, tenants: [], status: "bygger" });
-    const s = reducer(makeState({ portfolio: [a, b, bygger] }), { type: "LEASE_ALL" });
-    expect(s.portfolio[0].tenants).toHaveLength(3);
-    expect(s.portfolio[1].tenants).toHaveLength(2);
-    expect(s.portfolio[2].tenants).toHaveLength(0); // byggen rörs ej
-    expect(s.log[0].t).toContain("4 nya hyresavtal");
+  const app = (id: number, tenantId: number) => ({
+    id,
+    tenant: makeTenantFixture({ id: tenantId, rent: 10_000 }),
+    expiresAbs: 99,
   });
 
-  it("gör inget när allt är uthyrt", () => {
-    const full = makeProperty({ id: 1, capacity: 1, tenants: [makeTenantFixture()] });
-    const s = reducer(makeState({ portfolio: [full] }), { type: "LEASE_ALL" });
-    expect(s.log[0].t).toContain("Inga vakanser");
+  it("accepterar bästa ansökan för varje vakans i portföljen", () => {
+    const a = makeProperty({
+      id: 1, capacity: 3,
+      tenants: [makeTenantFixture({ id: 50 })],
+      applications: [app(900, 51), app(901, 52)],
+    });
+    const b = makeProperty({ id: 2, capacity: 2, tenants: [], applications: [app(902, 53)] });
+    const bygger = makeProperty({ id: 3, capacity: 2, tenants: [], status: "bygger" });
+    const s = reducer(makeState({ portfolio: [a, b, bygger] }), { type: "LEASE_ALL" });
+    expect(s.portfolio[0].tenants).toHaveLength(3); // två ansökningar accepterade
+    expect(s.portfolio[1].tenants).toHaveLength(1); // en ansökan fanns
+    expect(s.portfolio[2].tenants).toHaveLength(0); // byggen rörs ej
+    expect(s.log[0].t).toContain("3 ansökningar");
+  });
+
+  it("gör inget när inga ansökningar finns", () => {
+    const vacant = makeProperty({ id: 1, capacity: 2, tenants: [], applications: [] });
+    const s = reducer(makeState({ portfolio: [vacant] }), { type: "LEASE_ALL" });
+    expect(s.portfolio[0].tenants).toHaveLength(0);
+    expect(s.log[0].t).toContain("Inga ansökningar");
   });
 });
 
