@@ -24,7 +24,7 @@ export function useGameClock(): void {
 
     const blocked = () => {
       const st = useGameStore.getState().state;
-      return st.gameOver || !!st.gameWon || !!st.pendingDecision;
+      return st.gameOver || !!st.gameWon || !!st.pendingDecision || !!st.auction;
     };
 
     const loop = (now: number) => {

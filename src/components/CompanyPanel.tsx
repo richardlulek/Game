@@ -12,6 +12,7 @@ import {
   tierForLevel,
   unitCount,
 } from "../engine/company";
+import { esgRatingOf } from "../engine/esg";
 import { equityOf } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { salariesTotal } from "../engine/progression";
@@ -151,6 +152,12 @@ export function CompanyPanel({
           <div style={P.stat}>
             <div style={P.statLabel}>Dotterbolag</div>
             <div style={P.statValue}>{(state.subsidiaries ?? []).length}</div>
+          </div>
+          <div style={P.stat}>
+            <div style={P.statLabel}>ESG-betyg</div>
+            <div style={{ ...P.statValue, color: esgRatingOf(state).spreadDelta < 0 ? "#4d8b52" : esgRatingOf(state).spreadDelta > 0 ? "#b5542a" : undefined }}>
+              {esgRatingOf(state).letter}
+            </div>
           </div>
           {state.ipoActive && (
             <div style={P.stat}>

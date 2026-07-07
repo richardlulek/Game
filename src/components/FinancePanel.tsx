@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { esgRatingOf } from "../engine/esg";
 import { LENDERS, loanTerms } from "../engine/finance";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
@@ -89,6 +90,25 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         </h3>
         <Line l="Räntepåslag" v={"+" + terms.spread + " %"} />
         <Line l="Maximal belåningsgrad" v={pct(terms.maxLtv)} />
+        {(() => {
+          const esg = esgRatingOf(state);
+          return (
+            <>
+              <Line
+                l={`ESG-betyg (energiklasser)`}
+                v={`${esg.letter}${esg.spreadDelta !== 0 ? ` (${esg.spreadDelta > 0 ? "+" : ""}${esg.spreadDelta} % ränta)` : ""}`}
+                accent={esg.spreadDelta < 0 ? "#27660a" : esg.spreadDelta > 0 ? "#c0392b" : undefined}
+              />
+              <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+                {esg.spreadDelta < 0
+                  ? "🌱 Grönt lån aktivt — hög energistandard belönas av bankerna."
+                  : esg.spreadDelta > 0
+                    ? "🏭 Lågt ESG-betyg ger räntepåslag. Energiuppgradera fastigheterna."
+                    : "Nå snittbetyg B för grönt lån (−0,25 till −0,5 % ränta)."}
+              </div>
+            </>
+          );
+        })()}
         {state.reputation < 98 && (() => {
           const nextRep = Math.min(100, Math.round(state.reputation) + 10);
           const nextSpread = +(2.5 - (nextRep / 100) * 1.7).toFixed(2);

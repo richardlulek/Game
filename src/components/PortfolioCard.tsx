@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { blockGap } from "../engine/blocks";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
@@ -125,6 +126,21 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         <span style={valueText}>{msek(value)}</span>
         <span style={subText}>marknadsvärde</span>
       </div>
+
+      {/* ── Helkvartersstatus (slutna kvarter) ─────────────────── */}
+      {(() => {
+        const gap = blockGap(p, state);
+        if (gap === null) return null;
+        return gap === 0 ? (
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#8a6d1a", margin: "2px 0 6px" }}>
+            🏆 Helkvarter: +10 % hyra · −15 % driftkostnad
+          </div>
+        ) : (
+          <div style={{ fontSize: 11.5, color: "#997", margin: "2px 0 6px" }}>
+            Kvarterspussel: {gap} {gap === 1 ? "fastighet" : "fastigheter"} kvar till helkvartersbonus.
+          </div>
+        );
+      })()}
 
       {/* ── Snabbfakta rad 1 ───────────────────────────────────── */}
       <div style={statRow}>
@@ -466,6 +482,32 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
           />
         );
       })}
+
+      {/* ── Utvecklingsprojekt (kräver vakant fastighet) ─────────── */}
+      {p.status === "klar" && (
+        <>
+          <div style={sectionLabel}>Utvecklingsprojekt</div>
+          {p.tenants.length > 0 && (
+            <div style={{ fontSize: 11.5, color: "#997", margin: "2px 0 6px" }}>
+              Kräver vakant fastighet — säg upp eller vänta ut kontrakten.
+            </div>
+          )}
+          <ActionBtn
+            label={`✨ Totalrenovering · ${msek(Math.round(value * 0.18))}`}
+            sub="6 mån · skick 100, energiklass A, +15 % hyrespotential"
+            color="#7a5c2a"
+            disabled={p.tenants.length > 0 || state.cash < value * 0.18 || state.gameOver}
+            onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "totalrenovering" })}
+          />
+          <ActionBtn
+            label={`🏗️ Påbyggnad · ${msek(Math.round(value * 0.3))}`}
+            sub="10 mån · +25 % yta, +1 hyresplats, +20 % värde"
+            color="#7a5c2a"
+            disabled={p.tenants.length > 0 || state.cash < value * 0.3 || state.gameOver}
+            onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "påbyggnad" })}
+          />
+        </>
+      )}
 
       <Divider />
 

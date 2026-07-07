@@ -4,6 +4,7 @@
    denna rena funktion (se src/store/gameStore.ts).
    ============================================================ */
 
+import { PARCELS } from "./city";
 import { nextTier, qualifiesFor } from "./company";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
 import { equityOf, loanTerms } from "./finance";
@@ -24,11 +25,88 @@ import {
 import { newId } from "./random";
 import { advanceMonth } from "./simulation";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
-import type { GameAction, GameState, IndustryAsset, LogKind, Property, Stock } from "./types";
+import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
 
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
 function log(state: GameState, t: string, kind: LogKind): GameState {
   return { ...state, log: [{ t, kind }, ...state.log] };
+}
+
+/** Klubbslag i detaljplaneauktionen: vinnaren betalar och kvarteret öppnas.
+ *  Spelaren får byggklara tomter; en rival flyttar in fastigheter direkt. */
+function resolveAuction(state: GameState, a: Auction): GameState {
+  const parcels = PARCELS.filter((pc) => pc.blockId === a.blockId);
+  if (!a.leader) {
+    return {
+      ...state,
+      auction: null,
+      log: [
+        { t: `🔨 Detaljplaneauktionen i ${a.districtName} avslutades utan bud – marken förblir oplanerad.`, kind: "info" },
+        ...state.log,
+      ],
+    };
+  }
+  if (a.leader === "player") {
+    const perLot = Math.round(a.currentBid / Math.max(1, parcels.length));
+    const born = state.year * 12 + state.month;
+    const newLots: Lot[] = parcels.map((pc) => ({
+      id: newId(),
+      district: a.district,
+      districtName: a.districtName,
+      parcelId: pc.id,
+      area: Math.round(pc.w * pc.d * 2),
+      price: perLot,
+      owned: true,
+      listedMonth: born,
+    }));
+    return {
+      ...state,
+      cash: state.cash - a.currentBid,
+      auction: null,
+      unlockedBlocks: [...(state.unlockedBlocks ?? []), a.blockId],
+      lots: [...state.lots, ...newLots],
+      reputation: Math.min(100, state.reputation + 3),
+      log: [
+        {
+          t: `🏛️ DETALJPLAN VUNNEN! Du köpte ${parcels.length} byggklara tomter i ${a.districtName} för ${msek(a.currentBid)} (rep +3). Staden växer – öppna Bygg!`,
+          kind: "buy",
+        },
+        ...state.log,
+      ],
+    };
+  }
+  // Rival vann: betalar och flyttar in fastigheter ur världspoolen på kvarteret.
+  const winner = a.leader;
+  const pool = state.worldPool ?? [];
+  const moving = pool.filter((p) => p.district === a.district).slice(0, parcels.length);
+  const movingIds = new Set(moving.map((p) => p.id));
+  return {
+    ...state,
+    auction: null,
+    unlockedBlocks: [...(state.unlockedBlocks ?? []), a.blockId],
+    worldPool: pool.filter((p) => !movingIds.has(p.id)),
+    competitors: state.competitors.map((c) =>
+      c.name === winner
+        ? {
+            ...c,
+            cash: c.cash - a.currentBid,
+            portfolio: [
+              ...c.portfolio,
+              ...moving.map((p, i) => ({ ...p, parcelId: parcels[i]?.id })),
+            ],
+            units: c.portfolio.length + moving.length,
+            lastBuy: a.districtName,
+          }
+        : c,
+    ),
+    log: [
+      {
+        t: `🏛️ ${winner} vann detaljplaneauktionen i ${a.districtName} för ${msek(a.currentBid)} och exploaterar kvarteret direkt.`,
+        kind: "event",
+      },
+      ...state.log,
+    ],
+  };
 }
 
 /** Tar bort väntande avtalsförhandlingar som blivit inaktuella
@@ -1542,6 +1620,90 @@ export function reducer(state: GameState, action: GameAction): GameState {
         s = advanceMonth(s);
       }
       return s;
+    }
+    case "START_RENOVATION": {
+      // Utvecklingsprojekt: totalrenovering (skick/energi/hyra) eller
+      // påbyggnad (+yta/kapacitet/värde). Kräver tom fastighet.
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.status !== "klar") return state;
+      if (p.tenants.length > 0)
+        return log(state, "Fastigheten måste vara vakant för ett utvecklingsprojekt.", "warn");
+      const value = propMarketValue(p, state);
+      const total = action.kind === "totalrenovering";
+      const cost = Math.round(value * (total ? 0.18 : 0.3));
+      const months = total ? 6 : 10;
+      if (state.cash < cost)
+        return log(state, `${total ? "Totalrenoveringen" : "Påbyggnaden"} kostar ${msek(cost)}.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cost,
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id
+            ? {
+                ...x,
+                status: "bygger" as const,
+                buildLeft: months,
+                renovation: { kind: action.kind },
+                txHistory: [
+                  ...(x.txHistory ?? []),
+                  { type: "nybygg" as const, price: cost, month: state.month, year: state.year, party: `Projekt: ${action.kind}` },
+                ],
+              }
+            : x,
+        ),
+        log: [
+          {
+            t: `🏗️ Utvecklingsprojekt startat: ${action.kind} av ${p.typeLabel} i ${p.districtName} (${msek(cost)}, klart om ${months} mån).`,
+            kind: "upg",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "AUCTION_BID": {
+      // Detaljplaneauktion: spelaren höjer med 8 %. Rivalerna svarar direkt –
+      // aggressivast är den vars agenda gäller distriktet.
+      const a = state.auction;
+      if (!a) return state;
+      const myBid = Math.round((a.leader ? a.currentBid * 1.08 : a.minBid) / 10_000) * 10_000;
+      if (state.cash < myBid)
+        return log(state, `Kassan räcker inte för budet ${msek(myBid)}.`, "warn");
+      // AI-motbud: sannolikheten sjunker per runda, agenda-distrikt trippel.
+      let counter: { name: string; bid: number } | null = null;
+      for (const c of state.competitors) {
+        const aggression =
+          (c.agenda?.kind === "district" && c.agenda.district === a.district ? 0.75 : 0.3) -
+          a.round * 0.12;
+        const theirBid = Math.round((myBid * 1.08) / 10_000) * 10_000;
+        if (c.cash + (c.equity ?? 0) * 0.3 >= theirBid && Math.random() < aggression) {
+          if (!counter || theirBid > counter.bid) counter = { name: c.name, bid: theirBid };
+        }
+      }
+      if (counter) {
+        return {
+          ...state,
+          auction: { ...a, currentBid: counter.bid, leader: counter.name, round: a.round + 1 },
+          log: [
+            { t: `⚡ ${counter.name} bjuder över: ${msek(counter.bid)} för detaljplanen i ${a.districtName}.`, kind: "warn" },
+            ...state.log,
+          ],
+        };
+      }
+      // Inget motbud – spelaren leder; nästa AUCTION_BID klubbar.
+      return {
+        ...state,
+        auction: { ...a, currentBid: myBid, leader: "player", round: a.round + 1 },
+        log: [
+          { t: `🔨 Ditt bud ${msek(myBid)} står högst i detaljplaneauktionen (${a.districtName}).`, kind: "info" },
+          ...state.log,
+        ],
+      };
+    }
+    case "AUCTION_PASS": {
+      // Spelaren släpper auktionen – klubbslag för nuvarande ledare.
+      const a = state.auction;
+      if (!a) return state;
+      return resolveAuction(state, a);
     }
     case "UPGRADE_COMPANY": {
       // Expansion är ett aktivt val: kraven ska vara uppfyllda och det

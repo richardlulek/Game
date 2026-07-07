@@ -264,6 +264,35 @@ export interface Property {
   /** Förortsmodellen: fastigheten är ETT HELT KVARTER med flera huskroppar
    *  och fler hyresgästplatser – köps, säljs och förvaltas som en enhet. */
   wholeBlock?: boolean;
+  /** Pågående utvecklingsprojekt (status "bygger" med befintligt hus). */
+  renovation?: { kind: RenovationKind };
+}
+
+/** Utvecklingsprojekt: totalrenovering eller påbyggnad av befintligt hus. */
+export type RenovationKind = "totalrenovering" | "påbyggnad";
+
+/** Rivalens långsiktiga mål – syns i Topp-listan och styr beteendet. */
+export interface CompetitorAgenda {
+  kind: "district" | "units" | "equity";
+  district?: string;
+  target: number;
+  label: string;
+  /** Har "målet nått"-nyheten redan publicerats? */
+  announced?: boolean;
+}
+
+/** Pågående detaljplaneauktion – pausar spelet tills den avgjorts. */
+export interface Auction {
+  blockId: string;
+  district: string;
+  districtName: string;
+  /** Antal tomter som ingår i detaljplanen. */
+  parcels: number;
+  minBid: number;
+  currentBid: number;
+  /** null = inga bud än; "player" eller rivalens namn. */
+  leader: string | null;
+  round: number;
 }
 
 /** En byggbar tomt. */
@@ -293,6 +322,7 @@ export interface Competitor {
   portfolio: Property[];
   strategy?: CompetitorStrategy;
   preferredDistrict?: string;
+  agenda?: CompetitorAgenda;
 }
 
 /** Bransch på börsen. */
@@ -466,6 +496,16 @@ export interface GameState {
   companyLevel?: number;
   /** Nivå som spelaren redan fått "redo att expandera"-hint för. */
   levelUpOfferedFor?: number;
+  /** Helägda kvarter (för att upptäcka nya och fira dem). */
+  ownedBlocks?: string[];
+  /** Expansionskvarter som auktionerats ut och öppnats. */
+  unlockedBlocks?: string[];
+  /** Pågående detaljplaneauktion. */
+  auction?: Auction | null;
+  /** Senaste ESG-betyg (A–F) – för att upptäcka förändringar. */
+  esgRating?: string;
+  /** Distriktens nuvarande statusnivå (för att upptäcka byten). */
+  districtTiers?: Record<string, string>;
   recessionMonthsLeft?: number;
   rateMode?: "variable" | "fixed";
   fixedRate?: number;
@@ -579,4 +619,7 @@ export type GameAction =
   | { type: "LOAD"; state: GameState }
   | { type: "SET_COMPANY_NAME"; name: string }
   | { type: "UPGRADE_COMPANY" }
+  | { type: "START_RENOVATION"; id: number; kind: RenovationKind }
+  | { type: "AUCTION_BID" }
+  | { type: "AUCTION_PASS" }
   | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string };

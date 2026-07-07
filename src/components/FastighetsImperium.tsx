@@ -45,6 +45,7 @@ import { IndustryPanel } from "./IndustryPanel";
 import { IndustryMarket } from "./IndustryMarket";
 import { CompanyPanel } from "./CompanyPanel";
 import { NewspaperModal } from "./NewspaperModal";
+import { AuctionModal } from "./AuctionModal";
 
 const TABS = [
   { id: "company",   label: "Bolag" },
@@ -445,6 +446,7 @@ export default function FastighetsImperium() {
       {newsLevel !== null && (
         <NewspaperModal state={state} level={newsLevel} onClose={() => setNewsLevel(null)} />
       )}
+      <AuctionModal state={state} dispatch={dispatch} />
       <DecisionModal state={state} dispatch={dispatch} />
       <OnboardingOverlay state={state} dispatch={dispatch} />
 

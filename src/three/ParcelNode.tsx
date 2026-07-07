@@ -7,6 +7,7 @@ import { parcelHash } from "../engine/city";
 import { PROP_TYPES } from "../engine/data";
 import { msek } from "../engine/format";
 import type { Lot, Property, PropTypeKey } from "../engine/types";
+import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
 import { CONSTRUCTION, RING_COLORS, RIVAL_COLORS, TREE_GREENS, TREE_TRUNK, TYPE_COLORS } from "./colors";
 import { ConstructionShell, FLOOR_HEIGHT, GrowIn, type PointerHandlers } from "./BuildingShapes";
@@ -14,7 +15,7 @@ import { DistrictBuilding, ambientColorFor, districtFloors } from "./districtBui
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
-  | { kind: "owned"; prop: Property; tint?: string }
+  | { kind: "owned"; prop: Property; tint?: string; blockOwned?: boolean }
   | { kind: "listing"; prop: Property }
   | { kind: "lotForSale"; lot: Lot }
   | { kind: "lotOwned"; lot: Lot }
@@ -138,15 +139,50 @@ function ParcelTrees({ hash, w, d }: { hash: number; w: number; d: number }) {
   );
 }
 
+/** Inhägnad expansionsmark: detaljplaneskylt och lantmätarpinnar. */
+function LockedExpansion({ parcel }: { parcel: Parcel }) {
+  return (
+    <group position={[parcel.x, 0, parcel.z]}>
+      <mesh receiveShadow position={[0, 0.05, 0]}>
+        <boxGeometry args={[parcel.w, 0.1, parcel.d]} />
+        <meshStandardMaterial color="#a7ae8b" />
+      </mesh>
+      {/* Lantmätarpinnar i hörnen */}
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+        <mesh key={i} castShadow position={[sx * (parcel.w / 2 - 1.5), 0.9, sz * (parcel.d / 2 - 1.5)]}>
+          <cylinderGeometry args={[0.12, 0.12, 1.8, 5]} />
+          <meshStandardMaterial color="#c0392b" />
+        </mesh>
+      ))}
+      {/* Detaljplaneskylt */}
+      <group position={[0, 0, parcel.d / 2 - 3]}>
+        <mesh castShadow position={[0, 1.6, 0]}>
+          <cylinderGeometry args={[0.12, 0.15, 3.2, 6]} />
+          <meshStandardMaterial color="#8a7a5a" />
+        </mesh>
+        <mesh castShadow position={[0, 3, 0]}>
+          <boxGeometry args={[4.6, 2.2, 0.2]} />
+          <meshStandardMaterial color="#e8dfc8" />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 /** En tomtruta: markplatta, trottoar mot gatan, byggnad, ring, tooltip. */
 export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: ParcelContent }) {
   const selected = useUiStore((s) => s.selectedParcelId === parcel.id);
   const select = useUiStore((s) => s.select);
   const overlayActive = useUiStore((s) => s.overlay !== "ingen");
+  const unlockedExpansion = useGameStore((s) =>
+    parcel.expansion ? (s.state.unlockedBlocks ?? []).includes(parcel.blockId) : true,
+  );
   const [hovered, setHovered] = useState(false);
   useCursor(hovered && !!content);
 
   const hash = parcelHash(parcel.id);
+  // Låst expansionsmark: inhägnat fält tills detaljplanen auktionerats ut.
+  if (parcel.expansion && !unlockedExpansion) return <LockedExpansion parcel={parcel} />;
   // Täta distrikt fylls nästan helt av dekorativ bebyggelse.
   const ambientChance =
     parcel.district === "centrum" || parcel.district === "innerstad"
@@ -154,7 +190,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       : parcel.district === "finans" || parcel.district === "hamnen"
         ? 70
         : 58;
-  const hasAmbient = !content && hash % 100 < ambientChance;
+  const hasAmbient = !content && !parcel.expansion && hash % 100 < ambientChance;
 
   const handlers: PointerHandlers = content
     ? {
@@ -206,7 +242,14 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   }
   const fullH = building ? building.floors * FLOOR_HEIGHT : 0;
 
-  const ringColor = selected ? RING_COLORS.selected : content ? RING_COLORS[content.kind] : null;
+  // Helägda kvarter markeras med guldring på varje ingående tomt.
+  const ringColor = selected
+    ? RING_COLORS.selected
+    : content?.kind === "owned" && content.blockOwned
+      ? "#e8c96a"
+      : content
+        ? RING_COLORS[content.kind]
+        : null;
   const vacantOwned =
     content?.kind === "owned" &&
     content.prop.status === "klar" &&

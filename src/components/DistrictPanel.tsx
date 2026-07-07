@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DISTRICTS } from "../engine/data";
+import { districtTier, nextDistrictTier } from "../engine/districtTiers";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue } from "../engine/property";
 import type { GameAction, GameState } from "../engine/types";
@@ -89,10 +90,28 @@ export function DistrictPanel({ state, dispatch }: Props) {
                 </div>
               )}
 
-              {/* Header */}
-              <div style={{ fontFamily: FONTS.heading, fontSize: 15, fontWeight: 700, color: C.brassBright, marginBottom: 4 }}>
-                {d.name}
-              </div>
+              {/* Header med distriktsöde */}
+              {(() => {
+                const tier = districtTier(state, d.id);
+                const next = nextDistrictTier(tier);
+                return (
+                  <>
+                    <div style={{ fontFamily: FONTS.heading, fontSize: 15, fontWeight: 700, color: C.brassBright, marginBottom: 2 }}>
+                      {d.name}
+                    </div>
+                    <div style={{ fontSize: 11.5, marginBottom: 6 }}>
+                      <span style={{ fontWeight: 800, color: tier.id === "exklusivt" ? C.gold : tier.id === "eftersatt" ? C.negativeBright : C.parchment }}>
+                        {tier.icon} {tier.name}
+                      </span>
+                      {next && (
+                        <span style={{ color: C.creamSoft }}>
+                          {" "}· {Math.round(((devScore - tier.min) / (next.min - tier.min)) * 100)} % mot {next.name}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Key metrics */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: 12, marginBottom: 12 }}>

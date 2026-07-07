@@ -3,6 +3,7 @@
    Formlerna är oförändrade från prototypen.
    ============================================================ */
 
+import { esgRatingOf } from "./esg";
 import { propMarketValue } from "./property";
 import { spreadDelta } from "./progression";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
@@ -36,11 +37,13 @@ export const LENDERS: Lender[] = [
   },
 ];
 
-/** Reputationsbaserade lånevillkor (ränta, påslag, max belåningsgrad). */
+/** Reputationsbaserade lånevillkor (ränta, påslag, max belåningsgrad).
+ *  ESG-betyget justerar påslaget: gröna lån (A/B) ger rabatt, E/F påslag. */
 export function loanTerms(state: GameState): LoanTerms {
   const rep = state.reputation;
   const advisorBonus = (state.advisors ?? []).includes("kapitalstrateg") ? 0.2 : 0;
-  const spread = Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus);
+  const esg = esgRatingOf(state).spreadDelta;
+  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg);
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;

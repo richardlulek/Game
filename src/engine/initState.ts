@@ -10,7 +10,7 @@ import { rnd } from "./random";
 import { initStocks } from "./stocks";
 import { makeIndustryAssetFromTemplate } from "./industries";
 import { INDUSTRY_TEMPLATES } from "./industryData";
-import type { Competitor, CompetitorStrategy, GameState, IndustryAsset, Property } from "./types";
+import type { Competitor, CompetitorAgenda, CompetitorStrategy, GameState, IndustryAsset, Property } from "./types";
 
 const WORLD_SIZE = 190;
 
@@ -68,7 +68,16 @@ export function initState(): GameState {
   const competitors: Competitor[] = AI_NAMES.map((n, i) => {
     const strategy = STRATEGIES[i % STRATEGIES.length];
     const preferredDistrict = strategy === "distrikt" ? DISTRICTS[i % DISTRICTS.length].id : undefined;
-    return { name: n, cash: rnd(2, 6) * 1e6, units: 0, equity: 0, portfolio: [], strategy, preferredDistrict };
+    return {
+      name: n,
+      cash: rnd(2, 6) * 1e6,
+      units: 0,
+      equity: 0,
+      portfolio: [],
+      strategy,
+      preferredDistrict,
+      agenda: agendaFor(strategy, preferredDistrict),
+    };
   });
 
   let propIdx = 0;
@@ -119,6 +128,30 @@ export function initState(): GameState {
   base.industryListings = industryListings;
 
   return base;
+}
+
+/** Rivalens långsiktiga agenda utifrån strategin – syns i Topp-listan. */
+export function agendaFor(
+  strategy: CompetitorStrategy,
+  preferredDistrict?: string,
+): CompetitorAgenda {
+  switch (strategy) {
+    case "distrikt": {
+      const d = DISTRICTS.find((x) => x.id === preferredDistrict);
+      return {
+        kind: "district",
+        district: preferredDistrict,
+        target: 12,
+        label: `vill dominera ${d?.name ?? "sitt distrikt"} (12 fastigheter)`,
+      };
+    }
+    case "tillväxt":
+      return { kind: "units", target: 25, label: "vill äga 25 fastigheter" };
+    case "värde":
+      return { kind: "equity", target: 120_000_000, label: "jagar 120 MSEK i eget kapital" };
+    default:
+      return { kind: "equity", target: 80_000_000, label: "bygger kassaflöde mot 80 MSEK" };
+  }
 }
 
 function toListingProp(p: Property, state: GameState): Property {

@@ -6,6 +6,7 @@
 
 import { placeCity } from "../engine/city";
 import { DEFAULT_COMPANY_NAME, computedLevel } from "../engine/company";
+import { agendaFor } from "../engine/initState";
 import { syncIdCounter } from "../engine/random";
 import { initStocks } from "../engine/stocks";
 import type { GameState } from "../engine/types";
@@ -57,7 +58,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -225,6 +226,16 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     ...s,
     companyName: s.companyName ?? DEFAULT_COMPANY_NAME,
     companyLevel: s.companyLevel ?? computedLevel(s),
+  }),
+  // v19 → v20: mekanikpaketet – rivalagendor och nya spårningsfält.
+  19: (s) => ({
+    ...s,
+    ownedBlocks: s.ownedBlocks ?? [],
+    unlockedBlocks: s.unlockedBlocks ?? [],
+    auction: s.auction ?? null,
+    competitors: s.competitors.map((c) =>
+      c.agenda ? c : { ...c, agenda: agendaFor(c.strategy ?? "tillväxt", c.preferredDistrict) },
+    ),
   }),
 };
 

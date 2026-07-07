@@ -3,6 +3,7 @@
    Formlerna är oförändrade från prototypen.
    ============================================================ */
 
+import { BLOCK_OPEX_CUT, BLOCK_RENT_BONUS, hasBlockBonus } from "./blocks";
 import { locationFactor } from "./city";
 import { DISTRICTS, PROP_TYPES } from "./data";
 import { opexMult, vacancyMult } from "./progression";
@@ -77,7 +78,9 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const devRent = 1 + (districtDevOf(state, p.district) - 1) * 0.5;
   // Läget på kartan påverkar hyran med halv effekt mot värdet.
   const locRent = 1 + (locationFactor(p.parcelId) - 1) * 0.5;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus;
+  // Helkvartersbonus: hela kvarteret i bolagets ägo ⇒ samordnad drift.
+  const blockRent = hasBlockBonus(p, state) ? BLOCK_RENT_BONUS : 1;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent;
   const vacancy = Math.max(
     0,
     t.vacancyBase * p.vacancyMult * clusterVacMult * vacancyMult(state) - (p.condition - 60) / 1000,
@@ -85,11 +88,12 @@ export function propPotentialRent(p: Property, state: GameState): number {
   return gross * (1 - vacancy);
 }
 
-/** Årlig driftkostnad. */
+/** Årlig driftkostnad. Helägda kvarter driftas samordnat (−15 %). */
 export function propAnnualOpex(p: Property, state: GameState): number {
   if (p.status === "bygger") return 0;
   const t = PROP_TYPES[p.type];
-  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state) * energySynergyMult(state);
+  const block = hasBlockBonus(p, state) ? BLOCK_OPEX_CUT : 1;
+  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state) * energySynergyMult(state) * block;
 }
 
 /** Driftnetto per år (hyra − driftkostnad). */

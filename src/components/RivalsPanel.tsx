@@ -1,6 +1,5 @@
 import { competitorLevel, tierForLevel } from "../engine/company";
 import { kr, msek, pct } from "../engine/format";
-import { equityOf } from "../engine/finance";
 import type { GameState } from "../engine/types";
 import { S } from "../styles/styles";
 import { BURGUNDY, C } from "../styles/tokens";
@@ -85,6 +84,27 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
                   Strategi: {c.strategy}{c.preferredDistrict ? ` (${c.preferredDistrict})` : ""}
                 </span>
               )}
+            </div>
+            {/* Rivalens agenda med framsteg */}
+            <div style={{ fontSize: 12, marginTop: 3 }}>
+              {(() => {
+                if (c.me) return null;
+                const comp = state.competitors.find((x) => x.name === c.name);
+                const ag = comp?.agenda;
+                if (!ag || !comp) return null;
+                const progress =
+                  ag.kind === "district"
+                    ? comp.portfolio.filter((p) => p.district === ag.district).length / ag.target
+                    : ag.kind === "units"
+                      ? comp.portfolio.filter((p) => p.status === "klar").length / ag.target
+                      : comp.equity / ag.target;
+                const pctDone = Math.min(100, Math.round(progress * 100));
+                return (
+                  <span style={{ color: pctDone >= 80 ? "#c0392b" : "#8a6d1a", fontWeight: 600 }}>
+                    🎯 Agenda: {ag.label} — {pctDone} %{ag.announced ? " ✓ UPPNÅTT" : ""}
+                  </span>
+                );
+              })()}
             </div>
             {(() => {
               if (c.me) return null;

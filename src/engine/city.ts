@@ -31,6 +31,8 @@ export interface Parcel {
   blockId: string;
   /** Vilka sidor som vetter mot gata (kvarterets ytterkant). */
   edges: { n: boolean; e: boolean; s: boolean; w: boolean };
+  /** Expansionskvarter: låst tills detaljplanen auktionerats ut. */
+  expansion?: boolean;
 }
 
 /** Ett distrikts zon på kartan (centrum i x/z, total bredd/djup). */
@@ -90,6 +92,36 @@ const ZONES: ZoneDef[] = [
 export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
 export type { ZoneDef };
 
+/**
+ * Expansionskvarter – mark som kommunen släpper via detaljplaneauktioner
+ * (i den ordning de listas). Låsta tills de vunnits i auktion.
+ */
+interface ExpansionDef {
+  blockId: string;
+  district: string;
+  cx: number;
+  cz: number;
+  parcelCols: number;
+  parcelRows: number;
+  parcelW: number;
+  parcelD: number;
+}
+
+const EXPANSIONS: ExpansionDef[] = [
+  { blockId: "innerstad-exp0", district: "innerstad", cx: -73, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24 },
+  { blockId: "industri-exp0", district: "industri", cx: 270, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38 },
+  { blockId: "innerstad-exp1", district: "innerstad", cx: 53, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24 },
+  { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52 },
+  { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38 },
+];
+
+/** Auktionsordningen för expansionskvarteren. */
+export const EXPANSION_BLOCKS = EXPANSIONS.map((e) => ({
+  blockId: e.blockId,
+  district: e.district,
+  parcels: e.parcelCols * e.parcelRows,
+}));
+
 function blockSize(z: ZoneDef): { w: number; d: number } {
   return {
     w: z.parcelCols * z.parcelW + (z.parcelCols - 1) * z.innerGap,
@@ -143,6 +175,32 @@ function buildParcels(): Parcel[] {
       }
     }
   }
+  // Expansionskvarteren – låsta tomter som öppnas via auktion.
+  for (const ex of EXPANSIONS) {
+    let i = 0;
+    const bw = ex.parcelCols * ex.parcelW;
+    const bd = ex.parcelRows * ex.parcelD;
+    for (let pr = 0; pr < ex.parcelRows; pr++) {
+      for (let pc = 0; pc < ex.parcelCols; pc++) {
+        out.push({
+          id: `${ex.blockId}-${i++}`,
+          district: ex.district,
+          x: ex.cx - bw / 2 + pc * ex.parcelW + ex.parcelW / 2,
+          z: ex.cz - bd / 2 + pr * ex.parcelD + ex.parcelD / 2,
+          w: ex.parcelW,
+          d: ex.parcelD,
+          blockId: ex.blockId,
+          edges: {
+            n: pr === 0,
+            s: pr === ex.parcelRows - 1,
+            w: pc === 0,
+            e: pc === ex.parcelCols - 1,
+          },
+          expansion: true,
+        });
+      }
+    }
+  }
   return out;
 }
 
@@ -187,8 +245,12 @@ export const ZONE_STREETS: StreetSeg[] = zoneStreets();
  * i det medskickade settet. Om distriktet är fullt återanvänds en
  * slumpad ruta (två hus delar ruta visuellt – hellre det än krasch).
  */
-export function claimRandomParcel(district: string, occupied: Set<string>): Parcel {
-  const all = parcelsIn(district);
+export function claimRandomParcel(
+  district: string,
+  occupied: Set<string>,
+  allowed?: (p: Parcel) => boolean,
+): Parcel {
+  const all = parcelsIn(district).filter((p) => (allowed ? allowed(p) : !p.expansion));
   const free = all.filter((p) => !occupied.has(p.id));
   const pool = free.length ? free : all;
   const chosen = pool[Math.floor(Math.random() * pool.length)];
@@ -206,13 +268,15 @@ export function claimRandomParcel(district: string, occupied: Set<string>): Parc
 export function placeCity(state: GameState): GameState {
   const used = new Set<string>();
   let anyChanged = false;
+  const unlocked = new Set(state.unlockedBlocks ?? []);
+  const allowed = (p: Parcel) => !p.expansion || unlocked.has(p.blockId);
 
   function claimFor<T extends { district: string; parcelId?: string }>(o: T): T {
     if (o.parcelId && BY_ID.has(o.parcelId) && !used.has(o.parcelId)) {
       used.add(o.parcelId);
       return o;
     }
-    const parcel = claimRandomParcel(o.district, used);
+    const parcel = claimRandomParcel(o.district, used, allowed);
     anyChanged = true;
     return { ...o, parcelId: parcel.id };
   }

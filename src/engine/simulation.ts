@@ -3,6 +3,8 @@
    Logiken är oförändrad från prototypen.
    ============================================================ */
 
+import { fullyOwnedBlocks } from "./blocks";
+import { EXPANSION_BLOCKS, PARCELS } from "./city";
 import {
   OVERLOAD_COST_PER_PROP,
   OVERLOAD_WEAR_MULT,
@@ -12,6 +14,8 @@ import {
   tierForLevel,
   unitCount,
 } from "./company";
+import { DISTRICT_TIERS, tierOfDev } from "./districtTiers";
+import { esgRatingOf } from "./esg";
 import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
@@ -28,8 +32,8 @@ import type { GameState, LogEntry, Offer } from "./types";
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
 export function advanceMonth(state: GameState): GameState {
-  // Ett pågående beslut måste lösas innan spelet kan gå vidare.
-  if (state.pendingDecision) return state;
+  // Ett pågående beslut eller en auktion måste lösas innan spelet går vidare.
+  if (state.pendingDecision || state.auction) return state;
 
   let s: GameState = { ...state };
   let monthlyNOI = 0;
@@ -126,12 +130,38 @@ export function advanceMonth(state: GameState): GameState {
       np.buildLeft -= 1;
       if (np.buildLeft <= 0) {
         np.status = "klar";
-        np.vacancyMult = Math.max(0.6, np.vacancyMult * 0.80); // nyproducerat: 20 % lägre vakans
-        s.reputation = Math.min(100, s.reputation + 5);
-        events.push({
-          t: `🏗️ Nyproduktion klar: ${np.typeLabel} i ${np.districtName}. Reputation +5.`,
-          kind: "income",
-        });
+        if (np.renovation) {
+          // Utvecklingsprojekt färdigt: totalrenovering eller påbyggnad.
+          if (np.renovation.kind === "totalrenovering") {
+            np.condition = 100;
+            np.energyClass = "A";
+            np.rentMult = +(np.rentMult * 1.15).toFixed(3);
+            np.builtYear = s.year;
+            events.push({
+              t: `✨ Totalrenovering klar: ${np.typeLabel} i ${np.districtName} – skick 100, energiklass A, +15 % hyrespotential.`,
+              kind: "income",
+            });
+          } else {
+            np.area = Math.round(np.area * 1.25);
+            np.capacity = Math.min(np.wholeBlock ? 9 : 4, np.capacity + 1);
+            np.valueMult = +(np.valueMult * 1.2).toFixed(3);
+            np.baseRent = Math.round(np.baseRent * 1.25);
+            np.condition = Math.max(85, np.condition);
+            events.push({
+              t: `🏗️ Påbyggnad klar: ${np.typeLabel} i ${np.districtName} – +25 % yta, +1 hyresplats, +20 % värde.`,
+              kind: "income",
+            });
+          }
+          np.renovation = undefined;
+          s.reputation = Math.min(100, s.reputation + 3);
+        } else {
+          np.vacancyMult = Math.max(0.6, np.vacancyMult * 0.80); // nyproducerat: 20 % lägre vakans
+          s.reputation = Math.min(100, s.reputation + 5);
+          events.push({
+            t: `🏗️ Nyproduktion klar: ${np.typeLabel} i ${np.districtName}. Reputation +5.`,
+            kind: "income",
+          });
+        }
       }
       return np;
     }
@@ -923,9 +953,13 @@ export function advanceMonth(state: GameState): GameState {
   // ── Områdesutveckling: distrikt med fler ägda objekt apprecierar ─
   const dev: Record<string, number> = { ...(s.districtDev ?? {}) };
   for (const d of DISTRICTS) {
-    const ownedHere = s.portfolio.filter((p) => p.district === d.id && p.status === "klar").length;
+    const ownedList = s.portfolio.filter((p) => p.district === d.id && p.status === "klar");
+    const ownedHere = ownedList.length;
     const cur = dev[d.id] ?? 1;
-    const growth = 0.0015 * ownedHere + rnd(-0.0025, 0.004);
+    // Skötta hus gentrifierar, förfallna drar ned hela distriktet.
+    const avgCond = ownedHere > 0 ? ownedList.reduce((a, p) => a + p.condition, 0) / ownedHere : 62;
+    const condPull = ((avgCond - 62) / 100) * 0.002;
+    const growth = 0.0015 * ownedHere + condPull + rnd(-0.0025, 0.004);
     // Hotellsynergi: hotell i distriktet höjer distriktsutvecklingen
     const hotelBonus = (s.industryPortfolio ?? [])
       .filter((a) => a.sector === "hotell" && a.district === d.id && a.status === "klar")
@@ -933,6 +967,105 @@ export function advanceMonth(state: GameState): GameState {
     dev[d.id] = Math.max(0.85, Math.min(1.6, +(cur * (1 + growth + hotelBonus)).toFixed(4)));
   }
   s.districtDev = dev;
+
+  // ── Distriktsöden: statusbyten är händelser i staden ─────────────
+  {
+    const tiers: Record<string, string> = { ...(s.districtTiers ?? {}) };
+    for (const d of DISTRICTS) {
+      const tier = tierOfDev(dev[d.id] ?? 1);
+      const prev = tiers[d.id];
+      if (prev && prev !== tier.id) {
+        const prevIdx = DISTRICT_TIERS.findIndex((t) => t.id === prev);
+        const newIdx = DISTRICT_TIERS.findIndex((t) => t.id === tier.id);
+        const up = newIdx > prevIdx;
+        events.push({
+          t: up
+            ? `${tier.icon} STADSOMVANDLING: ${d.name} klassas nu som ${tier.name} – hyror och värden lyfter i takt med områdets rykte.`
+            : `${tier.icon} ${d.name} har halkat ned till ${tier.name} – eftersatt underhåll och svag utveckling pressar området.`,
+          kind: up ? "income" : "warn",
+        });
+      }
+      tiers[d.id] = tier.id;
+    }
+    s.districtTiers = tiers;
+  }
+
+  // ── Helkvarter: fira när ett slutet kvarter blir helägt ──────────
+  {
+    const current = fullyOwnedBlocks(s);
+    const known = new Set(s.ownedBlocks ?? []);
+    for (const blockId of current) {
+      if (!known.has(blockId)) {
+        s.reputation = Math.min(100, s.reputation + 2);
+        events.push({
+          t: `🏆 HELKVARTER! ${s.companyName ?? "Bolaget"} äger nu hela kvarteret ${blockId.replace("-kv", " ")} – samordnad drift ger +10 % hyra och −15 % driftkostnad (rep +2).`,
+          kind: "income",
+        });
+      }
+    }
+    s.ownedBlocks = current;
+  }
+
+  // ── ESG: betygsbyten och grönt lån ───────────────────────────────
+  {
+    const rating = esgRatingOf(s);
+    const prev = s.esgRating;
+    if (prev && prev !== rating.letter) {
+      if (rating.spreadDelta < 0)
+        events.push({ t: `🌱 ESG-betyg ${rating.letter}: grönt lån aktivt – räntepåslaget sänks med ${Math.abs(rating.spreadDelta).toFixed(2)} %-enheter.`, kind: "income" });
+      else if (rating.spreadDelta > 0)
+        events.push({ t: `🏭 ESG-betyg ${rating.letter}: bankerna kräver ${rating.spreadDelta.toFixed(2)} %-enheter extra i räntepåslag. Energiuppgradera beståndet!`, kind: "warn" });
+      else events.push({ t: `♻️ ESG-betyg ändrat till ${rating.letter}.`, kind: "info" });
+    }
+    s.esgRating = rating.letter;
+    // Dålig hållbarhet göder aktivister efter börsnoteringen.
+    if (s.ipoActive && rating.spreadDelta > 0)
+      s.takeoverPressure = Math.min(100, (s.takeoverPressure ?? 0) + 1.5);
+  }
+
+  // ── Rivalagendor: utspel när målen närmar sig ────────────────────
+  s.competitors = s.competitors.map((c) => {
+    const ag = c.agenda;
+    if (!ag || ag.announced) return c;
+    const progress =
+      ag.kind === "district"
+        ? c.portfolio.filter((p) => p.district === ag.district).length / ag.target
+        : ag.kind === "units"
+          ? c.portfolio.filter((p) => p.status === "klar").length / ag.target
+          : c.equity / ag.target;
+    if (progress >= 1) {
+      events.push({ t: `🏁 ${c.name} har nått sitt mål: ${ag.label}. Rivalen växlar upp – räkna med hårdare konkurrens.`, kind: "warn" });
+      return { ...c, agenda: { ...ag, announced: true } };
+    }
+    return c;
+  });
+
+  // ── Detaljplaneauktion: kommunen släpper nytt kvarter ────────────
+  {
+    const absM = s.year * 12 + s.month;
+    const unlocked = new Set(s.unlockedBlocks ?? []);
+    const nextBlock = EXPANSION_BLOCKS.find((b) => !unlocked.has(b.blockId));
+    if (!s.auction && nextBlock && absM % 30 === 0) {
+      const parcels = PARCELS.filter((p) => p.blockId === nextBlock.blockId);
+      const d = DISTRICTS.find((x) => x.id === nextBlock.district)!;
+      const landValue = parcels.reduce((a, p) => a + p.w * p.d * 2 * d.base * 0.18, 0);
+      const minBid = Math.round((landValue * s.marketMod * 0.8) / 10_000) * 10_000;
+      s.auction = {
+        blockId: nextBlock.blockId,
+        district: nextBlock.district,
+        districtName: d.name,
+        parcels: parcels.length,
+        minBid,
+        currentBid: minBid,
+        leader: null,
+        round: 0,
+      };
+      events.push({
+        t: `🏛️ DETALJPLANEAUKTION: Kommunen släpper ett nytt kvarter i ${d.name} (${parcels.length} tomter, utrop ${msek(minBid)}). Spelet pausar tills auktionen avgjorts.`,
+        kind: "event",
+      });
+    }
+  }
 
   // Råvarupris/byggkostnad mjukt tillbaka mot normalt
   s.buildCostMod = +(((s.buildCostMod ?? 1) * 0.85 + 0.15)).toFixed(3);

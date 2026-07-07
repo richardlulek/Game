@@ -2,7 +2,7 @@ import { Html, MapControls, Sky } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { Color, type PlaneGeometry } from "three";
-import { DISTRICT_ZONES, PARCELS } from "../engine/city";
+import { DISTRICT_ZONES, PARCELS, parcelById } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
 import { propMarketValue, propNOI } from "../engine/property";
 import type { GameState, Property } from "../engine/types";
@@ -68,12 +68,14 @@ function CityParcels() {
 
   const byParcel = useMemo(() => {
     const m = new Map<string, ParcelContent>();
+    const goldBlocks = new Set(state.ownedBlocks ?? []);
     for (const p of portfolio)
       if (p.parcelId)
         m.set(p.parcelId, {
           kind: "owned",
           prop: p,
           tint: overlay !== "ingen" ? overlayTint(p, state, overlay) : undefined,
+          blockOwned: goldBlocks.has(parcelById(p.parcelId)?.blockId ?? ""),
         });
     for (const p of listings) if (p.parcelId) m.set(p.parcelId, { kind: "listing", prop: p });
     for (const l of lots)
