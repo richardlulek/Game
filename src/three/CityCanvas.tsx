@@ -1,16 +1,20 @@
 import { Html, MapControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useMemo } from "react";
+import { Color } from "three";
 import { DISTRICT_ZONES, PARCELS } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
+import { propMarketValue, propNOI } from "../engine/property";
+import type { GameState, Property } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
+import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
 import { CameraRig } from "./CameraRig";
-import { Clouds, Harbor, InnerStreets, Landmarks } from "./CityExtras";
+import { Birds, Clouds, Harbor, InnerStreets, Landmarks } from "./CityExtras";
 import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
-import { Roads } from "./Roads";
+import { LocalTraffic, Roads } from "./Roads";
 
 const LABEL_STYLE: React.CSSProperties = {
   pointerEvents: "none",
@@ -44,15 +48,31 @@ function DistrictPlates() {
   );
 }
 
+/** Grön→röd tint efter vald metrik (1 = grönt, 0 = rött). */
+function overlayTint(p: Property, state: GameState, mode: OverlayMode): string {
+  let score = 1;
+  if (mode === "vakans") score = p.capacity ? p.tenants.length / p.capacity : 1;
+  else if (mode === "skick") score = p.condition / 100;
+  else if (mode === "avkastning")
+    score = (propNOI(p, state) / Math.max(1, propMarketValue(p, state))) / 0.07;
+  score = Math.max(0, Math.min(1, score));
+  return `#${new Color().setHSL(0.33 * score, 0.62, 0.42).getHexString()}`;
+}
+
 function CityParcels() {
-  const portfolio = useGameStore((s) => s.state.portfolio);
-  const listings = useGameStore((s) => s.state.listings);
-  const lots = useGameStore((s) => s.state.lots);
-  const competitors = useGameStore((s) => s.state.competitors);
+  const state = useGameStore((s) => s.state);
+  const overlay = useUiStore((s) => s.overlay);
+  const { portfolio, listings, lots, competitors } = state;
 
   const byParcel = useMemo(() => {
     const m = new Map<string, ParcelContent>();
-    for (const p of portfolio) if (p.parcelId) m.set(p.parcelId, { kind: "owned", prop: p });
+    for (const p of portfolio)
+      if (p.parcelId)
+        m.set(p.parcelId, {
+          kind: "owned",
+          prop: p,
+          tint: overlay !== "ingen" ? overlayTint(p, state, overlay) : undefined,
+        });
     for (const p of listings) if (p.parcelId) m.set(p.parcelId, { kind: "listing", prop: p });
     for (const l of lots)
       if (l.parcelId) m.set(l.parcelId, { kind: l.owned ? "lotOwned" : "lotForSale", lot: l });
@@ -61,7 +81,8 @@ function CityParcels() {
         if (p.parcelId) m.set(p.parcelId, { kind: "rival", prop: p, owner: c.name, ownerIndex: i });
     });
     return m;
-  }, [portfolio, listings, lots, competitors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portfolio, listings, lots, competitors, overlay, state.marketMod, state.demandMod]);
 
   return (
     <>
@@ -121,6 +142,8 @@ export function CityCanvas() {
       <Harbor />
       <Landmarks />
       <Clouds />
+      <Birds />
+      <LocalTraffic />
       <CameraRig />
     </Canvas>
   );

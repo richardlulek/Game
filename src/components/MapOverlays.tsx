@@ -4,6 +4,7 @@ import { msek } from "../engine/format";
 import { propMarketValue } from "../engine/property";
 import type { GameState, Lot, Property } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
+import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
 import { BURGUNDY } from "../styles/tokens";
 
@@ -193,6 +194,174 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
           )}
         </>
       )}
+    </div>
+  );
+}
+
+const OVERLAYS: { id: OverlayMode; label: string }[] = [
+  { id: "ingen", label: "Karta" },
+  { id: "vakans", label: "Vakans" },
+  { id: "skick", label: "Skick" },
+  { id: "avkastning", label: "Avkastning" },
+];
+
+const T: Record<string, CSSProperties> = {
+  toggle: {
+    position: "absolute",
+    left: 12,
+    bottom: 44,
+    display: "flex",
+    gap: 4,
+    background: "rgba(255,255,255,0.9)",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    padding: 4,
+  },
+  toggleBtn: {
+    border: "none",
+    background: "transparent",
+    padding: "4px 10px",
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#555",
+    cursor: "pointer",
+  },
+  toggleActive: { background: BURGUNDY, color: "#fff" },
+  hud: {
+    position: "absolute",
+    left: 12,
+    top: 12,
+    width: 250,
+    background: "rgba(255,255,255,0.96)",
+    border: "1px solid #ddd",
+    borderRadius: 10,
+    padding: "10px 12px",
+    fontSize: 12.5,
+    color: "#333",
+    boxShadow: "0 6px 20px rgba(0,0,0,0.18)",
+  },
+  hudRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    padding: "4px 0",
+  },
+  hudBtn: {
+    background: BURGUNDY,
+    color: "#fff",
+    border: "none",
+    padding: "4px 9px",
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  hudBtn2: {
+    background: "#fff",
+    color: "#555",
+    border: "1px solid #ccc",
+    padding: "4px 9px",
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+};
+
+/** Kartlager-väljare à la Capitalism Lab: färga husen efter metrik. */
+export function OverlayToggle() {
+  const overlay = useUiStore((s) => s.overlay);
+  const setOverlay = useUiStore((s) => s.setOverlay);
+  return (
+    <div style={T.toggle}>
+      {OVERLAYS.map((o) => (
+        <button
+          key={o.id}
+          style={{ ...T.toggleBtn, ...(overlay === o.id ? T.toggleActive : {}) }}
+          onClick={() => setOverlay(o.id)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * "Att göra"-panel: sammanfattar portföljens driftläge och erbjuder
+ * batch-åtgärder – förvaltning i stor skala istället för hus-för-hus.
+ */
+export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
+  const state = useGameStore((s) => s.state);
+  const dispatch = useGameStore((s) => s.dispatch);
+  const klar = state.portfolio.filter((p) => p.status === "klar");
+  if (klar.length === 0) return null;
+
+  const vacantSlots = klar
+    .filter((p) => !p.shortTerm)
+    .reduce((a, p) => a + Math.max(0, p.capacity - p.tenants.length), 0);
+  const expiring = klar.reduce(
+    (a, p) => a + p.tenants.filter((t) => t.monthsLeft <= 3).length,
+    0,
+  );
+  const POOR = 45;
+  const poor = klar.filter((p) => p.condition < POOR);
+  const poorCost = poor.reduce((a, p) => a + Math.round(propMarketValue(p, state) * 0.02), 0);
+  const unmanaged = klar.filter((p) => !p.managed).length;
+  const nothing = vacantSlots === 0 && expiring === 0 && poor.length === 0;
+
+  return (
+    <div style={T.hud}>
+      <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: 1, marginBottom: 4 }}>
+        FÖRVALTNING · {klar.length} fastigheter
+      </div>
+      {nothing && <div style={{ color: "#4d8b52" }}>✓ Allt uthyrt, förnyat och i gott skick.</div>}
+      {vacantSlots > 0 && (
+        <div style={T.hudRow}>
+          <span>🏠 {vacantSlots} vakanta platser</span>
+          <button style={T.hudBtn} onClick={() => dispatch({ type: "LEASE_ALL" })}>
+            Hyr ut alla
+          </button>
+        </div>
+      )}
+      {expiring > 0 && (
+        <div style={T.hudRow}>
+          <span>📄 {expiring} kontrakt löper ut ≤3 mån</span>
+          <button style={T.hudBtn} onClick={() => dispatch({ type: "RENEW_ALL", monthsLeft: 3 })}>
+            Förnya alla
+          </button>
+        </div>
+      )}
+      {poor.length > 0 && (
+        <div style={T.hudRow}>
+          <span>
+            🔧 {poor.length} med skick &lt; {POOR}
+          </span>
+          <button
+            style={{ ...T.hudBtn, ...(state.cash < poorCost ? { opacity: 0.55 } : {}) }}
+            title={`Kostnad ca ${msek(poorCost)}`}
+            onClick={() => dispatch({ type: "MAINTAIN_ALL", threshold: POOR })}
+          >
+            Underhåll ({msek(poorCost)})
+          </button>
+        </div>
+      )}
+      <div style={{ ...T.hudRow, borderTop: "1px solid #eee", marginTop: 4, paddingTop: 8 }}>
+        {unmanaged > 0 ? (
+          <button style={T.hudBtn2} onClick={() => dispatch({ type: "MANAGE_ALL", managed: true })}>
+            👔 Förvaltare på alla ({unmanaged})
+          </button>
+        ) : (
+          <span style={{ color: "#888", fontSize: 11 }}>👔 Förvaltare överallt</span>
+        )}
+        <button style={T.hudBtn2} onClick={() => openWindow("tenants")}>
+          Direktör →
+        </button>
+      </div>
     </div>
   );
 }

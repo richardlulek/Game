@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
+import { PITCH, ZONE_GRIDS } from "../engine/city";
 import { CAR_COLORS, ROAD, ROAD_DASH } from "./colors";
 
 /**
@@ -117,6 +118,31 @@ export function Roads() {
           />
         </group>
       ))}
+    </>
+  );
+}
+
+/** Lokal trafik: en bil som cirkulerar på varje distrikts kvartersgata. */
+export function LocalTraffic() {
+  return (
+    <>
+      {ZONE_GRIDS.map((g, i) => {
+        const seg: RoadSeg = {
+          x: g.cx,
+          z: g.cz + (0.5 - (g.rows - 1) / 2) * PITCH,
+          w: g.cols * PITCH - 14,
+          d: 8.5,
+        };
+        return (
+          <Car
+            key={g.district}
+            seg={seg}
+            offset={i * 0.83 + 0.4}
+            speed={0.05 + (i % 3) * 0.015}
+            color={CAR_COLORS[(i + 2) % CAR_COLORS.length]}
+          />
+        );
+      })}
     </>
   );
 }

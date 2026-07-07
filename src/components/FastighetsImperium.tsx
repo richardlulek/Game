@@ -17,7 +17,7 @@ import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
 import { CityCanvas } from "../three/CityCanvas";
 import { FloatingWindow } from "./FloatingWindow";
-import { MapLegend, MapSelectionCard } from "./MapOverlays";
+import { MapLegend, MapSelectionCard, OverlayToggle, TodoHud } from "./MapOverlays";
 import { MarketPanel } from "./MarketPanel";
 import { LogPanel } from "./LogPanel";
 import { OffersModal } from "./OffersModal";
@@ -233,6 +233,8 @@ export default function FastighetsImperium() {
           <CityCanvas />
         </div>
         <MapLegend />
+        <OverlayToggle />
+        <TodoHud openWindow={(id) => setWin(id)} />
         <MapSelectionCard openWindow={(id) => setWin(id)} />
         {win && (
           <FloatingWindow

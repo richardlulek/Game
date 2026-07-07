@@ -1,7 +1,98 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import type { Group } from "three";
+import type { Group, Mesh, MeshStandardMaterial } from "three";
 import { PITCH, ZONE_GRIDS } from "../engine/city";
+
+/** En rökpuff som stiger, växer och tonar ut i loop. */
+function Puff({ x, y, z, phase, drift }: { x: number; y: number; z: number; phase: number; drift: number }) {
+  const ref = useRef<Mesh>(null);
+  useFrame((state) => {
+    const m = ref.current;
+    if (!m) return;
+    const t = (state.clock.elapsedTime * 0.22 + phase) % 1;
+    m.position.set(x + t * drift, y + t * 11, z);
+    const sc = 0.7 + t * 2.1;
+    m.scale.set(sc, sc, sc);
+    (m.material as MeshStandardMaterial).opacity = 0.42 * (1 - t);
+  });
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[1.1, 8, 6]} />
+      <meshStandardMaterial color="#e8e6e0" transparent opacity={0.4} depthWrite={false} />
+    </mesh>
+  );
+}
+
+/** Rökpelare: tre pulserande puffar ur en skorsten. */
+export function Smoke({ x, y, z }: { x: number; y: number; z: number }) {
+  return (
+    <>
+      {[0, 0.33, 0.66].map((phase, i) => (
+        <Puff key={i} x={x} y={y} z={z} phase={phase} drift={4 + i} />
+      ))}
+    </>
+  );
+}
+
+/** Måsar som cirklar över hamnen. */
+function Bird({ cx, cz, r, y, phase, speed }: { cx: number; cz: number; r: number; y: number; phase: number; speed: number }) {
+  const ref = useRef<Group>(null);
+  useFrame((state) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime * speed + phase;
+    g.position.set(cx + Math.cos(t) * r, y + Math.sin(t * 2.3) * 3, cz + Math.sin(t) * r);
+    g.rotation.y = -t - Math.PI / 2;
+    // vingslag
+    const flap = Math.sin(state.clock.elapsedTime * 7 + phase) * 0.5;
+    if (g.children[0]) g.children[0].rotation.z = flap;
+    if (g.children[1]) g.children[1].rotation.z = -flap;
+  });
+  return (
+    <group ref={ref}>
+      <mesh position={[-0.9, 0, 0]}>
+        <boxGeometry args={[1.8, 0.08, 0.35]} />
+        <meshStandardMaterial color="#eceff1" />
+      </mesh>
+      <mesh position={[0.9, 0, 0]}>
+        <boxGeometry args={[1.8, 0.08, 0.35]} />
+        <meshStandardMaterial color="#eceff1" />
+      </mesh>
+    </group>
+  );
+}
+
+export function Birds() {
+  return (
+    <>
+      <Bird cx={20} cz={300} r={70} y={42} phase={0} speed={0.25} />
+      <Bird cx={-60} cz={290} r={50} y={36} phase={2.1} speed={0.32} />
+      <Bird cx={120} cz={310} r={60} y={48} phase={4.2} speed={0.21} />
+    </>
+  );
+}
+
+/** Vajande flagga på en stång. */
+export function Flag({ x, y, z, color }: { x: number; y: number; z: number; color: string }) {
+  const ref = useRef<Mesh>(null);
+  useFrame((state) => {
+    const m = ref.current;
+    if (!m) return;
+    m.rotation.y = Math.sin(state.clock.elapsedTime * 2.2) * 0.35;
+  });
+  return (
+    <group position={[x, y, z]}>
+      <mesh position={[0, 2.5, 0]}>
+        <cylinderGeometry args={[0.12, 0.12, 5, 6]} />
+        <meshStandardMaterial color="#8a8f8a" />
+      </mesh>
+      <mesh ref={ref} position={[1.4, 4.2, 0]}>
+        <planeGeometry args={[2.8, 1.6]} />
+        <meshStandardMaterial color={color} side={2} />
+      </mesh>
+    </group>
+  );
+}
 
 const STREET = "#82898e";
 const CONCRETE = "#b9b4a8";
@@ -115,6 +206,7 @@ function Boat({ x, z, phase, color }: { x: number; z: number; phase: number; col
         <cylinderGeometry args={[0.35, 0.45, 1.6, 8]} />
         <meshStandardMaterial color="#b6413a" />
       </mesh>
+      <Smoke x={-4.5} y={5.8} z={0} />
       {/* Containrar på däck */}
       {[0, 1, 2].map((i) => (
         <mesh key={i} castShadow position={[1.5 + i * 2.6, 2.6, 0]}>
@@ -167,6 +259,7 @@ export function Landmarks() {
           <coneGeometry args={[5.4, 4.5, 4]} />
           <meshStandardMaterial color="#4a6a55" />
         </mesh>
+        <Flag x={0} y={29.5} z={0} color="#800020" />
       </group>
       {/* Vattentorn – väster om Villakullen */}
       <group position={[-190, 0, -150]}>
@@ -200,6 +293,7 @@ export function Landmarks() {
             <cylinderGeometry args={[1.45, 1.45, 1.2, 10]} />
             <meshStandardMaterial color="#e8e4da" />
           </mesh>
+          <Smoke x={0} y={18.5} z={0} />
         </group>
       ))}
     </>

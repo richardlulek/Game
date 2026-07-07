@@ -240,6 +240,91 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "LEASE_ALL": {
+      // Fyll alla lediga platser i hela portföljen med nya hyresgäster.
+      let signed = 0;
+      const portfolio = state.portfolio.map((p) => {
+        if (p.status === "bygger" || p.shortTerm || p.tenants.length >= p.capacity) return p;
+        const tenants = [...p.tenants];
+        while (tenants.length < p.capacity) {
+          tenants.push(
+            makeTenant(propPotentialRent(p, state) / p.capacity, state.demandMod, p.condition),
+          );
+          signed += 1;
+        }
+        return { ...p, tenants };
+      });
+      if (signed === 0) return log(state, "Inga vakanser att fylla.", "info");
+      return log(
+        { ...state, portfolio },
+        `🏠 Uthyrningskampanj: tecknade ${signed} nya hyresavtal i hela portföljen.`,
+        "buy",
+      );
+    }
+    case "MAINTAIN_ALL": {
+      // Underhåll alla fastigheter under skicktröskeln, så långt kassan räcker.
+      let cash = state.cash;
+      let fixed = 0;
+      let totalCost = 0;
+      const portfolio = state.portfolio.map((p) => {
+        if (p.status === "bygger" || p.condition >= action.threshold) return p;
+        const cost = Math.round(propMarketValue(p, state) * 0.02);
+        if (cash < cost) return p;
+        cash -= cost;
+        totalCost += cost;
+        fixed += 1;
+        return { ...p, condition: Math.min(100, p.condition + 15) };
+      });
+      if (fixed === 0)
+        return log(state, `Inget att underhålla under skick ${action.threshold} (eller kassan räcker inte).`, "info");
+      return log(
+        { ...state, cash, portfolio },
+        `🔧 Underhållsrond: ${fixed} fastigheter åtgärdade (+15 skick) för ${msek(totalCost)}.`,
+        "upg",
+      );
+    }
+    case "RENEW_ALL": {
+      // Förnya alla kontrakt som löper ut inom N månader till marknadshyra.
+      let renewed = 0;
+      const portfolio = state.portfolio.map((p) => {
+        if (p.status === "bygger") return p;
+        let changed = false;
+        const tenants = p.tenants.map((t) => {
+          if (t.monthsLeft > action.monthsLeft) return t;
+          const marketRent = Math.round(
+            (propPotentialRent(p, state) / p.capacity / 12) * t.quality,
+          );
+          changed = true;
+          renewed += 1;
+          return { ...t, rent: Math.max(t.rent, marketRent), monthsLeft: t.termTotal };
+        });
+        return changed ? { ...p, tenants } : p;
+      });
+      if (renewed === 0)
+        return log(state, `Inga kontrakt löper ut inom ${action.monthsLeft} månader.`, "info");
+      return log(
+        {
+          ...state,
+          portfolio,
+          reputation: Math.min(100, state.reputation + 1),
+        },
+        `📄 Förnyade ${renewed} hyreskontrakt till marknadshyra (reputation +1).`,
+        "buy",
+      );
+    }
+    case "MANAGE_ALL": {
+      // Slå på/av lokal förvaltare på hela portföljen.
+      const portfolio = state.portfolio.map((p) =>
+        p.status === "bygger" ? p : { ...p, managed: action.managed },
+      );
+      return log(
+        { ...state, portfolio },
+        action.managed
+          ? "👔 Förvaltare anlitade på samtliga fastigheter."
+          : "👔 Förvaltare avslutade på samtliga fastigheter.",
+        "info",
+      );
+    }
     case "BUY_LOT": {
       const lot = state.lots.find((x) => x.id === action.id);
       if (!lot) return state;

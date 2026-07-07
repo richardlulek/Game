@@ -27,7 +27,7 @@ import {
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
-  | { kind: "owned"; prop: Property }
+  | { kind: "owned"; prop: Property; tint?: string }
   | { kind: "listing"; prop: Property }
   | { kind: "lotForSale"; lot: Lot }
   | { kind: "lotOwned"; lot: Lot }
@@ -185,6 +185,7 @@ function ParcelTrees({ hash }: { hash: number }) {
 export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: ParcelContent }) {
   const selected = useUiStore((s) => s.selectedParcelId === parcel.id);
   const select = useUiStore((s) => s.select);
+  const overlayActive = useUiStore((s) => s.overlay !== "ingen");
   const [hovered, setHovered] = useState(false);
   useCursor(hovered && !!content);
 
@@ -220,21 +221,28 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     constructionProgress = underConstruction
       ? Math.max(0.08, 1 - p.buildLeft / PROP_TYPES[p.type].buildMonths)
       : 1;
+    // Kartlager: egna hus färgas efter metrik, allt annat gråtonas.
+    const baseColor =
+      content.kind === "rival"
+        ? RIVAL_COLORS[content.ownerIndex % RIVAL_COLORS.length]
+        : facadeColor(TYPE_COLORS[p.type], p.condition);
+    const color = overlayActive
+      ? content.kind === "owned" && content.tint
+        ? content.tint
+        : "#a8adb0"
+      : baseColor;
     building = {
       type: p.type,
       floors: floorsFor(p.area),
-      color:
-        content.kind === "rival"
-          ? RIVAL_COLORS[content.ownerIndex % RIVAL_COLORS.length]
-          : facadeColor(TYPE_COLORS[p.type], p.condition),
-      windows: true,
+      color,
+      windows: !overlayActive,
     };
   } else if (hasAmbient) {
     building = {
       type: ambientType(parcel.district, hash),
       floors: ambientFloors(parcel.district, hash),
-      color: AMBIENT_COLORS[(hash >> 2) % AMBIENT_COLORS.length],
-      windows: true,
+      color: overlayActive ? "#b0b4b0" : AMBIENT_COLORS[(hash >> 2) % AMBIENT_COLORS.length],
+      windows: !overlayActive,
     };
   }
   const fullH = building ? building.floors * FLOOR_HEIGHT : 0;

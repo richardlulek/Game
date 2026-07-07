@@ -6,7 +6,12 @@
 
 import { create } from "zustand";
 
+/** Kartlager à la Capitalism Lab: färga egna hus efter en nyckelmetrik. */
+export type OverlayMode = "ingen" | "vakans" | "skick" | "avkastning";
+
 interface UiStore {
+  overlay: OverlayMode;
+  setOverlay: (overlay: OverlayMode) => void;
   selectedParcelId: string | null;
   select: (parcelId: string | null) => void;
   /** Kamerafokus – seq ökas per begäran så samma ruta kan fokuseras igen. */
@@ -16,6 +21,8 @@ interface UiStore {
 }
 
 export const useUiStore = create<UiStore>((set) => ({
+  overlay: "ingen",
+  setOverlay: (overlay) => set({ overlay }),
   selectedParcelId: null,
   select: (selectedParcelId) => set({ selectedParcelId }),
   focusParcelId: null,

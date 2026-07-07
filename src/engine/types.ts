@@ -491,6 +491,10 @@ export type GameAction =
   | { type: "SELL"; id: number }
   | { type: "UPGRADE"; id: number; upg: string }
   | { type: "LEASE"; id: number }
+  | { type: "LEASE_ALL" }
+  | { type: "MAINTAIN_ALL"; threshold: number }
+  | { type: "RENEW_ALL"; monthsLeft: number }
+  | { type: "MANAGE_ALL"; managed: boolean }
   | { type: "EVICT"; id: number; tenantId: number }
   | { type: "RENEW_LEASE"; id: number; tenantId: number }
   | { type: "MAINTAIN"; id: number }
