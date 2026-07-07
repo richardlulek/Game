@@ -1,0 +1,42 @@
+name: Deploy till GitHub Pages
+
+# Bygger spelet och publicerar till gh-pages-branchen vid varje push
+# till utvecklingsbranchen. Kör även manuellt via "Run workflow".
+on:
+  push:
+    branches:
+      - claude/property-sim-2d-3d-zff7t9
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checka ut koden
+        uses: actions/checkout@v4
+
+      - name: Installera Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installera beroenden
+        run: npm ci
+
+      - name: Bygg produktionsbygget
+        run: npm run build
+
+      - name: Publicera till gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
