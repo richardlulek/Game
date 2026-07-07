@@ -47,6 +47,39 @@ import { CompanyPanel } from "./CompanyPanel";
 import { NewspaperModal } from "./NewspaperModal";
 import { AuctionModal } from "./AuctionModal";
 
+/** Ikon per fönster (Capitalism-stil ikonverktygsrad). */
+const TAB_ICONS: Record<string, string> = {
+  company: "🏠",
+  portfolio: "📁",
+  market: "🏷️",
+  build: "🏗️",
+  tenants: "👥",
+  calendar: "📅",
+  finance: "💰",
+  stocks: "📈",
+  acquisition: "🤝",
+  group: "🏛️",
+  industri: "🏭",
+  ind_marknad: "🛒",
+  staff: "👔",
+  research: "🔬",
+  milestones: "🏅",
+  overview: "📊",
+  kpi: "📐",
+  districts: "🗺️",
+  rivals: "🏆",
+  nyheter: "📰",
+  log: "📜",
+};
+
+/** Grupperna i verktygsraden: Fastighet | Finans | Bolag | Stad. */
+const TAB_GROUPS: string[][] = [
+  ["portfolio", "market", "build", "tenants", "calendar"],
+  ["finance", "stocks", "acquisition", "group", "industri", "ind_marknad"],
+  ["staff", "research", "milestones", "overview", "kpi"],
+  ["districts", "rivals", "nyheter", "log"],
+];
+
 const TABS = [
   { id: "company",   label: "Bolag" },
   { id: "portfolio", label: "Portfölj" },
@@ -84,8 +117,13 @@ export default function FastighetsImperium() {
   const [started, setStarted] = useState(false);
   // Undertrycker tidningsmodalen när en nivåändring kommer från load.
   const suppressNews = useRef(false);
-  // Cap2-modell: kartan är alltid grundvyn; panelerna öppnas som fönster.
-  const [win, setWin] = useState<string | null>(null);
+  // Cap2-modell: kartan är alltid grundvyn; flera fönster kan vara öppna
+  // samtidigt (ordningen = z-ordning, sist = överst). Minimerade fönster
+  // ligger kvar i taskbaren.
+  const [wins, setWins] = useState<string[]>([]);
+  const [minimized, setMinimized] = useState<string[]>([]);
+  const winsRef = useRef<{ wins: string[]; minimized: string[] }>({ wins: [], minimized: [] });
+  winsRef.current = { wins, minimized };
   const [saved, setSaved]     = useState(false);
   const [showOffers, setShowOffers] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
@@ -106,9 +144,27 @@ export default function FastighetsImperium() {
     load(slot);
   };
 
+  // Fönsterhantering (Cap2: flera öppna, fokus lyfter överst).
+  const openWindow = (id: string) => {
+    setMinimized((m) => m.filter((x) => x !== id));
+    setWins((w) => (w.includes(id) ? [...w.filter((x) => x !== id), id] : [...w, id]));
+  };
+  const closeWindow = (id: string) => {
+    setWins((w) => w.filter((x) => x !== id));
+    setMinimized((m) => m.filter((x) => x !== id));
+  };
+  const focusWindow = (id: string) => {
+    setWins((w) => (w[w.length - 1] === id ? w : [...w.filter((x) => x !== id), id]));
+  };
+  const minimizeWindow = (id: string) => setMinimized((m) => (m.includes(id) ? m : [...m, id]));
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setWin(null);
+      if (e.key !== "Escape") return;
+      const { wins: w, minimized: m } = winsRef.current;
+      const visible = w.filter((id) => !m.includes(id));
+      const top = visible[visible.length - 1];
+      if (top) closeWindow(top);
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -147,11 +203,11 @@ export default function FastighetsImperium() {
   const unlocked        = unlockedWindows(companyLevel);
   const upgrade         = canUpgrade(state);
 
-  // Stäng fönstret om det inte är upplåst (t.ex. efter laddad sparfil).
+  // Stäng fönster som inte är upplåsta (t.ex. efter laddad sparfil).
   useEffect(() => {
-    if (win && !unlocked.has(win)) setWin(null);
+    setWins((w) => (w.every((id) => unlocked.has(id)) ? w : w.filter((id) => unlocked.has(id))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [win, companyLevel]);
+  }, [companyLevel]);
 
   // Nivåhöjning → tidningsförstasida. Laddade sparfiler trycker inga
   // gamla nyheter (suppressNews sätts av load-vägarna nedan).
@@ -204,52 +260,62 @@ export default function FastighetsImperium() {
         </div>
       )}
 
-      {/* ── Fönsterknappar (kartan är alltid grundvyn) ─────────
-          Bolagsnivån styr vilka funktioner som är upplåsta – bolaget
-          börjar smått och verktygslådan växer med det. */}
+      {/* ── Ikonverktygsrad à la Capitalism (kartan är alltid grundvyn).
+          Grupper: Fastighet | Finans | Bolag | Stad. Bolagsnivån styr
+          vilka funktioner som är upplåsta. Klick öppnar/stänger fönster. */}
       <div style={tabBarStyle}>
         <button
           style={{
             ...tabStyle,
             ...companyBadgeStyle,
-            ...(win === "company" ? tabActiveStyle : {}),
+            ...(wins.includes("company") ? tabActiveStyle : {}),
             ...(upgrade.qualified ? { color: "#ffd700" } : {}),
           }}
-          onClick={() => setWin(win === "company" ? null : "company")}
+          onClick={() => (wins.includes("company") ? closeWindow("company") : openWindow("company"))}
           title={upgrade.qualified ? "Bolaget är redo att expandera!" : "Öppna Bolag"}
         >
           {tierForLevel(companyLevel).icon} {state.companyName ?? "Mitt Fastighetsbolag"}
           {upgrade.qualified ? " ⬆" : ""}
         </button>
-        {TABS.filter((t) => t.id !== "company").map((t) => {
-          const locked = !unlocked.has(t.id);
-          if (locked) {
-            const reqTier = tierForLevel(unlockLevelFor(t.id));
-            return (
-              <button
-                key={t.id}
-                style={{ ...tabStyle, opacity: 0.38, cursor: "default" }}
-                title={`🔒 Låses upp på nivå ${reqTier.level}: ${reqTier.name}`}
-              >
-                🔒 {t.label}
-              </button>
-            );
-          }
-          return (
-            <button
-              key={t.id}
-              style={{ ...tabStyle, ...(win === t.id ? tabActiveStyle : {}) }}
-              onClick={() => setWin(win === t.id ? null : t.id)}
-              title={win === t.id ? "Stäng fönstret" : `Öppna ${t.label}`}
-            >
-              {t.id === "portfolio"
-                ? `Portfölj (${state.portfolio.length})`
-                : t.id === "industri"
-                ? `Industri (${(state.industryPortfolio ?? []).length})`
-                : t.label}
-            </button>
-          );
-        })}
+        {TAB_GROUPS.map((group, gi) => (
+          <span key={gi} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            {gi > 0 && <span style={groupDivider} />}
+            {group.map((id) => {
+              const t = TABS.find((x) => x.id === id)!;
+              const locked = !unlocked.has(id);
+              const open = wins.includes(id);
+              const count =
+                id === "portfolio"
+                  ? state.portfolio.length
+                  : id === "industri"
+                    ? (state.industryPortfolio ?? []).length
+                    : null;
+              if (locked) {
+                const reqTier = tierForLevel(unlockLevelFor(id));
+                return (
+                  <button
+                    key={id}
+                    style={{ ...iconTabStyle, opacity: 0.32, cursor: "default" }}
+                    title={`🔒 ${t.label} – låses upp på nivå ${reqTier.level}: ${reqTier.name}`}
+                  >
+                    {TAB_ICONS[id] ?? "▫️"}
+                  </button>
+                );
+              }
+              return (
+                <button
+                  key={id}
+                  style={{ ...iconTabStyle, ...(open ? iconTabActiveStyle : {}) }}
+                  onClick={() => (open ? closeWindow(id) : openWindow(id))}
+                  title={`${t.label}${count !== null ? ` (${count})` : ""} — ${open ? "stäng" : "öppna"}`}
+                >
+                  {TAB_ICONS[id] ?? "▫️"}
+                  {count !== null && count > 0 && <span style={iconBadgeStyle}>{count}</span>}
+                </button>
+              );
+            })}
+          </span>
+        ))}
       </div>
 
       {/* ── Scenario progress bar ───────────────────────────── */}
@@ -301,59 +367,100 @@ export default function FastighetsImperium() {
         </div>
         <MapLegend />
         <OverlayToggle />
-        <TodoHud openWindow={(id) => unlocked.has(id) && setWin(id)} />
-        <MapSelectionCard openWindow={(id) => unlocked.has(id) && setWin(id)} />
-        {win && (
-          <FloatingWindow
-            title={TABS.find((t) => t.id === win)?.label ?? ""}
-            onClose={() => setWin(null)}
-          >
-            {win === "company" && <CompanyPanel state={state} dispatch={dispatch} />}
-            {win === "portfolio" && (
-              <div style={S.grid}>
-                {state.portfolio.length === 0 && (
-                  <div style={S.empty}>
-                    Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
-                    <strong>Bygg</strong> – eller klicka på ett objekt med gul ring på kartan.
+        <TodoHud openWindow={(id) => unlocked.has(id) && openWindow(id)} />
+        <MapSelectionCard openWindow={(id) => unlocked.has(id) && openWindow(id)} />
+        {wins.map((id, i) => {
+          if (minimized.includes(id)) return null;
+          const windowContent = (): React.ReactNode => {
+            switch (id) {
+              case "company": return <CompanyPanel state={state} dispatch={dispatch} />;
+              case "portfolio":
+                return (
+                  <div style={S.grid}>
+                    {state.portfolio.length === 0 && (
+                      <div style={S.empty}>
+                        Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
+                        <strong>Bygg</strong> – eller klicka på ett objekt med gul ring på kartan.
+                      </div>
+                    )}
+                    {state.portfolio.map((p) => (
+                      <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
+                    ))}
                   </div>
-                )}
-                {state.portfolio.map((p) => (
-                  <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
-                ))}
-              </div>
-            )}
-            {win === "market" && <MarketPanel state={state} dispatch={dispatch} />}
-            {win === "build" && <BuildPanel state={state} dispatch={dispatch} />}
-            {win === "stocks" && <StockExchange state={state} dispatch={dispatch} />}
-            {win === "research" && <ResearchPanel state={state} dispatch={dispatch} />}
-            {win === "staff" && <StaffPanel state={state} dispatch={dispatch} />}
-            {win === "group" && <GroupOverview state={state} dispatch={dispatch} />}
-            {win === "finance" && (
-              <>
-                <FinancePanel
-                  state={state} dispatch={dispatch}
-                  equity={equity} ltv={ltv} terms={terms}
-                />
-                <div style={{ marginTop: 18 }}>
-                  <EquityChart history={state.history} />
-                </div>
-              </>
-            )}
-            {win === "rivals" && <RivalsPanel state={state} equity={equity} />}
-            {win === "log" && <LogPanel log={state.log} />}
-            {win === "overview" && <PortfolioTable state={state} dispatch={dispatch} />}
-            {win === "acquisition" && <AcquisitionPanel state={state} dispatch={dispatch} />}
-            {win === "districts" && <DistrictPanel state={state} dispatch={dispatch} />}
-            {win === "calendar" && <ContractCalendar state={state} />}
-            {win === "kpi" && <KPIPanel state={state} dispatch={dispatch} />}
-            {win === "tenants" && <TenantPanel state={state} dispatch={dispatch} />}
-            {win === "milestones" && <MilestonesPanel state={state} />}
-            {win === "nyheter" && <NewsFeedPanel state={state} />}
-            {win === "industri" && <IndustryPanel state={state} dispatch={dispatch} />}
-            {win === "ind_marknad" && <IndustryMarket state={state} dispatch={dispatch} />}
-          </FloatingWindow>
-        )}
+                );
+              case "market": return <MarketPanel state={state} dispatch={dispatch} />;
+              case "build": return <BuildPanel state={state} dispatch={dispatch} />;
+              case "stocks": return <StockExchange state={state} dispatch={dispatch} />;
+              case "research": return <ResearchPanel state={state} dispatch={dispatch} />;
+              case "staff": return <StaffPanel state={state} dispatch={dispatch} />;
+              case "group": return <GroupOverview state={state} dispatch={dispatch} />;
+              case "finance":
+                return (
+                  <>
+                    <FinancePanel state={state} dispatch={dispatch} equity={equity} ltv={ltv} terms={terms} />
+                    <div style={{ marginTop: 18 }}>
+                      <EquityChart history={state.history} />
+                    </div>
+                  </>
+                );
+              case "rivals": return <RivalsPanel state={state} equity={equity} />;
+              case "log": return <LogPanel log={state.log} />;
+              case "overview": return <PortfolioTable state={state} dispatch={dispatch} />;
+              case "acquisition": return <AcquisitionPanel state={state} dispatch={dispatch} />;
+              case "districts": return <DistrictPanel state={state} dispatch={dispatch} />;
+              case "calendar": return <ContractCalendar state={state} />;
+              case "kpi": return <KPIPanel state={state} dispatch={dispatch} />;
+              case "tenants": return <TenantPanel state={state} dispatch={dispatch} />;
+              case "milestones": return <MilestonesPanel state={state} />;
+              case "nyheter": return <NewsFeedPanel state={state} />;
+              case "industri": return <IndustryPanel state={state} dispatch={dispatch} />;
+              case "ind_marknad": return <IndustryMarket state={state} dispatch={dispatch} />;
+              default: return null;
+            }
+          };
+          return (
+            <FloatingWindow
+              key={id}
+              title={TABS.find((t) => t.id === id)?.label ?? ""}
+              zIndex={60 + i}
+              offsetIndex={wins.indexOf(id) % 6}
+              onFocus={() => focusWindow(id)}
+              onMinimize={() => minimizeWindow(id)}
+              onClose={() => closeWindow(id)}
+            >
+              {windowContent()}
+            </FloatingWindow>
+          );
+        })}
       </div>
+
+      {/* ── Taskbar: öppna fönster à la Capitalism ──────────── */}
+      {wins.length > 0 && (
+        <div style={taskbarStyle}>
+          {wins.map((id) => {
+            const isMin = minimized.includes(id);
+            const isTop = !isMin && wins.filter((x) => !minimized.includes(x)).slice(-1)[0] === id;
+            return (
+              <button
+                key={id}
+                style={{
+                  ...taskbarBtnStyle,
+                  ...(isTop ? { background: C.burgundy, color: C.brassBright } : {}),
+                  ...(isMin ? { opacity: 0.55 } : {}),
+                }}
+                title={isMin ? "Återställ" : isTop ? "Minimera" : "Fokusera"}
+                onClick={() => {
+                  if (isMin) openWindow(id);
+                  else if (isTop) minimizeWindow(id);
+                  else focusWindow(id);
+                }}
+              >
+                {TAB_ICONS[id] ?? "▫️"} {TABS.find((t) => t.id === id)?.label ?? id}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Status bar ──────────────────────────────────────── */}
       <StatusBar
@@ -530,5 +637,73 @@ const companyBadgeStyle: React.CSSProperties = {
   maxWidth: 260,
   overflow: "hidden",
   textOverflow: "ellipsis",
+};
+
+/** Ikonknappar i verktygsraden. */
+const iconTabStyle: React.CSSProperties = {
+  position: "relative",
+  background: "none",
+  border: "none",
+  padding: "9px 11px",
+  fontSize: 17,
+  lineHeight: 1,
+  cursor: "pointer",
+  borderBottom: "2px solid transparent",
+  marginBottom: -1,
+  flexShrink: 0,
+};
+
+const iconTabActiveStyle: React.CSSProperties = {
+  borderBottom: `2px solid ${C.brass}`,
+  background: "rgba(255,255,255,0.07)",
+};
+
+const iconBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 2,
+  right: 1,
+  background: C.burgundy,
+  color: "#fff",
+  fontSize: 9,
+  fontWeight: 800,
+  borderRadius: 7,
+  minWidth: 14,
+  height: 14,
+  lineHeight: "14px",
+  textAlign: "center",
+  padding: "0 2px",
+};
+
+const groupDivider: React.CSSProperties = {
+  width: 1,
+  height: 22,
+  background: `${C.brass}55`,
+  margin: "0 7px",
+  display: "inline-block",
+};
+
+/** Taskbar för öppna/minimerade fönster, ovanför statusraden. */
+const taskbarStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  padding: "4px 10px",
+  background: C.woodDark,
+  borderTop: `1px solid ${C.brass}44`,
+  overflowX: "auto",
+  flexShrink: 0,
+};
+
+const taskbarBtnStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.06)",
+  border: `1px solid ${C.brass}44`,
+  color: C.creamSoft,
+  borderRadius: 5,
+  padding: "4px 11px",
+  fontSize: 12,
+  fontWeight: 700,
+  fontFamily: FONTS.heading,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
 };
 

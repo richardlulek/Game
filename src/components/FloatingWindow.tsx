@@ -3,19 +3,29 @@ import { C, FONTS, THEME } from "../styles/tokens";
 
 /**
  * Flytande, dragbart fönster ovanpå stadskartan – à la Capitalism 2,
- * där kartan alltid är världen och rapporter/paneler öppnas i fönster.
- * Dra i titelraden för att flytta; ✕ eller Esc stänger.
+ * där kartan alltid är världen och flera rapporter/paneler kan vara
+ * öppna samtidigt. Dra i titelraden; klick fokuserar (lyfter överst);
+ * — minimerar till taskbaren; ✕ eller Esc stänger.
  */
 export function FloatingWindow({
   title,
   onClose,
+  onMinimize,
+  onFocus,
+  zIndex = 50,
+  offsetIndex = 0,
   children,
 }: {
   title: string;
   onClose: () => void;
+  onMinimize?: () => void;
+  onFocus?: () => void;
+  zIndex?: number;
+  /** Kaskadposition för nyöppnade fönster. */
+  offsetIndex?: number;
   children: ReactNode;
 }) {
-  const [pos, setPos] = useState({ x: 14, y: 10 });
+  const [pos, setPos] = useState({ x: 14 + offsetIndex * 32, y: 10 + offsetIndex * 26 });
   const drag = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null);
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -46,7 +56,7 @@ export function FloatingWindow({
     borderRadius: 8,
     boxShadow: "0 14px 44px rgba(0,0,0,0.55)",
     pointerEvents: "auto",
-    zIndex: 50,
+    zIndex,
     overflow: "hidden",
   };
   const titleBar: CSSProperties = {
@@ -61,9 +71,20 @@ export function FloatingWindow({
     userSelect: "none",
     touchAction: "none",
   };
+  const winBtn: CSSProperties = {
+    background: "none",
+    border: `1px solid ${C.brass}66`,
+    color: C.creamSoft,
+    borderRadius: 4,
+    width: 24,
+    height: 24,
+    cursor: "pointer",
+    fontSize: 12,
+    lineHeight: 1,
+  };
 
   return (
-    <div style={frame}>
+    <div style={frame} onPointerDown={onFocus}>
       <div style={titleBar} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
         <span
           style={{
@@ -76,23 +97,16 @@ export function FloatingWindow({
         >
           {title}
         </span>
-        <button
-          onClick={onClose}
-          title="Stäng (Esc)"
-          style={{
-            background: "none",
-            border: `1px solid ${C.brass}66`,
-            color: C.creamSoft,
-            borderRadius: 4,
-            width: 24,
-            height: 24,
-            cursor: "pointer",
-            fontSize: 12,
-            lineHeight: 1,
-          }}
-        >
-          ✕
-        </button>
+        <span style={{ display: "flex", gap: 6 }}>
+          {onMinimize && (
+            <button onClick={onMinimize} title="Minimera till taskbaren" style={winBtn}>
+              —
+            </button>
+          )}
+          <button onClick={onClose} title="Stäng (Esc)" style={winBtn}>
+            ✕
+          </button>
+        </span>
       </div>
       <div style={{ overflowY: "auto", padding: 16 }}>{children}</div>
     </div>
