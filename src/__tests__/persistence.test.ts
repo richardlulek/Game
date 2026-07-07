@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parcelById } from "../engine/city";
 import { newId } from "../engine/random";
 import { clearSave, hasSave, loadGame, SAVE_VERSION, saveGame } from "../store/persistence";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
@@ -34,7 +33,7 @@ describe("persistens", () => {
   });
 
   it("synkar id-räknaren vid load så nya id:n inte krockar", () => {
-    const p = makeProperty({ id: 500, tenant: makeTenantFixture({ id: 750 }) });
+    const p = makeProperty({ id: 500, tenants: [makeTenantFixture({ id: 750 })] });
     saveGame(makeState({ portfolio: [p] }));
     loadGame();
     expect(newId()).toBe(751); // max(500, 750) + 1
@@ -48,61 +47,6 @@ describe("persistens", () => {
   it("klarar trasig sparfil utan att krascha", () => {
     localStorage.setItem("fastighetsimperium:save", "{ inte giltig json");
     expect(loadGame()).toBeNull();
-  });
-
-  it("migrerar v2-sparfil: alla objekt får en giltig, unik parcelId", () => {
-    const strip = <T extends { parcelId: string }>(o: T): Omit<T, "parcelId"> => {
-      const rest: Record<string, unknown> = { ...o };
-      delete rest.parcelId;
-      return rest as Omit<T, "parcelId">;
-    };
-    const state = makeState({
-      portfolio: [strip(makeProperty({ id: 1, district: "centrum" }))],
-      listings: [strip(makeProperty({ id: 2, district: "hamnen", owned: false }))],
-      lots: [
-        strip({
-          id: 3,
-          district: "kulle",
-          districtName: "Villakullen",
-          parcelId: "x",
-          area: 900,
-          price: 2e6,
-        }),
-      ],
-    } as never);
-    localStorage.setItem(
-      "fastighetsimperium:save",
-      JSON.stringify({ version: 2, savedAt: new Date().toISOString(), state }),
-    );
-
-    const loaded = loadGame()!;
-    const objs = [...loaded.portfolio, ...loaded.listings, ...loaded.lots];
-    const ids = objs.map((o) => o.parcelId);
-    expect(ids.every(Boolean)).toBe(true);
-    expect(new Set(ids).size).toBe(ids.length);
-    for (const o of objs) expect(parcelById(o.parcelId)?.district).toBe(o.district);
-  });
-
-  it("migrerar v3-sparfil: konkurrenter får innehav och distrikt låses upp", () => {
-    const state = makeState({
-      competitors: [{ name: "Gamla Bolaget", cash: 5e6, units: 3, equity: 20e6 }] as never,
-    });
-    const raw = { ...state } as Record<string, unknown>;
-    delete raw.unlockedDistricts;
-    localStorage.setItem(
-      "fastighetsimperium:save",
-      JSON.stringify({ version: 3, savedAt: new Date().toISOString(), state: raw }),
-    );
-
-    const loaded = loadGame()!;
-    expect(loaded.unlockedDistricts).toContain("centrum");
-    expect(loaded.unlockedDistricts).not.toContain("storängen");
-    const c = loaded.competitors[0];
-    expect(c.holdings).toHaveLength(3);
-    expect(c.units).toBe(3);
-    const ids = c.holdings.map((h) => h.parcelId);
-    expect(new Set(ids).size).toBe(3);
-    for (const h of c.holdings) expect(parcelById(h.parcelId)?.district).toBe(h.district);
   });
 
   it("clearSave raderar sparfilen", () => {

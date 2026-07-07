@@ -15,18 +15,14 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.18.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "three": "^0.185.1",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@types/three": "^0.185.0",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^9.1.0",

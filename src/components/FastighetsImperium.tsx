@@ -1,224 +1,442 @@
 import { useEffect, useRef, useState } from "react";
-import { equityOf, loanTerms, ltvOf, monthlyInterestOf, totalDebtOf } from "../engine/finance";
-import { kr, msek, pct } from "../engine/format";
+import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
+import { equityOf, loanTerms, ltvOf } from "../engine/finance";
+import { msek } from "../engine/format";
 import { propNOI } from "../engine/property";
-import { useEventMarkers } from "../hooks/useEventMarkers";
-import { useGameClock } from "../hooks/useGameClock";
+import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
+import type { ScenarioId } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
-import { useUiStore } from "../store/uiStore";
-import { L } from "../styles/layout";
+import { listSaveSlots } from "../store/persistence";
 import { S } from "../styles/styles";
-import { BURGUNDY } from "../styles/tokens";
-import { CityCanvas } from "../three/CityCanvas";
-import { ClockControls } from "./ClockControls";
+import { BURGUNDY, C, FONTS } from "../styles/tokens";
+import { Animations } from "./Animations";
+import { BuildPanel } from "./BuildPanel";
+import { DecisionModal } from "./DecisionModal";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
-import { InboxPanel } from "./InboxPanel";
+import { CityMap } from "./CityMap";
+import { MarketPanel } from "./MarketPanel";
 import { LogPanel } from "./LogPanel";
+import { OffersModal } from "./OffersModal";
 import { PortfolioCard } from "./PortfolioCard";
 import { RivalsPanel } from "./RivalsPanel";
-import { SelectionPanel } from "./SelectionPanel";
-import { Stat } from "./Stat";
-import { Tabs } from "./Tabs";
+import { StatusBar } from "./StatusBar";
+import { TitleScreen } from "./TitleScreen";
+import { Toasts } from "./Toasts";
+import { Toolbar } from "./Toolbar";
+import { StockExchange } from "./StockExchange";
+import { GroupOverview } from "./GroupOverview";
+import { ResearchPanel } from "./ResearchPanel";
+import { StaffPanel } from "./StaffPanel";
+import { PortfolioTable } from "./PortfolioTable";
+import { AcquisitionPanel } from "./AcquisitionPanel";
+import { DistrictPanel } from "./DistrictPanel";
+import { ContractCalendar } from "./ContractCalendar";
+import { KPIPanel } from "./KPIPanel";
+import { TenantPanel } from "./TenantPanel";
+import { MilestonesPanel } from "./MilestonesPanel";
+import { NewsFeedPanel } from "./NewsFeedPanel";
+import { OnboardingOverlay } from "./OnboardingOverlay";
+import { IndustryPanel } from "./IndustryPanel";
+import { IndustryMarket } from "./IndustryMarket";
+
+const TABS = [
+  { id: "portfolio", label: "Portfölj" },
+  { id: "market",    label: "Marknad" },
+  { id: "map",       label: "Karta" },
+  { id: "build",     label: "Bygg" },
+  { id: "stocks",    label: "Börs" },
+  { id: "finance",   label: "Finans" },
+  { id: "research",  label: "Forskning" },
+  { id: "staff",     label: "Anställda" },
+  { id: "group",     label: "Koncern" },
+  { id: "rivals",    label: "Topp" },
+  { id: "log",       label: "Logg" },
+  { id: "overview",     label: "Översikt" },
+  { id: "acquisition",  label: "Förvärv" },
+  { id: "districts",    label: "Distrikt" },
+  { id: "calendar",     label: "Kalender" },
+  { id: "kpi",          label: "KPI" },
+  { id: "tenants",      label: "Hyresgäster" },
+  { id: "milestones",   label: "Milstolpar" },
+  { id: "nyheter",      label: "Nyheter" },
+  { id: "industri",    label: "Industri" },
+  { id: "ind_marknad", label: "Ind. Marknad" },
+];
 
 export default function FastighetsImperium() {
-  const state = useGameStore((s) => s.state);
-  const dispatch = useGameStore((s) => s.dispatch);
-  const save = useGameStore((s) => s.save);
-  const load = useGameStore((s) => s.load);
-  const select = useUiStore((s) => s.select);
-  const requestFocus = useUiStore((s) => s.requestFocus);
+  const state      = useGameStore((s) => s.state);
+  const dispatch   = useGameStore((s) => s.dispatch);
+  const save       = useGameStore((s) => s.save);
+  const load       = useGameStore((s) => s.load);
+  const setSlotFn  = useGameStore((s) => s.setSlot);
 
-  // Spelklockan – rullande månadsticks med autospar (fas 0.5).
-  useGameClock();
-  // Kartmarkörer för nya logghändelser (fas 2).
-  useEventMarkers();
+  const [started, setStarted] = useState(false);
+  const [tab, setTab]         = useState("portfolio");
+  const [saved, setSaved]     = useState(false);
+  const [showOffers, setShowOffers] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const [showVictory, setShowVictory] = useState(false);
 
-  const locate = (parcelId: string) => {
-    select(parcelId);
-    requestFocus(parcelId);
+  const startNew = (scenarioId: ScenarioId, slot: number) => {
+    setSlotFn(slot);
+    dispatch({ type: "RESET", scenarioId });
+    setStarted(true);
   };
+  const startContinue = (slot: number) => { load(slot); setStarted(true); };
 
-  const [tab, setTab] = useState("portfolio");
-  const [saved, setSaved] = useState(false);
-
-  const doSave = () => {
-    save();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  const equity = equityOf(state);
-  const monthlyNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
-  const terms = loanTerms(state);
-  const monthlyInterest = monthlyInterestOf(state);
-  const ltv = ltvOf(state);
-  const myRank =
-    [...state.competitors.map((c) => c.equity), equity].sort((a, b) => b - a).indexOf(equity) + 1;
-
-  // Rensa valet när spelet nollställs/laddas till annat tillstånd.
+  // Månadspuls – ett kort svep när månaden växlar.
+  const [pulseKey, setPulseKey] = useState(0);
+  const absMonth = state.year * 12 + state.month;
+  const prevMonth = useRef(absMonth);
   useEffect(() => {
-    if (state.gameOver) select(null);
-  }, [state.gameOver, select]);
+    if (absMonth !== prevMonth.current) {
+      prevMonth.current = absMonth;
+      setPulseKey((k) => k + 1);
+    }
+  }, [absMonth]);
 
-  // Auto-pausa klockan när nya beslut landar i inkorgen eller när spelet vinns.
-  const setRunning = useGameStore((s) => s.setRunning);
-  const prevInbox = useRef(state.inbox.length);
+  // Victory detection
+  const prevWon = useRef(false);
   useEffect(() => {
-    if (state.inbox.length > prevInbox.current) setRunning(false);
-    prevInbox.current = state.inbox.length;
-  }, [state.inbox.length, setRunning]);
-  const [winDismissed, setWinDismissed] = useState(false);
-  useEffect(() => {
-    if (state.gameWon) setRunning(false);
-    else setWinDismissed(false);
-  }, [state.gameWon, setRunning]);
+    if (state.gameWon && !prevWon.current) { setShowVictory(true); }
+    prevWon.current = !!state.gameWon;
+  }, [state.gameWon]);
+
+  const doSave = () => { save(); setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  const toggleSound = () => { const v = !soundOn; setSoundEnabled(v); setSoundOn(v); };
+  const offersCount = (state.offers ?? []).length;
+
+  const equity          = equityOf(state);
+  const monthlyNOI      = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
+  const terms           = loanTerms(state);
+  const monthlyInterest = (state.debt * (terms.rate / 100)) / 12;
+  const ltv             = ltvOf(state);
+  const myRank          = [...state.competitors.map((c) => c.equity), equity]
+    .sort((a, b) => b - a).indexOf(equity) + 1;
+
+  if (!started) {
+    return (
+      <>
+        <Animations />
+        <TitleScreen slots={listSaveSlots()} onNew={startNew} onContinue={startContinue} />
+      </>
+    );
+  }
 
   return (
-    <div style={L.app}>
-      <header style={L.topbar}>
-        <div>
-          <h1 style={L.title}>
-            FASTIGHETS<span style={{ color: BURGUNDY }}>IMPERIUM</span>
-          </h1>
-          <div style={L.subtitle}>Förvärva · Bygg · Förvalta · Dominera</div>
-        </div>
-        <div style={L.statStrip}>
-          <Stat
-            label="Kassa"
-            value={msek(state.cash)}
-            accent={state.cash < 0 ? "#c0392b" : "#1a1a1a"}
-          />
-          <Stat
-            label="Eget kapital"
-            value={msek(equity)}
-            accent={BURGUNDY}
-            sub={`Rank #${myRank} av ${state.competitors.length + 1}`}
-          />
-          <Stat label="Skuld" value={msek(totalDebtOf(state))} sub={`LTV ${pct(ltv)}`} />
-          <Stat label="Låneränta" value={terms.rate + " %"} sub={`påslag +${terms.spread}`} />
-          <Stat
-            label="Driftnetto/mån"
-            value={kr(monthlyNOI)}
-            sub={`ränta −${kr(monthlyInterest)}`}
-            accent={monthlyNOI - monthlyInterest >= 0 ? "#27660a" : "#c0392b"}
-          />
-          <Stat
-            label="Reputation"
-            value={Math.round(state.reputation)}
-            sub={`max LTV ${pct(terms.maxLtv)}`}
-            accent={BURGUNDY}
-          />
-        </div>
-        <ClockControls />
-        <div style={{ display: "flex", gap: 6 }}>
-          <button style={S.miniBtn} onClick={doSave}>
-            {saved ? "✓ Sparat" : "Spara"}
-          </button>
-          <button style={S.miniBtn} onClick={() => load()}>
-            Ladda
-          </button>
-        </div>
-      </header>
+    <div style={S.appLayout}>
+      <Animations />
 
-      <div style={L.main}>
-        <div style={L.canvasWrap}>
-          <CityCanvas />
-          <button style={L.refreshFab} onClick={() => dispatch({ type: "REFRESH_LISTINGS" })}>
-            ↻ Nya objekt på marknaden
-          </button>
-          <div style={L.ticker}>{state.log[0]?.t}</div>
-          {state.gameOver && (
-            <div style={L.gameOverWrap}>
-              <div style={L.gameOverBox}>
-                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>💥 KONKURS</div>
-                Spelet är slut. Eget kapital: {msek(equity)} efter {state.year} år.
-                <div style={{ marginTop: 14 }}>
-                  <button style={S.resetBtn} onClick={() => dispatch({ type: "RESET" })}>
-                    Spela igen
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          {state.gameWon && !winDismissed && (
-            <div style={L.gameOverWrap}>
-              <div style={L.gameOverBox}>
-                <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>🎉 DU VANN!</div>
-                Fastighetsimperiet är fullbordat efter {state.year} år.
-                <br />
-                Eget kapital: <strong>{msek(equity)}</strong>
-                <div style={{ marginTop: 14, display: "flex", gap: 8, justifyContent: "center" }}>
-                  <button style={S.miniBtn} onClick={() => setWinDismissed(true)}>
-                    Fortsätt spela
-                  </button>
-                  <button style={S.resetBtn} onClick={() => dispatch({ type: "RESET" })}>
-                    Spela igen
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* ── Toolbar ─────────────────────────────────────────── */}
+      <Toolbar
+        state={state} dispatch={dispatch} saved={saved} onSave={doSave} onLoad={load}
+        offersCount={offersCount} onOpenOffers={() => setShowOffers(true)}
+        soundOn={soundOn} onToggleSound={toggleSound}
+      />
 
-        <aside style={L.sidebar}>
-          {state.inbox.length > 0 && (
-            <div style={L.sidebarSelection}>
-              <InboxPanel />
-            </div>
-          )}
-          <div style={L.sidebarSelection}>
-            <SelectionPanel />
-          </div>
-          <div style={L.sidebarTabs}>
-            <Tabs
-              tab={tab}
-              setTab={setTab}
-              items={[
-                { id: "portfolio", label: `Portfölj (${state.portfolio.length})` },
-                { id: "finance", label: "Finans" },
-                { id: "rivals", label: "Konkurrenter" },
-                { id: "log", label: "Händelser" },
-              ]}
-            />
-          </div>
-          <div style={L.sidebarContent}>
-            {tab === "portfolio" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {state.portfolio.length === 0 && (
-                  <div style={S.empty}>
-                    Inga fastigheter ännu. Klicka på ett objekt med gul ring på kartan för att köpa,
-                    eller en grön ring för att köpa tomt och bygga nytt.
-                  </div>
-                )}
-                {state.portfolio.map((p) => (
-                  <PortfolioCard
-                    key={p.id}
-                    p={p}
-                    state={state}
-                    dispatch={dispatch}
-                    onLocate={() => locate(p.parcelId)}
-                  />
-                ))}
-              </div>
-            )}
-            {tab === "finance" && (
-              <div>
-                <EquityChart history={state.history} />
-                <FinancePanel
-                  state={state}
-                  dispatch={dispatch}
-                  equity={equity}
-                  ltv={ltv}
-                  terms={terms}
-                />
-              </div>
-            )}
-            {tab === "rivals" && <RivalsPanel state={state} equity={equity} dispatch={dispatch} />}
-            {tab === "log" && <LogPanel log={state.log} onLocate={locate} />}
-          </div>
-        </aside>
+      {/* ── Game-over banner ────────────────────────────────── */}
+      {state.gameOver && (
+        <div style={{
+          background: BURGUNDY, color: C.brassBright, textAlign: "center",
+          padding: "10px 16px", fontSize: 14, fontWeight: 700, fontFamily: FONTS.heading,
+          borderBottom: `1px solid ${C.brass}`,
+          display: "flex", justifyContent: "center", alignItems: "center", gap: 16,
+        }}>
+          Spelet är slut — {state.year} år spelade
+          <button
+            style={{ ...S.toolbarNextBtn, padding: "5px 14px", fontSize: 13 }}
+            onClick={() => dispatch({ type: "RESET" })}
+          >
+            Spela igen
+          </button>
+        </div>
+      )}
+
+      {/* ── Tab bar ─────────────────────────────────────────── */}
+      <div style={tabBarStyle}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            style={{ ...tabStyle, ...(tab === t.id ? tabActiveStyle : {}) }}
+            onClick={() => setTab(t.id)}
+          >
+            {t.id === "portfolio"
+              ? `Portfölj (${state.portfolio.length})`
+              : t.id === "industri"
+              ? `Industri (${(state.industryPortfolio ?? []).length})`
+              : t.label}
+          </button>
+        ))}
       </div>
+
+      {/* ── Scenario progress bar ───────────────────────────── */}
+      {state.scenarioId && state.scenarioId !== "sandbox" && (() => {
+        const sc = SCENARIOS.find((x) => x.id === state.scenarioId);
+        if (!sc) return null;
+        const prog = sc.progress(state);
+        const pct = Math.min(1, prog.value / prog.max);
+        const leadRival = state.competitors.length > 0
+          ? state.competitors.reduce(
+              (best, c) =>
+                rivalScenarioProgress(c, state.scenarioId!, state) >
+                rivalScenarioProgress(best, state.scenarioId!, state)
+                  ? c : best,
+              state.competitors[0],
+            )
+          : null;
+        const rivalPct = leadRival ? rivalScenarioProgress(leadRival, state.scenarioId!, state) : 0;
+        return (
+          <div style={{ background: C.woodDark, padding: "4px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.brass}44` }}>
+            <span style={{ fontSize: 11, color: C.brass, fontWeight: 700, whiteSpace: "nowrap" }}>{sc.icon} {sc.title}</span>
+            {/* Player bar */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ height: 5, background: "#2a1a0a", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: `${pct * 100}%`, height: "100%", background: pct >= 1 ? "#ffd700" : C.brass, borderRadius: 3, transition: "width 0.5s" }} />
+              </div>
+              {leadRival && (
+                <div style={{ height: 4, background: "#2a1a0a", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: `${rivalPct * 100}%`, height: "100%", background: rivalPct > pct ? "#f87a7a" : "#888", borderRadius: 3, transition: "width 0.5s" }} />
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <span style={{ fontSize: 10, color: C.creamSoft, whiteSpace: "nowrap" }}>Du: {prog.label}</span>
+              {leadRival && (
+                <span style={{ fontSize: 10, color: rivalPct > pct ? "#f87a7a" : "#aaa", whiteSpace: "nowrap" }}>
+                  {leadRival.name}: {Math.round(rivalPct * 100)} %{rivalPct > pct ? " ⚠️" : ""}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Content ─────────────────────────────────────────── */}
+      <div style={contentStyle}>
+        {tab === "portfolio" && (
+          <div style={S.grid}>
+            {state.portfolio.length === 0 && (
+              <div style={S.empty}>
+                Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
+                <strong>Bygg</strong>.
+              </div>
+            )}
+            {state.portfolio.map((p) => (
+              <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
+            ))}
+          </div>
+        )}
+
+        {tab === "market" && <MarketPanel state={state} dispatch={dispatch} />}
+
+        {tab === "map" && <CityMap state={state} dispatch={dispatch} />}
+
+        {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
+
+        {tab === "stocks" && <StockExchange state={state} dispatch={dispatch} />}
+
+        {tab === "research" && <ResearchPanel state={state} dispatch={dispatch} />}
+
+        {tab === "staff" && <StaffPanel state={state} dispatch={dispatch} />}
+
+        {tab === "group" && <GroupOverview state={state} dispatch={dispatch} />}
+
+        {tab === "finance" && (
+          <>
+            <FinancePanel
+              state={state} dispatch={dispatch}
+              equity={equity} ltv={ltv} terms={terms}
+            />
+            <div style={{ marginTop: 18 }}>
+              <EquityChart history={state.history} />
+            </div>
+          </>
+        )}
+
+        {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
+
+        {tab === "log" && <LogPanel log={state.log} />}
+
+        {tab === "overview"    && <PortfolioTable state={state} dispatch={dispatch} />}
+        {tab === "acquisition" && <AcquisitionPanel state={state} dispatch={dispatch} />}
+        {tab === "districts"   && <DistrictPanel state={state} dispatch={dispatch} />}
+        {tab === "calendar"    && <ContractCalendar state={state} />}
+        {tab === "kpi"         && <KPIPanel state={state} dispatch={dispatch} />}
+        {tab === "tenants"     && <TenantPanel state={state} dispatch={dispatch} />}
+        {tab === "milestones"  && <MilestonesPanel state={state} />}
+        {tab === "nyheter"     && <NewsFeedPanel state={state} />}
+        {tab === "industri"    && <IndustryPanel state={state} dispatch={dispatch} />}
+        {tab === "ind_marknad" && <IndustryMarket state={state} dispatch={dispatch} />}
+      </div>
+
+      {/* ── Status bar ──────────────────────────────────────── */}
+      <StatusBar
+        state={state} equity={equity} ltv={ltv}
+        terms={terms} monthlyNOI={monthlyNOI}
+        monthlyInterest={monthlyInterest} myRank={myRank}
+      />
+
+      {/* ── Månadspuls ──────────────────────────────────────── */}
+      {pulseKey > 0 && (
+        <div
+          key={pulseKey}
+          style={{
+            position: "fixed", inset: 0, pointerEvents: "none", zIndex: 900,
+            background: `radial-gradient(circle at 50% 0%, ${BURGUNDY}22, transparent 60%)`,
+            animation: "fi-month-pulse 0.7s ease-out",
+          }}
+        />
+      )}
+
+      {/* ── Victory overlay ─────────────────────────────────── */}
+      {showVictory && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,20,10,0.85)", zIndex: 2500,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div style={{
+            background: "linear-gradient(165deg, #f6efdc, #e6d6b4)", border: `2px solid ${C.brass}`, borderRadius: 8,
+            padding: "36px 44px", maxWidth: 480, width: "100%", textAlign: "center",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+          }}>
+            <div style={{ fontSize: 52, marginBottom: 8 }}>🏆</div>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 26, fontWeight: 900, color: BURGUNDY, marginBottom: 6 }}>
+              Seger!
+            </div>
+            {(() => {
+              const sc = SCENARIOS.find((x) => x.id === state.scenarioId);
+              const totalRentEarned = state.portfolio.reduce((a, p) => a + (p.totalEarnedRent ?? 0), 0);
+              const portfolioVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
+              const milestonesCount = (state.milestones ?? []).length;
+              return (
+                <>
+                  {sc && (
+                    <div style={{ fontSize: 15, color: C.inkSoft, marginBottom: 12 }}>
+                      {sc.title}: {sc.subtitle}<br />
+                      <span style={{ fontSize: 13 }}>Spelat klart år {state.year}, månad {state.month}</span>
+                    </div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18, textAlign: "left" }}>
+                    {[
+                      ["Eget kapital", msek(equity)],
+                      ["Portföljvärde", msek(portfolioVal)],
+                      ["Fastigheter", `${state.portfolio.length} st`],
+                      ["Totalt i hyror", msek(totalRentEarned)],
+                      ["Reputation", `${Math.round(state.reputation)}`],
+                      ["Milstolpar", `${milestonesCount} / 10`],
+                    ].map(([label, val]) => (
+                      <div key={label as string} style={{ background: "#f0e8d0", borderRadius: 4, padding: "8px 12px" }}>
+                        <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+                        <div style={{ fontWeight: 800, fontSize: 16, color: BURGUNDY }}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={() => setShowVictory(false)}
+                style={{ padding: "10px 24px", borderRadius: 4, border: `1px solid ${C.brass}`, background: "transparent", color: C.ink, fontWeight: 700, cursor: "pointer" }}
+              >
+                Fortsätt spela
+              </button>
+              <button
+                onClick={() => { setShowVictory(false); dispatch({ type: "RESET" }); setStarted(false); }}
+                style={{ padding: "10px 24px", borderRadius: 4, border: `1px solid ${C.brass}`, background: BURGUNDY, color: C.brassBright, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body }}
+              >
+                Nytt spel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reaktiva lager ──────────────────────────────────── */}
+      <Toasts log={state.log} />
+      {showOffers && (
+        <OffersModal state={state} dispatch={dispatch} onClose={() => setShowOffers(false)} />
+      )}
+      <DecisionModal state={state} dispatch={dispatch} />
+      <OnboardingOverlay state={state} dispatch={dispatch} />
+
+      {/* ── Competing bid banner ────────────────────────────── */}
+      {state.competingBid && (() => {
+        const cb = state.competingBid!;
+        const listing = state.listings.find((p) => p.id === cb.listingId);
+        return (
+          <div style={{
+            position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+            background: "#1a0a00", border: `2px solid ${BURGUNDY}`, borderRadius: 8,
+            padding: "14px 20px", zIndex: 9999, maxWidth: 460, width: "90%",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ fontFamily: FONTS.heading, color: BURGUNDY, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>
+              ⚡ BUDGIVNING PÅGÅR
+            </div>
+            <div style={{ fontSize: 13, color: C.parchment, marginBottom: 12 }}>
+              {cb.rivalName} har lagt <strong style={{ color: C.gold }}>{(cb.amount / 1_000_000).toFixed(1)} MSEK</strong>
+              {listing ? ` på ${listing.typeLabel} i ${listing.districtName}` : ""}.
+              Slå budet för att vinna!
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => dispatch({ type: "ACCEPT_COMPETING_BID" })}
+                style={{ flex: 1, padding: "9px", background: BURGUNDY, color: C.parchment, border: "none", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body, fontSize: 13 }}
+              >
+                Lägg motbud ({cb.rivalName}s pris +1 %)
+              </button>
+              <button
+                onClick={() => dispatch({ type: "PASS_COMPETING_BID" })}
+                style={{ padding: "9px 14px", background: "transparent", color: C.creamSoft, border: `1px solid ${C.brass}55`, borderRadius: 4, cursor: "pointer", fontFamily: FONTS.body, fontSize: 12 }}
+              >
+                Låt dem köpa
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
+
+// ── Lokala stilar ────────────────────────────────────────────────
+
+const tabBarStyle: React.CSSProperties = {
+  display: "flex",
+  overflowX: "auto",
+  background: C.wood,
+  borderBottom: `1px solid ${C.brass}`,
+  flexShrink: 0,
+  WebkitOverflowScrolling: "touch",
+};
+
+const tabStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: "11px 18px",
+  fontFamily: FONTS.heading,
+  fontSize: 14,
+  fontWeight: 600,
+  color: C.creamSoft,
+  borderBottom: "2px solid transparent",
+  marginBottom: -1,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+  letterSpacing: 0.3,
+};
+
+const tabActiveStyle: React.CSSProperties = {
+  color: C.brassBright,
+  borderBottom: `2px solid ${C.brass}`,
+};
+
+const contentStyle: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  padding: "18px",
+  background: "transparent",
+  WebkitOverflowScrolling: "touch",
+};

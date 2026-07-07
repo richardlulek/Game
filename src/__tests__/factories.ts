@@ -1,7 +1,6 @@
 /* Testhjälpare – bygger minimala, deterministiska tillstånd. */
 
-import { DISTRICTS, START_DISTRICTS } from "../engine/data";
-import type { Competitor, GameState, Property, Tenant } from "../engine/types";
+import type { GameState, IndustryAsset, Property, Tenant } from "../engine/types";
 
 export function makeState(over: Partial<GameState> = {}): GameState {
   return {
@@ -18,26 +17,30 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     listings: [],
     lots: [],
     competitors: [],
-    unlockedDistricts: [...START_DISTRICTS],
-    fixedLoans: [],
-    inbox: [],
-    districtDev: Object.fromEntries(DISTRICTS.map((d) => [d.id, 50])),
     log: [],
     history: [{ month: 0, equity: 5_000_000 }],
     gameOver: false,
+    offers: [],
+    pendingDecision: null,
+    stocks: [],
+    marketSentiment: 1.0,
+    sentimentHistory: [1.0],
+    subsidiaries: [],
+    dividendsReceived: 0,
+    districtDev: { centrum: 1, hamnen: 1, industri: 1, förort: 1, kulle: 1 },
+    buildCostMod: 1,
+    researchDone: [],
+    activeResearch: null,
+    staff: {},
+    stockOrders: [],
+    portfolioValueHistory: [0],
+    worldPool: [],
+    worldTotal: 0,
+    selectedLender: undefined,
+    globalManager: undefined,
+    scenarioId: undefined,
     gameWon: false,
-    ipoOffered: false,
-    ...over,
-  };
-}
-
-export function makeCompetitor(over: Partial<Competitor> = {}): Competitor {
-  return {
-    name: "Testbolaget AB",
-    cash: 5_000_000,
-    units: 0,
-    equity: 10_000_000,
-    holdings: [],
+    recessionMonthsLeft: 0,
     ...over,
   };
 }
@@ -46,7 +49,6 @@ export function makeProperty(over: Partial<Property> = {}): Property {
   return {
     id: 1,
     district: "centrum",
-    parcelId: "centrum-0",
     districtName: "Centrum",
     type: "bostad",
     typeLabel: "Bostadshus",
@@ -60,13 +62,42 @@ export function makeProperty(over: Partial<Property> = {}): Property {
     opexMult: 1,
     vacancyMult: 1,
     valueMult: 1,
-    tenant: null,
+    tenants: [],
+    capacity: 2,
     status: "klar",
     buildLeft: 0,
-    maintenance: "normal",
-    prospects: [],
-    auctionMonthsLeft: 0,
-    bestBid: null,
+    ...over,
+  };
+}
+
+export function makeIndustryAsset(over: Partial<IndustryAsset> = {}): IndustryAsset {
+  return {
+    id: 200,
+    sector: "hotell",
+    name: "Test Hotel",
+    district: "centrum",
+    districtName: "Centrum",
+    purchasePrice: 10_000_000,
+    condition: 80,
+    upgrades: [],
+    managed: false,
+    insurance: false,
+    status: "klar",
+    buildLeft: 0,
+    monthlyRevenue: 0,
+    monthlyOpex: 0,
+    totalRevenue: 0,
+    txHistory: [],
+    hotelMeta: {
+      starRating: 3,
+      totalRooms: 80,
+      baseAdr: 1_200,
+      bookingChannels: ["direktbokning"],
+      reputationScore: 60,
+      revParHistory: [],
+    },
+    energyMeta: null,
+    logisticsMeta: null,
     ...over,
   };
 }

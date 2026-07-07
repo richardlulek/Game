@@ -1,24 +1,35 @@
 /* ============================================================
-   Generatorer för hyresgäster, marknadsobjekt, tomter och
-   konkurrentinnehav. Använder Math.random (samma beteende som
-   prototypen). Objekt placeras på lediga tomtrutor i upplåsta
-   distrikt. Skicka in ett delat occupied-set när flera objekt
-   genereras i följd, annars härleds det ur tillståndet per anrop.
+   Generatorer för hyresgäster, marknadsobjekt och tomter.
+   Använder Math.random (samma beteende som prototypen).
    ============================================================ */
 
-import { claimRandomParcel, districtsWithFreeParcels, locationFactor, usedParcelIds } from "./city";
-import { DISTRICTS, DISTRICT_ZONING, PROP_TYPES, START_DISTRICTS, TENANT_PROFILES } from "./data";
+import { DISTRICTS, PROP_TYPES, TENANT_NAMES, TENANT_PROFILES } from "./data";
 import { newId, pick, rnd } from "./random";
-import type { District, GameState, Lot, Property, RivalHolding, Tenant } from "./types";
+import type { GameState, Lot, Property, Tenant } from "./types";
 
-/** Skapar en ny hyresgäst utifrån en slumpad profil. */
-export function makeTenant(baseRent: number, demandMod: number): Tenant {
-  const prof = pick(TENANT_PROFILES);
+/** Skapar en ny hyresgäst utifrån en slumpad profil.
+ *  condition-parametern filtrerar bort profiler som kräver bättre skick.
+ *  - condition < 40: only "privat" and "startup"
+ *  - condition < 60: exclude "stat"
+ *  - condition >= 60: all profiles eligible
+ */
+export function makeTenant(baseRent: number, demandMod: number, condition: number = 70): Tenant {
+  let eligible = TENANT_PROFILES;
+  if (condition < 40) {
+    eligible = TENANT_PROFILES.filter((p) => p.id === "privat" || p.id === "startup");
+  } else if (condition < 60) {
+    eligible = TENANT_PROFILES.filter((p) => p.id !== "stat");
+  }
+  // Fall back to all profiles if filtered list is empty
+  if (eligible.length === 0) eligible = TENANT_PROFILES;
+  const prof = pick(eligible);
   const term = Math.round(rnd(prof.termMin, prof.termMax));
+  const names = TENANT_NAMES[prof.id] ?? [prof.name];
   return {
     id: newId(),
     profile: prof.id,
-    name: prof.name,
+    name: pick(names),
+    profileName: prof.name,
     quality: prof.quality,
     defaultRisk: prof.defaultRisk,
     monthsLeft: term,
@@ -27,37 +38,30 @@ export function makeTenant(baseRent: number, demandMod: number): Tenant {
   };
 }
 
-/** Slumpar ett upplåst distrikt som fortfarande har lediga tomtrutor. */
-function pickDistrict(occupied: Set<string>, unlocked: string[]): District {
-  const open = unlocked?.length ? unlocked : START_DISTRICTS;
-  const free = districtsWithFreeParcels(occupied).filter((d) => open.includes(d));
-  if (!free.length) return DISTRICTS.find((x) => x.id === pick(open))!;
-  const id = pick(free);
-  return DISTRICTS.find((x) => x.id === id)!;
-}
+/** Beräknar maxantal hyresgäster baserat på yta. */
+export function calcCapacity(area: number): number { return Math.min(4, Math.floor(area / 1000) + 1); }
 
-/** Genererar ett marknadsobjekt till salu. */
-export function genListing(
-  state: GameState,
-  occupied: Set<string> = usedParcelIds(state),
-): Property {
-  const d = pickDistrict(occupied, state.unlockedDistricts);
-  const parcel = claimRandomParcel(d.id, occupied);
-  // Detaljplanen styr vilka typer som byggs i distriktet.
-  const typeKeys = DISTRICT_ZONING[d.id] ?? (Object.keys(PROP_TYPES) as Property["type"][]);
+export const absMonth = (state: GameState) => state.year * 12 + state.month;
+
+/** Genererar en fastighet för världspoolen (off-market, ingen datumstämpel). */
+export function genWorldProperty(state: GameState): Property {
+  const d = pick(DISTRICTS);
+  const typeKeys = Object.keys(PROP_TYPES) as Property["type"][];
   const typeKey = pick(typeKeys);
   const t = PROP_TYPES[typeKey];
   const area = Math.round(rnd(400, 4500));
-  const condition = Math.round(rnd(35, 95));
+  const condition = Math.round(rnd(30, 95));
   const condFactor = 0.6 + (condition / 100) * 0.6;
-  const value =
-    area * d.base * condFactor * state.marketMod * rnd(0.9, 1.12) * locationFactor(parcel.id);
+  const value = area * d.base * condFactor * state.marketMod * rnd(0.85, 1.15);
   const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
+  // ESG energy class based on condition (newer/better condition = better class)
+  const energyClasses = ["F", "E", "D", "C", "B", "A"] as const;
+  const energyClass = energyClasses[Math.min(5, Math.floor(condition / 17))];
+
   const p: Property = {
     id: newId(),
     district: d.id,
     districtName: d.name,
-    parcelId: parcel.id,
     type: typeKey,
     typeLabel: t.label,
     area,
@@ -70,42 +74,69 @@ export function genListing(
     opexMult: 1,
     vacancyMult: 1,
     valueMult: 1,
-    tenant: null,
+    tenants: [],
+    capacity: calcCapacity(area),
     status: "klar",
     buildLeft: 0,
-    maintenance: "normal",
-    prospects: [],
-    // Marknadsobjekt säljs via auktion med tidsfrist.
-    auctionMonthsLeft: 3 + Math.floor(rnd(0, 3)),
-    bestBid: null,
+    energyClass,
+  };
+  if (Math.random() < 0.4) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
+  return p;
+}
+
+/** Genererar ett marknadsobjekt till salu. */
+export function genListing(state: GameState): Property {
+  const d = pick(DISTRICTS);
+  const typeKeys = Object.keys(PROP_TYPES) as Property["type"][];
+  const typeKey = pick(typeKeys);
+  const t = PROP_TYPES[typeKey];
+  const area = Math.round(rnd(400, 4500));
+  const condition = Math.round(rnd(35, 95));
+  const condFactor = 0.6 + (condition / 100) * 0.6;
+  const value = area * d.base * condFactor * state.marketMod * rnd(0.9, 1.12);
+  const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
+  const born = absMonth(state);
+  const p: Property = {
+    id: newId(),
+    district: d.id,
+    districtName: d.name,
+    type: typeKey,
+    typeLabel: t.label,
+    area,
+    condition,
+    askPrice: Math.round(value),
+    baseRent: Math.round(annualRent),
+    upgrades: [],
+    owned: false,
+    rentMult: 1,
+    opexMult: 1,
+    vacancyMult: 1,
+    valueMult: 1,
+    tenants: [],
+    capacity: calcCapacity(area),
+    status: "klar",
+    buildLeft: 0,
+    listedMonth: born,
+    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
   };
   // ~55 % chans att objektet redan har hyresgäst
-  if (Math.random() < 0.55) p.tenant = makeTenant(p.baseRent, state.demandMod);
+  if (Math.random() < 0.55) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
   return p;
 }
 
 /** Genererar en byggbar tomt till salu. */
-export function genLot(state: GameState, occupied: Set<string> = usedParcelIds(state)): Lot {
-  const d = pickDistrict(occupied, state.unlockedDistricts);
-  const parcel = claimRandomParcel(d.id, occupied);
+export function genLot(state: GameState): Lot {
+  const d = pick(DISTRICTS);
   const area = Math.round(rnd(600, 3500));
-  const price = Math.round(area * d.base * 0.18 * state.marketMod * locationFactor(parcel.id));
-  return { id: newId(), district: d.id, districtName: d.name, parcelId: parcel.id, area, price };
-}
-
-/** Genererar ett konkurrentinnehav på en ledig tomtruta. */
-export function genRivalHolding(unlocked: string[], occupied: Set<string>): RivalHolding {
-  const d = pickDistrict(occupied, unlocked);
-  const parcel = claimRandomParcel(d.id, occupied);
-  const typeKeys = Object.keys(PROP_TYPES) as RivalHolding["type"][];
-  const typeKey = pick(typeKeys);
+  const price = Math.round(area * d.base * 0.18 * state.marketMod);
+  const born = absMonth(state);
   return {
     id: newId(),
-    parcelId: parcel.id,
     district: d.id,
     districtName: d.name,
-    type: typeKey,
-    typeLabel: PROP_TYPES[typeKey].label,
-    area: Math.round(rnd(500, 3200)),
+    area,
+    price,
+    listedMonth: born,
+    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
   };
 }

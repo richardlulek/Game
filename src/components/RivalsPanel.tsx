@@ -1,13 +1,12 @@
-import { loanTerms } from "../engine/finance";
-import { msek } from "../engine/format";
-import type { GameAction, GameState } from "../engine/types";
+import { kr, msek, pct } from "../engine/format";
+import { equityOf } from "../engine/finance";
+import type { GameState } from "../engine/types";
 import { S } from "../styles/styles";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C } from "../styles/tokens";
 
 interface RivalsPanelProps {
   state: GameState;
   equity: number;
-  dispatch: (action: GameAction) => void;
 }
 
 interface RankRow {
@@ -15,67 +14,80 @@ interface RankRow {
   equity: number;
   units: number;
   me?: boolean;
+  lastBuy?: string;
+  monthlyNOI?: number;
+  strategy?: string;
+  preferredDistrict?: string;
 }
 
-export function RivalsPanel({ state, equity, dispatch }: RivalsPanelProps) {
+export function RivalsPanel({ state, equity }: RivalsPanelProps) {
+  const myMonthlyNOI = state.portfolio.reduce(
+    (s, p) => s + p.tenants.reduce((a, t) => a + t.rent, 0),
+    0,
+  );
+  const prevEq = state.prevEquity ?? equity;
+  const myDelta = equity - prevEq;
+
   const all: RankRow[] = [
-    { name: "DU", equity, units: state.portfolio.length, me: true },
-    ...state.competitors,
+    { name: "DU", equity, units: state.portfolio.filter(p => p.status === "klar").length, me: true, monthlyNOI: myMonthlyNOI },
+    ...state.competitors.map((c) => ({
+      ...c,
+      units: c.portfolio?.length ?? c.units,
+      strategy: c.strategy,
+      preferredDistrict: c.preferredDistrict,
+    })),
   ].sort((a, b) => b.equity - a.equity);
-  const { maxLtv } = loanTerms(state);
   return (
     <div style={{ marginTop: 18 }}>
       <h3 style={S.h3}>Topplista — eget kapital</h3>
       <div style={S.financeCol}>
-        {all.map((c, i) => {
-          const price = Math.round(c.equity * 1.35);
-          const down = price * (1 - maxLtv);
-          const canBuy = !c.me && state.cash >= down;
-          return (
-            <div
-              key={c.name}
-              style={{
-                padding: "10px 0",
-                borderBottom: "1px solid #f0f0f0",
-              }}
-            >
-              <div
-                style={{
-                  ...S.cardRow,
-                  padding: 0,
-                  fontWeight: c.me ? 700 : 400,
-                  color: c.me ? BURGUNDY : "#333",
-                }}
-              >
-                <span>
-                  #{i + 1} &nbsp; {c.name}
-                </span>
-                <span>
-                  {msek(c.equity)} · {c.units} obj
-                </span>
+        {all.map((c, i) => (
+          <div
+            key={c.name}
+            style={{
+              padding: "12px 0",
+              borderBottom: "1px solid #f0f0f0",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: c.me ? 700 : 600, color: c.me ? BURGUNDY : "#333", fontSize: 14 }}>
+                #{i + 1} &nbsp; {c.name}
+              </span>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: c.me ? BURGUNDY : "#333" }}>{msek(c.equity)}</div>
+                {c.me && myDelta !== 0 && (
+                  <div style={{ fontSize: 11, color: myDelta > 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
+                    {myDelta > 0 ? "▲" : "▼"} {msek(Math.abs(myDelta))} denna månad
+                  </div>
+                )}
               </div>
-              {!c.me && (
-                <button
-                  style={{
-                    ...S.upgBtn,
-                    marginTop: 6,
-                    width: "100%",
-                    ...(canBuy ? {} : { opacity: 0.5 }),
-                  }}
-                  disabled={!canBuy}
-                  title={`Handpenning ${msek(down)}`}
-                  onClick={() => dispatch({ type: "ACQUIRE_RIVAL", name: c.name })}
-                >
-                  🏆 Lägg uppköpsbud {msek(price)}
-                </button>
+            </div>
+            <div style={{ fontSize: 12, color: "#888", marginTop: 3, display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <span>{c.units} objekt</span>
+              {c.monthlyNOI !== undefined && <span>NOI: {kr(c.monthlyNOI)}/mån</span>}
+              {c.lastBuy && <span>Senaste köp: {c.lastBuy}</span>}
+              {!c.me && c.strategy && (
+                <span style={{ fontWeight: 700, color: "#7b5a2e" }}>
+                  Strategi: {c.strategy}{c.preferredDistrict ? ` (${c.preferredDistrict})` : ""}
+                </span>
               )}
             </div>
-          );
-        })}
+            {(() => {
+              if (c.me) return null;
+              const stock = state.stocks.find((s) => s.competitorName === c.name);
+              if (!stock || stock.owned <= 0) return null;
+              return (
+                <div style={{ fontSize: 12, color: C.brassDim, marginTop: 3, fontWeight: 600 }}>
+                  Din ägarandel: {pct(stock.owned / stock.sharesOutstanding)} · {kr(stock.owned * stock.price)}
+                </div>
+              );
+            })()}
+          </div>
+        ))}
       </div>
       <div style={{ fontSize: 13, color: "#888", marginTop: 10 }}>
-        Konkurrenterna växer och bjuder mot dig i auktionerna. Köp upp dem alla för monopol – eller
-        börsnotera bolaget när det är stort nog.
+        Konkurrenterna växer varje månad och kan köpa objekt före dig. Slå dem genom högre eget
+        kapital.
       </div>
     </div>
   );

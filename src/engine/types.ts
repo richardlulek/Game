@@ -5,25 +5,103 @@
 
 export type PropTypeKey = "bostad" | "kontor" | "butik" | "industri";
 
-export type PropStatus = "klar" | "bygger";
+export type ScenarioId =
+  | "equity50" | "equity200" | "districts3" | "units25" | "sandbox"
+  | "diversified" | "energyBaron" | "hotelKing";
 
-/** Underhållsnivå – påverkar driftkostnad och slitagetakt. */
-export type MaintenanceLevel = "minimal" | "normal" | "premium";
+// ── Industrisektorer ────────────────────────────────────────────────────────
 
-/** Ett bud i en pågående auktion. */
-export interface Bid {
-  bidder: string;
-  isPlayer: boolean;
-  amount: number;
+export type IndustrySectorKey = "hotell" | "energi" | "logistik";
+
+export type BookingChannel = "direktbokning" | "ota" | "grupp" | "företag";
+export type LogisticsClientProfile = "ehandel" | "livsmedel" | "industri_kund" | "3pl";
+
+export interface HotelMeta {
+  starRating: 1 | 2 | 3 | 4 | 5;
+  totalRooms: number;
+  baseAdr: number;          // Average Daily Rate (kr/natt, bas)
+  bookingChannels: BookingChannel[];
+  reputationScore: number;  // 0–100, påverkar OCC
+  revParHistory: number[];  // senaste 12 månaders RevPAR
+  highOccStreak?: number;   // konsekutiva månader med OCC ≥ 80 %
 }
 
-/** Ett bundet lån med fast ränta. */
-export interface Loan {
+export interface PpaContract {
   id: number;
-  amount: number;
-  rate: number;
+  clientName: string;
+  mwh: number;           // garanterad MWh/mån
+  pricePerMwh: number;   // fast pris kr/MWh
   monthsLeft: number;
+  termTotal: number;
+  defaultRisk: number;
 }
+
+export interface EnergyMeta {
+  subType: "sol" | "vind";
+  installedMW: number;
+  capacityFactor: number;   // 0–1 effektivitetskvot
+  ppaContracts: PpaContract[];
+  degradationPct: number;   // kumulativ kapacitetsförsämring %
+  subsidyActive: boolean;   // elcertifikat
+  commissionedAbs?: number; // absolut månad idrifttagning (for 15 yr subsidy)
+}
+
+export interface ThroughputContract {
+  id: number;
+  clientName: string;
+  clientProfile: LogisticsClientProfile;
+  guaranteedM3: number;   // min genomflöde per månad
+  ratePerM3: number;      // kr per m³
+  monthsLeft: number;
+  termTotal: number;
+  penaltyRisk: number;    // sannolikhet att missa SLA
+  defaultRisk: number;    // sannolikhet att klienten går i konkurs
+  requiresKyl?: boolean;  // kräver kylkedja-uppgradering
+}
+
+export interface LogisticsMeta {
+  totalBays: number;
+  automationLevel: 0 | 1 | 2 | 3;
+  throughputContracts: ThroughputContract[];
+  peakSurchargeActive: boolean;
+}
+
+export interface IndustryAsset {
+  id: number;
+  sector: IndustrySectorKey;
+  name: string;
+  district: string;
+  districtName: string;
+  purchasePrice: number;
+  condition: number;       // 0–100, samma skala som Property
+  upgrades: string[];
+  managed: boolean;
+  insurance: boolean;
+  status: "klar" | "bygger";
+  buildLeft: number;
+  monthlyRevenue: number;  // senaste simulerade månaden
+  monthlyOpex: number;     // senaste simulerade månaden
+  totalRevenue: number;    // livstidsackumulering
+  txHistory: TxRecord[];
+  hotelMeta: HotelMeta | null;
+  energyMeta: EnergyMeta | null;
+  logisticsMeta: LogisticsMeta | null;
+}
+
+export interface IndustryUpgrade {
+  id: string;
+  sector: IndustrySectorKey | "all";
+  name: string;
+  cost: number;          // bråkdel av currentValue
+  desc: string;
+  revenueBoost?: number;
+  opexCut?: number;
+  condBoost?: number;
+  valueBoost?: number;
+  capacityBoost?: number;
+}
+
+export type PropStatus = "klar" | "bygger";
 
 export type LogKind = "info" | "warn" | "buy" | "sell" | "upg" | "income" | "expense" | "event";
 
@@ -75,11 +153,73 @@ export interface Tenant {
   id: number;
   profile: string;
   name: string;
+  /** Kategorin (t.ex. "Etablerad kedja") – name är numera affärsnamnet. */
+  profileName?: string;
   quality: number;
   defaultRisk: number;
   monthsLeft: number;
   termTotal: number;
   rent: number;
+  consecutiveMonths?: number;
+  isAnchor?: boolean;
+}
+
+/** Ett inkommande erbjudande (t.ex. en rival som vill köpa din fastighet). */
+export interface Offer {
+  id: number;
+  kind: "buyout";
+  propId: number;
+  propLabel: string;
+  districtName: string;
+  from: string;
+  amount: number;
+  expiresIn: number;
+}
+
+/** Ett val som spelaren måste ta ställning till innan spelet kan gå vidare. */
+export interface PendingDecision {
+  id: string;
+  title: string;
+  text: string;
+  options: DecisionOption[];
+}
+
+/** Ett alternativ i ett beslut – effekten är ren data (serialiserbar). */
+export interface DecisionOption {
+  label: string;
+  detail: string;
+  effect: DecisionEffect;
+}
+
+/** Deterministisk, serialiserbar effekt av ett beslutsalternativ. */
+export interface DecisionEffect {
+  cash?: number;
+  reputation?: number;
+  demandMod?: number;
+  marketMod?: number;
+  taxMod?: number;
+  addLot?: boolean;
+  takeoverPressure?: number; // delta (positive = increase, negative = decrease)
+  gameOver?: boolean;
+  log: string;
+  logKind: LogKind;
+}
+
+/** En transaktion i fastighetens historik. */
+export interface TxRecord {
+  type: "köp" | "sälj" | "nybygg";
+  price: number;
+  month: number;
+  year: number;
+  party: string;
+}
+
+/** Konfiguration för en anställd förvaltare på en enskild fastighet. */
+export interface ManagerSettings {
+  /** Skicknivå (0-100) som utlöser auto-underhåll. Standard 45. */
+  maintainThreshold: number;
+  /** Hyresmål som bråkdel av marknadshyran, t.ex. 1.05 = 105 %. Standard 1.0. */
+  rentTargetPct: number;
 }
 
 /** En fastighet (till salu eller ägd). */
@@ -87,8 +227,6 @@ export interface Property {
   id: number;
   district: string;
   districtName: string;
-  /** Tomtruta på stadskartan (se engine/city.ts). */
-  parcelId: string;
   type: PropTypeKey;
   typeLabel: string;
   area: number;
@@ -102,16 +240,21 @@ export interface Property {
   opexMult: number;
   vacancyMult: number;
   valueMult: number;
-  tenant: Tenant | null;
+  tenants: Tenant[];
+  capacity: number;
   status: PropStatus;
   buildLeft: number;
-  /** Underhållsnivå (ägda fastigheter). */
-  maintenance: MaintenanceLevel;
-  /** Intressenter som vill hyra – fylls på när lokalen är vakant. */
-  prospects: Tenant[];
-  /** Auktionsfält – används medan fastigheten ligger på marknaden. */
-  auctionMonthsLeft: number;
-  bestBid: Bid | null;
+  totalEarnedRent?: number;
+  managed?: boolean;
+  listedMonth?: number;
+  expiresMonth?: number;
+  txHistory?: TxRecord[];
+  managerSettings?: ManagerSettings;
+  shortTerm?: boolean;
+  pendingZoneChange?: { targetType: PropTypeKey; monthsLeft: number };
+  builtYear?: number;
+  energyClass?: "A" | "B" | "C" | "D" | "E" | "F";
+  insurance?: boolean;
 }
 
 /** En byggbar tomt. */
@@ -119,47 +262,81 @@ export interface Lot {
   id: number;
   district: string;
   districtName: string;
-  /** Tomtruta på stadskartan (se engine/city.ts). */
-  parcelId: string;
   area: number;
   price: number;
   owned?: boolean;
-  /** Pågående planändringsansökan. */
-  rezoning?: { type: PropTypeKey; monthsLeft: number } | null;
-  /** Byggtyper som beviljats utöver distriktets detaljplan. */
-  extraTypes?: PropTypeKey[];
+  listedMonth?: number;
+  expiresMonth?: number;
 }
 
-/** En fastighet som ägs av en AI-konkurrent. */
-export interface RivalHolding {
-  id: number;
-  parcelId: string;
-  district: string;
-  districtName: string;
-  type: PropTypeKey;
-  typeLabel: string;
-  area: number;
-  /** Månader kvar innan ägaren vill se nya bud efter ett nej. */
-  refusedCooldown?: number;
-}
+export type CompetitorStrategy = "tillväxt" | "utdelning" | "värde" | "distrikt";
 
 /** En AI-konkurrent. */
 export interface Competitor {
   name: string;
   cash: number;
-  /** Antal fastigheter – hålls synkat med holdings.length. */
   units: number;
   equity: number;
-  /** Konkurrentens innehav – syns som byggnader på kartan. */
-  holdings: RivalHolding[];
+  lastBuy?: string;
+  monthlyNOI?: number;
+  portfolio: Property[];
+  strategy?: CompetitorStrategy;
+  preferredDistrict?: string;
+}
+
+/** Bransch på börsen. */
+export type Sector = "fastighet" | "bank" | "bygg" | "handel" | "industri";
+
+/** Ett börsnoterat bolag. */
+export interface Stock {
+  id: string;
+  name: string;
+  sector: Sector;
+  price: number;
+  prevPrice: number;
+  sharesOutstanding: number;
+  owned: number;
+  avgCost: number;
+  dividendYield: number;   // årlig
+  beta: number;            // känslighet mot marknadssentiment
+  drift: number;           // grundtrend per månad
+  volatility: number;
+  history: number[];       // senaste priserna
+  competitorName?: string; // länk till en Competitor om det är en rival
+  eps?: number;          // earnings per share (quarterly)
+  analystRating?: "Köp" | "Behåll" | "Sälj";
+  shortQty?: number;     // player's short position (shares)
+  shortAvgPrice?: number;
+}
+
+/** Ett förvärvat dotterbolag som ger månadsintäkt. */
+export interface Subsidiary {
+  name: string;
+  monthlyIncome: number;
+}
+
+/** Ett pågående forskningsprojekt. */
+export interface ActiveResearch {
+  id: string;
+  monthsLeft: number;
+  monthsTotal: number;
+}
+
+/** En aktiv limitorder på börsen. */
+export interface LimitOrder {
+  id: string;
+  stockId: string;
+  stockName: string;
+  side: "buy" | "sell";
+  qty: number;
+  limitPrice: number;
+  createdMonth: number;
 }
 
 /** En rad i händelseloggen. */
 export interface LogEntry {
   t: string;
   kind: LogKind;
-  /** Tomtruta händelsen gäller – gör den lokaliserbar på kartan. */
-  parcelId?: string;
 }
 
 /** En punkt i utvecklingen av eget kapital. */
@@ -175,24 +352,14 @@ export interface GameEvent {
   apply: (s: GameState) => GameState;
 }
 
-/** Innehållet i ett väntande beslut i inkorgen. */
-export type InboxPayload =
-  | { kind: "lease_renewal"; propertyId: number }
-  | { kind: "buyout_offer"; propertyId: number; rival: string; amount: number }
-  | { kind: "markanvisning"; district: string; price: number }
-  | { kind: "hyresrabatt"; propertyId: number }
-  | { kind: "ipo" };
-
-/** Ett väntande beslut. Löses av spelaren eller automatiskt när tiden går ut. */
-export interface InboxItem {
-  id: number;
-  title: string;
+/** En tillgänglig långivare. */
+export interface Lender {
+  id: string;
+  name: string;
   desc: string;
-  monthsLeft: number;
-  options: { id: string; label: string }[];
-  /** Option som väljs automatiskt om beslutet förfaller. */
-  defaultOption: string;
-  payload: InboxPayload;
+  rateBonus: number;
+  ltvBonus: number;
+  minReputation: number;
 }
 
 /** Lånevillkor härledda ur reputation. */
@@ -200,6 +367,46 @@ export interface LoanTerms {
   rate: number;
   spread: number;
   maxLtv: number;
+}
+
+/** Konjunkturcykel – styr marknadspriser och efterfrågan. */
+export interface MarketCycle {
+  phase: "boom" | "stable" | "bust";
+  monthsRemaining: number;
+}
+
+/** En kontraktsförnyelse som väntar på spelarens beslut. */
+export interface PendingRenewal {
+  propertyId: number;
+  tenantId: number;
+  tenantName: string;
+  districtName: string;
+  currentRent: number;
+  termTotal: number;
+}
+
+/** Ett aktiv konkurrentbud på en annonserad fastighet. */
+export interface CompetingBid {
+  listingId: number;
+  rivalName: string;
+  amount: number;
+  expiresAbs: number;
+}
+
+/** En emitterad företagsobligation. */
+export interface Bond {
+  id: string;
+  amount: number;
+  rate: number;
+  matureAbs: number;
+}
+
+/** Inställningar för den globala portföljdirektören. */
+export interface GlobalManagerSettings {
+  active: boolean;
+  minCondition: number;      // auto-maintain below this (default 40)
+  minTenantQuality: number;  // auto-accept tenants with quality >= this (default 0.8)
+  rentTargetPct: number;     // lease renewal target fraction (default 1.0)
 }
 
 /** Hela speltillståndet. */
@@ -217,39 +424,134 @@ export interface GameState {
   listings: Property[];
   lots: Lot[];
   competitors: Competitor[];
-  /** Distrikt som är öppna för exploatering – nya låses upp när staden växer. */
-  unlockedDistricts: string[];
-  /** Bundna lån (utöver den rörliga skulden i debt). */
-  fixedLoans: Loan[];
-  /** Väntande beslut. */
-  inbox: InboxItem[];
-  /** Distriktsutveckling 20–90 (50 = neutral). Driver gentrifiering. */
-  districtDev: Record<string, number>;
   log: LogEntry[];
   history: HistoryPoint[];
   gameOver: boolean;
-  gameWon: boolean;
-  /** Har börsnoteringserbjudandet redan skickats? */
-  ipoOffered: boolean;
+  offers: Offer[];
+  pendingDecision: PendingDecision | null;
+  stocks: Stock[];
+  marketSentiment: number;
+  sentimentHistory: number[];
+  subsidiaries: Subsidiary[];
+  dividendsReceived: number;
+  districtDev: Record<string, number>;
+  buildCostMod: number;
+  researchDone: string[];
+  activeResearch: ActiveResearch | null;
+  staff: Record<string, number>;
+  stockOrders: LimitOrder[];
+  portfolioValueHistory: number[];
+  worldPool: Property[];
+  worldTotal: number;
+  selectedLender?: string;
+  globalManager?: GlobalManagerSettings;
+  scenarioId?: ScenarioId;
+  gameWon?: boolean;
+  recessionMonthsLeft?: number;
+  rateMode?: "variable" | "fixed";
+  fixedRate?: number;
+  fixedUntilAbs?: number;
+  revolving?: { limit: number; used: number };
+  dividendsPaid?: number;
+  advisors?: string[];
+  ipoActive?: boolean;
+  ipoLastQuarterlyNOI?: number;
+  competingBid?: CompetingBid;
+  bonds?: Bond[];
+  politicalCycle?: number;
+  electionResult?: string;
+  milestones?: string[];
+  prevEquity?: number;
+  insuranceCost?: number;
+  marketCycle?: MarketCycle;
+  pendingRenewals?: PendingRenewal[];
+  totalTaxPaid?: number;
+  tutorialDismissed?: boolean;
+  saveSlot?: number;
+  debtMatureAbs?: number;
+  ipoShares?: { total: number; public: number };
+  takeoverPressure?: number;
+  ipoPrice?: number;
+  industryPortfolio?: IndustryAsset[];
+  industryListings?: IndustryAsset[];
+  energyOwnedMW?: number;
+  hotelHighOccConsecutiveMonths?: number;
 }
 
 /** Alla actions som reducern hanterar. */
 export type GameAction =
-  | { type: "BUY"; id: number } // köp direkt till budpremie
-  | { type: "BID"; id: number } // lägg/höj bud i auktionen
+  | { type: "BUY"; id: number }
+  | { type: "PLACE_BID"; id: number; amount: number }
   | { type: "SELL"; id: number }
   | { type: "UPGRADE"; id: number; upg: string }
-  | { type: "LEASE"; id: number; tenantId: number }
-  | { type: "SET_MAINTENANCE"; id: number; level: MaintenanceLevel }
+  | { type: "LEASE"; id: number }
+  | { type: "EVICT"; id: number; tenantId: number }
+  | { type: "RENEW_LEASE"; id: number; tenantId: number }
+  | { type: "MAINTAIN"; id: number }
   | { type: "BUY_LOT"; id: number }
   | { type: "BUILD"; id: number; propType: PropTypeKey }
-  | { type: "REZONE"; id: number; propType: PropTypeKey }
   | { type: "AMORT"; amount: number }
-  | { type: "BIND_LOAN"; amount: number; months: 36 | 60 }
-  | { type: "DECIDE"; inboxId: number; option: string }
-  | { type: "BID_HOLDING"; rival: string; holdingId: number }
-  | { type: "ACQUIRE_RIVAL"; name: string }
-  | { type: "REFRESH_LISTINGS" }
+  | { type: "REFINANCE"; amount: number }
+  | { type: "LEASE_TENANT"; id: number; tenant: Tenant }
+  | { type: "RAISE_RENT"; id: number; tenantId: number; increasePercent: number }
+  | { type: "LOWER_RENT"; id: number; tenantId: number; decreasePercent: number }
+  | { type: "TOGGLE_MANAGER"; id: number }
+  | { type: "MARKET_BOOST"; id: number }
+  | { type: "HIRE_BROKER" }
+  | { type: "HIRE_BROKER_LOTS" }
+  | { type: "RESOLVE_DECISION"; optionIndex: number }
+  | { type: "ACCEPT_OFFER"; offerId: number }
+  | { type: "DECLINE_OFFER"; offerId: number }
+  | { type: "BUY_SHARES"; stockId: string; qty: number }
+  | { type: "SELL_SHARES"; stockId: string; qty: number }
+  | { type: "ACQUIRE_COMPANY"; stockId: string }
+  | { type: "CHANGE_USE"; id: number; propType: PropTypeKey }
+  | { type: "START_RESEARCH"; id: string }
+  | { type: "HIRE_STAFF"; role: string }
+  | { type: "FIRE_STAFF"; role: string }
+  | { type: "SELL_SUBSIDIARY"; name: string }
+  | { type: "PLACE_LIMIT_ORDER"; stockId: string; qty: number; limitPrice: number; side: "buy" | "sell" }
+  | { type: "CANCEL_LIMIT_ORDER"; orderId: string }
+  | { type: "OFFER_TO_RIVAL"; competitorName: string; propertyId: number; amount: number }
+  | { type: "SELECT_LENDER"; lenderId: string }
+  | { type: "BID_OFFMARKET"; propertyId: number; amount: number }
+  | { type: "SET_MANAGER_SETTINGS"; id: number; settings: ManagerSettings }
+  | { type: "SET_GLOBAL_MANAGER"; settings: GlobalManagerSettings }
+  | { type: "ACQUIRE_RIVAL"; competitorName: string; amount: number }
+  | { type: "SNOOZE_DECISION" }
+  | { type: "SET_SCENARIO"; scenarioId: ScenarioId }
+  | { type: "SET_RATE_MODE"; mode: "variable" | "fixed"; months?: number }
+  | { type: "DRAW_REVOLVING"; amount: number }
+  | { type: "REPAY_REVOLVING"; amount: number }
+  | { type: "PAY_DIVIDEND"; amount: number }
+  | { type: "TOGGLE_SHORT_TERM"; id: number }
+  | { type: "APPLY_ZONE_CHANGE"; id: number; targetType: PropTypeKey }
+  | { type: "INVEST_DISTRICT"; districtId: string; amount: number }
+  | { type: "DO_IPO" }
+  | { type: "BUY_INSURANCE"; id: number }
+  | { type: "CANCEL_INSURANCE"; id: number }
+  | { type: "ISSUE_BOND"; amount: number; years: number }
+  | { type: "REPAY_BOND"; bondId: string }
+  | { type: "SALE_LEASEBACK"; id: number }
+  | { type: "ACCEPT_COMPETING_BID" }
+  | { type: "PASS_COMPETING_BID" }
+  | { type: "IMPROVE_ENERGY"; id: number }
+  | { type: "NEGOTIATE_RENEWAL"; propertyId: number; tenantId: number; action: "raise" | "keep" | "lower" | "evict" }
+  | { type: "DISMISS_TUTORIAL" }
+  | { type: "MARKET_ORDER"; stockId: string; side: "buy" | "sell"; qty: number }
+  | { type: "SHORT_STOCK"; stockId: string; qty: number }
+  | { type: "COVER_SHORT"; stockId: string }
+  | { type: "BUY_INDUSTRY"; id: number }
+  | { type: "SELL_INDUSTRY"; id: number }
+  | { type: "UPGRADE_INDUSTRY"; id: number; upg: string }
+  | { type: "MAINTAIN_INDUSTRY"; id: number }
+  | { type: "ADD_PPA"; assetId: number; contract: PpaContract }
+  | { type: "CANCEL_PPA"; assetId: number; contractId: number }
+  | { type: "ADD_THROUGHPUT_CONTRACT"; assetId: number; contract: ThroughputContract }
+  | { type: "SET_HOTEL_CHANNEL"; assetId: number; channels: BookingChannel[] }
+  | { type: "TOGGLE_INDUSTRY_MANAGER"; id: number }
+  | { type: "BUY_INDUSTRY_INSURANCE"; id: number }
   | { type: "NEXT_MONTH" }
+  | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
-  | { type: "RESET" };
+  | { type: "RESET"; scenarioId?: ScenarioId };

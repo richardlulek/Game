@@ -28,14 +28,13 @@ export function syncIdCounter(state: GameState): void {
   };
   state.portfolio?.forEach((p) => {
     consider(p.id);
-    consider(p.tenant?.id);
+    p.tenants?.forEach((t) => consider(t.id));
   });
   state.listings?.forEach((p) => {
     consider(p.id);
-    consider(p.tenant?.id);
+    p.tenants?.forEach((t) => consider(t.id));
   });
   state.lots?.forEach((l) => consider(l.id));
-  state.competitors?.forEach((c) => c.holdings?.forEach((h) => consider(h.id)));
   _id = max + 1;
 }
 

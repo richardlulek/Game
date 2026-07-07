@@ -1,53 +1,46 @@
 /* ============================================================
    Zustand-store. Wrappar den rena reducern och engine-funktionerna
    (ersätter prototypens useReducer) samt persistensen.
-   Innehåller även spelklockan (paus/hastighet) – själva tickandet
-   drivs av hooks/useGameClock.ts.
    ============================================================ */
 
 import { create } from "zustand";
 import { initState, reducer } from "../engine";
 import type { GameAction, GameState } from "../engine/types";
-import { hasSave, loadGame, saveGame } from "./persistence";
-
-export type ClockSpeed = 1 | 2 | 4;
-
-export interface ClockState {
-  running: boolean;
-  speed: ClockSpeed;
-}
+import { getActiveSlot, hasSave, loadGame, saveGame, setActiveSlot } from "./persistence";
 
 interface GameStore {
   state: GameState;
-  clock: ClockState;
+  activeSlot: number;
   /** Skickar en action genom den rena reducern. */
   dispatch: (action: GameAction) => void;
-  /** Startar/pausar spelklockan. */
-  setRunning: (running: boolean) => void;
-  /** Sätter klockans hastighet. */
-  setSpeed: (speed: ClockSpeed) => void;
   /** Sparar nuvarande tillstånd till localStorage. */
   save: () => boolean;
   /** Laddar sparat tillstånd om det finns. Returnerar true vid träff. */
-  load: () => boolean;
-  /** Finns en sparfil? */
-  hasSave: () => boolean;
+  load: (slot?: number) => boolean;
+  /** Finns en sparfil i given slot? */
+  hasSave: (slot?: number) => boolean;
+  /** Byt aktiv sparslot. */
+  setSlot: (slot: number) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   state: initState(),
-  clock: { running: false, speed: 1 },
+  activeSlot: getActiveSlot(),
   dispatch: (action) => set((s) => ({ state: reducer(s.state, action) })),
-  setRunning: (running) => set((s) => ({ clock: { ...s.clock, running } })),
-  setSpeed: (speed) => set((s) => ({ clock: { ...s.clock, speed } })),
-  save: () => saveGame(get().state),
-  load: () => {
-    const loaded = loadGame();
+  save: () => saveGame(get().state, get().activeSlot),
+  load: (slot?: number) => {
+    const s = slot ?? get().activeSlot;
+    const loaded = loadGame(s);
     if (loaded) {
-      set({ state: loaded });
+      setActiveSlot(s);
+      set({ state: loaded, activeSlot: s });
       return true;
     }
     return false;
   },
-  hasSave: () => hasSave(),
+  hasSave: (slot?: number) => hasSave(slot ?? get().activeSlot),
+  setSlot: (slot: number) => {
+    setActiveSlot(slot);
+    set({ activeSlot: slot });
+  },
 }));
