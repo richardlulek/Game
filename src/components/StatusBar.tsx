@@ -1,3 +1,4 @@
+import { orgLoadOf, tierForLevel } from "../engine/company";
 import { kr, msek, pct } from "../engine/format";
 import type { GameState, LoanTerms } from "../engine/types";
 import { S } from "../styles/styles";
@@ -68,6 +69,17 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
       <Chip label="Ränta" value={terms.rate + " %"} />
       <Chip label="Reputation" value={String(Math.round(state.reputation))} />
       <Chip label="Rank" value={`#${myRank}`} valueColor={rankColor} />
+      <Chip label="Bolag" value={`${tierForLevel(state.companyLevel ?? 1).icon} Nivå ${state.companyLevel ?? 1}`} />
+      {state.portfolio.length > 0 && (() => {
+        const load = orgLoadOf(state);
+        return (
+          <Chip
+            label="Organisation"
+            value={`${load.selfManaged}/${load.cap} hus`}
+            valueColor={load.over > 0 ? "#f87a7a" : undefined}
+          />
+        );
+      })()}
       {state.marketMod < 0.97 && (
         <Chip label="Marknad" value={`${((state.marketMod - 1) * 100).toFixed(0)} %`} valueColor="#f87a7a" />
       )}

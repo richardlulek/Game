@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { locationFactor } from "../engine/city";
+import { canUpgrade, orgLoadOf } from "../engine/company";
 import { loanTerms } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propMarketValue } from "../engine/property";
@@ -332,12 +333,30 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
   const poorCost = poor.reduce((a, p) => a + Math.round(propMarketValue(p, state) * 0.02), 0);
   const unmanaged = klar.filter((p) => !p.managed).length;
   const nothing = vacantSlots === 0 && expiring === 0 && poor.length === 0;
+  const up = canUpgrade(state);
+  const load = orgLoadOf(state);
 
   return (
     <div style={T.hud}>
       <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: 1, marginBottom: 4 }}>
         FÖRVALTNING · {klar.length} fastigheter
       </div>
+      {up.qualified && (
+        <div style={{ ...T.hudRow, color: "#8a6d1a", fontWeight: 700 }}>
+          <span>📈 Redo att expandera bolaget!</span>
+          <button style={T.hudBtn} onClick={() => openWindow("company")}>
+            Öppna Bolag
+          </button>
+        </div>
+      )}
+      {load.over > 0 && (
+        <div style={{ ...T.hudRow, color: "#b5542a" }}>
+          <span>🏢 {load.over} hus över kapacitet ({load.selfManaged}/{load.cap})</span>
+          <button style={T.hudBtn2} onClick={() => openWindow("company")}>
+            Bolag →
+          </button>
+        </div>
+      )}
       {nothing && <div style={{ color: "#4d8b52" }}>✓ Allt uthyrt, förnyat och i gott skick.</div>}
       {vacantSlots > 0 && (
         <div style={T.hudRow}>

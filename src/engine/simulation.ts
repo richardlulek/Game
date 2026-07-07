@@ -3,7 +3,15 @@
    Logiken är oförändrad från prototypen.
    ============================================================ */
 
-import { nextTier, qualifiesFor, unitCount } from "./company";
+import {
+  OVERLOAD_COST_PER_PROP,
+  OVERLOAD_WEAR_MULT,
+  nextTier,
+  orgLoadOf,
+  qualifiesFor,
+  tierForLevel,
+  unitCount,
+} from "./company";
 import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
@@ -63,10 +71,13 @@ export function advanceMonth(state: GameState): GameState {
     s.recessionMonthsLeft = (s.recessionMonthsLeft ?? 0) - 1;
   }
 
-  // Bond interest payments
+  // Bond interest payments.
+  // OBS: alla poster som bokförs i monthlyNOI får INTE också dras direkt
+  // från kassan – hela liggaren appliceras en gång via
+  // `s.cash += monthlyNOI - interest` längre ned. (Tidigare drogs dessa
+  // kostnader dubbelt och industriintäkter räknades dubbelt.)
   for (const bond of s.bonds ?? []) {
     const bondInterest = Math.round((bond.amount * bond.rate) / 100 / 12);
-    s.cash -= bondInterest;
     monthlyNOI -= bondInterest;
   }
   // Maturing bonds: auto-repay if possible, else penalize
@@ -96,13 +107,17 @@ export function advanceMonth(state: GameState): GameState {
   // Revolving credit monthly interest (1.5 % / year on used amount)
   if (s.revolving && s.revolving.used > 0) {
     const revInterest = Math.round((s.revolving.used * 0.015) / 12);
-    s.cash -= revInterest;
     monthlyNOI -= revInterest;
   }
 
   // Säsongseffekt på bostäder: högre efterfrågan på sommaren, lägre på vintern.
   const seasonName = seasonOf(s.month);
   const season = seasonName === "sommar" ? 1.08 : seasonName === "vinter" ? 0.94 : 1.0;
+
+  // Organisationens kapacitet: fler självförvaltade hus än kontoret klarar
+  // ger extra slitage (och administrativ merkostnad längre ned).
+  const orgLoad = orgLoadOf(state);
+  const overloadWear = orgLoad.over > 0 ? OVERLOAD_WEAR_MULT : 1;
 
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
@@ -130,13 +145,11 @@ export function advanceMonth(state: GameState): GameState {
       if (np.managed) {
         // per-property manager fee
         const managerCost = Math.max(2000, Math.round(np.tenants.reduce((a, t) => a + t.rent, 0) * 0.03));
-        s.cash -= managerCost;
         monthlyNOI -= managerCost;
       }
       if (np.condition < effectiveMaintainThreshold) {
         const maintainCost = Math.round(propMarketValue(np, s) * 0.02);
         if (s.cash >= maintainCost) {
-          s.cash -= maintainCost;
           monthlyNOI -= maintainCost;
           np.condition = Math.min(100, np.condition + 15);
           events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName} (tröskel ${effectiveMaintainThreshold}).`, kind: "upg" });
@@ -149,16 +162,18 @@ export function advanceMonth(state: GameState): GameState {
     // Seasonal effect on vacancy for residential
     const seasonFactor = np.type === "bostad" ? season : 1.0;
     // Short-term rental: higher effective rent but higher vacancy, no tenants
+    // Överbelastad organisation sliter på husen ingen hinner se till.
+    const orgWear = effectiveManaged ? 1 : overloadWear;
     if (np.shortTerm) {
       const shortRent = Math.round((propPotentialRent(np, s) / np.capacity / 12) * 1.3 * (1 - 0.60 * seasonFactor));
       monthlyNOI += shortRent * np.capacity;
       np.totalEarnedRent = (np.totalEarnedRent ?? 0) + shortRent * np.capacity;
       // Wear is higher with short-term rentals
-      np.condition = Math.max(10, np.condition - rnd(0.4, 1.0) * wearMult(s) * ageFactor);
+      np.condition = Math.max(10, np.condition - rnd(0.4, 1.0) * wearMult(s) * ageFactor * orgWear);
       return np;
     }
     // Slitage (långsammare med smart förvaltning, mer med byggnadsålder)
-    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7) * wearMult(s) * ageFactor);
+    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7) * wearMult(s) * ageFactor * orgWear);
     // Zone change countdown
     if (np.pendingZoneChange) {
       if (np.pendingZoneChange.monthsLeft <= 1) {
@@ -183,7 +198,6 @@ export function advanceMonth(state: GameState): GameState {
       const effDefaultRisk = t.defaultRisk * loyaltyFactor * recFactor * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
       if (Math.random() < effDefaultRisk) {
         const evictionCost = Math.round(t.rent * 2);
-        s.cash -= evictionCost;
         monthlyNOI -= evictionCost;
         events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Vräkningskostnad: ${kr(evictionCost)}.`, kind: "expense" });
         continue;
@@ -292,8 +306,27 @@ export function advanceMonth(state: GameState): GameState {
   // Global portföljdirektör: månadsarvode
   if (s.globalManager?.active) {
     const gmCost = 15000 + s.portfolio.length * 1500;
-    s.cash -= gmCost;
     monthlyNOI -= gmCost;
+  }
+
+  // ── Bolagets kontor: overhead och överbelastning ────────────────
+  {
+    const tier = tierForLevel(s.companyLevel ?? 1);
+    if (tier.monthlyOverhead > 0) {
+      monthlyNOI -= tier.monthlyOverhead;
+      if (s.month % 3 === 0)
+        events.push({ t: `🏢 Kontorskostnad (${tier.name}): ${kr(tier.monthlyOverhead)}/mån.`, kind: "expense" });
+    }
+    if (orgLoad.over > 0) {
+      const adminCost = orgLoad.over * OVERLOAD_COST_PER_PROP;
+      monthlyNOI -= adminCost;
+      if (s.month % 3 === 0) {
+        events.push({
+          t: `⚠️ Organisationen är överbelastad: ${orgLoad.selfManaged} självförvaltade fastigheter men kapacitet för ${orgLoad.cap}. Merkostnad ${kr(adminCost)}/mån och snabbare slitage – expandera bolaget eller anlita förvaltare.`,
+          kind: "warn",
+        });
+      }
+    }
   }
 
   // ── Industrisektorer – månadsuppdatering ─────────────────────────────────
@@ -324,7 +357,6 @@ export function advanceMonth(state: GameState): GameState {
       else if (na.sector === "logistik") [revenue, opex, tickEvents] = tickLogistik(na, s);
 
       const netNOI = revenue - opex;
-      s.cash += netNOI;
       monthlyNOI += netNOI;
       na = { ...na, monthlyRevenue: revenue, monthlyOpex: opex, totalRevenue: na.totalRevenue + revenue };
       tickEvents.forEach((e) => events.push(e));
@@ -387,7 +419,6 @@ export function advanceMonth(state: GameState): GameState {
       (sum, p) => sum + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)),
       0,
     );
-    s.cash -= insCost;
     monthlyNOI -= insCost;
     s.insuranceCost = insCost;
   } else {
@@ -399,7 +430,6 @@ export function advanceMonth(state: GameState): GameState {
     if (uninsured.length > 0) {
       const victim = pick(uninsured);
       const damage = Math.round(propMarketValue(victim, s) * 0.08);
-      s.cash -= damage;
       monthlyNOI -= damage;
       s.portfolio = s.portfolio.map((p) =>
         p.id === victim.id ? { ...p, condition: Math.max(10, p.condition - 25) } : p,
@@ -1001,15 +1031,15 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
-  // ── Bolagsresan: nivåhöjning när kraven är uppfyllda ────────────
+  // ── Bolagsresan: hint när kraven för nästa nivå uppnås ──────────
+  // Själva expansionen är spelarens beslut (UPGRADE_COMPANY) – den
+  // kostar pengar och görs i Bolag-panelen. Hinten loggas en gång.
   {
     const tier = nextTier(s.companyLevel ?? 1);
-    if (tier && qualifiesFor(s, tier)) {
-      s.companyLevel = tier.level;
-      s.reputation = Math.min(100, s.reputation + 4);
-      const nyheter = tier.unlocks.length > 0 ? " Nya funktioner har låsts upp!" : "";
+    if (tier && qualifiesFor(s, tier) && s.levelUpOfferedFor !== tier.level) {
+      s.levelUpOfferedFor = tier.level;
       events.push({
-        t: `${tier.icon} BOLAGET VÄXER: ${s.companyName ?? "Bolaget"} är nu ${tier.name.toLowerCase()}! ${tier.desc}${nyheter} (Reputation +4)`,
+        t: `📈 ${s.companyName ?? "Bolaget"} uppfyller kraven för ${tier.name}! Öppna Bolag och expandera (${msek(tier.upgradeCost)}).`,
         kind: "income",
       });
     }

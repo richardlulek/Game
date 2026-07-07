@@ -1,3 +1,4 @@
+import { competitorLevel, tierForLevel } from "../engine/company";
 import { kr, msek, pct } from "../engine/format";
 import { equityOf } from "../engine/finance";
 import type { GameState } from "../engine/types";
@@ -18,6 +19,8 @@ interface RankRow {
   monthlyNOI?: number;
   strategy?: string;
   preferredDistrict?: string;
+  /** Bolagsnivå 1–6 (samma trappa som spelarens). */
+  level: number;
 }
 
 export function RivalsPanel({ state, equity }: RivalsPanelProps) {
@@ -29,12 +32,20 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
   const myDelta = equity - prevEq;
 
   const all: RankRow[] = [
-    { name: "DU", equity, units: state.portfolio.filter(p => p.status === "klar").length, me: true, monthlyNOI: myMonthlyNOI },
+    {
+      name: "DU",
+      equity,
+      units: state.portfolio.filter(p => p.status === "klar").length,
+      me: true,
+      monthlyNOI: myMonthlyNOI,
+      level: state.companyLevel ?? 1,
+    },
     ...state.competitors.map((c) => ({
       ...c,
       units: c.portfolio?.length ?? c.units,
       strategy: c.strategy,
       preferredDistrict: c.preferredDistrict,
+      level: competitorLevel(c),
     })),
   ].sort((a, b) => b.equity - a.equity);
   return (
@@ -51,7 +62,10 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontWeight: c.me ? 700 : 600, color: c.me ? BURGUNDY : "#333", fontSize: 14 }}>
-                #{i + 1} &nbsp; {c.name}
+                #{i + 1} &nbsp; {tierForLevel(c.level).icon} {c.name}
+                <span style={{ fontSize: 11, color: "#999", fontWeight: 600 }}>
+                  {" "}· {tierForLevel(c.level).name}
+                </span>
               </span>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: c.me ? BURGUNDY : "#333" }}>{msek(c.equity)}</div>

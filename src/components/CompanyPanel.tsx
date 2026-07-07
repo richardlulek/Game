@@ -2,9 +2,18 @@
    nästa steg, nyckeltal och vad som låses upp längre fram. */
 
 import { useState } from "react";
-import { MAX_LEVEL, TIERS, nextTier, tierForLevel, unitCount } from "../engine/company";
+import {
+  MAX_LEVEL,
+  OVERLOAD_COST_PER_PROP,
+  TIERS,
+  canUpgrade,
+  nextTier,
+  orgLoadOf,
+  tierForLevel,
+  unitCount,
+} from "../engine/company";
 import { equityOf } from "../engine/finance";
-import { msek } from "../engine/format";
+import { kr, msek } from "../engine/format";
 import { salariesTotal } from "../engine/progression";
 import type { GameAction, GameState } from "../engine/types";
 import { BURGUNDY } from "../styles/tokens";
@@ -48,15 +57,16 @@ const P: Record<string, React.CSSProperties> = {
   },
 };
 
-function Bar({ value, max }: { value: number; max: number }) {
+function Bar({ value, max, danger }: { value: number; max: number; danger?: boolean }) {
   const pct = Math.max(0, Math.min(1, max === 0 ? 1 : value / max));
+  const full = danger ? "#c76a2a" : "#4d8b52"; // kapacitetstak = varning, mål = grönt
   return (
     <div style={P.barOuter}>
       <div
         style={{
           width: `${pct * 100}%`,
           height: "100%",
-          background: pct >= 1 ? "#4d8b52" : BURGUNDY,
+          background: pct >= 1 ? full : BURGUNDY,
           transition: "width 0.4s",
         }}
       />
@@ -76,6 +86,8 @@ export function CompanyPanel({
   const next = nextTier(level);
   const equity = equityOf(state);
   const units = unitCount(state);
+  const load = orgLoadOf(state);
+  const up = canUpgrade(state);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(state.companyName ?? "");
   const rank =
@@ -149,6 +161,35 @@ export function CompanyPanel({
         </div>
       </div>
 
+      {/* Organisationen: kontorskostnad och förvaltningskapacitet */}
+      <div style={{ ...P.card, ...(load.over > 0 ? { border: "1px solid #d9a13b", background: "#fdf6e4" } : {}) }}>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Organisation</div>
+        <div style={P.statRow}>
+          <div style={P.stat}>
+            <div style={P.statLabel}>Kontorskostnad</div>
+            <div style={P.statValue}>{tier.monthlyOverhead > 0 ? `${kr(tier.monthlyOverhead)}/mån` : "0 kr (köksbordet)"}</div>
+          </div>
+          <div style={{ ...P.stat, minWidth: 220 }}>
+            <div style={P.statLabel}>Självförvaltade fastigheter</div>
+            <div style={{ ...P.statValue, color: load.over > 0 ? "#b5542a" : undefined }}>
+              {load.selfManaged} / {load.cap}
+            </div>
+            <Bar value={load.selfManaged} max={load.cap} danger />
+          </div>
+        </div>
+        {load.over > 0 ? (
+          <div style={{ fontSize: 12.5, color: "#9a5a1a", marginTop: 8 }}>
+            ⚠️ {load.over} fastigheter över kapacitet: {kr(load.over * OVERLOAD_COST_PER_PROP)}/mån i
+            merkostnad och snabbare slitage. Expandera bolaget, anlita förvaltare per fastighet
+            eller en portföljdirektör (Hyresgäster → Direktör).
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>
+            Fastigheter med förvaltare eller portföljdirektör belastar inte organisationen.
+          </div>
+        )}
+      </div>
+
       {next ? (
         <div style={P.card}>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>
@@ -186,6 +227,32 @@ export function CompanyPanel({
                   .join(" · ")}
               </div>
             )}
+            <div style={{ fontSize: 12, color: "#666" }}>
+              Ny kontorskostnad: {kr(next.monthlyOverhead)}/mån · kapacitet {next.selfManagedCap}{" "}
+              självförvaltade fastigheter
+            </div>
+            {/* Expansionen är ett aktivt beslut som kostar pengar. */}
+            <button
+              disabled={!up.qualified || !up.affordable}
+              onClick={() => dispatch({ type: "UPGRADE_COMPANY" })}
+              style={{
+                background: up.qualified && up.affordable ? BURGUNDY : "#c9c4b8",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "11px 16px",
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: up.qualified && up.affordable ? "pointer" : "default",
+                marginTop: 4,
+              }}
+            >
+              {up.qualified
+                ? up.affordable
+                  ? `📈 Expandera bolaget (${next.upgradeCost > 0 ? msek(next.upgradeCost) : "utan kostnad"})`
+                  : `Kassan räcker inte – expansionen kostar ${msek(next.upgradeCost)}`
+                : `Uppfyll kraven ovan för att expandera${next.upgradeCost > 0 ? ` (${msek(next.upgradeCost)})` : ""}`}
+            </button>
           </div>
         </div>
       ) : (

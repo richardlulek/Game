@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_COMPANY_NAME,
   MAX_LEVEL,
+  OVERLOAD_COST_PER_PROP,
   TIERS,
   computedLevel,
   nextTier,
+  orgLoadOf,
   tierForLevel,
   unlockLevelFor,
   unlockedWindows,
@@ -60,8 +62,8 @@ describe("bolagsnivåer", () => {
   });
 });
 
-describe("nivåhöjning i simulationen", () => {
-  it("höjer en nivå i taget och loggar händelsen", () => {
+describe("expansion är ett aktivt val", () => {
+  it("simulationen höjer INTE nivån utan loggar en hint (en gång)", () => {
     const s0 = makeState({
       cash: 50_000_000,
       portfolio: props(6),
@@ -69,16 +71,78 @@ describe("nivåhöjning i simulationen", () => {
       companyName: "Test AB",
     });
     const s1 = advanceMonth(s0);
-    expect(s1.companyLevel).toBe(2); // ett steg per månad, inte hopp
-    expect(s1.log.some((l) => l.t.includes("BOLAGET VÄXER"))).toBe(true);
-    const s2 = advanceMonth(s1);
-    expect(s2.companyLevel).toBe(3);
+    expect(s1.companyLevel).toBe(1);
+    expect(s1.log.some((l) => l.t.includes("uppfyller kraven"))).toBe(true);
+    // Hinten upprepas inte nästa månad
+    const s2 = advanceMonth({ ...s1, log: [] });
+    expect(s2.log.some((l) => l.t.includes("uppfyller kraven"))).toBe(false);
+  });
+
+  it("UPGRADE_COMPANY höjer nivån, drar kostnaden och ger reputation", () => {
+    const s0 = makeState({ cash: 50_000_000, portfolio: props(6), companyLevel: 1 });
+    const s1 = reducer(s0, { type: "UPGRADE_COMPANY" });
+    expect(s1.companyLevel).toBe(2);
+    expect(s1.cash).toBe(50_000_000 - tierForLevel(2).upgradeCost);
+    expect(s1.reputation).toBe(54);
+    expect(s1.log[0].t).toContain("EXPANSION");
+  });
+
+  it("UPGRADE_COMPANY vägrar utan uppfyllda krav eller kassa", () => {
+    // Krav ej uppfyllda
+    const poor = reducer(makeState({ cash: 50_000_000, companyLevel: 1 }), {
+      type: "UPGRADE_COMPANY",
+    });
+    expect(poor.companyLevel).toBe(1);
+    // Kraven uppfyllda men kassan för liten för expansionskostnaden
+    const broke = reducer(
+      makeState({ cash: 100_000, portfolio: props(30), companyLevel: 2 }),
+      { type: "UPGRADE_COMPANY" },
+    );
+    expect(broke.companyLevel).toBe(2);
+    expect(broke.log[0].t).toContain("Expansionen kostar");
   });
 
   it("nivån sjunker aldrig även om kapitalet rasar", () => {
     const s0 = makeState({ cash: 1_000, portfolio: [], companyLevel: 4 });
     const s1 = advanceMonth(s0);
     expect(s1.companyLevel).toBe(4);
+  });
+});
+
+describe("kontorskostnad och överbelastning", () => {
+  it("orgLoadOf räknar självförvaltade mot kapaciteten", () => {
+    const mixed = [
+      ...props(4),
+      makeProperty({ id: 90, managed: true }),
+      makeProperty({ id: 91, status: "bygger" }),
+    ];
+    const load = orgLoadOf(makeState({ portfolio: mixed, companyLevel: 1 }));
+    expect(load.selfManaged).toBe(4); // förvaltade + byggen räknas inte
+    expect(load.cap).toBe(3);
+    expect(load.over).toBe(1);
+    // Portföljdirektören täcker allt
+    const gm = orgLoadOf(
+      makeState({ portfolio: mixed, companyLevel: 1, globalManager: { active: true, minCondition: 45, rentTargetPct: 1, minTenantQuality: 0 } }),
+    );
+    expect(gm.over).toBe(0);
+  });
+
+  it("överbelastning kostar pengar varje månad", () => {
+    // Samma portfölj (5 hus) på nivå 1 (kapacitet 3) respektive nivå 2
+    // (kapacitet 6): enda kassaflödesskillnaden är 2 × överbelastningsavgift
+    // mot nivå 2:s kontorskostnad.
+    const mk = (companyLevel: number) =>
+      makeState({ cash: 10_000_000, portfolio: props(5), companyLevel });
+    const diff = advanceMonth(mk(2)).cash - advanceMonth(mk(1)).cash;
+    expect(diff).toBe(2 * OVERLOAD_COST_PER_PROP - tierForLevel(2).monthlyOverhead);
+    const s1 = advanceMonth({ ...mk(1), month: 3 }); // månad 3 → varningslogg
+    expect(s1.log.some((l) => l.t.includes("överbelastad"))).toBe(true);
+  });
+
+  it("kontorskostnaden dras på högre nivåer", () => {
+    const s0 = makeState({ cash: 10_000_000, companyLevel: 3, month: 3 });
+    const s1 = advanceMonth(s0);
+    expect(s1.log.some((l) => l.t.includes("Kontorskostnad"))).toBe(true);
   });
 });
 

@@ -9,7 +9,10 @@ import { propMarketValue, propPotentialRent } from "../engine/property";
 import { reducer } from "../engine/reducer";
 import { advanceMonth } from "../engine/simulation";
 import { stepSentiment } from "../engine/stocks";
-import { makeProperty, makeState, makeTenantFixture } from "./factories";
+import { makeIndustryAsset, makeProperty, makeState, makeTenantFixture } from "./factories";
+
+/** Industritillgång utan slumpberoenden utöver de mockade. */
+const makeIndustryAssetBase = () => makeIndustryAsset({ status: "klar" });
 
 beforeEach(() => {
   vi.spyOn(Math, "random").mockReturnValue(0.5);
@@ -210,6 +213,38 @@ describe("nyproduktion och generatorer", () => {
     expect(energyClassFor(10)).toBe("F");
     expect(builtYearFor(100, 5)).toBe(5);
     expect(builtYearFor(30, 5)).toBeLessThan(5);
+  });
+});
+
+describe("kostnader bokförs exakt en gång", () => {
+  it("obligationsränta dras en gång ur kassan (inte dubbelt)", () => {
+    // Regression: poster som bokförs i monthlyNOI drogs tidigare även
+    // direkt från kassan och landade därmed dubbelt.
+    const noBond = advanceMonth(makeState({ cash: 10_000_000 }));
+    const withBond = advanceMonth(
+      makeState({
+        cash: 10_000_000,
+        bonds: [{ id: "b1", amount: 1_200_000, rate: 12, matureAbs: 999 }],
+      }),
+    );
+    // 1,2 MSEK à 12 % ⇒ exakt 12 000 kr/mån – varken mer eller mindre.
+    expect(noBond.cash - withBond.cash).toBe(12_000);
+  });
+
+  it("industrins nettointäkt räknas en gång (inte dubbelt)", () => {
+    const asset = {
+      ...makeIndustryAssetBase(),
+      monthlyRevenue: 0,
+      monthlyOpex: 0,
+    };
+    const s0 = makeState({ cash: 10_000_000, industryPortfolio: [asset] });
+    const s1 = advanceMonth(s0);
+    const netto = (s1.industryPortfolio![0].monthlyRevenue ?? 0) - (s1.industryPortfolio![0].monthlyOpex ?? 0);
+    const bas = advanceMonth(makeState({ cash: 10_000_000 })).cash - 10_000_000;
+    // Nettot beskattas med 22 % (ingen avskrivning: tom fastighetsportfölj),
+    // därefter ska exakt en gång nettot synas i kassan.
+    const skatt = Math.round(netto * 0.22);
+    expect(s1.cash - 10_000_000 - bas).toBe(netto - skatt);
   });
 });
 

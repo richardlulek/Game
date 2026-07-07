@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
-import { tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
+import { canUpgrade, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propNOI } from "../engine/property";
@@ -44,6 +44,7 @@ import { OnboardingOverlay } from "./OnboardingOverlay";
 import { IndustryPanel } from "./IndustryPanel";
 import { IndustryMarket } from "./IndustryMarket";
 import { CompanyPanel } from "./CompanyPanel";
+import { NewspaperModal } from "./NewspaperModal";
 
 const TABS = [
   { id: "company",   label: "Bolag" },
@@ -80,6 +81,8 @@ export default function FastighetsImperium() {
   useGameClock();
 
   const [started, setStarted] = useState(false);
+  // Undertrycker tidningsmodalen när en nivåändring kommer från load.
+  const suppressNews = useRef(false);
   // Cap2-modell: kartan är alltid grundvyn; panelerna öppnas som fönster.
   const [win, setWin] = useState<string | null>(null);
   const [saved, setSaved]     = useState(false);
@@ -92,7 +95,15 @@ export default function FastighetsImperium() {
     dispatch({ type: "RESET", scenarioId, companyName });
     setStarted(true);
   };
-  const startContinue = (slot: number) => { load(slot); setStarted(true); };
+  const startContinue = (slot: number) => {
+    suppressNews.current = true;
+    load(slot);
+    setStarted(true);
+  };
+  const doLoad = (slot?: number) => {
+    suppressNews.current = true;
+    load(slot);
+  };
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -133,12 +144,26 @@ export default function FastighetsImperium() {
     .sort((a, b) => b - a).indexOf(equity) + 1;
   const companyLevel    = state.companyLevel ?? 1;
   const unlocked        = unlockedWindows(companyLevel);
+  const upgrade         = canUpgrade(state);
 
   // Stäng fönstret om det inte är upplåst (t.ex. efter laddad sparfil).
   useEffect(() => {
     if (win && !unlocked.has(win)) setWin(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [win, companyLevel]);
+
+  // Nivåhöjning → tidningsförstasida. Laddade sparfiler trycker inga
+  // gamla nyheter (suppressNews sätts av load-vägarna nedan).
+  const [newsLevel, setNewsLevel] = useState<number | null>(null);
+  const prevLevel = useRef(companyLevel);
+  useEffect(() => {
+    if (companyLevel !== prevLevel.current) {
+      if (companyLevel === prevLevel.current + 1 && !suppressNews.current)
+        setNewsLevel(companyLevel);
+      prevLevel.current = companyLevel;
+    }
+    suppressNews.current = false;
+  }, [companyLevel]);
 
   if (!started) {
     return (
@@ -155,7 +180,7 @@ export default function FastighetsImperium() {
 
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <Toolbar
-        state={state} dispatch={dispatch} saved={saved} onSave={doSave} onLoad={load}
+        state={state} dispatch={dispatch} saved={saved} onSave={doSave} onLoad={doLoad}
         offersCount={offersCount} onOpenOffers={() => setShowOffers(true)}
         soundOn={soundOn} onToggleSound={toggleSound}
       />
@@ -183,11 +208,17 @@ export default function FastighetsImperium() {
           börjar smått och verktygslådan växer med det. */}
       <div style={tabBarStyle}>
         <button
-          style={{ ...tabStyle, ...companyBadgeStyle, ...(win === "company" ? tabActiveStyle : {}) }}
+          style={{
+            ...tabStyle,
+            ...companyBadgeStyle,
+            ...(win === "company" ? tabActiveStyle : {}),
+            ...(upgrade.qualified ? { color: "#ffd700" } : {}),
+          }}
           onClick={() => setWin(win === "company" ? null : "company")}
-          title="Öppna Bolag"
+          title={upgrade.qualified ? "Bolaget är redo att expandera!" : "Öppna Bolag"}
         >
           {tierForLevel(companyLevel).icon} {state.companyName ?? "Mitt Fastighetsbolag"}
+          {upgrade.qualified ? " ⬆" : ""}
         </button>
         {TABS.filter((t) => t.id !== "company").map((t) => {
           const locked = !unlocked.has(t.id);
@@ -410,6 +441,9 @@ export default function FastighetsImperium() {
       <Toasts log={state.log} />
       {showOffers && (
         <OffersModal state={state} dispatch={dispatch} onClose={() => setShowOffers(false)} />
+      )}
+      {newsLevel !== null && (
+        <NewspaperModal state={state} level={newsLevel} onClose={() => setNewsLevel(null)} />
       )}
       <DecisionModal state={state} dispatch={dispatch} />
       <OnboardingOverlay state={state} dispatch={dispatch} />

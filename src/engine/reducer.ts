@@ -4,6 +4,7 @@
    denna rena funktion (se src/store/gameStore.ts).
    ============================================================ */
 
+import { nextTier, qualifiesFor } from "./company";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek, pct } from "./format";
@@ -1541,6 +1542,37 @@ export function reducer(state: GameState, action: GameAction): GameState {
         s = advanceMonth(s);
       }
       return s;
+    }
+    case "UPGRADE_COMPANY": {
+      // Expansion är ett aktivt val: kraven ska vara uppfyllda och det
+      // kostar pengar (nytt kontor, rekrytering, jurister).
+      const next = nextTier(state.companyLevel ?? 1);
+      if (!next) return log(state, "Bolaget är redan på högsta nivån.", "info");
+      if (next.requiresIpo && !state.ipoActive)
+        return log(state, `${next.name} kräver en genomförd börsnotering (IPO) – se Finans.`, "warn");
+      if (!qualifiesFor(state, next))
+        return log(
+          state,
+          `Kraven för ${next.name} är inte uppfyllda: ${msek(next.minEquity)} eget kapital och ${next.minUnits} färdiga fastigheter.`,
+          "warn",
+        );
+      if (state.cash < next.upgradeCost)
+        return log(state, `Expansionen kostar ${msek(next.upgradeCost)} (nytt kontor och organisation).`, "warn");
+      const nyheter =
+        next.unlocks.length > 0 ? " Nya funktioner har låsts upp!" : "";
+      return {
+        ...state,
+        cash: state.cash - next.upgradeCost,
+        companyLevel: next.level,
+        reputation: Math.min(100, state.reputation + 4),
+        log: [
+          {
+            t: `${next.icon} EXPANSION: ${state.companyName ?? "Bolaget"} är nu ${next.name.toLowerCase()}! ${next.desc}${nyheter} (Reputation +4)`,
+            kind: "income",
+          },
+          ...state.log,
+        ],
+      };
     }
     case "SET_COMPANY_NAME": {
       const name = action.name.trim().slice(0, 32);
