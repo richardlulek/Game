@@ -184,9 +184,11 @@ export function priceStocks(
   return { stocks: next, dividends: Math.round(dividends) };
 }
 
-/** Nästa sentiment via mjuk medelåtergång + brus, klippt till rimligt spann. */
-export function stepSentiment(current: number): number {
-  const s = current + (1 - current) * 0.04 + rnd(-0.025, 0.025);
+/** Nästa sentiment via mjuk medelåtergång + brus, klippt till rimligt spann.
+ *  Konjunkturcykeln ger en drift: börsen stiger i boom och faller i bust. */
+export function stepSentiment(current: number, cycle?: "boom" | "stable" | "bust"): number {
+  const cycleDrift = cycle === "boom" ? 0.012 : cycle === "bust" ? -0.016 : 0;
+  const s = current + (1 - current) * 0.04 + cycleDrift + rnd(-0.025, 0.025);
   return +clamp(0.55, 1.6, s).toFixed(3);
 }
 

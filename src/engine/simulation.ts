@@ -10,6 +10,7 @@ import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { genListing, genLot, makeTenant } from "./generators";
+import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
 import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
@@ -98,8 +99,9 @@ export function advanceMonth(state: GameState): GameState {
     monthlyNOI -= revInterest;
   }
 
-  // Seasonal vacancy modifier (residential: higher summer, lower winter)
-  const season = s.month >= 6 && s.month <= 8 ? 1.08 : s.month === 12 || s.month <= 2 ? 0.94 : 1.0;
+  // Säsongseffekt på bostäder: högre efterfrågan på sommaren, lägre på vintern.
+  const seasonName = seasonOf(s.month);
+  const season = seasonName === "sommar" ? 1.08 : seasonName === "vinter" ? 0.94 : 1.0;
 
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
@@ -274,6 +276,17 @@ export function advanceMonth(state: GameState): GameState {
     monthlyNOI -= propAnnualOpex(np, s) / 12;
     return np;
   });
+
+  // Städa förhandlingslistan: behåll bara ärenden där fastigheten fortfarande
+  // ägs och hyresgästen fortfarande väntar på besked (monthsLeft ≤ 1).
+  // Förnyade, uppsagda eller sålda ärenden försvinner därmed automatiskt.
+  if ((s.pendingRenewals ?? []).length > 0) {
+    s.pendingRenewals = (s.pendingRenewals ?? []).filter((r) => {
+      const prop = s.portfolio.find((p) => p.id === r.propertyId);
+      const tenant = prop?.tenants.find((t) => t.id === r.tenantId);
+      return !!tenant && tenant.monthsLeft <= 1;
+    });
+  }
 
   // Global portföljdirektör: månadsarvode
   if (s.globalManager?.active) {
@@ -502,7 +515,7 @@ export function advanceMonth(state: GameState): GameState {
       const born = s.year * 12 + s.month;
       s.listings = [
         ...s.listings,
-        { ...selling, owned: false, askPrice: distressedPrice, listedMonth: born, expiresMonth: born + 2 },
+        { ...selling, owned: false, askPrice: distressedPrice, listedMonth: born, expiresMonth: born + 2, poolAskPrice: undefined, poolBaseRent: undefined },
       ];
       s.competitors = s.competitors.map((c) =>
         c.name === comp.name ? { ...c, portfolio: c.portfolio.filter((p) => p.id !== selling.id) } : c,
@@ -580,10 +593,14 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── AI-konkurrenter agerar (riktiga portföljer + personligheter) ─
+  // Rivalernas ekonomi värderas med samma formel som spelarens och
+  // andas därmed med konjunktur, distriktutveckling och marknadsläge.
+  const cyclePhase = s.marketCycle?.phase ?? "stable";
+  const cycleNOI = cyclePhase === "boom" ? 1.10 : cyclePhase === "bust" ? 0.88 : 1.0;
   s.competitors = s.competitors.map((c) => {
     const nc = { ...c, portfolio: [...(c.portfolio ?? [])] };
-    const portVal = nc.portfolio.reduce((a, p) => a + p.askPrice, 0);
-    nc.monthlyNOI = Math.round((portVal * 0.06) / 12);
+    const portVal = nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI) / 12);
     nc.cash += nc.monthlyNOI;
     // Säljchans per strategi
     const sellProb = nc.strategy === "tillväxt" ? 0.01 : nc.strategy === "värde" ? 0.08 : 0.05;
@@ -604,12 +621,14 @@ export function advanceMonth(state: GameState): GameState {
           askPrice: sellPrice,
           listedMonth: born,
           expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+          poolAskPrice: undefined,
+          poolBaseRent: undefined,
         },
       ];
       events.push({ t: `🏷️ ${c.name} säljer ${selling.typeLabel} i ${selling.districtName} (${msek(sellPrice)}).`, kind: "event" });
     }
     nc.units = nc.portfolio.length;
-    nc.equity = nc.cash + nc.portfolio.reduce((a, p) => a + p.askPrice, 0);
+    nc.equity = nc.cash + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     return nc;
   });
   // Konkurrent köper från marknaden med strategi-filtrering
@@ -688,9 +707,9 @@ export function advanceMonth(state: GameState): GameState {
   s.offers = offers;
 
   // ── Börsen ──────────────────────────────────────────────────────
-  // Sentiment rör sig (påverkat av månadens makrohändelser), aktier
-  // prissätts och utdelning betalas ut.
-  const sent = stepSentiment(s.marketSentiment ?? 1);
+  // Sentiment rör sig (påverkat av konjunkturcykeln och månadens
+  // makrohändelser), aktier prissätts och utdelning betalas ut.
+  const sent = stepSentiment(s.marketSentiment ?? 1, s.marketCycle?.phase);
   const sentReturn = (prevSent > 0 ? sent / prevSent : 1) - 1;
   s.marketSentiment = sent;
   s.sentimentHistory = [...(s.sentimentHistory ?? [prevSent]), sent].slice(-32);
@@ -899,7 +918,19 @@ export function advanceMonth(state: GameState): GameState {
   const expiredListings: typeof s.listings = [];
   s.listings = s.listings.filter((p) => {
     if ((p.expiresMonth ?? Infinity) <= nowAbs2) {
-      expiredListings.push({ ...p, listedMonth: undefined, expiresMonth: undefined });
+      // Tillbaka till poolen med ursprungspriset återställt (annars skulle
+      // marknadspåslaget ackumuleras varje gång objektet listas om) och
+      // utan tomtruta – poolen är abstrakt tills objektet syns igen.
+      expiredListings.push({
+        ...p,
+        askPrice: p.poolAskPrice ?? p.askPrice,
+        baseRent: p.poolBaseRent ?? p.baseRent,
+        poolAskPrice: undefined,
+        poolBaseRent: undefined,
+        parcelId: undefined,
+        listedMonth: undefined,
+        expiresMonth: undefined,
+      });
       return false;
     }
     return true;
@@ -925,6 +956,9 @@ export function advanceMonth(state: GameState): GameState {
       ...s.listings,
       ...toReveal.map((p) => ({
         ...p,
+        // Snapshot av grundpriset så att det kan återställas vid utgång.
+        poolAskPrice: p.askPrice,
+        poolBaseRent: p.baseRent,
         askPrice: Math.round(p.askPrice * s.marketMod),
         baseRent: Math.round(p.baseRent * s.marketMod),
         listedMonth: born,

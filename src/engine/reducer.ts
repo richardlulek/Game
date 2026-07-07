@@ -7,7 +7,7 @@
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek, pct } from "./format";
-import { genListing, genLot, makeTenant } from "./generators";
+import { calcCapacity, genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
@@ -28,6 +28,17 @@ import type { GameAction, GameState, IndustryAsset, LogKind, Property, Stock } f
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
 function log(state: GameState, t: string, kind: LogKind): GameState {
   return { ...state, log: [{ t, kind }, ...state.log] };
+}
+
+/** Tar bort väntande avtalsförhandlingar som blivit inaktuella
+ *  (hyresgästen förnyad/uppsagd eller fastigheten såld). */
+function dropRenewals(
+  state: GameState,
+  match: (r: { propertyId: number; tenantId: number }) => boolean,
+): GameState["pendingRenewals"] {
+  const cur = state.pendingRenewals ?? [];
+  const next = cur.filter((r) => !match(r));
+  return next.length === cur.length ? state.pendingRenewals : next;
 }
 
 export function reducer(state: GameState, action: GameAction): GameState {
@@ -52,6 +63,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
         portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: p.askPrice, txHistory: [...(p.txHistory ?? []), txEntry] }],
         listings: state.listings.filter((x) => x.id !== p.id),
+        // En pågående budgivning om samma objekt avgörs i och med köpet.
+        competingBid: state.competingBid?.listingId === p.id ? undefined : state.competingBid,
         log: [
           {
             t: `Köpte ${p.typeLabel} i ${p.districtName} för ${msek(p.askPrice)} (lån ${msek(loan)}).`,
@@ -83,6 +96,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
           portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: bid, txHistory: [...(p.txHistory ?? []), txEntry] }],
           listings: state.listings.filter((x) => x.id !== p.id),
+          competingBid: state.competingBid?.listingId === p.id ? undefined : state.competingBid,
           log: [
             {
               t: `✓ Bud accepterat! Köpte ${p.typeLabel} i ${p.districtName} för ${msek(bid)} (under utpris ${msek(p.askPrice)}).`,
@@ -96,6 +110,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         listings: withdrawn ? state.listings.filter((x) => x.id !== p.id) : state.listings,
+        competingBid:
+          withdrawn && state.competingBid?.listingId === p.id ? undefined : state.competingBid,
         log: [
           {
             t: withdrawn
@@ -121,6 +137,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
         listedMonth: born,
         expiresMonth: born + 3 + Math.floor(Math.random() * 2),
         txHistory: [...(p.txHistory ?? []), sellTx],
+        // Nytt förhandlat pris – gammal pool-snapshot gäller inte längre.
+        poolAskPrice: undefined,
+        poolBaseRent: undefined,
       };
       return {
         ...state,
@@ -128,6 +147,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         debt: Math.max(0, state.debt - payoff),
         portfolio: state.portfolio.filter((x) => x.id !== p.id),
         listings: [...state.listings, relisted],
+        pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
         log: [
           {
             t: `Sålde ${p.typeLabel} i ${p.districtName} för ${msek(value)} (netto ${msek(value - payoff)}) – läggs ut till salu.`,
@@ -189,6 +209,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         portfolio: state.portfolio.map((x) =>
           x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
         ),
+        pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id && r.tenantId === action.tenantId),
         log: [
           { t: `Sade upp ${tenant.name} i ${p.districtName} (reputation −3).`, kind: "warn" },
           ...state.log,
@@ -211,6 +232,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             ? { ...x, tenants: x.tenants.map((t) => (t.id === action.tenantId ? renewed : t)) }
             : x,
         ),
+        pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id && r.tenantId === action.tenantId),
         log: [
           {
             t: `Förnyade avtal med ${tenant.name} i ${p.districtName}: ${kr(newRent)}/mån, ${renewed.monthsLeft} mån.`,
@@ -286,6 +308,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "RENEW_ALL": {
       // Förnya alla kontrakt som löper ut inom N månader till marknadshyra.
       let renewed = 0;
+      const renewedIds = new Set<number>();
       const portfolio = state.portfolio.map((p) => {
         if (p.status === "bygger") return p;
         let changed = false;
@@ -296,6 +319,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           );
           changed = true;
           renewed += 1;
+          renewedIds.add(t.id);
           return { ...t, rent: Math.max(t.rent, marketRent), monthsLeft: t.termTotal };
         });
         return changed ? { ...p, tenants } : p;
@@ -306,6 +330,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         {
           ...state,
           portfolio,
+          // Förnyade kontrakt är inte längre öppna förhandlingar.
+          pendingRenewals: dropRenewals(state, (r) => renewedIds.has(r.tenantId)),
           reputation: Math.min(100, state.reputation + 1),
         },
         `📄 Förnyade ${renewed} hyreskontrakt till marknadshyra (reputation +1).`,
@@ -372,9 +398,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
         vacancyMult: 1,
         valueMult: 1,
         tenants: [],
-        capacity: 1,
+        capacity: calcCapacity(lot.area),
         status: "bygger",
         buildLeft,
+        energyClass: "A",
+        builtYear: state.year,
         txHistory: [{ type: "nybygg", price: Math.round(cost), month: state.month, year: state.year, party: "Spelaren" }],
       };
       return {
@@ -592,13 +620,28 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === offer.propId);
       if (!p) return { ...state, offers: state.offers.filter((o) => o.id !== offer.id) };
       const payoff = Math.min(state.debt, (p.purchasePrice || offer.amount) * 0.6);
+      // Fastigheten lämnar inte världen – köparen lägger den i off-market poolen.
+      const soldTx = { type: "sälj" as const, price: offer.amount, month: state.month, year: state.year, party: offer.from };
+      const toPool: Property = {
+        ...p,
+        owned: false,
+        askPrice: offer.amount,
+        parcelId: undefined,
+        listedMonth: undefined,
+        expiresMonth: undefined,
+        poolAskPrice: undefined,
+        poolBaseRent: undefined,
+        txHistory: [...(p.txHistory ?? []), soldTx],
+      };
       return {
         ...state,
         cash: state.cash + (offer.amount - payoff),
         debt: Math.max(0, state.debt - payoff),
         reputation: Math.min(100, state.reputation + 1),
         portfolio: state.portfolio.filter((x) => x.id !== p.id),
+        worldPool: [...(state.worldPool ?? []), toPool],
         offers: state.offers.filter((o) => o.id !== offer.id),
+        pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
         log: [
           {
             t: `Accepterade bud: sålde ${p.typeLabel} i ${p.districtName} till ${offer.from} för ${msek(offer.amount)}.`,
@@ -1029,10 +1072,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash + salePrice - payoff,
         debt: Math.max(0, state.debt - payoff),
-        portfolio: state.portfolio.map((x) =>
-          x.id === action.id ? { ...x, owned: false, tenants: [lbTenant] } : x,
-        ).filter((x) => x.id !== action.id),
-        listings: [...state.listings, { ...p, owned: false, askPrice: salePrice, tenants: [lbTenant], listedMonth: state.year * 12 + state.month, expiresMonth: state.year * 12 + state.month + 3 }],
+        portfolio: state.portfolio.filter((x) => x.id !== action.id),
+        listings: [...state.listings, { ...p, owned: false, askPrice: salePrice, tenants: [lbTenant], listedMonth: state.year * 12 + state.month, expiresMonth: state.year * 12 + state.month + 3, poolAskPrice: undefined, poolBaseRent: undefined }],
+        pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
         log: [{ t: `🔄 Sale-Leaseback: ${p.typeLabel} i ${p.districtName} såld för ${msek(salePrice)}, hyrt tillbaka till ${kr(monthlyLease)}/mån i 10 år.`, kind: "income" }, ...state.log],
       };
     }
@@ -1232,7 +1274,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "DO_IPO": {
       if (state.ipoActive) return log(state, "Bolaget är redan börsnoterat.", "warn");
-      const portVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
+      // Noteringen baseras på aktuellt marknadsvärde, inte historiska utpriser.
+      const portVal = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
       const raised = Math.round(portVal * 0.20);
       if (raised < 1_000_000) return log(state, "Portföljvärdet är för lågt för en börsnotering.", "warn");
       const TOTAL_SHARES = 10_000_000;

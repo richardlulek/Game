@@ -3,6 +3,7 @@
    Formlerna är oförändrade från prototypen.
    ============================================================ */
 
+import { locationFactor } from "./city";
 import { DISTRICTS, PROP_TYPES } from "./data";
 import { opexMult, vacancyMult } from "./progression";
 import { energySynergyMult } from "./industries";
@@ -22,7 +23,9 @@ export function propMarketValue(p: Property, state: GameState): number {
   const d = DISTRICTS.find((x) => x.id === p.district)!;
   const condFactor = 0.6 + (p.condition / 100) * 0.6;
   const dev = districtDevOf(state, p.district);
-  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev;
+  // Läget på kartan (närhet till stadskärnan) slår igenom fullt på värdet.
+  const loc = locationFactor(p.parcelId);
+  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc;
 
   if (p.status === "bygger") return Math.round(assetValue * 0.5);
 
@@ -72,7 +75,9 @@ export function propPotentialRent(p: Property, state: GameState): number {
 
   // Områdesutveckling lyfter hyran (halv effekt mot värdet).
   const devRent = 1 + (districtDevOf(state, p.district) - 1) * 0.5;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * logistikBonus;
+  // Läget på kartan påverkar hyran med halv effekt mot värdet.
+  const locRent = 1 + (locationFactor(p.parcelId) - 1) * 0.5;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus;
   const vacancy = Math.max(
     0,
     t.vacancyBase * p.vacancyMult * clusterVacMult * vacancyMult(state) - (p.condition - 60) / 1000,

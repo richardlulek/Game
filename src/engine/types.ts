@@ -257,6 +257,10 @@ export interface Property {
   builtYear?: number;
   energyClass?: "A" | "B" | "C" | "D" | "E" | "F";
   insurance?: boolean;
+  /** Ursprungspris innan marknadspåslag vid avslöjande ur världspoolen –
+   *  återställs vid utgång så priset inte inflateras vid varje ny listning. */
+  poolAskPrice?: number;
+  poolBaseRent?: number;
 }
 
 /** En byggbar tomt. */

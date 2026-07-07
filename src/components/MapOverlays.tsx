@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { locationFactor } from "../engine/city";
 import { loanTerms } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propMarketValue } from "../engine/property";
@@ -98,6 +99,22 @@ function resolveSelection(state: GameState, parcelId: string | null): Selection 
   return null;
 }
 
+/** Lägesfaktor som läsbar rad: centralt läge ger premie, utkant rabatt. */
+function LocationRow({ parcelId }: { parcelId?: string }) {
+  const loc = locationFactor(parcelId);
+  if (loc === 1) return null;
+  const pctVal = Math.round((loc - 1) * 100);
+  return (
+    <div style={M.row}>
+      <span>Läge</span>
+      <strong style={{ color: pctVal >= 0 ? "#4d8b52" : "#b5542a" }}>
+        {pctVal >= 0 ? "+" : ""}
+        {pctVal} % {pctVal >= 4 ? "· centralt" : pctVal <= -3 ? "· utkant" : ""}
+      </strong>
+    </div>
+  );
+}
+
 /** Snabbinfo för vald byggnad/tomt med genvägar till rätt fönster. */
 export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => void }) {
   const state = useGameStore((s) => s.state);
@@ -114,6 +131,7 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
           <div style={M.sub}>
             {sel.lot.districtName} · {sel.lot.area} m²
           </div>
+          <LocationRow parcelId={sel.lot.parcelId} />
           {!sel.lot.owned && (
             <>
               <div style={M.row}>
@@ -139,6 +157,7 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
           <div style={M.sub}>
             {sel.prop.districtName} · {sel.prop.area} m² · skick {Math.round(sel.prop.condition)}
           </div>
+          <LocationRow parcelId={sel.prop.parcelId} />
           {sel.kind === "owned" && (
             <>
               <div style={M.row}>

@@ -41,6 +41,17 @@ export function makeTenant(baseRent: number, demandMod: number, condition: numbe
 /** Beräknar maxantal hyresgäster baserat på yta. */
 export function calcCapacity(area: number): number { return Math.min(4, Math.floor(area / 1000) + 1); }
 
+/** ESG-energiklass utifrån skick (bättre skick = bättre klass). */
+export function energyClassFor(condition: number): Property["energyClass"] {
+  const classes = ["F", "E", "D", "C", "B", "A"] as const;
+  return classes[Math.min(5, Math.floor(condition / 17))];
+}
+
+/** Ungefärligt byggår utifrån skick – sämre skick betyder äldre hus. */
+export function builtYearFor(condition: number, currentYear: number): number {
+  return currentYear - Math.round((100 - condition) * 0.35);
+}
+
 export const absMonth = (state: GameState) => state.year * 12 + state.month;
 
 /** Genererar en fastighet för världspoolen (off-market, ingen datumstämpel). */
@@ -54,9 +65,7 @@ export function genWorldProperty(state: GameState): Property {
   const condFactor = 0.6 + (condition / 100) * 0.6;
   const value = area * d.base * condFactor * state.marketMod * rnd(0.85, 1.15);
   const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
-  // ESG energy class based on condition (newer/better condition = better class)
-  const energyClasses = ["F", "E", "D", "C", "B", "A"] as const;
-  const energyClass = energyClasses[Math.min(5, Math.floor(condition / 17))];
+  const energyClass = energyClassFor(condition);
 
   const p: Property = {
     id: newId(),
@@ -79,6 +88,7 @@ export function genWorldProperty(state: GameState): Property {
     status: "klar",
     buildLeft: 0,
     energyClass,
+    builtYear: builtYearFor(condition, state.year),
   };
   if (Math.random() < 0.4) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
   return p;
@@ -118,6 +128,8 @@ export function genListing(state: GameState): Property {
     buildLeft: 0,
     listedMonth: born,
     expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+    energyClass: energyClassFor(condition),
+    builtYear: builtYearFor(condition, state.year),
   };
   // ~55 % chans att objektet redan har hyresgäst
   if (Math.random() < 0.55) p.tenants.push(makeTenant(annualRent / p.capacity, state.demandMod, condition));
