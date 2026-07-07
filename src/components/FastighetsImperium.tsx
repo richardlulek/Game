@@ -15,7 +15,9 @@ import { BuildPanel } from "./BuildPanel";
 import { DecisionModal } from "./DecisionModal";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
-import { Map3D } from "./Map3D";
+import { CityCanvas } from "../three/CityCanvas";
+import { FloatingWindow } from "./FloatingWindow";
+import { MapLegend, MapSelectionCard } from "./MapOverlays";
 import { MarketPanel } from "./MarketPanel";
 import { LogPanel } from "./LogPanel";
 import { OffersModal } from "./OffersModal";
@@ -44,7 +46,6 @@ import { IndustryMarket } from "./IndustryMarket";
 const TABS = [
   { id: "portfolio", label: "Portfölj" },
   { id: "market",    label: "Marknad" },
-  { id: "map",       label: "Karta" },
   { id: "build",     label: "Bygg" },
   { id: "stocks",    label: "Börs" },
   { id: "finance",   label: "Finans" },
@@ -76,7 +77,8 @@ export default function FastighetsImperium() {
   useGameClock();
 
   const [started, setStarted] = useState(false);
-  const [tab, setTab]         = useState("portfolio");
+  // Cap2-modell: kartan är alltid grundvyn; panelerna öppnas som fönster.
+  const [win, setWin] = useState<string | null>(null);
   const [saved, setSaved]     = useState(false);
   const [showOffers, setShowOffers] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
@@ -88,6 +90,14 @@ export default function FastighetsImperium() {
     setStarted(true);
   };
   const startContinue = (slot: number) => { load(slot); setStarted(true); };
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setWin(null);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
 
   // Månadspuls – ett kort svep när månaden växlar.
   const [pulseKey, setPulseKey] = useState(0);
@@ -157,13 +167,14 @@ export default function FastighetsImperium() {
         </div>
       )}
 
-      {/* ── Tab bar ─────────────────────────────────────────── */}
+      {/* ── Fönsterknappar (kartan är alltid grundvyn) ───────── */}
       <div style={tabBarStyle}>
         {TABS.map((t) => (
           <button
             key={t.id}
-            style={{ ...tabStyle, ...(tab === t.id ? tabActiveStyle : {}) }}
-            onClick={() => setTab(t.id)}
+            style={{ ...tabStyle, ...(win === t.id ? tabActiveStyle : {}) }}
+            onClick={() => setWin(win === t.id ? null : t.id)}
+            title={win === t.id ? "Stäng fönstret" : `Öppna ${t.label}`}
           >
             {t.id === "portfolio"
               ? `Portfölj (${state.portfolio.length})`
@@ -216,62 +227,62 @@ export default function FastighetsImperium() {
         );
       })()}
 
-      {/* ── Content ─────────────────────────────────────────── */}
-      <div style={contentStyle}>
-        {tab === "portfolio" && (
-          <div style={S.grid}>
-            {state.portfolio.length === 0 && (
-              <div style={S.empty}>
-                Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
-                <strong>Bygg</strong>.
+      {/* ── Kartan (grundvyn) + flytande fönster ─────────────── */}
+      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+        <div style={{ position: "absolute", inset: 0 }}>
+          <CityCanvas />
+        </div>
+        <MapLegend />
+        <MapSelectionCard openWindow={(id) => setWin(id)} />
+        {win && (
+          <FloatingWindow
+            title={TABS.find((t) => t.id === win)?.label ?? ""}
+            onClose={() => setWin(null)}
+          >
+            {win === "portfolio" && (
+              <div style={S.grid}>
+                {state.portfolio.length === 0 && (
+                  <div style={S.empty}>
+                    Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
+                    <strong>Bygg</strong> – eller klicka på ett objekt med gul ring på kartan.
+                  </div>
+                )}
+                {state.portfolio.map((p) => (
+                  <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
+                ))}
               </div>
             )}
-            {state.portfolio.map((p) => (
-              <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
-            ))}
-          </div>
+            {win === "market" && <MarketPanel state={state} dispatch={dispatch} />}
+            {win === "build" && <BuildPanel state={state} dispatch={dispatch} />}
+            {win === "stocks" && <StockExchange state={state} dispatch={dispatch} />}
+            {win === "research" && <ResearchPanel state={state} dispatch={dispatch} />}
+            {win === "staff" && <StaffPanel state={state} dispatch={dispatch} />}
+            {win === "group" && <GroupOverview state={state} dispatch={dispatch} />}
+            {win === "finance" && (
+              <>
+                <FinancePanel
+                  state={state} dispatch={dispatch}
+                  equity={equity} ltv={ltv} terms={terms}
+                />
+                <div style={{ marginTop: 18 }}>
+                  <EquityChart history={state.history} />
+                </div>
+              </>
+            )}
+            {win === "rivals" && <RivalsPanel state={state} equity={equity} />}
+            {win === "log" && <LogPanel log={state.log} />}
+            {win === "overview" && <PortfolioTable state={state} dispatch={dispatch} />}
+            {win === "acquisition" && <AcquisitionPanel state={state} dispatch={dispatch} />}
+            {win === "districts" && <DistrictPanel state={state} dispatch={dispatch} />}
+            {win === "calendar" && <ContractCalendar state={state} />}
+            {win === "kpi" && <KPIPanel state={state} dispatch={dispatch} />}
+            {win === "tenants" && <TenantPanel state={state} dispatch={dispatch} />}
+            {win === "milestones" && <MilestonesPanel state={state} />}
+            {win === "nyheter" && <NewsFeedPanel state={state} />}
+            {win === "industri" && <IndustryPanel state={state} dispatch={dispatch} />}
+            {win === "ind_marknad" && <IndustryMarket state={state} dispatch={dispatch} />}
+          </FloatingWindow>
         )}
-
-        {tab === "market" && <MarketPanel state={state} dispatch={dispatch} />}
-
-        {tab === "map" && <Map3D setTab={setTab} />}
-
-        {tab === "build" && <BuildPanel state={state} dispatch={dispatch} />}
-
-        {tab === "stocks" && <StockExchange state={state} dispatch={dispatch} />}
-
-        {tab === "research" && <ResearchPanel state={state} dispatch={dispatch} />}
-
-        {tab === "staff" && <StaffPanel state={state} dispatch={dispatch} />}
-
-        {tab === "group" && <GroupOverview state={state} dispatch={dispatch} />}
-
-        {tab === "finance" && (
-          <>
-            <FinancePanel
-              state={state} dispatch={dispatch}
-              equity={equity} ltv={ltv} terms={terms}
-            />
-            <div style={{ marginTop: 18 }}>
-              <EquityChart history={state.history} />
-            </div>
-          </>
-        )}
-
-        {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
-
-        {tab === "log" && <LogPanel log={state.log} />}
-
-        {tab === "overview"    && <PortfolioTable state={state} dispatch={dispatch} />}
-        {tab === "acquisition" && <AcquisitionPanel state={state} dispatch={dispatch} />}
-        {tab === "districts"   && <DistrictPanel state={state} dispatch={dispatch} />}
-        {tab === "calendar"    && <ContractCalendar state={state} />}
-        {tab === "kpi"         && <KPIPanel state={state} dispatch={dispatch} />}
-        {tab === "tenants"     && <TenantPanel state={state} dispatch={dispatch} />}
-        {tab === "milestones"  && <MilestonesPanel state={state} />}
-        {tab === "nyheter"     && <NewsFeedPanel state={state} />}
-        {tab === "industri"    && <IndustryPanel state={state} dispatch={dispatch} />}
-        {tab === "ind_marknad" && <IndustryMarket state={state} dispatch={dispatch} />}
       </div>
 
       {/* ── Status bar ──────────────────────────────────────── */}
@@ -437,10 +448,3 @@ const tabActiveStyle: React.CSSProperties = {
   borderBottom: `2px solid ${C.brass}`,
 };
 
-const contentStyle: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  padding: "18px",
-  background: "transparent",
-  WebkitOverflowScrolling: "touch",
-};

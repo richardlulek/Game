@@ -4,12 +4,17 @@ Ett Capitalism-Lab-inspirerat fastighetsspel på svenska – nu med 3D-stadskart
 rullande realtid. Förvärva, bygg, förvalta och dominera marknaden mot AI-konkurrenter:
 fastigheter, börs, industrisektorer, forskning, scenarier och M&A.
 
-## 3D-staden och klockan
+## 3D-staden och klockan (Capitalism 2-modellen)
 
-- **Karta-fliken** visar staden i 3D (React Three Fiber): dina hus (burgundy ring),
-  objekt till salu (gul), tomter (grön) och konkurrenternas innehav (egen färg per
-  bolag). Klicka på en byggnad för snabbinfo och genvägar till rätt flik; byggen har
-  kranar som växer, vägarna har trafik och obebyggda rutor blir parker.
+- **Kartan är alltid grundvyn**: 3D-staden (React Three Fiber) fyller hela skärmen –
+  dina hus (burgundy ring), objekt till salu (gul), tomter (grön) och konkurrenternas
+  innehav (egen färg per bolag). Byggen har kranar som växer, vägarna har trafik och
+  obebyggda rutor blir parker.
+- **Panelerna är flytande fönster**: knapparna i menyraden (Marknad, Börs, Finans ...)
+  öppnar dragbara fönster ovanpå staden – dra i titelraden, stäng med ✕ eller Esc,
+  klicka på knappen igen för att toggla. Kartan förblir synlig och klickbar bakom.
+- **Klicka på en byggnad** för snabbinfo och genvägar som öppnar rätt fönster
+  (Marknad, Portfölj, Bygg, Förvärv).
 - **Klockan** i verktygsfältet (► Spela, 1×/2×/4×) låter månaderna rulla av sig
   själva med autospar; den pausar automatiskt vid beslut, game over och vinst.
   ⏭ Månad / ×3 / ×12 stegar manuellt som förut.
