@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import { initState, reducer } from "../engine";
+import { placeCity } from "../engine/city";
 import type { GameAction, GameState } from "../engine/types";
 import { getActiveSlot, hasSave, loadGame, saveGame, setActiveSlot } from "./persistence";
 
@@ -24,16 +25,16 @@ interface GameStore {
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  state: initState(),
+  state: placeCity(initState()),
   activeSlot: getActiveSlot(),
-  dispatch: (action) => set((s) => ({ state: reducer(s.state, action) })),
+  dispatch: (action) => set((s) => ({ state: placeCity(reducer(s.state, action)) })),
   save: () => saveGame(get().state, get().activeSlot),
   load: (slot?: number) => {
     const s = slot ?? get().activeSlot;
     const loaded = loadGame(s);
     if (loaded) {
       setActiveSlot(s);
-      set({ state: loaded, activeSlot: s });
+      set({ state: placeCity(loaded), activeSlot: s });
       return true;
     }
     return false;

@@ -227,6 +227,8 @@ export interface Property {
   id: number;
   district: string;
   districtName: string;
+  /** Tomtruta på stadskartan (sätts av placeCity när objektet är synligt). */
+  parcelId?: string;
   type: PropTypeKey;
   typeLabel: string;
   area: number;
@@ -262,6 +264,8 @@ export interface Lot {
   id: number;
   district: string;
   districtName: string;
+  /** Tomtruta på stadskartan (sätts av placeCity). */
+  parcelId?: string;
   area: number;
   price: number;
   owned?: boolean;
@@ -337,6 +341,8 @@ export interface LimitOrder {
 export interface LogEntry {
   t: string;
   kind: LogKind;
+  /** Tomtruta händelsen gäller – gör den lokaliserbar på 3D-kartan. */
+  parcelId?: string;
 }
 
 /** En punkt i utvecklingen av eget kapital. */

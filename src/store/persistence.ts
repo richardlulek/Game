@@ -4,6 +4,7 @@
    in-memory-lösning (window[SAVE_KEY]).
    ============================================================ */
 
+import { placeCity } from "../engine/city";
 import { syncIdCounter } from "../engine/random";
 import { initStocks } from "../engine/stocks";
 import type { GameState } from "../engine/types";
@@ -52,7 +53,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 interface SaveFile {
   version: number;
@@ -209,6 +210,8 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       })),
     })),
   }),
+  // v16 → v17: spatial stadskarta – alla synliga objekt får en tomtruta.
+  16: (s) => placeCity(s),
 };
 
 /** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */
