@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { claimRandomParcel, districtsWithFreeParcels, locationFactor, usedParcelIds } from "./city";
-import { DISTRICTS, PROP_TYPES, START_DISTRICTS, TENANT_PROFILES } from "./data";
+import { DISTRICTS, DISTRICT_ZONING, PROP_TYPES, START_DISTRICTS, TENANT_PROFILES } from "./data";
 import { newId, pick, rnd } from "./random";
 import type { District, GameState, Lot, Property, RivalHolding, Tenant } from "./types";
 
@@ -43,7 +43,8 @@ export function genListing(
 ): Property {
   const d = pickDistrict(occupied, state.unlockedDistricts);
   const parcel = claimRandomParcel(d.id, occupied);
-  const typeKeys = Object.keys(PROP_TYPES) as Property["type"][];
+  // Detaljplanen styr vilka typer som byggs i distriktet.
+  const typeKeys = DISTRICT_ZONING[d.id] ?? (Object.keys(PROP_TYPES) as Property["type"][]);
   const typeKey = pick(typeKeys);
   const t = PROP_TYPES[typeKey];
   const area = Math.round(rnd(400, 4500));
@@ -72,6 +73,11 @@ export function genListing(
     tenant: null,
     status: "klar",
     buildLeft: 0,
+    maintenance: "normal",
+    prospects: [],
+    // Marknadsobjekt säljs via auktion med tidsfrist.
+    auctionMonthsLeft: 3 + Math.floor(rnd(0, 3)),
+    bestBid: null,
   };
   // ~55 % chans att objektet redan har hyresgäst
   if (Math.random() < 0.55) p.tenant = makeTenant(p.baseRent, state.demandMod);

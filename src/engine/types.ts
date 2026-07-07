@@ -7,6 +7,24 @@ export type PropTypeKey = "bostad" | "kontor" | "butik" | "industri";
 
 export type PropStatus = "klar" | "bygger";
 
+/** Underhållsnivå – påverkar driftkostnad och slitagetakt. */
+export type MaintenanceLevel = "minimal" | "normal" | "premium";
+
+/** Ett bud i en pågående auktion. */
+export interface Bid {
+  bidder: string;
+  isPlayer: boolean;
+  amount: number;
+}
+
+/** Ett bundet lån med fast ränta. */
+export interface Loan {
+  id: number;
+  amount: number;
+  rate: number;
+  monthsLeft: number;
+}
+
 export type LogKind = "info" | "warn" | "buy" | "sell" | "upg" | "income" | "expense" | "event";
 
 /** Ett distrikt på marknaden. */
@@ -87,6 +105,13 @@ export interface Property {
   tenant: Tenant | null;
   status: PropStatus;
   buildLeft: number;
+  /** Underhållsnivå (ägda fastigheter). */
+  maintenance: MaintenanceLevel;
+  /** Intressenter som vill hyra – fylls på när lokalen är vakant. */
+  prospects: Tenant[];
+  /** Auktionsfält – används medan fastigheten ligger på marknaden. */
+  auctionMonthsLeft: number;
+  bestBid: Bid | null;
 }
 
 /** En byggbar tomt. */
@@ -99,6 +124,10 @@ export interface Lot {
   area: number;
   price: number;
   owned?: boolean;
+  /** Pågående planändringsansökan. */
+  rezoning?: { type: PropTypeKey; monthsLeft: number } | null;
+  /** Byggtyper som beviljats utöver distriktets detaljplan. */
+  extraTypes?: PropTypeKey[];
 }
 
 /** En fastighet som ägs av en AI-konkurrent. */
@@ -110,6 +139,8 @@ export interface RivalHolding {
   type: PropTypeKey;
   typeLabel: string;
   area: number;
+  /** Månader kvar innan ägaren vill se nya bud efter ett nej. */
+  refusedCooldown?: number;
 }
 
 /** En AI-konkurrent. */
@@ -144,6 +175,26 @@ export interface GameEvent {
   apply: (s: GameState) => GameState;
 }
 
+/** Innehållet i ett väntande beslut i inkorgen. */
+export type InboxPayload =
+  | { kind: "lease_renewal"; propertyId: number }
+  | { kind: "buyout_offer"; propertyId: number; rival: string; amount: number }
+  | { kind: "markanvisning"; district: string; price: number }
+  | { kind: "hyresrabatt"; propertyId: number }
+  | { kind: "ipo" };
+
+/** Ett väntande beslut. Löses av spelaren eller automatiskt när tiden går ut. */
+export interface InboxItem {
+  id: number;
+  title: string;
+  desc: string;
+  monthsLeft: number;
+  options: { id: string; label: string }[];
+  /** Option som väljs automatiskt om beslutet förfaller. */
+  defaultOption: string;
+  payload: InboxPayload;
+}
+
 /** Lånevillkor härledda ur reputation. */
 export interface LoanTerms {
   rate: number;
@@ -168,20 +219,36 @@ export interface GameState {
   competitors: Competitor[];
   /** Distrikt som är öppna för exploatering – nya låses upp när staden växer. */
   unlockedDistricts: string[];
+  /** Bundna lån (utöver den rörliga skulden i debt). */
+  fixedLoans: Loan[];
+  /** Väntande beslut. */
+  inbox: InboxItem[];
+  /** Distriktsutveckling 20–90 (50 = neutral). Driver gentrifiering. */
+  districtDev: Record<string, number>;
   log: LogEntry[];
   history: HistoryPoint[];
   gameOver: boolean;
+  gameWon: boolean;
+  /** Har börsnoteringserbjudandet redan skickats? */
+  ipoOffered: boolean;
 }
 
 /** Alla actions som reducern hanterar. */
 export type GameAction =
-  | { type: "BUY"; id: number }
+  | { type: "BUY"; id: number } // köp direkt till budpremie
+  | { type: "BID"; id: number } // lägg/höj bud i auktionen
   | { type: "SELL"; id: number }
   | { type: "UPGRADE"; id: number; upg: string }
-  | { type: "LEASE"; id: number }
+  | { type: "LEASE"; id: number; tenantId: number }
+  | { type: "SET_MAINTENANCE"; id: number; level: MaintenanceLevel }
   | { type: "BUY_LOT"; id: number }
   | { type: "BUILD"; id: number; propType: PropTypeKey }
+  | { type: "REZONE"; id: number; propType: PropTypeKey }
   | { type: "AMORT"; amount: number }
+  | { type: "BIND_LOAN"; amount: number; months: 36 | 60 }
+  | { type: "DECIDE"; inboxId: number; option: string }
+  | { type: "BID_HOLDING"; rival: string; holdingId: number }
+  | { type: "ACQUIRE_RIVAL"; name: string }
   | { type: "REFRESH_LISTINGS" }
   | { type: "NEXT_MONTH" }
   | { type: "LOAD"; state: GameState }

@@ -1,7 +1,61 @@
 import type { CSSProperties } from "react";
 import { parcelById } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
+import { loanTerms } from "../engine/finance";
+import { msek } from "../engine/format";
+import { holdingBidPrice } from "../engine/market";
+import type { GameAction, GameState, RivalHolding } from "../engine/types";
 import { S } from "../styles/styles";
+
+/** Infokort för konkurrentägd fastighet – med möjlighet att lägga bud. */
+function RivalCard({
+  owner,
+  holding,
+  state,
+  dispatch,
+}: {
+  owner: string;
+  holding: RivalHolding;
+  state: GameState;
+  dispatch: (action: GameAction) => void;
+}) {
+  const price = holdingBidPrice(holding, state);
+  const down = price * (1 - loanTerms(state).maxLtv);
+  const cooldown = holding.refusedCooldown ?? 0;
+  const canBid = cooldown <= 0 && state.cash >= down;
+  return (
+    <div style={S.card}>
+      <div style={S.cardHead}>
+        <span style={S.badge}>Konkurrent</span>
+        <span style={S.cardDistrict}>{holding.districtName}</span>
+      </div>
+      <div style={S.cardValue}>{owner}</div>
+      <div style={S.cardRow}>
+        <span>Typ</span>
+        <strong>{holding.typeLabel}</strong>
+      </div>
+      <div style={S.cardRow}>
+        <span>Yta</span>
+        <strong>{holding.area} m²</strong>
+      </div>
+      <div style={S.cardRow}>
+        <span>Handpenning vid köp</span>
+        <strong>{msek(down)}</strong>
+      </div>
+      <button
+        style={{ ...S.buyBtn, ...(canBid ? {} : S.btnDisabled) }}
+        disabled={!canBid}
+        onClick={() => dispatch({ type: "BID_HOLDING", rival: owner, holdingId: holding.id })}
+      >
+        {cooldown > 0
+          ? `Ägaren avvaktar (${cooldown} mån)`
+          : canBid
+            ? `Lägg bud ${msek(price)}`
+            : "För dyrt just nu"}
+      </button>
+    </div>
+  );
+}
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
 import { ListingCard } from "./ListingCard";
@@ -77,24 +131,7 @@ export function SelectionPanel() {
       {listing && <ListingCard p={listing} state={state} dispatch={dispatch} />}
       {lot && <LotCard lot={lot} state={state} dispatch={dispatch} />}
       {rival && (
-        <div style={S.card}>
-          <div style={S.cardHead}>
-            <span style={S.badge}>Konkurrent</span>
-            <span style={S.cardDistrict}>{rival.holding.districtName}</span>
-          </div>
-          <div style={S.cardValue}>{rival.owner}</div>
-          <div style={S.cardRow}>
-            <span>Typ</span>
-            <strong>{rival.holding.typeLabel}</strong>
-          </div>
-          <div style={S.cardRow}>
-            <span>Yta</span>
-            <strong>{rival.holding.area} m²</strong>
-          </div>
-          <div style={{ ...S.cardRow, color: "#999" }}>
-            <span>Inte till salu</span>
-          </div>
-        </div>
+        <RivalCard owner={rival.owner} holding={rival.holding} state={state} dispatch={dispatch} />
       )}
       {!owned && !listing && !lot && !rival && (
         <div style={P.ambient}>Den här marken ägs av andra aktörer och är inte till salu.</div>

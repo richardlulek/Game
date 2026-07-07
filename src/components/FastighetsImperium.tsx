@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { equityOf, loanTerms, ltvOf } from "../engine/finance";
+import { useEffect, useRef, useState } from "react";
+import { equityOf, loanTerms, ltvOf, monthlyInterestOf, totalDebtOf } from "../engine/finance";
 import { kr, msek, pct } from "../engine/format";
 import { propNOI } from "../engine/property";
 import { useEventMarkers } from "../hooks/useEventMarkers";
@@ -13,6 +13,7 @@ import { CityCanvas } from "../three/CityCanvas";
 import { ClockControls } from "./ClockControls";
 import { EquityChart } from "./EquityChart";
 import { FinancePanel } from "./FinancePanel";
+import { InboxPanel } from "./InboxPanel";
 import { LogPanel } from "./LogPanel";
 import { PortfolioCard } from "./PortfolioCard";
 import { RivalsPanel } from "./RivalsPanel";
@@ -50,7 +51,7 @@ export default function FastighetsImperium() {
   const equity = equityOf(state);
   const monthlyNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
   const terms = loanTerms(state);
-  const monthlyInterest = (state.debt * (terms.rate / 100)) / 12;
+  const monthlyInterest = monthlyInterestOf(state);
   const ltv = ltvOf(state);
   const myRank =
     [...state.competitors.map((c) => c.equity), equity].sort((a, b) => b - a).indexOf(equity) + 1;
@@ -59,6 +60,19 @@ export default function FastighetsImperium() {
   useEffect(() => {
     if (state.gameOver) select(null);
   }, [state.gameOver, select]);
+
+  // Auto-pausa klockan när nya beslut landar i inkorgen eller när spelet vinns.
+  const setRunning = useGameStore((s) => s.setRunning);
+  const prevInbox = useRef(state.inbox.length);
+  useEffect(() => {
+    if (state.inbox.length > prevInbox.current) setRunning(false);
+    prevInbox.current = state.inbox.length;
+  }, [state.inbox.length, setRunning]);
+  const [winDismissed, setWinDismissed] = useState(false);
+  useEffect(() => {
+    if (state.gameWon) setRunning(false);
+    else setWinDismissed(false);
+  }, [state.gameWon, setRunning]);
 
   return (
     <div style={L.app}>
@@ -81,7 +95,7 @@ export default function FastighetsImperium() {
             accent={BURGUNDY}
             sub={`Rank #${myRank} av ${state.competitors.length + 1}`}
           />
-          <Stat label="Skuld" value={msek(state.debt)} sub={`LTV ${pct(ltv)}`} />
+          <Stat label="Skuld" value={msek(totalDebtOf(state))} sub={`LTV ${pct(ltv)}`} />
           <Stat label="Låneränta" value={terms.rate + " %"} sub={`påslag +${terms.spread}`} />
           <Stat
             label="Driftnetto/mån"
@@ -127,9 +141,32 @@ export default function FastighetsImperium() {
               </div>
             </div>
           )}
+          {state.gameWon && !winDismissed && (
+            <div style={L.gameOverWrap}>
+              <div style={L.gameOverBox}>
+                <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>🎉 DU VANN!</div>
+                Fastighetsimperiet är fullbordat efter {state.year} år.
+                <br />
+                Eget kapital: <strong>{msek(equity)}</strong>
+                <div style={{ marginTop: 14, display: "flex", gap: 8, justifyContent: "center" }}>
+                  <button style={S.miniBtn} onClick={() => setWinDismissed(true)}>
+                    Fortsätt spela
+                  </button>
+                  <button style={S.resetBtn} onClick={() => dispatch({ type: "RESET" })}>
+                    Spela igen
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <aside style={L.sidebar}>
+          {state.inbox.length > 0 && (
+            <div style={L.sidebarSelection}>
+              <InboxPanel />
+            </div>
+          )}
           <div style={L.sidebarSelection}>
             <SelectionPanel />
           </div>
@@ -177,7 +214,7 @@ export default function FastighetsImperium() {
                 />
               </div>
             )}
-            {tab === "rivals" && <RivalsPanel state={state} equity={equity} />}
+            {tab === "rivals" && <RivalsPanel state={state} equity={equity} dispatch={dispatch} />}
             {tab === "log" && <LogPanel log={state.log} onLocate={locate} />}
           </div>
         </aside>

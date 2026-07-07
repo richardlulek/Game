@@ -1,6 +1,6 @@
 /* ============================================================
-   Finansfunktioner – lånevillkor, portföljvärde, LTV, eget kapital.
-   Formlerna är oförändrade från prototypen.
+   Finansfunktioner – lånevillkor, portföljvärde, LTV, eget kapital
+   samt bundna lån (fast ränta) vid sidan av den rörliga skulden.
    ============================================================ */
 
 import { propMarketValue } from "./property";
@@ -23,12 +23,24 @@ export function portfolioValue(state: GameState): number {
   return state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
 }
 
-/** Eget kapital = kassa + fastighetsvärde − skuld. */
+/** Total skuld = rörlig skuld + bundna lån. */
+export function totalDebtOf(state: GameState): number {
+  return state.debt + (state.fixedLoans ?? []).reduce((a, l) => a + l.amount, 0);
+}
+
+/** Månadens räntekostnad: rörlig ränta på debt + fast ränta på bundna lån. */
+export function monthlyInterestOf(state: GameState): number {
+  const varInterest = state.debt * (loanTerms(state).rate / 100);
+  const fixedInterest = (state.fixedLoans ?? []).reduce((a, l) => a + l.amount * (l.rate / 100), 0);
+  return (varInterest + fixedInterest) / 12;
+}
+
+/** Eget kapital = kassa + fastighetsvärde − total skuld. */
 export function equityOf(state: GameState): number {
-  return state.cash + portfolioValue(state) - state.debt;
+  return state.cash + portfolioValue(state) - totalDebtOf(state);
 }
 
 /** Belåningsgrad (LTV). 0 om portföljen är tom. */
 export function ltvOf(state: GameState): number {
-  return state.portfolio.length ? state.debt / portfolioValue(state) : 0;
+  return state.portfolio.length ? totalDebtOf(state) / portfolioValue(state) : 0;
 }

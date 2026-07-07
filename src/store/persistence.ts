@@ -12,7 +12,7 @@ import type { GameState, PropTypeKey, RivalHolding } from "../engine/types";
 const SAVE_KEY = "fastighetsimperium:save";
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 interface SaveFile {
   version: number;
@@ -71,6 +71,29 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       unlockedDistricts: s.unlockedDistricts ?? [...START_DISTRICTS],
     };
   },
+  // v4 → v5: inkorg, bundna lån, auktioner, underhåll, distriktsutveckling, vinstläge.
+  4: (s) => ({
+    ...s,
+    fixedLoans: s.fixedLoans ?? [],
+    inbox: s.inbox ?? [],
+    districtDev: s.districtDev ?? Object.fromEntries(DISTRICTS.map((d) => [d.id, 50])),
+    gameWon: s.gameWon ?? false,
+    ipoOffered: s.ipoOffered ?? false,
+    portfolio: s.portfolio.map((p) => ({
+      ...p,
+      maintenance: p.maintenance ?? "normal",
+      prospects: p.prospects ?? [],
+      auctionMonthsLeft: 0,
+      bestBid: null,
+    })),
+    listings: s.listings.map((p) => ({
+      ...p,
+      maintenance: p.maintenance ?? "normal",
+      prospects: [],
+      auctionMonthsLeft: p.auctionMonthsLeft ?? 4,
+      bestBid: p.bestBid ?? null,
+    })),
+  }),
 };
 
 /** Sparar nuvarande tillstånd till localStorage. */

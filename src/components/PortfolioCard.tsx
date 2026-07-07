@@ -1,11 +1,18 @@
 import { locationFactor } from "../engine/city";
 import { kr, msek } from "../engine/format";
 import { propMarketValue, propNOI, propPotentialRent } from "../engine/property";
-import { PROP_TYPES, UPGRADES } from "../engine/data";
-import type { GameAction, GameState, Property } from "../engine/types";
+import { MAINTENANCE_LEVELS, PROP_TYPES, UPGRADES } from "../engine/data";
+import type { GameAction, GameState, MaintenanceLevel, Property } from "../engine/types";
 import { S } from "../styles/styles";
 import { BURGUNDY } from "../styles/tokens";
 import { CondBar } from "./CondBar";
+
+/** Etikett för konkursrisk hos en intressent. */
+function riskLabel(risk: number): { text: string; color: string } {
+  if (risk < 0.005) return { text: "låg risk", color: "#27660a" };
+  if (risk < 0.02) return { text: "mellanrisk", color: "#a07800" };
+  return { text: "hög risk", color: "#c0392b" };
+}
 
 interface PortfolioCardProps {
   p: Property;
@@ -99,14 +106,59 @@ export function PortfolioCard({ p, state, dispatch, onLocate }: PortfolioCardPro
       ) : (
         <div style={S.vacantBox}>
           <span>Vakant — potential {kr(propPotentialRent(p, state) / 12)}/mån</span>
-          <button style={S.leaseBtn} onClick={() => dispatch({ type: "LEASE", id: p.id })}>
-            Hyr ut
-          </button>
+          {p.prospects.length === 0 && (
+            <span style={{ color: "#999" }}>Inga intressenter ännu – de dyker upp med tiden.</span>
+          )}
+          {p.prospects.map((t) => {
+            const risk = riskLabel(t.defaultRisk);
+            return (
+              <div
+                key={t.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span style={{ fontSize: 12, color: "#333" }}>
+                  <strong>{t.name}</strong> · {kr(t.rent)}/mån · {t.termTotal} mån ·{" "}
+                  <span style={{ color: risk.color }}>{risk.text}</span>
+                </span>
+                <button
+                  style={S.leaseBtn}
+                  onClick={() => dispatch({ type: "LEASE", id: p.id, tenantId: t.id })}
+                >
+                  Teckna
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
       <div style={S.cardRow}>
         <span>Driftnetto/år</span>
         <strong style={{ color: noi >= 0 ? "#27660a" : "#c0392b" }}>{kr(noi)}</strong>
+      </div>
+      <div style={S.cardRow}>
+        <span title="Påverkar driftkostnad och slitage">Underhåll</span>
+        <span style={{ display: "flex", gap: 4 }}>
+          {(Object.keys(MAINTENANCE_LEVELS) as MaintenanceLevel[]).map((lv) => (
+            <button
+              key={lv}
+              onClick={() => dispatch({ type: "SET_MAINTENANCE", id: p.id, level: lv })}
+              title={`Drift ×${MAINTENANCE_LEVELS[lv].opexMult} · slitage ×${MAINTENANCE_LEVELS[lv].decayMult}`}
+              style={{
+                ...S.upgBtn,
+                padding: "3px 7px",
+                fontSize: 11,
+                ...(p.maintenance === lv ? { background: BURGUNDY, color: "#fff" } : {}),
+              }}
+            >
+              {MAINTENANCE_LEVELS[lv].label}
+            </button>
+          ))}
+        </span>
       </div>
       <div style={S.upgRow}>
         {UPGRADES.map((u) => {

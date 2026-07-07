@@ -1,6 +1,6 @@
 /* Testhjälpare – bygger minimala, deterministiska tillstånd. */
 
-import { START_DISTRICTS } from "../engine/data";
+import { DISTRICTS, START_DISTRICTS } from "../engine/data";
 import type { Competitor, GameState, Property, Tenant } from "../engine/types";
 
 export function makeState(over: Partial<GameState> = {}): GameState {
@@ -19,9 +19,14 @@ export function makeState(over: Partial<GameState> = {}): GameState {
     lots: [],
     competitors: [],
     unlockedDistricts: [...START_DISTRICTS],
+    fixedLoans: [],
+    inbox: [],
+    districtDev: Object.fromEntries(DISTRICTS.map((d) => [d.id, 50])),
     log: [],
     history: [{ month: 0, equity: 5_000_000 }],
     gameOver: false,
+    gameWon: false,
+    ipoOffered: false,
     ...over,
   };
 }
@@ -58,6 +63,10 @@ export function makeProperty(over: Partial<Property> = {}): Property {
     tenant: null,
     status: "klar",
     buildLeft: 0,
+    maintenance: "normal",
+    prospects: [],
+    auctionMonthsLeft: 0,
+    bestBid: null,
     ...over,
   };
 }

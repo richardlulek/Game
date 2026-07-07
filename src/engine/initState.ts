@@ -2,7 +2,7 @@
    Initialt speltillstånd.
    ============================================================ */
 
-import { AI_NAMES, START_DISTRICTS } from "./data";
+import { AI_NAMES, DISTRICTS, START_DISTRICTS } from "./data";
 import { genListing, genLot, genRivalHolding } from "./generators";
 import { rnd } from "./random";
 import type { GameState, RivalHolding } from "./types";
@@ -24,9 +24,14 @@ export function initState(): GameState {
     lots: [],
     competitors: [],
     unlockedDistricts: [...START_DISTRICTS],
+    fixedLoans: [],
+    inbox: [],
+    districtDev: Object.fromEntries(DISTRICTS.map((d) => [d.id, 50])),
     log: [{ t: "Du startar med 5 MSEK eget kapital. Lycka till!", kind: "info" }],
     history: [{ month: 0, equity: 5_000_000 }],
     gameOver: false,
+    gameWon: false,
+    ipoOffered: false,
   };
   // Delat occupied-set så att startobjekten inte hamnar på samma tomtruta.
   const occupied = new Set<string>();

@@ -6,6 +6,8 @@
 import type {
   District,
   GameEvent,
+  Lot,
+  MaintenanceLevel,
   PropTypeDef,
   PropTypeKey,
   TenantProfile,
@@ -160,3 +162,32 @@ export const EVENTS: GameEvent[] = [
 ];
 
 export const AI_NAMES = ["Nordhem Fastigheter", "Brunnsparken Invest", "Kustlinjen AB"];
+
+/** Underhållsnivåer: driftkostnads- och slitagemultiplikatorer. */
+export const MAINTENANCE_LEVELS: Record<
+  MaintenanceLevel,
+  { label: string; opexMult: number; decayMult: number }
+> = {
+  minimal: { label: "Minimal", opexMult: 0.85, decayMult: 1.6 },
+  normal: { label: "Normal", opexMult: 1, decayMult: 1 },
+  premium: { label: "Premium", opexMult: 1.2, decayMult: 0.45 },
+};
+
+/** Detaljplan: tillåtna byggtyper per distrikt. */
+export const DISTRICT_ZONING: Record<string, PropTypeKey[]> = {
+  centrum: ["bostad", "kontor", "butik"],
+  hamnen: ["kontor", "butik", "industri"],
+  industri: ["industri", "kontor"],
+  förort: ["bostad", "butik", "industri"],
+  kulle: ["bostad"],
+  storängen: ["bostad", "kontor", "butik", "industri"],
+};
+
+/** Tillåtna byggtyper för en tomt (detaljplan + beviljade planändringar). */
+export function allowedTypesFor(lot: Pick<Lot, "district" | "extraTypes">): PropTypeKey[] {
+  const base = DISTRICT_ZONING[lot.district] ?? (Object.keys(PROP_TYPES) as PropTypeKey[]);
+  return [...new Set([...base, ...(lot.extraTypes ?? [])])];
+}
+
+/** Eget kapital som krävs för börsnoteringserbjudandet. */
+export const IPO_EQUITY = 100_000_000;

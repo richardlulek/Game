@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PROP_TYPES } from "../engine/data";
+import { allowedTypesFor, PROP_TYPES } from "../engine/data";
 import { msek } from "../engine/format";
 import type { GameAction, GameState, Lot, PropTypeKey } from "../engine/types";
 import { S } from "../styles/styles";
@@ -10,9 +10,11 @@ interface LotCardProps {
   dispatch: (action: GameAction) => void;
 }
 
-/** Kort för en tomt: köp om den är till salu, välj byggnadstyp och bygg om den är ägd. */
+/** Kort för en tomt: köp om den är till salu; välj typ (inom detaljplanen),
+ *  ansök om planändring eller bygg om den är ägd. */
 export function LotCard({ lot, state, dispatch }: LotCardProps) {
-  const [chosen, setChosen] = useState<PropTypeKey>("bostad");
+  const allowed = allowedTypesFor(lot);
+  const [chosen, setChosen] = useState<PropTypeKey>(allowed[0]);
 
   if (!lot.owned) {
     const ok = state.cash >= lot.price;
@@ -27,6 +29,10 @@ export function LotCard({ lot, state, dispatch }: LotCardProps) {
           <span>Yta</span>
           <strong>{lot.area} m²</strong>
         </div>
+        <div style={S.cardRow}>
+          <span>Detaljplan</span>
+          <strong>{allowed.map((k) => PROP_TYPES[k].label).join(", ")}</strong>
+        </div>
         <button
           style={{ ...S.buyBtn, ...(ok ? {} : S.btnDisabled) }}
           disabled={!ok}
@@ -38,8 +44,11 @@ export function LotCard({ lot, state, dispatch }: LotCardProps) {
     );
   }
 
-  const t = PROP_TYPES[chosen];
+  const safeChosen = allowed.includes(chosen) ? chosen : allowed[0];
+  const t = PROP_TYPES[safeChosen];
   const cost = lot.area * t.buildCostM2;
+  const blocked = (Object.keys(PROP_TYPES) as PropTypeKey[]).filter((k) => !allowed.includes(k));
+
   return (
     <div style={S.card}>
       <div style={S.cardHead}>
@@ -51,13 +60,13 @@ export function LotCard({ lot, state, dispatch }: LotCardProps) {
         <strong>{lot.area} m²</strong>
       </div>
       <select
-        value={chosen}
+        value={safeChosen}
         onChange={(e) => setChosen(e.target.value as PropTypeKey)}
         style={S.select}
       >
-        {Object.entries(PROP_TYPES).map(([k, v]) => (
+        {allowed.map((k) => (
           <option key={k} value={k}>
-            {v.label}
+            {PROP_TYPES[k].label}
           </option>
         ))}
       </select>
@@ -71,10 +80,37 @@ export function LotCard({ lot, state, dispatch }: LotCardProps) {
       </div>
       <button
         style={S.buyBtn}
-        onClick={() => dispatch({ type: "BUILD", id: lot.id, propType: chosen })}
+        onClick={() => dispatch({ type: "BUILD", id: lot.id, propType: safeChosen })}
       >
         Påbörja bygge
       </button>
+      {lot.rezoning ? (
+        <div style={{ ...S.cardRow, color: "#a07800", marginTop: 8 }}>
+          <span>📋 Planändring pågår</span>
+          <strong>
+            {PROP_TYPES[lot.rezoning.type].label} · {lot.rezoning.monthsLeft} mån
+          </strong>
+        </div>
+      ) : (
+        blocked.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>
+              Detaljplanen tillåter inte: ansök om planändring (2.0 MSEK, 6 mån, kräver rep ≥ 40)
+            </div>
+            <div style={S.upgRow}>
+              {blocked.map((k) => (
+                <button
+                  key={k}
+                  style={S.upgBtn}
+                  onClick={() => dispatch({ type: "REZONE", id: lot.id, propType: k })}
+                >
+                  📋 {PROP_TYPES[k].label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      )}
     </div>
   );
 }

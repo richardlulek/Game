@@ -1,6 +1,7 @@
 import { locationFactor } from "../engine/city";
-import { kr, msek, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
+import { kr, msek, pct } from "../engine/format";
+import { buyNowPrice, nextBidAmount } from "../engine/market";
 import { propAnnualOpex, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { S } from "../styles/styles";
@@ -12,12 +13,18 @@ interface ListingCardProps {
   dispatch: (action: GameAction) => void;
 }
 
+/** Auktionskort för ett marknadsobjekt: bjud eller köp direkt till premie. */
 export function ListingCard({ p, state, dispatch }: ListingCardProps) {
   const noi = propPotentialRent(p, state) - propAnnualOpex(p, state);
   const lf = locationFactor(p.parcelId);
   const y = noi / p.askPrice;
-  const down = p.askPrice * (1 - loanTerms(state).maxLtv);
-  const ok = state.cash >= down;
+  const { maxLtv } = loanTerms(state);
+  const bid = nextBidAmount(p);
+  const buyNow = buyNowPrice(p);
+  const youLead = !!p.bestBid?.isPlayer;
+  const canBid = !youLead && state.cash >= bid * (1 - maxLtv);
+  const canBuy = state.cash >= buyNow * (1 - maxLtv);
+
   return (
     <div style={S.card}>
       <div style={S.cardHead}>
@@ -53,15 +60,28 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
         <strong>{pct(y)}</strong>
       </div>
       <div style={S.cardRow}>
-        <span>Handpenning</span>
-        <strong>{msek(down)}</strong>
+        <span>Högsta bud</span>
+        <strong style={{ color: youLead ? "#27660a" : "#333" }}>
+          {p.bestBid ? `${msek(p.bestBid.amount)} (${p.bestBid.bidder})` : "Inga bud"}
+        </strong>
+      </div>
+      <div style={S.cardRow}>
+        <span>Auktionen avslutas</span>
+        <strong>{p.auctionMonthsLeft} mån</strong>
       </div>
       <button
-        style={{ ...S.buyBtn, ...(ok ? {} : S.btnDisabled) }}
-        disabled={!ok}
+        style={{ ...S.buyBtn, ...(youLead || canBid ? {} : S.btnDisabled) }}
+        disabled={youLead || !canBid}
+        onClick={() => dispatch({ type: "BID", id: p.id })}
+      >
+        {youLead ? "✓ Du har högsta budet" : canBid ? `Bjud ${msek(bid)}` : "För dyrt att bjuda"}
+      </button>
+      <button
+        style={{ ...S.sellBtn, ...(canBuy ? {} : S.btnDisabled) }}
+        disabled={!canBuy}
         onClick={() => dispatch({ type: "BUY", id: p.id })}
       >
-        {ok ? "Köp" : "För dyrt"}
+        Köp direkt {msek(buyNow)}
       </button>
     </div>
   );
