@@ -37,7 +37,7 @@ export const RING_COLORS = {
   selected: "#ffffff",
 } as const;
 
-export const GROUND = "#a2a8a4";
+export const GROUND = "#9dab90";
 export const PAD = "#d6d3ca";
 export const SKY = "#dfe9f0";
 export const WATER = "#7fa8c4";

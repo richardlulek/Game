@@ -93,7 +93,79 @@ function Car({
   );
 }
 
-/** Vägnätet mellan distrikten, med mittlinjer och pendlande trafik. */
+/** Klassiskt zebramönstrat övergångsställe vid ett vägsegments ände. */
+function Crosswalk({ seg, end }: { seg: RoadSeg; end: -1 | 1 }) {
+  const horizontal = seg.w > seg.d;
+  const across = (horizontal ? seg.d : seg.w) - 3;
+  const stripes = Math.max(3, Math.floor(across / 2.4));
+  const alongPos = end * ((horizontal ? seg.w : seg.d) / 2 - 3.4);
+  return (
+    <>
+      {Array.from({ length: stripes }, (_, i) => {
+        const t = ((i + 0.5) / stripes - 0.5) * across;
+        const x = seg.x + (horizontal ? alongPos : t);
+        const z = seg.z + (horizontal ? t : alongPos);
+        return (
+          <mesh key={i} rotation-x={-Math.PI / 2} position={[x, 0.032, z]}>
+            <planeGeometry args={horizontal ? [2.2, 1.3] : [1.3, 2.2]} />
+            <meshBasicMaterial color="#dfdcd2" />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
+/** Gatlykta med varmt sken – ljuset är emissivt (inga riktiga lampor, billigt). */
+function StreetLamp({ x, z, side, rotY = 0 }: { x: number; z: number; side: number; rotY?: number }) {
+  return (
+    <group position={[x, 0, z]} rotation-y={rotY}>
+      <mesh castShadow position={[0, 3.4, 0]}>
+        <cylinderGeometry args={[0.12, 0.18, 6.8, 6]} />
+        <meshStandardMaterial color="#3d4348" roughness={0.6} metalness={0.4} />
+      </mesh>
+      <mesh position={[side * 1.1, 6.7, 0]}>
+        <boxGeometry args={[2.2, 0.14, 0.14]} />
+        <meshStandardMaterial color="#3d4348" roughness={0.6} metalness={0.4} />
+      </mesh>
+      <mesh position={[side * 2.1, 6.55, 0]}>
+        <sphereGeometry args={[0.34, 8, 6]} />
+        <meshStandardMaterial color="#ffe9c0" emissive="#ffca6e" emissiveIntensity={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Lyktrader längs ett vägsegment, växelvis sida. */
+function Lamps({ seg }: { seg: RoadSeg }) {
+  const horizontal = seg.w > seg.d;
+  const len = horizontal ? seg.w : seg.d;
+  const count = Math.max(2, Math.floor(len / 34));
+  const edge = (horizontal ? seg.d : seg.w) / 2 + 1.6;
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => {
+        const t = ((i + 0.5) / count - 0.5) * (len - 10);
+        const side = i % 2 === 0 ? 1 : -1;
+        const x = seg.x + (horizontal ? t : edge * side);
+        const z = seg.z + (horizontal ? edge * side : t);
+        // Armen pekar in mot vägbanan; öst–västliga vägar kräver 90° vridning
+        // (lokal +x blir världens −z efter rotationen).
+        return (
+          <StreetLamp
+            key={i}
+            x={x}
+            z={z}
+            side={horizontal ? side : -side}
+            rotY={horizontal ? Math.PI / 2 : 0}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** Vägnätet mellan distrikten, med mittlinjer, lyktor och pendlande trafik. */
 export function Roads() {
   return (
     <>
@@ -101,9 +173,12 @@ export function Roads() {
         <group key={i}>
           <mesh rotation-x={-Math.PI / 2} position={[seg.x, 0.015, seg.z]} receiveShadow>
             <planeGeometry args={[seg.w, seg.d]} />
-            <meshStandardMaterial color={ROAD} />
+            <meshStandardMaterial color={ROAD} roughness={0.95} />
           </mesh>
           <Dashes seg={seg} />
+          <Crosswalk seg={seg} end={-1} />
+          <Crosswalk seg={seg} end={1} />
+          <Lamps seg={seg} />
           <Car
             seg={seg}
             offset={i * 0.7}

@@ -1,7 +1,7 @@
-import { Html, MapControls } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import { useMemo } from "react";
-import { Color } from "three";
+import { Html, MapControls, Sky } from "@react-three/drei";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
+import { Color, type PlaneGeometry } from "three";
 import { DISTRICT_ZONES, PARCELS } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
 import { propMarketValue, propNOI } from "../engine/property";
@@ -12,6 +12,7 @@ import { useUiStore } from "../store/uiStore";
 import { CameraRig } from "./CameraRig";
 import { Birds, Clouds, Harbor, InnerStreets, Landmarks } from "./CityExtras";
 import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
+import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
 import { LocalTraffic, Roads } from "./Roads";
@@ -93,31 +94,78 @@ function CityParcels() {
   );
 }
 
+/** Havsyta med mjuk dyning – vertexvågor + låg roughness ger solglitter. */
+function Water() {
+  const geo = useRef<PlaneGeometry>(null);
+  useFrame(({ clock }) => {
+    const g = geo.current;
+    if (!g) return;
+    const pos = g.attributes.position;
+    const t = clock.elapsedTime;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      pos.setZ(
+        i,
+        Math.sin(x * 0.045 + t * 0.8) * 0.32 +
+          Math.cos((y + x * 0.35) * 0.07 + t * 0.55) * 0.22,
+      );
+    }
+    pos.needsUpdate = true;
+    g.computeVertexNormals();
+  });
+  return (
+    <mesh rotation-x={-Math.PI / 2} position={[10, -0.3, 350]}>
+      <planeGeometry ref={geo} args={[620, 160, 56, 14]} />
+      <meshStandardMaterial color={WATER} roughness={0.32} metalness={0.08} />
+    </mesh>
+  );
+}
+
+/** Solens riktning – delas av himmel och nyckelljus så de aldrig divergerar. */
+const SUN = [260, 230, 120] as const;
+
 /** Hela 3D-stadsvyn. Ren renderare av GameState – ingen spellogik här. */
 export function CityCanvas() {
   const select = useUiStore((s) => s.select);
+  const ground = useMemo(() => groundTexture(26), []);
   return (
     <Canvas
-      shadows
+      shadows="soft"
       dpr={[1, 2]}
       camera={{ position: [200, 250, 340], fov: 38, near: 1, far: 3000 }}
       onPointerMissed={() => select(null)}
+      onCreated={({ gl }) => {
+        gl.toneMappingExposure = 1.22;
+      }}
     >
-      <color attach="background" args={[SKY]} />
-      <fog attach="fog" args={[SKY, 750, 1800]} />
-      <ambientLight intensity={0.6} />
-      <hemisphereLight args={["#dfe9f0", "#8a917f", 0.45]} />
+      <fog attach="fog" args={[SKY, 800, 1900]} />
+      {/* Procedurell atmosfär – ger horisontdis och naturlig himmelsgradient. */}
+      <Sky
+        distance={4000}
+        sunPosition={[SUN[0], SUN[1], SUN[2]]}
+        turbidity={5.5}
+        rayleigh={1.6}
+        mieCoefficient={0.004}
+        mieDirectionalG={0.75}
+      />
+      <ambientLight intensity={0.48} />
+      <hemisphereLight args={["#bfd6ea", "#939781", 0.6]} />
+      {/* Varmt nyckelljus (sen eftermiddag) + kallt fyllnadsljus från motsatt håll. */}
       <directionalLight
-        position={[240, 320, 140]}
-        intensity={1.15}
+        position={[SUN[0], SUN[1], SUN[2]]}
+        color="#ffe7c4"
+        intensity={1.5}
         castShadow
         shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0004}
         shadow-camera-left={-450}
         shadow-camera-right={450}
         shadow-camera-top={450}
         shadow-camera-bottom={-450}
         shadow-camera-far={1200}
       />
+      <directionalLight position={[-200, 140, -180]} color="#b9cce0" intensity={0.5} />
       <MapControls
         makeDefault
         enableDamping
@@ -128,13 +176,10 @@ export function CityCanvas() {
       />
       <mesh rotation-x={-Math.PI / 2} position={[0, -0.05, 0]} receiveShadow>
         <planeGeometry args={[2600, 2600]} />
-        <meshStandardMaterial color={GROUND} />
+        <meshStandardMaterial color={GROUND} map={ground} roughness={1} />
       </mesh>
       {/* Vatten söder om Hamnen. */}
-      <mesh rotation-x={-Math.PI / 2} position={[10, -0.02, 350]}>
-        <planeGeometry args={[620, 160]} />
-        <meshStandardMaterial color={WATER} />
-      </mesh>
+      <Water />
       <Roads />
       <DistrictPlates />
       <InnerStreets />

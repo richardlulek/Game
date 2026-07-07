@@ -319,7 +319,13 @@ function Cloud({ x, y, z, s, speed }: { x: number; y: number; z: number; s: numb
       ].map(([cx, cy, cz, r], i) => (
         <mesh key={i} position={[cx, cy, cz]}>
           <sphereGeometry args={[r, 10, 8]} />
-          <meshStandardMaterial color="#f4f7f9" transparent opacity={0.92} flatShading />
+          <meshStandardMaterial
+            color="#f6f9fb"
+            transparent
+            opacity={0.8}
+            depthWrite={false}
+            flatShading
+          />
         </mesh>
       ))}
     </group>
@@ -329,11 +335,12 @@ function Cloud({ x, y, z, s, speed }: { x: number; y: number; z: number; s: numb
 export function Clouds() {
   return (
     <>
-      <Cloud x={-300} y={150} z={-100} s={1.4} speed={2.2} />
-      <Cloud x={-40} y={170} z={120} s={1.9} speed={1.6} />
-      <Cloud x={220} y={140} z={-220} s={1.1} speed={2.8} />
-      <Cloud x={420} y={160} z={60} s={1.6} speed={1.9} />
-      <Cloud x={-460} y={145} z={240} s={1.3} speed={2.5} />
+      {/* Höga moln – kameran ska aldrig kunna flyga in i dem. */}
+      <Cloud x={-300} y={300} z={-100} s={1.8} speed={2.2} />
+      <Cloud x={-40} y={330} z={120} s={2.4} speed={1.6} />
+      <Cloud x={220} y={290} z={-220} s={1.5} speed={2.8} />
+      <Cloud x={420} y={315} z={60} s={2.0} speed={1.9} />
+      <Cloud x={-460} y={295} z={240} s={1.7} speed={2.5} />
     </>
   );
 }

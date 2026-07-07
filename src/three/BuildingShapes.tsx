@@ -24,12 +24,15 @@ function useFacadeMaterials(
   selected: boolean,
 ) {
   const { side, top } = useMemo(() => {
-    const sideMat = new MeshStandardMaterial({ color });
+    const sideMat = new MeshStandardMaterial({ color, roughness: 0.82, metalness: 0.02 });
     if (windows) {
       const cols = Math.max(2, Math.round(w / 5));
       sideMat.map = windowTexture(cols, Math.max(1, floors));
     }
-    const topMat = new MeshStandardMaterial({ color: new Color(color).multiplyScalar(0.72) });
+    const topMat = new MeshStandardMaterial({
+      color: new Color(color).multiplyScalar(0.72),
+      roughness: 0.95,
+    });
     return { side: sideMat, top: topMat };
   }, [color, floors, w, windows]);
 
