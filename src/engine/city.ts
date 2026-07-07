@@ -29,7 +29,7 @@ export interface DistrictZone {
 }
 
 /** Avstånd mellan tomtrutors centrum – mellanrummet blir gata. */
-const PITCH = 34;
+export const PITCH = 34;
 /** Byggbar yta per tomtruta. */
 export const PARCEL_SIZE = 24;
 
@@ -50,6 +50,10 @@ const ZONES: ZoneSpec[] = [
   { district: "förort", cx: -252, cz: 30, cols: 6, rows: 6 },
   { district: "kulle", cx: -40, cz: -212, cols: 8, rows: 4 },
 ];
+
+/** Rutnätsspecar per zon – används av 3D-vyn för kvartersgator. */
+export const ZONE_GRIDS: readonly ZoneSpec[] = ZONES;
+export type { ZoneSpec };
 
 export const DISTRICT_ZONES: DistrictZone[] = ZONES.map((z) => ({
   district: z.district,
