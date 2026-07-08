@@ -1,6 +1,6 @@
 import { Html, MapControls, Sky } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { Color, MeshStandardMaterial } from "three";
 
 /** Minimal typ för onBeforeCompile-shadern (three exporterar ingen). */
@@ -15,6 +15,7 @@ import type { GameState, Property } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
+import { Backdrop } from "./Backdrop";
 import { CameraRig } from "./CameraRig";
 import { Birds, Clouds, Harbor, Landmarks } from "./CityExtras";
 import { Headquarters } from "./Headquarters";
@@ -175,8 +176,8 @@ function Water() {
     // om ±0.37 håller sig hela havet synligt (0.13–0.87) och under
     // kajkantens topp (1.0) – tidigare låg basen på −0.3 så att bara
     // vågtopparna stack upp genom marken som blå fläckar.
-    <mesh rotation-x={-Math.PI / 2} position={[20, 0.5, 430]} material={material}>
-      <planeGeometry args={[900, 220, 64, 16]} />
+    <mesh rotation-x={-Math.PI / 2} position={[20, 0.5, 485]} material={material}>
+      <planeGeometry args={[1800, 330, 96, 20]} />
     </mesh>
   );
 }
@@ -239,6 +240,8 @@ export function CityCanvas() {
       </mesh>
       {/* Vatten söder om Hamnen. */}
       <Water />
+      {/* Landskapet utanför staden: åkrar, skog, kullar, berg, skärgård. */}
+      <Backdrop />
       <Roads />
       <DistrictPlates />
       <CityParcels />
