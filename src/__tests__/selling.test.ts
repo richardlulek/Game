@@ -49,7 +49,11 @@ describe("annonsering och bud", () => {
 
   it("attraktiv annons drar in ett bud som kan accepteras", () => {
     const p = fineProp();
-    let s = makeState({ cash: 1_000_000, portfolio: [p] });
+    let s = makeState({
+      cash: 1_000_000,
+      portfolio: [p],
+      competitors: [{ name: "Kustlinjen AB", cash: 50_000_000, units: 0, equity: 50_000_000, portfolio: [] }],
+    });
     const value = propMarketValue(p, s);
     // Lätt rabatt mot värdet → högt intresse (värdet driver med marknaden).
     s = reducer(s, { type: "LIST_FOR_SALE", id: 1, ask: Math.round(value * 0.95) });
@@ -145,7 +149,11 @@ describe("säljpaket", () => {
   it("skapas, drar in paketbud och säljs i en affär", () => {
     const p1 = fineProp(1);
     const p2 = fineProp(2);
-    let s = makeState({ cash: 1_000_000, portfolio: [p1, p2] });
+    let s = makeState({
+      cash: 1_000_000,
+      portfolio: [p1, p2],
+      competitors: [{ name: "Kustlinjen AB", cash: 90_000_000, units: 0, equity: 90_000_000, portfolio: [] }],
+    });
     const value = propMarketValue(p1, s) + propMarketValue(p2, s);
     s = reducer(s, { type: "LIST_PACKAGE", ids: [1, 2], ask: Math.round(value) });
     expect(s.salePackages).toHaveLength(1);

@@ -24,10 +24,23 @@ import {
   satisfactionTarget,
   signContract,
 } from "./leasing";
-import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS } from "./data";
+import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
+import {
+  ACTIVIST_TAKEOVER_AT,
+  CRISIS_MONTHS,
+  DOMINANCE_SUPERVISED_SHARE,
+  FUNDS,
+  FUND_TRIGGER_EQUITY,
+  MEGA_PROJECTS,
+  SUPERVISION_FEE,
+  activistTick,
+  districtShareOf,
+  fundsActive,
+  shouldTriggerCrisis,
+} from "./lateGame";
 import { amortInfoOf, equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
@@ -75,6 +88,14 @@ export function advanceMonth(state: GameState): GameState {
       s.marketMod = +(s.marketMod * 0.92).toFixed(3);
       s.demandMod = +(s.demandMod * 0.96).toFixed(3);
       events.push({ t: `📉 KONJUNKTURNEDGÅNG! Marknaden sviktar (${dur} mån kvar).`, kind: "warn" });
+      // Bubbla som spricker: nedgång i ett uppblåst läge → fullskalig kris.
+      if (!s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, Math.random())) {
+        s.crisisMonthsLeft = CRISIS_MONTHS;
+        events.push({
+          t: `🚨 FASTIGHETSKRIS! Bubblan spricker: värden faller, kreditmarknaden stänger och covenants skärps. Den som har kassa köper billigt — den som är belånad kämpar för livet.`,
+          kind: "warn",
+        });
+      }
     } else {
       events.push({ t: `📊 Konjunkturen stabiliseras — stabilt läge (${dur} mån).`, kind: "event" });
     }
@@ -879,6 +900,132 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
+  // ── Slutspelet: kapitalet slår tillbaka ──────────────────────────
+  {
+    const eq = equityOf(s);
+
+    // A1 · Institutionella fonder kliver in när spelaren drar ifrån.
+    if (eq > FUND_TRIGGER_EQUITY && !fundsActive(s)) {
+      const warChest = Math.round(eq * 0.9);
+      s.competitors = [
+        ...s.competitors,
+        ...FUNDS.map((f) => ({
+          name: f.name,
+          cash: warChest,
+          units: 0,
+          equity: warChest,
+          portfolio: [],
+          strategy: f.strategy,
+          institutional: true,
+        })),
+      ];
+      events.push({
+        t: `🌐 INTERNATIONELLT KAPITAL: ${FUNDS.map((f) => f.name).join(" och ")} etablerar sig i staden med miljardkassor. De bjuder på allt — och de har djupare fickor än banken trodde.`,
+        kind: "warn",
+      });
+    }
+    // Fonderna hålls kapitaliserade i nivå med spelaren (rubber band).
+    s.competitors = s.competitors.map((c) => {
+      if (!c.institutional || c.cash >= eq * 0.4) return c;
+      const injection = Math.round(eq * 0.5);
+      events.push({ t: `🌐 ${c.name} tar in nytt kapital: +${msek(injection)} från moderfonden.`, kind: "event" });
+      return { ...c, cash: c.cash + injection };
+    });
+
+    // A2/A3 · Aktivistfonden: efter börsnoteringen straffas död kassa
+    // och svag avkastning. Utdelningar (PAY_DIVIDEND) lindrar.
+    if (s.ipoActive && !s.gameOver) {
+      const annualReturn = (monthlyNOI - interest) * 12;
+      const tick = activistTick(s.cash, eq, annualReturn);
+      const before = s.takeoverPressure ?? 0;
+      s.takeoverPressure = Math.max(0, Math.min(100, before + tick.delta));
+      const stake = s.takeoverPressure;
+      if (tick.delta > 0 && tick.reason && Math.floor(stake / 10) > Math.floor(before / 10)) {
+        events.push({
+          t: `🦈 Aktivistfonden Kronfelt Capital äger nu ${Math.round(stake)} % av bolaget (${tick.reason}). Dela ut vinst eller höj avkastningen — vid ${ACTIVIST_TAKEOVER_AT} % tar de över.`,
+          kind: "warn",
+        });
+      }
+      if (stake >= ACTIVIST_TAKEOVER_AT) {
+        s.gameOver = true;
+        events.push({
+          t: `🦈 FIENTLIGT ÖVERTAGANDE: Kronfelt Capital når ${ACTIVIST_TAKEOVER_AT} % och röstar bort dig från styrelsen. Imperiet är inte längre ditt.`,
+          kind: "warn",
+        });
+      }
+    }
+
+    // B5 · Fastighetskrisen: värdefall följt av långsam återhämtning.
+    if ((s.crisisMonthsLeft ?? 0) > 0) {
+      const left = s.crisisMonthsLeft!;
+      if (left > CRISIS_MONTHS / 2) {
+        s.marketMod = +(s.marketMod * 0.972).toFixed(3);
+        if (s.month % 2 === 0)
+          events.push({ t: `🚨 Krisen fördjupas: fastighetsvärdena faller (marknadsläge ${Math.round(s.marketMod * 100)} %). ${Math.ceil(left)} mån kvar.`, kind: "warn" });
+      } else {
+        s.marketMod = +(s.marketMod * 1.012).toFixed(3);
+      }
+      s.crisisMonthsLeft = left - 1;
+      if (s.crisisMonthsLeft === 0)
+        events.push({ t: `🌅 Krisen är över — kreditmarknaden öppnar igen och priserna bottnar ur. Nu byggs nästa cykel.`, kind: "event" });
+    }
+
+    // B4 · Konkurrensverket: tillsyn och tvångsreglering vid dominans.
+    {
+      let supervised = 0;
+      for (const d of DISTRICTS) {
+        if (districtShareOf(s, d.id) >= DOMINANCE_SUPERVISED_SHARE) {
+          supervised += 1;
+          if (Math.random() < 0.02) {
+            const target = s.portfolio.find(
+              (p) => p.district === d.id && p.status === "klar" && p.type === "bostad" && !p.regulated,
+            );
+            if (target) {
+              s.portfolio = s.portfolio.map((p) => (p.id === target.id ? { ...p, regulated: true } : p));
+              events.push({
+                t: `⚖️ KONKURRENSVERKET: Din dominans i ${d.name} leder till tvångsreglering av ${target.typeLabel} (hyra −20 %, bostadskön tar över).`,
+                kind: "warn",
+              });
+            }
+          }
+        }
+      }
+      if (supervised > 0) {
+        // Efter kassaflödesappliceringen → dras direkt ur kassan.
+        s.cash -= supervised * SUPERVISION_FEE;
+        if (s.month % 3 === 0)
+          events.push({ t: `⚖️ Tillsynsavgift: ${kr(supervised * SUPERVISION_FEE)}/mån (dominans i ${supervised} distrikt).`, kind: "expense" });
+      }
+    }
+
+    // C6 · Megaprojekt tickar och invigs.
+    if ((s.megaActive ?? []).length > 0) {
+      const doneMega: NonNullable<GameState["megaActive"]> = [];
+      s.megaActive = (s.megaActive ?? [])
+        .map((m) => ({ ...m, monthsLeft: m.monthsLeft - 1 }))
+        .filter((m) => {
+          if (m.monthsLeft <= 0) {
+            doneMega.push(m);
+            return false;
+          }
+          return true;
+        });
+      for (const m of doneMega) {
+        const proj = MEGA_PROJECTS.find((x) => x.id === m.projectId)!;
+        s.megaCompleted = [...(s.megaCompleted ?? []), proj.id];
+        s.districtDev = {
+          ...(s.districtDev ?? {}),
+          [m.district]: +(((s.districtDev?.[m.district] ?? 1) + proj.devBoost).toFixed(3)),
+        };
+        s.reputation = Math.min(100, s.reputation + proj.reputation);
+        events.push({
+          t: `${proj.icon} INVIGNING: ${proj.name} står klar! Hela staden firar — området lyfter och ditt namn skrivs in i historien.`,
+          kind: "event",
+        });
+      }
+    }
+  }
+
   // ── AI-konkurrenter agerar (riktiga portföljer + personligheter) ─
   // Rivalernas ekonomi värderas med samma formel som spelarens och
   // andas därmed med konjunktur, distriktutveckling och marknadsläge.
@@ -1006,7 +1153,7 @@ export function advanceMonth(state: GameState): GameState {
   const buyoutCandidates = s.portfolio.filter(
     (p) => p.status === "klar" && !offers.some((o) => o.propId === p.id),
   );
-  if (buyoutCandidates.length > 0 && Math.random() < 0.09) {
+  if (buyoutCandidates.length > 0 && s.competitors.length > 0 && Math.random() < 0.09) {
     const target = pick(buyoutCandidates);
     const premium = rnd(1.1, 1.4);
     const amount = Math.round(propMarketValue(target, s) * premium);
@@ -1018,7 +1165,7 @@ export function advanceMonth(state: GameState): GameState {
         propId: target.id,
         propLabel: target.typeLabel,
         districtName: target.districtName,
-        from: pick(AI_NAMES),
+        from: pick(s.competitors).name,
         amount,
         expiresIn: 3,
       },
@@ -1043,9 +1190,9 @@ export function advanceMonth(state: GameState): GameState {
     if (existing.length === 1) {
       // Budkrig: ett bud ligger redan – 25 % chans att en annan aktör
       // bjuder över. Vänta med att svara och priset kan stiga.
-      if (Math.random() < 0.25) {
+      if (Math.random() < 0.25 && s.competitors.length > 1) {
         const rivalBid = Math.round((existing[0].amount * (1.03 + Math.random() * 0.05)) / 10_000) * 10_000;
-        const from = pick(AI_NAMES.filter((n) => n !== existing[0].from));
+        const from = pick(s.competitors.filter((c) => c.name !== existing[0].from)).name;
         offers = [
           ...offers,
           { id: newId(), kind: "listing", propId: p.id, propLabel: p.typeLabel, districtName: p.districtName, from, amount: rivalBid, expiresIn: 2 },
@@ -1054,9 +1201,9 @@ export function advanceMonth(state: GameState): GameState {
       }
       continue;
     }
-    if (Math.random() < interestChance(A, p.forSale!.ask, value, s.marketSentiment ?? 1)) {
+    if (s.competitors.length > 0 && Math.random() < interestChance(A, p.forSale!.ask, value, s.marketSentiment ?? 1)) {
       const amount = offerAmount(A, p.forSale!.ask, value);
-      const from = pick(AI_NAMES);
+      const from = pick(s.competitors).name;
       offers = [
         ...offers,
         { id: newId(), kind: "listing", propId: p.id, propLabel: p.typeLabel, districtName: p.districtName, from, amount, expiresIn: 3 },
@@ -1068,9 +1215,9 @@ export function advanceMonth(state: GameState): GameState {
   for (const pkg of s.salePackages ?? []) {
     if (offers.some((o) => o.packageId === pkg.id)) continue;
     const st = packageStats(pkg, s);
-    if (Math.random() < st.chance) {
+    if (s.competitors.length > 0 && Math.random() < st.chance) {
       const amount = packageOfferAmount(pkg, s);
-      const from = pick(AI_NAMES);
+      const from = pick(s.competitors).name;
       offers = [
         ...offers,
         {

@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import type { Group, Mesh, MeshStandardMaterial } from "three";
+import { useGameStore } from "../store/gameStore";
 
 /** En rökpuff som stiger, växer och tonar ut i loop. */
 function Puff({ x, y, z, phase, drift }: { x: number; y: number; z: number; phase: number; drift: number }) {
@@ -190,8 +191,49 @@ function Boat({ x, z, phase, color }: { x: number; z: number; phase: number; col
   );
 }
 
+/** Ägarens yacht "M/Y Imperium" – syns i hamnen när lyxen är köpt. */
+function Yacht() {
+  const ref = useRef<Group>(null);
+  useFrame((state) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    g.position.y = Math.sin(t * 0.6 + 1.3) * 0.22;
+    g.rotation.z = Math.sin(t * 0.45) * 0.015;
+  });
+  return (
+    <group ref={ref} position={[-60, 0, 340]}>
+      {/* Slank vit skrov med indigolinje */}
+      <mesh castShadow position={[0, 1.2, 0]}>
+        <boxGeometry args={[20, 2, 4.2]} />
+        <meshStandardMaterial color="#f4f7fa" roughness={0.25} metalness={0.1} />
+      </mesh>
+      <mesh position={[0, 0.55, 0]}>
+        <boxGeometry args={[20.1, 0.35, 4.3]} />
+        <meshStandardMaterial color="#4f63e4" />
+      </mesh>
+      {/* Två däckshus i glas */}
+      <mesh castShadow position={[-2, 2.9, 0]}>
+        <boxGeometry args={[9, 1.6, 3.4]} />
+        <meshStandardMaterial color="#dfe8f0" roughness={0.2} metalness={0.3} />
+      </mesh>
+      <mesh castShadow position={[-3.5, 4.1, 0]}>
+        <boxGeometry args={[5, 1.1, 2.6]} />
+        <meshStandardMaterial color="#f4f7fa" roughness={0.25} />
+      </mesh>
+      {/* Radarmast + ägarflagga i aktern */}
+      <mesh position={[-4.5, 5.4, 0]}>
+        <cylinderGeometry args={[0.08, 0.12, 1.8, 6]} />
+        <meshStandardMaterial color="#8a94a0" metalness={0.5} />
+      </mesh>
+      <Flag x={8.5} y={2.2} z={0} color="#4f63e4" />
+    </group>
+  );
+}
+
 /** Kajen med kranar, containrar och fartyg – Hamnens ansikte. */
 export function Harbor() {
+  const hasYacht = useGameStore((s) => (s.state.ownerLuxuries ?? []).includes("yacht"));
   return (
     <>
       {/* Kajkant i betong längs vattnet, söder om hamnkvarteren */}
@@ -199,6 +241,7 @@ export function Harbor() {
         <boxGeometry args={[640, 1, 16]} />
         <meshStandardMaterial color={CONCRETE} />
       </mesh>
+      {hasYacht && <Yacht />}
       <HarborCrane x={70} z={312} phase={0} />
       <HarborCrane x={-90} z={312} phase={2.2} />
       <HarborCrane x={230} z={312} phase={4.1} />

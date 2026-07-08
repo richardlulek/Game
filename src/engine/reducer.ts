@@ -7,7 +7,9 @@
 import { PARCELS } from "./city";
 import { nextTier, qualifiesFor } from "./company";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
+import { fullyOwnedBlocks } from "./blocks";
 import { equityOf, loanTerms } from "./finance";
+import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
 import { kr, msek, pct } from "./format";
 import { calcCapacity, genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
@@ -168,17 +170,20 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p) return state;
       const { maxLtv } = loanTerms(state);
       const down = p.askPrice * (1 - maxLtv);
-      if (state.cash < down)
+      // Konkurrensverket: dominans i distriktet → förvärvsprövning med avgift.
+      const share = districtShareOf(state, p.district);
+      const reviewFee = share >= DOMINANCE_REVIEW_SHARE ? Math.round(p.askPrice * REVIEW_FEE_PCT) : 0;
+      if (state.cash < down + reviewFee)
         return log(
           state,
-          `För lite kontanter. Handpenning ${msek(down)} krävs (LTV ${pct(maxLtv)}).`,
+          `För lite kontanter. Handpenning ${msek(down)}${reviewFee > 0 ? ` + prövningsavgift ${msek(reviewFee)} (dominans i ${p.districtName})` : ""} krävs (LTV ${pct(maxLtv)}).`,
           "warn",
         );
       const loan = p.askPrice - down;
       const txEntry = { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: "Spelaren" };
       return {
         ...state,
-        cash: state.cash - down,
+        cash: state.cash - down - reviewFee,
         debt: state.debt + loan,
         reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
         portfolio: [...state.portfolio, { ...p, owned: true, purchasePrice: p.askPrice, txHistory: [...(p.txHistory ?? []), txEntry] }],
@@ -187,7 +192,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         competingBid: state.competingBid?.listingId === p.id ? undefined : state.competingBid,
         log: [
           {
-            t: `Köpte ${p.typeLabel} i ${p.districtName} för ${msek(p.askPrice)} (lån ${msek(loan)}).`,
+            t: `Köpte ${p.typeLabel} i ${p.districtName} för ${msek(p.askPrice)} (lån ${msek(loan)})${reviewFee > 0 ? ` · Konkurrensverkets prövningsavgift ${msek(reviewFee)}` : ""}.`,
             kind: "buy",
           },
           ...state.log,
@@ -743,6 +748,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "REFINANCE": {
+      // Fastighetskris: refinansieringsfönstret är stängt – bankerna
+      // lånar inte ut mot fallande säkerheter.
+      if ((state.crisisMonthsLeft ?? 0) > 0)
+        return log(state, "🏦 Kreditmarknaden är stängd under krisen — ingen ny belåning förrän marknaden stabiliserats.", "warn");
       const { maxLtv } = loanTerms(state);
       const portVal = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
       const maxDebt = Math.floor(portVal * maxLtv);
@@ -1468,6 +1477,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "ISSUE_BOND": {
       if (state.reputation < 70) return log(state, "Obligationsemission kräver reputation ≥ 70.", "warn");
+      if ((state.crisisMonthsLeft ?? 0) > 0)
+        return log(state, "📜 Obligationsmarknaden är fryst under krisen — inga emissioner.", "warn");
       const amount = Math.min(action.amount, 50_000_000);
       if (amount < 1_000_000) return log(state, "Minsta obligation är 1 MSEK.", "warn");
       const rate = Math.max(3.5, state.interestRate + 1.2);
@@ -1641,11 +1652,62 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "PAY_DIVIDEND": {
       const amt = Math.min(action.amount, state.cash);
       if (amt <= 100000) return log(state, "Minsta utdelning är 100 000 kr.", "warn");
+      // Utdelningen hamnar i ägarens privata förmögenhet (Bolag → Arv)
+      // och blidkar kapitalmarknaden om en aktivistfond bygger position.
+      const relief = dividendRelief(amt, equityOf(state));
       return {
         ...state,
         cash: state.cash - amt,
         dividendsPaid: (state.dividendsPaid ?? 0) + amt,
-        log: [{ t: `💰 Utdelning: ${msek(amt)} utbetald till aktieägarna.`, kind: "income" }, ...state.log],
+        ownerWealth: (state.ownerWealth ?? 0) + amt,
+        takeoverPressure: Math.max(0, (state.takeoverPressure ?? 0) - relief),
+        log: [{ t: `💰 Utdelning: ${msek(amt)} till ägaren${relief >= 1 ? ` – aktivistfonden lugnas (−${Math.round(relief)} pe)` : ""}.`, kind: "income" }, ...state.log],
+      };
+    }
+    case "START_MEGA": {
+      // Megaprojekt: kräver ett HELÄGT kvarter och en rejäl kassa.
+      // Prestige – inte avkastning – är belöningen.
+      const proj = MEGA_PROJECTS.find((m) => m.id === action.projectId);
+      if (!proj) return state;
+      if ((state.megaCompleted ?? []).includes(proj.id) || (state.megaActive ?? []).some((m) => m.projectId === proj.id))
+        return log(state, `${proj.name} är redan ${state.megaCompleted?.includes(proj.id) ? "byggd" : "under uppförande"}.`, "info");
+      if (!fullyOwnedBlocks(state).includes(action.blockId))
+        return log(state, "Megaprojekt kräver ett helägt kvarter som byggplats.", "warn");
+      if ((state.megaActive ?? []).some((m) => m.blockId === action.blockId))
+        return log(state, "Kvarteret används redan av ett annat megaprojekt.", "warn");
+      if (state.cash < proj.cost)
+        return log(state, `${proj.name} kostar ${msek(proj.cost)} — kassan räcker inte.`, "warn");
+      const district = state.portfolio.find(
+        (p) => p.parcelId && PARCELS.find((pc) => pc.id === p.parcelId)?.blockId === action.blockId,
+      )?.district ?? "centrum";
+      return {
+        ...state,
+        cash: state.cash - proj.cost,
+        megaActive: [
+          ...(state.megaActive ?? []),
+          { projectId: proj.id, blockId: action.blockId, district, monthsLeft: proj.months, totalMonths: proj.months },
+        ],
+        reputation: Math.min(100, state.reputation + 2),
+        log: [
+          { t: `${proj.icon} MEGAPROJEKT: ${proj.name} byggstartar (${msek(proj.cost)}, klart om ~${proj.months} mån). Staden häpnar.`, kind: "event" },
+          ...state.log,
+        ],
+      };
+    }
+    case "BUY_LUXURY": {
+      // Ägarens privata pengar (utdelningar) – inte bolagets kassa.
+      const lux = LUXURIES.find((l) => l.id === action.luxuryId);
+      if (!lux) return state;
+      if ((state.ownerLuxuries ?? []).includes(lux.id))
+        return log(state, `${lux.name} ägs redan.`, "info");
+      if ((state.ownerWealth ?? 0) < lux.cost)
+        return log(state, `${lux.name} kostar ${msek(lux.cost)} — dela ut mer vinst till ägaren först.`, "warn");
+      return {
+        ...state,
+        ownerWealth: (state.ownerWealth ?? 0) - lux.cost,
+        ownerLuxuries: [...(state.ownerLuxuries ?? []), lux.id],
+        reputation: Math.min(100, state.reputation + (lux.reputation ?? 0)),
+        log: [{ t: `${lux.icon} ${lux.name} — ${lux.desc}`, kind: "event" }, ...state.log],
       };
     }
     case "TOGGLE_SHORT_TERM": {

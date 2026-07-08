@@ -407,6 +407,9 @@ export interface Competitor {
   strategy?: CompetitorStrategy;
   preferredDistrict?: string;
   agenda?: CompetitorAgenda;
+  /** Internationell fond: kliver in i slutspelet, hålls kapitaliserad
+   *  i nivå med spelaren och tävlar aggressivt om varje affär. */
+  institutional?: boolean;
 }
 
 /** Bransch på börsen. */
@@ -559,6 +562,16 @@ export interface GameState {
   salePackages?: SalePackage[];
   /** Pågående kommunala infrastrukturprojekt. */
   infraProjects?: InfraProject[];
+  /** Fastighetskris: månader kvar av kraschen (0/undefined = ingen kris). */
+  crisisMonthsLeft?: number;
+  /** Pågående megaprojekt (prestige-slutspel). */
+  megaActive?: { projectId: string; blockId: string; district: string; monthsLeft: number; totalMonths: number }[];
+  /** Färdigställda megaprojekt (projekt-id:n). */
+  megaCompleted?: string[];
+  /** Ägarens privata förmögenhet – byggs av utdelningar. */
+  ownerWealth?: number;
+  /** Ägarens köpta lyx och donationer (lyx-id:n). */
+  ownerLuxuries?: string[];
   pendingDecision: PendingDecision | null;
   stocks: Stock[];
   marketSentiment: number;
@@ -682,6 +695,8 @@ export type GameAction =
   | { type: "DRAW_REVOLVING"; amount: number }
   | { type: "REPAY_REVOLVING"; amount: number }
   | { type: "PAY_DIVIDEND"; amount: number }
+  | { type: "START_MEGA"; projectId: string; blockId: string }
+  | { type: "BUY_LUXURY"; luxuryId: string }
   | { type: "TOGGLE_SHORT_TERM"; id: number }
   | { type: "APPLY_ZONE_CHANGE"; id: number; targetType: PropTypeKey }
   | { type: "INVEST_DISTRICT"; districtId: string; amount: number }

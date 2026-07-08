@@ -9,6 +9,7 @@ import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";
 import { CompanyPanel } from "./CompanyPanel";
 import { FinancialStatements } from "./FinancialStatements";
+import { LegacyPanel } from "./LegacyPanel";
 import { GroupOverview } from "./GroupOverview";
 import { KPIPanel } from "./KPIPanel";
 import { MilestonesPanel } from "./MilestonesPanel";
@@ -18,6 +19,7 @@ import { PortfolioTable } from "./PortfolioTable";
 const HUB_TABS = [
   { id: "bolaget", label: "Bolaget", icon: "🏠" },
   { id: "bokslut", label: "Bokslut", icon: "📒" },
+  { id: "arv", label: "Arv", icon: "👑" },
   { id: "milestones", label: "Milstolpar", icon: "🏅" },
   { id: "overview", label: "Översikt", icon: "📊" },
   { id: "kpi", label: "KPI", icon: "📐" },
@@ -35,8 +37,9 @@ export function CompanyHub({
 }) {
   const [tab, setTab] = useState<HubTab>("bolaget");
   const unlocked = unlockedWindows(state.companyLevel ?? 1);
-  // Bokslutet är alltid öppet – ekonomisk grundinfo hör till nivå 1.
-  const isOpen = (id: HubTab) => id === "bolaget" || id === "bokslut" || unlocked.has(id);
+  // Bokslut och Arv är alltid öppna – ekonomi och långsiktiga mål
+  // ska synas från dag ett.
+  const isOpen = (id: HubTab) => id === "bolaget" || id === "bokslut" || id === "arv" || unlocked.has(id);
   const active: HubTab = isOpen(tab) ? tab : "bolaget";
 
   return (
@@ -83,6 +86,7 @@ export function CompanyHub({
 
       {active === "bolaget" && <CompanyPanel state={state} dispatch={dispatch} />}
       {active === "bokslut" && <FinancialStatements state={state} />}
+      {active === "arv" && <LegacyPanel state={state} dispatch={dispatch} />}
       {active === "milestones" && <MilestonesPanel state={state} />}
       {active === "overview" && <PortfolioTable state={state} dispatch={dispatch} />}
       {active === "kpi" && <KPIPanel state={state} dispatch={dispatch} />}
