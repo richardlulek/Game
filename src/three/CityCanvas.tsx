@@ -136,8 +136,8 @@ function Water() {
            uniform float uTime;
            // h(x,y) = A·sin(ax + bt) + B·cos(c(y + 0.35x) + dt)
            float waveH(vec2 p) {
-             return sin(p.x * 0.045 + uTime * 0.8) * 0.32 +
-                    cos((p.y + p.x * 0.35) * 0.07 + uTime * 0.55) * 0.22;
+             return sin(p.x * 0.045 + uTime * 0.8) * 0.22 +
+                    cos((p.y + p.x * 0.35) * 0.07 + uTime * 0.55) * 0.15;
            }`,
         )
         .replace(
@@ -145,9 +145,9 @@ function Water() {
           `#include <beginnormal_vertex>
            {
              float ph2 = (position.y + position.x * 0.35) * 0.07 + uTime * 0.55;
-             float dhdx = 0.32 * 0.045 * cos(position.x * 0.045 + uTime * 0.8)
-                        - 0.22 * 0.07 * 0.35 * sin(ph2);
-             float dhdy = -0.22 * 0.07 * sin(ph2);
+             float dhdx = 0.22 * 0.045 * cos(position.x * 0.045 + uTime * 0.8)
+                        - 0.15 * 0.07 * 0.35 * sin(ph2);
+             float dhdy = -0.15 * 0.07 * sin(ph2);
              objectNormal = normalize(vec3(-dhdx, -dhdy, 1.0));
            }`,
         )
@@ -164,7 +164,11 @@ function Water() {
     if (shader) shader.uniforms.uTime.value = clock.elapsedTime;
   });
   return (
-    <mesh rotation-x={-Math.PI / 2} position={[20, -0.3, 430]} material={material}>
+    // Ytan ligger ÖVER markplanet (−0.05): med basen på 0.5 och vågor
+    // om ±0.37 håller sig hela havet synligt (0.13–0.87) och under
+    // kajkantens topp (1.0) – tidigare låg basen på −0.3 så att bara
+    // vågtopparna stack upp genom marken som blå fläckar.
+    <mesh rotation-x={-Math.PI / 2} position={[20, 0.5, 430]} material={material}>
       <planeGeometry args={[900, 220, 64, 16]} />
     </mesh>
   );
