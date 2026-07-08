@@ -1,14 +1,48 @@
 /* ============================================================
    Gemensamma byggstenar för 3D-byggnaderna: våningshöjd,
-   pekar-hanterare, uppväxtanimation och byggskal. Själva
-   byggnadsfamiljerna per distrikt bor i districtBuildings.tsx.
+   pekar-hanterare, uppväxtanimation, byggskal och fasadboxar.
+   Själva byggnadsfamiljerna per distrikt bor i districtBuildings.tsx.
    ============================================================ */
 
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useRef } from "react";
-import type { Group, Mesh } from "three";
+import { BoxGeometry, type Group, type Mesh } from "three";
 
 export const FLOOR_HEIGHT = 3;
+
+/**
+ * Fasadbox: EN geometri, ETT material, EN draw call. Fönsterkaklets
+ * upprepning bakas in i UV:erna (sidoytor = kolumner × våningar) och
+ * topp/botten pekar på en mörk pixel i kaklet → mörkare tak utan
+ * separat toppmaterial. Geometrierna delas via cache – hus med samma
+ * mått delar GPU-buffert.
+ */
+const facadeGeoCache = new Map<string, BoxGeometry>();
+
+export function facadeBoxGeometry(w: number, h: number, d: number, glass = false): BoxGeometry {
+  const floors = Math.max(1, Math.round(h / FLOOR_HEIGHT));
+  const key = `${w.toFixed(2)}:${h.toFixed(2)}:${d.toFixed(2)}:${glass ? "g" : "w"}`;
+  const hit = facadeGeoCache.get(key);
+  if (hit) return hit;
+  const g = new BoxGeometry(w, h, d);
+  g.clearGroups(); // ett material för hela boxen → en draw call
+  const uv = g.attributes.uv;
+  const scaleFace = (face: number, cols: number, rows: number) => {
+    for (let i = face * 4; i < face * 4 + 4; i++)
+      uv.setXY(i, (uv.getX(i) * cols) / 4, (uv.getY(i) * rows) / 4);
+  };
+  const colsX = Math.max(glass ? 3 : 2, Math.round(d / (glass ? 4 : 5)));
+  const colsZ = Math.max(glass ? 3 : 2, Math.round(w / (glass ? 4 : 5)));
+  scaleFace(0, colsX, floors); // +x
+  scaleFace(1, colsX, floors); // -x
+  scaleFace(4, colsZ, floors); // +z
+  scaleFace(5, colsZ, floors); // -z
+  // Topp/botten: mörk punkt i kaklet (fönsterpost resp. panelpost).
+  const dark: [number, number] = glass ? [0.006, 0.5] : [0.123, 0.87];
+  for (let i = 8; i < 16; i++) uv.setXY(i, dark[0], dark[1]);
+  facadeGeoCache.set(key, g);
+  return g;
+}
 
 export interface PointerHandlers {
   onClick?: (e: { stopPropagation: () => void }) => void;

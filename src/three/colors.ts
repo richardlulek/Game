@@ -48,6 +48,20 @@ export const TREE_TRUNK = "#7a5a3a";
 export const TREE_GREENS = ["#5e7f4e", "#6f8f57", "#54754a"];
 export const CAR_COLORS = ["#b6413a", "#3c6ca8", "#d9d9d9", "#3f3f3f", "#c9a13b", "#5a7f66"];
 
+/** Markfärg per distrikt: gårdssten i stan, gräs i ytterområdena. */
+export const PLOT_COLORS: Record<string, string> = {
+  centrum: "#cfccc2",
+  finans: "#c6c9cc",
+  innerstad: "#ccc8bc",
+  hamnen: "#b8b8ae",
+  industri: "#a8a69a",
+  förort: "#a9b892",
+  kulle: "#adbb95",
+};
+export const PLOT_FALLBACK = "#c8c5ba";
+export const PARK_GREEN = "#a9bb94";
+export const SIDEWALK = "#c3c0b4";
+
 /** Subtil zonton per distrikt. */
 export const DISTRICT_TINTS: Record<string, string> = {
   centrum: "#c4bfae",

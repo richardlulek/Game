@@ -20,7 +20,7 @@ import { useEffect, useMemo } from "react";
 import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { PropTypeKey } from "../engine/types";
-import { FLOOR_HEIGHT, type PointerHandlers } from "./BuildingShapes";
+import { FLOOR_HEIGHT, facadeBoxGeometry, type PointerHandlers } from "./BuildingShapes";
 import {
   PALETTE_FUNKIS,
   PALETTE_TEGEL,
@@ -54,54 +54,33 @@ export function districtFloors(parcel: Parcel, hash: number, area?: number): num
   }
 }
 
-/** Fasadmaterial med fönstergrid (delad textur, tintad av färgen). */
-function useWindows(color: string, floors: number, w: number, windows: boolean, selected: boolean) {
-  const mats = useMemo(() => {
-    const side = new MeshStandardMaterial({ color, roughness: 0.82, metalness: 0.02 });
-    if (windows) side.map = windowTexture(Math.max(2, Math.round(w / 5)), Math.max(1, floors));
-    const top = new MeshStandardMaterial({ color: new Color(color).multiplyScalar(0.72), roughness: 0.95 });
-    return [side, side, top, top, side, side];
-  }, [color, floors, w, windows]);
+/**
+ * Fasadmaterial: ETT material per hus (fönstergriden bakas i stället in
+ * i fasadboxens UV:er – se facadeBoxGeometry). Texturen är cachad och
+ * delas av alla hus; färgen tintar det vita kaklet.
+ */
+function useFacade(color: string, windows: boolean, selected: boolean, glass = false) {
+  const mat = useMemo(() => {
+    const m = new MeshStandardMaterial({
+      color,
+      roughness: glass ? 0.35 : 0.82,
+      metalness: glass ? 0.25 : 0.02,
+    });
+    if (windows) m.map = glass ? glassTexture(4, 4) : windowTexture(4, 4); // repeat 1×1 – UV:erna styr
+    return m;
+  }, [color, windows, glass]);
   useEffect(() => {
-    for (const m of mats) {
-      m.emissive.set(selected ? "#ffffff" : "#000000");
-      m.emissiveIntensity = selected ? 0.18 : 0;
-    }
-  }, [selected, mats]);
+    mat.emissive.set(selected ? "#ffffff" : "#000000");
+    mat.emissiveIntensity = selected ? (glass ? 0.22 : 0.18) : 0;
+  }, [selected, glass, mat]);
   useEffect(
     () => () => {
-      mats[0].map?.dispose();
-      mats[0].dispose();
-      mats[2].dispose();
+      // Texturen är cachad och delad – disposa bara materialet.
+      mat.dispose();
     },
-    [mats],
+    [mat],
   );
-  return mats;
-}
-
-/** Curtain wall-material för finanstornen. */
-function useGlass(color: string, floors: number, w: number, windows: boolean, selected: boolean) {
-  const mats = useMemo(() => {
-    const side = new MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.25 });
-    if (windows) side.map = glassTexture(Math.max(3, Math.round(w / 4)), Math.max(4, floors));
-    const top = new MeshStandardMaterial({ color: new Color(color).multiplyScalar(0.55), roughness: 0.6, metalness: 0.3 });
-    return [side, side, top, top, side, side];
-  }, [color, floors, w, windows]);
-  useEffect(() => {
-    for (const m of mats) {
-      m.emissive.set(selected ? "#ffffff" : "#000000");
-      m.emissiveIntensity = selected ? 0.22 : 0;
-    }
-  }, [selected, mats]);
-  useEffect(
-    () => () => {
-      mats[0].map?.dispose();
-      mats[0].dispose();
-      mats[2].dispose();
-    },
-    [mats],
-  );
-  return mats;
+  return mat;
 }
 
 /** Riktning (x,z) mot gatan för butiksband m.m. – första sanna kanten. */
@@ -149,7 +128,7 @@ export interface DistrictBuildingProps {
 
 function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers, seed }: DistrictBuildingProps) {
   const h = floors * FLOOR_HEIGHT;
-  const mats = useWindows(color, floors, parcel.w, windows, selected);
+  const mat = useFacade(color, windows, selected);
   const [sx, sz] = streetSide(parcel);
   // Gårdsflygel: om tomten har en insida (motsatt gatusida) dras
   // huvudvolymen mot gatan och en låg flygel fyller gårdssidan.
@@ -161,9 +140,7 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
   const wingH = FLOOR_HEIGHT * (1 + (seed % 2));
   return (
     <group {...handlers}>
-      <mesh castShadow receiveShadow material={mats} position={[offX, h / 2, offZ]}>
-        <boxGeometry args={[mainW, h, mainD]} />
-      </mesh>
+      <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(mainW, h, mainD)} position={[offX, h / 2, offZ]} dispose={null} />
       {/* Takräcke/parapet */}
       <mesh castShadow position={[offX, h + 0.35, offZ]}>
         <boxGeometry args={[mainW * 0.99, 0.7, mainD * 0.99]} />
@@ -194,7 +171,7 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
 /* ── Finans: glastorn med höjdhierarki ────────────────────────────── */
 
 function FinanceTower({ parcel, floors, color, windows, selected, handlers, seed }: DistrictBuildingProps) {
-  const mats = useGlass(color, floors, parcel.w, windows, selected);
+  const mat = useFacade(color, windows, selected, true);
   const w = parcel.w * 0.72;
   const d = parcel.d * 0.72;
   const h = floors * FLOOR_HEIGHT;
@@ -204,29 +181,17 @@ function FinanceTower({ parcel, floors, color, windows, selected, handlers, seed
     <group {...handlers}>
       {style === 1 ? (
         <>
-          <mesh castShadow receiveShadow material={mats} position={[0, h * 0.3, 0]}>
-            <boxGeometry args={[w, h * 0.6, d]} />
-          </mesh>
-          <mesh castShadow receiveShadow material={mats} position={[0, h * 0.6 + h * 0.125, 0]}>
-            <boxGeometry args={[w * 0.78, h * 0.25, d * 0.78]} />
-          </mesh>
-          <mesh castShadow receiveShadow material={mats} position={[0, h * 0.85 + h * 0.075, 0]}>
-            <boxGeometry args={[w * 0.55, h * 0.15, d * 0.55]} />
-          </mesh>
+          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h * 0.6, d, true)} position={[0, h * 0.3, 0]} dispose={null} />
+          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w * 0.78, h * 0.25, d * 0.78, true)} position={[0, h * 0.6 + h * 0.125, 0]} dispose={null} />
+          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w * 0.55, h * 0.15, d * 0.55, true)} position={[0, h * 0.85 + h * 0.075, 0]} dispose={null} />
         </>
       ) : style === 2 ? (
         <>
-          <mesh castShadow receiveShadow material={mats} position={[0, h * 0.425, 0]}>
-            <boxGeometry args={[w, h * 0.85, d]} />
-          </mesh>
-          <mesh castShadow receiveShadow material={mats} position={[0, h * 0.85 + h * 0.075, 0]} rotation-y={Math.PI / 4}>
-            <boxGeometry args={[w * 0.6, h * 0.15, d * 0.6]} />
-          </mesh>
+          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h * 0.85, d, true)} position={[0, h * 0.425, 0]} dispose={null} />
+          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w * 0.6, h * 0.15, d * 0.6, true)} position={[0, h * 0.85 + h * 0.075, 0]} rotation-y={Math.PI / 4} dispose={null} />
         </>
       ) : (
-        <mesh castShadow receiveShadow material={mats} position={[0, h / 2, 0]}>
-          <boxGeometry args={[w, h, d]} />
-        </mesh>
+        <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d, true)} position={[0, h / 2, 0]} dispose={null} />
       )}
       {/* Krona på landmärkestorn – lyser svagt */}
       {landmark && (
@@ -249,18 +214,14 @@ function FinanceTower({ parcel, floors, color, windows, selected, handlers, seed
 function InnerstadHouse({ parcel, type, floors, color, windows, selected, handlers, seed }: DistrictBuildingProps) {
   const h = floors * FLOOR_HEIGHT;
   const tegel = seed % 5 < 2; // ~40 % tegel, resten funkis
-  const facade = windows
-    ? color
-    : color; // spelobjekt behåller sin färg; ambient får palett via anroparen
-  const mats = useWindows(facade, floors, parcel.w, windows, selected);
+  const facade = color;
+  const mat = useFacade(facade, windows, selected);
   const [sx, sz] = streetSide(parcel);
   const w = parcel.w * 0.96;
   const d = parcel.d * 0.96;
   return (
     <group {...handlers}>
-      <mesh castShadow receiveShadow material={mats} position={[0, h / 2, 0]}>
-        <boxGeometry args={[w, h, d]} />
-      </mesh>
+      <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, 0]} dispose={null} />
       {tegel ? (
         // Valmat sadeltak – klassiskt tegelhus
         <HipRoof w={w} d={d} y={h + 1.1} rise={2.4} color={ROOF_RED} />
@@ -295,7 +256,7 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
 /* ── Förort: helt kvarter med lamellhus kring gård ────────────────── */
 
 function SuburbBlock({ parcel, floors, color, windows, selected, handlers, seed }: DistrictBuildingProps) {
-  const mats = useWindows(color, Math.min(4, floors), 10, windows, selected);
+  const mat = useFacade(color, windows, selected);
   const houses = 4 + (seed % 3); // 4–6 huskroppar
   const rows = 2;
   const perRow = Math.ceil(houses / rows);
@@ -312,9 +273,7 @@ function SuburbBlock({ parcel, floors, color, windows, selected, handlers, seed 
         const z = row === 0 ? -parcel.d / 2 + hd / 2 + 2.5 : parcel.d / 2 - hd / 2 - 2.5;
         return (
           <group key={i} position={[x, 0, z]}>
-            <mesh castShadow receiveShadow material={mats} position={[0, hh / 2, 0]}>
-              <boxGeometry args={[hw, hh, hd]} />
-            </mesh>
+            <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(hw, hh, hd)} position={[0, hh / 2, 0]} dispose={null} />
             <HipRoof w={hw} d={hd} y={hh + 0.8} rise={1.8} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
           </group>
         );
@@ -340,14 +299,12 @@ function SuburbBlock({ parcel, floors, color, windows, selected, handlers, seed 
 
 function Villa({ parcel, floors, color, windows, selected, handlers, seed }: DistrictBuildingProps) {
   const h = Math.min(2, floors) * FLOOR_HEIGHT;
-  const mats = useWindows(color, Math.min(2, floors), 8, windows, selected);
+  const mat = useFacade(color, windows, selected);
   const vw = parcel.w * 0.55;
   const vd = parcel.d * 0.55;
   return (
     <group {...handlers}>
-      <mesh castShadow receiveShadow material={mats} position={[0, h / 2, 0]}>
-        <boxGeometry args={[vw, h, vd]} />
-      </mesh>
+      <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(vw, h, vd)} position={[0, h / 2, 0]} dispose={null} />
       <mesh castShadow position={[0, h + 1.2, 0]} rotation-y={Math.PI / 4}>
         <coneGeometry args={[vw * 0.8, 2.4, 4]} />
         <meshStandardMaterial color={seed % 3 ? ROOF_RED : ROOF_DARK} />
@@ -371,7 +328,7 @@ function Villa({ parcel, floors, color, windows, selected, handlers, seed }: Dis
 
 function IndustryHall({ parcel, color, windows, selected, handlers, seed }: DistrictBuildingProps) {
   const hallH = 7 + (seed % 3) * 1.5;
-  const mats = useWindows(color, 2, parcel.w, windows, selected);
+  const mat = useFacade(color, windows, selected);
   const w = parcel.w * 0.92;
   const d = parcel.d * 0.8;
   const monitors = 2 + (seed % 2);
@@ -382,9 +339,7 @@ function IndustryHall({ parcel, color, windows, selected, handlers, seed }: Dist
         <boxGeometry args={[w + 1, 1, d + 1]} />
         <meshStandardMaterial color="#9a988e" roughness={0.95} />
       </mesh>
-      <mesh castShadow receiveShadow material={mats} position={[0, hallH / 2 + 1, 0]}>
-        <boxGeometry args={[w, hallH, d]} />
-      </mesh>
+      <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, hallH, d)} position={[0, hallH / 2 + 1, 0]} dispose={null} />
       {/* Monitortak (sågtandsprofil) */}
       {Array.from({ length: monitors }, (_, i) => (
         <group key={i} position={[-w / 2 + ((i + 0.5) * w) / monitors, hallH + 2.1, 0]}>
@@ -416,14 +371,12 @@ function IndustryHall({ parcel, color, windows, selected, handlers, seed }: Dist
 
 function HarborShed({ parcel, type, floors, color, windows, selected, handlers, seed }: DistrictBuildingProps) {
   const h = Math.max(2, floors) * FLOOR_HEIGHT * 0.9;
-  const mats = useWindows(color, Math.max(2, floors), parcel.w, windows, selected);
+  const mat = useFacade(color, windows, selected);
   const w = parcel.w * 0.9;
   const d = parcel.d * 0.78;
   return (
     <group {...handlers}>
-      <mesh castShadow receiveShadow material={mats} position={[0, h / 2, 0]}>
-        <boxGeometry args={[w, h, d]} />
-      </mesh>
+      <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, 0]} dispose={null} />
       {/* Valmat magasinstak */}
       <HipRoof w={w} d={d} y={h + 1.3} rise={2.8} color={seed % 2 ? ROOF_DARK : "#5d4a3a"} />
       {/* Lastport eller kontorsentré */}

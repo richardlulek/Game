@@ -1,7 +1,13 @@
 import { Html, MapControls, Sky } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import { Color, type PlaneGeometry } from "three";
+import { Color, MeshStandardMaterial } from "three";
+
+/** Minimal typ för onBeforeCompile-shadern (three exporterar ingen). */
+interface WaveShader {
+  uniforms: Record<string, { value: number }>;
+  vertexShader: string;
+}
 import { DISTRICT_ZONES, PARCELS, parcelById } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
 import { propMarketValue, propNOI } from "../engine/property";
@@ -16,7 +22,8 @@ import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
 import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
-import { LocalTraffic, Roads, ZoneStreetGrid } from "./Roads";
+import { Roads, Traffic } from "./Roads";
+import { StaticCity } from "./StaticCity";
 
 const LABEL_STYLE: React.CSSProperties = {
   pointerEvents: "none",
@@ -88,8 +95,18 @@ function CityParcels() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portfolio, listings, lots, competitors, overlay, state.marketMod, state.demandMod]);
 
+  // Statisk stad: allt icke-interaktivt instansieras/sammanslås.
+  const occupied = useMemo(() => new Set(byParcel.keys()), [byParcel]);
+  const lockedBlocks = useMemo(() => {
+    const unlocked = new Set(state.unlockedBlocks ?? []);
+    const locked = new Set<string>();
+    for (const p of PARCELS) if (p.expansion && !unlocked.has(p.blockId)) locked.add(p.blockId);
+    return locked;
+  }, [state.unlockedBlocks]);
+
   return (
     <>
+      <StaticCity occupied={occupied} lockedBlocks={lockedBlocks} />
       {PARCELS.map((pc) => (
         <ParcelNode key={pc.id} parcel={pc} content={byParcel.get(pc.id)} />
       ))}
@@ -97,30 +114,51 @@ function CityParcels() {
   );
 }
 
-/** Havsyta med mjuk dyning – vertexvågor + låg roughness ger solglitter. */
+/** Havsyta med mjuk dyning – vågorna räknas i vertex-shadern (GPU)
+ *  med analytiska normaler, i stället för en CPU-loop per bildruta. */
 function Water() {
-  const geo = useRef<PlaneGeometry>(null);
+  const material = useMemo(() => {
+    const m = new MeshStandardMaterial({ color: WATER, roughness: 0.32, metalness: 0.08 });
+    m.onBeforeCompile = (shader: WaveShader) => {
+      shader.uniforms.uTime = { value: 0 };
+      m.userData.shader = shader;
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+           uniform float uTime;
+           // h(x,y) = A·sin(ax + bt) + B·cos(c(y + 0.35x) + dt)
+           float waveH(vec2 p) {
+             return sin(p.x * 0.045 + uTime * 0.8) * 0.32 +
+                    cos((p.y + p.x * 0.35) * 0.07 + uTime * 0.55) * 0.22;
+           }`,
+        )
+        .replace(
+          "#include <beginnormal_vertex>",
+          `#include <beginnormal_vertex>
+           {
+             float ph2 = (position.y + position.x * 0.35) * 0.07 + uTime * 0.55;
+             float dhdx = 0.32 * 0.045 * cos(position.x * 0.045 + uTime * 0.8)
+                        - 0.22 * 0.07 * 0.35 * sin(ph2);
+             float dhdy = -0.22 * 0.07 * sin(ph2);
+             objectNormal = normalize(vec3(-dhdx, -dhdy, 1.0));
+           }`,
+        )
+        .replace(
+          "#include <begin_vertex>",
+          `#include <begin_vertex>
+           transformed.z += waveH(position.xy);`,
+        );
+    };
+    return m;
+  }, []);
   useFrame(({ clock }) => {
-    const g = geo.current;
-    if (!g) return;
-    const pos = g.attributes.position;
-    const t = clock.elapsedTime;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      pos.setZ(
-        i,
-        Math.sin(x * 0.045 + t * 0.8) * 0.32 +
-          Math.cos((y + x * 0.35) * 0.07 + t * 0.55) * 0.22,
-      );
-    }
-    pos.needsUpdate = true;
-    g.computeVertexNormals();
+    const shader = material.userData.shader as WaveShader | undefined;
+    if (shader) shader.uniforms.uTime.value = clock.elapsedTime;
   });
   return (
-    <mesh rotation-x={-Math.PI / 2} position={[20, -0.3, 430]}>
-      <planeGeometry ref={geo} args={[900, 220, 64, 16]} />
-      <meshStandardMaterial color={WATER} roughness={0.32} metalness={0.08} />
+    <mesh rotation-x={-Math.PI / 2} position={[20, -0.3, 430]} material={material}>
+      <planeGeometry args={[900, 220, 64, 16]} />
     </mesh>
   );
 }
@@ -185,14 +223,13 @@ export function CityCanvas() {
       <Water />
       <Roads />
       <DistrictPlates />
-      <ZoneStreetGrid />
       <CityParcels />
       <Harbor />
       <Landmarks />
       <Headquarters />
       <Clouds />
       <Birds />
-      <LocalTraffic />
+      <Traffic />
       <CameraRig />
     </Canvas>
   );

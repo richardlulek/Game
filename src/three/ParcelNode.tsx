@@ -9,9 +9,9 @@ import { msek } from "../engine/format";
 import type { Lot, Property, PropTypeKey } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
-import { CONSTRUCTION, RING_COLORS, RIVAL_COLORS, TREE_GREENS, TREE_TRUNK, TYPE_COLORS } from "./colors";
+import { CONSTRUCTION, PLOT_COLORS, PLOT_FALLBACK, RING_COLORS, RIVAL_COLORS, TYPE_COLORS } from "./colors";
 import { ConstructionShell, FLOOR_HEIGHT, GrowIn, type PointerHandlers } from "./BuildingShapes";
-import { DistrictBuilding, ambientColorFor, districtFloors } from "./districtBuildings";
+import { DistrictBuilding, districtFloors } from "./districtBuildings";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
@@ -22,17 +22,6 @@ export type ParcelContent =
   | { kind: "rival"; prop: Property; owner: string; ownerIndex: number };
 
 const CRANE_COLOR = "#d98e2b";
-
-/** Markfärg per distrikt: gårdssten i stan, gräs i ytterområdena. */
-const PLOT_COLORS: Record<string, string> = {
-  centrum: "#cfccc2",
-  finans: "#c6c9cc",
-  innerstad: "#ccc8bc",
-  hamnen: "#b8b8ae",
-  industri: "#a8a69a",
-  förort: "#a9b892",
-  kulle: "#adbb95",
-};
 
 /** Fasadfärg som mörknar/gråtonas när skicket sjunker. */
 function facadeColor(base: string, condition: number): string {
@@ -111,34 +100,6 @@ function Crane({ towerH }: { towerH: number }) {
   );
 }
 
-/** Träddunge på obebyggda rutor – gör tomrummen till små parker. */
-function ParcelTrees({ hash, w, d }: { hash: number; w: number; d: number }) {
-  const trees = 1 + (hash % 3);
-  return (
-    <>
-      {Array.from({ length: trees }, (_, i) => {
-        const h = (hash >> (i * 5 + 3)) & 0xff;
-        return (
-          <group
-            key={i}
-            position={[(((h % 13) - 6) / 13) * w * 0.7, 0, ((((h >> 3) % 13) - 6) / 13) * d * 0.7]}
-            scale={0.85 + ((h >> 5) % 4) * 0.12}
-          >
-            <mesh castShadow position={[0, 1.1, 0]}>
-              <cylinderGeometry args={[0.35, 0.5, 2.2, 6]} />
-              <meshStandardMaterial color={TREE_TRUNK} />
-            </mesh>
-            <mesh castShadow position={[0, 3.5, 0]}>
-              <coneGeometry args={[2.5, 4.6, 7]} />
-              <meshStandardMaterial color={TREE_GREENS[(h >> 2) % TREE_GREENS.length]} />
-            </mesh>
-          </group>
-        );
-      })}
-    </>
-  );
-}
-
 /** Inhägnad expansionsmark: detaljplaneskylt och lantmätarpinnar. */
 function LockedExpansion({ parcel }: { parcel: Parcel }) {
   return (
@@ -183,34 +144,26 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   const hash = parcelHash(parcel.id);
   // Låst expansionsmark: inhägnat fält tills detaljplanen auktionerats ut.
   if (parcel.expansion && !unlockedExpansion) return <LockedExpansion parcel={parcel} />;
-  // Täta distrikt fylls nästan helt av dekorativ bebyggelse.
-  const ambientChance =
-    parcel.district === "centrum" || parcel.district === "innerstad"
-      ? 80
-      : parcel.district === "finans" || parcel.district === "hamnen"
-        ? 70
-        : 58;
-  const hasAmbient = !content && !parcel.expansion && hash % 100 < ambientChance;
+  // Icke-interaktiva tomter (dekor, parker, mark) ritas billigt i StaticCity.
+  if (!content) return null;
 
-  const handlers: PointerHandlers = content
-    ? {
-        onClick: (e) => {
-          e.stopPropagation();
-          select(parcel.id);
-        },
-        onPointerOver: (e) => {
-          e.stopPropagation();
-          setHovered(true);
-        },
-        onPointerOut: () => setHovered(false),
-      }
-    : {};
+  const handlers: PointerHandlers = {
+    onClick: (e) => {
+      e.stopPropagation();
+      select(parcel.id);
+    },
+    onPointerOver: (e) => {
+      e.stopPropagation();
+      setHovered(true);
+    },
+    onPointerOut: () => setHovered(false),
+  };
 
   // Byggnadsdata
   let building: { type: PropTypeKey; floors: number; color: string; windows: boolean } | null = null;
   let underConstruction = false;
   let constructionProgress = 1;
-  if (content && "prop" in content) {
+  if ("prop" in content) {
     const p = content.prop;
     underConstruction = p.status === "bygger";
     constructionProgress = underConstruction
@@ -232,63 +185,27 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       color,
       windows: !overlayActive,
     };
-  } else if (hasAmbient) {
-    building = {
-      type: "bostad",
-      floors: districtFloors(parcel, hash),
-      color: overlayActive ? "#b0b4b0" : ambientColorFor(parcel.district, hash >> 2),
-      windows: !overlayActive,
-    };
   }
   const fullH = building ? building.floors * FLOOR_HEIGHT : 0;
 
   // Helägda kvarter markeras med guldring på varje ingående tomt.
   const ringColor = selected
     ? RING_COLORS.selected
-    : content?.kind === "owned" && content.blockOwned
+    : content.kind === "owned" && content.blockOwned
       ? "#e8c96a"
-      : content
-        ? RING_COLORS[content.kind]
-        : null;
+      : RING_COLORS[content.kind];
   const vacantOwned =
-    content?.kind === "owned" &&
+    content.kind === "owned" &&
     content.prop.status === "klar" &&
     content.prop.tenants.length === 0;
-  const isPark = !building && !content;
-  const e = parcel.edges;
 
   return (
     <group position={[parcel.x, 0, parcel.z]}>
-      {/* Markplatta (exakt tomtstorlek – grannar delar vägg i slutna kvarter) */}
+      {/* Markplatta (exakt tomtstorlek – klickytan för tomten) */}
       <mesh receiveShadow position={[0, 0.07, 0]} {...handlers}>
         <boxGeometry args={[parcel.w, 0.14, parcel.d]} />
-        <meshStandardMaterial color={isPark ? "#a9bb94" : (PLOT_COLORS[parcel.district] ?? "#c8c5ba")} />
+        <meshStandardMaterial color={PLOT_COLORS[parcel.district] ?? PLOT_FALLBACK} />
       </mesh>
-      {/* Trottoar längs gatusidorna */}
-      {e.n && (
-        <mesh receiveShadow position={[0, 0.1, -parcel.d / 2 - 1.5]}>
-          <boxGeometry args={[parcel.w + 3, 0.2, 3]} />
-          <meshStandardMaterial color="#c3c0b4" />
-        </mesh>
-      )}
-      {e.s && (
-        <mesh receiveShadow position={[0, 0.1, parcel.d / 2 + 1.5]}>
-          <boxGeometry args={[parcel.w + 3, 0.2, 3]} />
-          <meshStandardMaterial color="#c3c0b4" />
-        </mesh>
-      )}
-      {e.w && (
-        <mesh receiveShadow position={[-parcel.w / 2 - 1.5, 0.1, 0]}>
-          <boxGeometry args={[3, 0.2, parcel.d + 3]} />
-          <meshStandardMaterial color="#c3c0b4" />
-        </mesh>
-      )}
-      {e.e && (
-        <mesh receiveShadow position={[parcel.w / 2 + 1.5, 0.1, 0]}>
-          <boxGeometry args={[3, 0.2, parcel.d + 3]} />
-          <meshStandardMaterial color="#c3c0b4" />
-        </mesh>
-      )}
       {ringColor && (
         <mesh rotation-x={-Math.PI / 2} position={[0, 0.24, 0]}>
           <ringGeometry args={[Math.max(parcel.w, parcel.d) / 2 + 0.4, Math.max(parcel.w, parcel.d) / 2 + 2.2, 40]} />
@@ -320,7 +237,6 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
             />
           </GrowIn>
         )}
-        {isPark && <ParcelTrees hash={hash} w={parcel.w} d={parcel.d} />}
         {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
         {vacantOwned && building && (
           <mesh position={[0, Math.min(fullH, 150) + 1.6, 0]}>
@@ -329,7 +245,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
           </mesh>
         )}
       </group>
-      {hovered && content && (
+      {hovered && (
         <Html
           position={[0, (building ? Math.min(fullH, 62) * constructionProgress : 0) + 5.5, 0]}
           center

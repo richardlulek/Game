@@ -10,6 +10,10 @@ let sharedWindowCanvas: HTMLCanvasElement | null = null;
 let sharedGlassCanvas: HTMLCanvasElement | null = null;
 let sharedGroundCanvas: HTMLCanvasElement | null = null;
 
+/** Texturer cachas per repeat-nyckel: hus med samma mått delar GPU-textur.
+ *  Cachade texturer får ALDRIG disposas av enskilda material. */
+const textureCache = new Map<string, CanvasTexture>();
+
 /** Deterministisk PRNG så texturerna blir likadana varje session. */
 function mulberry32(seed: number) {
   let a = seed;
@@ -88,13 +92,23 @@ function drawWindowTile(): HTMLCanvasElement {
  * Canvasen delas – bara textur-objektet klonas.
  */
 export function windowTexture(repeatX: number, repeatY: number): CanvasTexture {
+  const key = `win:${repeatX}x${repeatY}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
   if (!sharedWindowCanvas) sharedWindowCanvas = drawWindowTile();
   const tex = new CanvasTexture(sharedWindowCanvas);
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(repeatX / 4, repeatY / 4);
   tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
   return tex;
+}
+
+/** Fönsterkakel med repeat (1,1) – för sammanslagen geometri där
+ *  upprepningen i stället bakas in i varje boxs UV-koordinater. */
+export function windowTileTexture(): CanvasTexture {
+  return windowTexture(4, 4); // repeat 1,1 (kaklet är 4×4 fönster)
 }
 
 /**
@@ -141,12 +155,16 @@ function drawGlassTile(): HTMLCanvasElement {
 
 /** Curtain wall-textur; repeat i paneler (bredd) × våningar (höjd), /4 internt. */
 export function glassTexture(repeatX: number, repeatY: number): CanvasTexture {
+  const key = `glass:${repeatX}x${repeatY}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
   if (!sharedGlassCanvas) sharedGlassCanvas = drawGlassTile();
   const tex = new CanvasTexture(sharedGlassCanvas);
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(repeatX / 4, repeatY / 4);
   tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
   return tex;
 }
 
