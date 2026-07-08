@@ -76,6 +76,12 @@ function CityParcels() {
   const byParcel = useMemo(() => {
     const m = new Map<string, ParcelContent>();
     const goldBlocks = new Set(state.ownedBlocks ?? []);
+    // Fastigheter med inkommet bud (enskilt eller via paket) får 📨-ikon.
+    const offerIds = new Set<number>();
+    for (const o of state.offers ?? []) {
+      offerIds.add(o.propId);
+      for (const id of o.propertyIds ?? []) offerIds.add(id);
+    }
     for (const p of portfolio)
       if (p.parcelId)
         m.set(p.parcelId, {
@@ -83,6 +89,7 @@ function CityParcels() {
           prop: p,
           tint: overlay !== "ingen" ? overlayTint(p, state, overlay) : undefined,
           blockOwned: goldBlocks.has(parcelById(p.parcelId)?.blockId ?? ""),
+          hasOffer: offerIds.has(p.id),
         });
     for (const p of listings) if (p.parcelId) m.set(p.parcelId, { kind: "listing", prop: p });
     for (const l of lots)
@@ -93,7 +100,7 @@ function CityParcels() {
     });
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [portfolio, listings, lots, competitors, overlay, state.marketMod, state.demandMod]);
+  }, [portfolio, listings, lots, competitors, overlay, state.marketMod, state.demandMod, state.offers]);
 
   // Statisk stad: allt icke-interaktivt instansieras/sammanslås.
   // Identiteten måste vara innehållsstabil: byParcel byggs om varje

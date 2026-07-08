@@ -12,15 +12,24 @@ import { useUiStore } from "../store/uiStore";
 import { CONSTRUCTION, PLOT_COLORS, PLOT_FALLBACK, RING_COLORS, RIVAL_COLORS, TYPE_COLORS } from "./colors";
 import { ConstructionShell, FLOOR_HEIGHT, GrowIn, type PointerHandlers } from "./BuildingShapes";
 import { DistrictBuilding, districtFloors } from "./districtBuildings";
-import type { FacadeVariant } from "./textures";
+import { iconTexture, type FacadeVariant } from "./textures";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
-  | { kind: "owned"; prop: Property; tint?: string; blockOwned?: boolean }
+  | { kind: "owned"; prop: Property; tint?: string; blockOwned?: boolean; hasOffer?: boolean }
   | { kind: "listing"; prop: Property }
   | { kind: "lotForSale"; lot: Lot }
   | { kind: "lotOwned"; lot: Lot }
   | { kind: "rival"; prop: Property; owner: string; ownerIndex: number };
+
+/** Billboard-ikon ovanför huset: bud, vakans, till salu. */
+function StatusBadge({ emoji, y, order }: { emoji: string; y: number; order: number }) {
+  return (
+    <sprite position={[0, y + order * 7, 0]} scale={[6, 6, 1]} renderOrder={40 + order}>
+      <spriteMaterial map={iconTexture(emoji)} transparent depthTest={false} />
+    </sprite>
+  );
+}
 
 const CRANE_COLOR = "#d98e2b";
 
@@ -205,10 +214,14 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     : content.kind === "owned" && content.blockOwned
       ? "#e8c96a"
       : RING_COLORS[content.kind];
-  const vacantOwned =
-    content.kind === "owned" &&
-    content.prop.status === "klar" &&
-    content.prop.tenants.length === 0;
+  // Statusikoner ovanför husen (ägda, färdiga): 📨 inkommet bud,
+  // 🔑 lediga platser, 🏷️ utannonserad till försäljning.
+  const badges: string[] = [];
+  if (content.kind === "owned" && content.prop.status === "klar") {
+    if (content.hasOffer) badges.push("📨");
+    if (content.prop.tenants.length < content.prop.capacity) badges.push("🔑");
+    if (content.prop.forSale) badges.push("🏷️");
+  }
 
   return (
     <group position={[parcel.x, 0, parcel.z]}>
@@ -251,12 +264,9 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
           </GrowIn>
         )}
         {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
-        {vacantOwned && building && (
-          <mesh position={[0, Math.min(fullH, 150) + 1.6, 0]}>
-            <boxGeometry args={[1.7, 1.7, 1.7]} />
-            <meshBasicMaterial color="#d23f2e" />
-          </mesh>
-        )}
+        {badges.map((emoji, i) => (
+          <StatusBadge key={emoji} emoji={emoji} y={Math.min(fullH, 150) + 6} order={i} />
+        ))}
       </group>
       {hovered && (
         <Html

@@ -405,6 +405,36 @@ function drawGroundTile(): HTMLCanvasElement {
   return c;
 }
 
+/**
+ * Statusikon för kartan: emoji på en läsbar vit bricka, som CanvasTexture
+ * för billboard-sprites ovanför husen (bud, vakans, till salu). Cachas.
+ */
+export function iconTexture(emoji: string): CanvasTexture {
+  const key = `icon:${emoji}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  const c = document.createElement("canvas");
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext("2d")!;
+  // Vit rund bricka med tunn mörk kant → läsbar mot alla fasader.
+  g.beginPath();
+  g.arc(64, 64, 58, 0, Math.PI * 2);
+  g.fillStyle = "rgba(255,252,244,0.95)";
+  g.fill();
+  g.lineWidth = 5;
+  g.strokeStyle = "rgba(60,50,40,0.8)";
+  g.stroke();
+  g.font = "68px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(emoji, 64, 70);
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
+  return tex;
+}
+
 /** Marktextur med angivet antal upprepningar över planet. */
 export function groundTexture(repeat: number): CanvasTexture {
   if (!sharedGroundCanvas) sharedGroundCanvas = drawGroundTile();
