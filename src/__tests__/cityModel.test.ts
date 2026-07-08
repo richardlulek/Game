@@ -48,8 +48,9 @@ describe("stadskartan 3.0", () => {
     // Centrumkvarter är 3×2: mitten-tomterna saknar gatukant öst/väst
     const centrumInner = parcelsIn("centrum").filter((p) => !p.edges.e && !p.edges.w);
     expect(centrumInner.length).toBeGreaterThan(0);
-    // Fristående tomter (finans) har gata på alla sidor
-    for (const p of parcelsIn("finans"))
+    // Fristående tomter (finans-zonen) har gata på alla sidor —
+    // expansionskvarter (t.ex. planområdet finans-plan0) undantas.
+    for (const p of parcelsIn("finans").filter((x) => !x.expansion))
       expect(p.edges.n && p.edges.s && p.edges.e && p.edges.w).toBe(true);
   });
 

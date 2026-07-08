@@ -1,10 +1,13 @@
 import type { CSSProperties } from "react";
-import { locationFactor } from "../engine/city";
+import type { Parcel } from "../engine/city";
+import { expansionByBlock, hasAmbientBuilding, locationFactor, parcelById } from "../engine/city";
+import { planFee, planMonths, rawLandPrice } from "../engine/cityPlan";
 import { canUpgrade, orgLoadOf, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { loanTerms } from "../engine/finance";
 import { msek } from "../engine/format";
+import { ambientAsk, ambientProfile } from "../engine/landDeals";
 import { propMarketValue } from "../engine/property";
-import type { GameState, Lot, Property } from "../engine/types";
+import type { GameState, Lot, PlanProcess, Property } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
@@ -83,6 +86,9 @@ type Selection =
   | { kind: "listing"; prop: Property }
   | { kind: "lot"; lot: Lot }
   | { kind: "rival"; prop: Property; owner: string }
+  | { kind: "ambient"; parcel: Parcel }
+  | { kind: "planArea"; parcel: Parcel; areaState: "till-salu" | "ägd" | "process"; proc?: PlanProcess }
+  | { kind: "kommunal"; parcel: Parcel }
   | null;
 
 function resolveSelection(state: GameState, parcelId: string | null): Selection {
@@ -97,8 +103,33 @@ function resolveSelection(state: GameState, parcelId: string | null): Selection 
     const p = c.portfolio.find((x) => x.parcelId === parcelId);
     if (p) return { kind: "rival", prop: p, owner: c.name };
   }
+  // Mark utan spelobjekt: låst expansionsmark eller privatägt dekorhus.
+  const parcel = parcelById(parcelId);
+  if (!parcel) return null;
+  if (parcel.expansion && !(state.unlockedBlocks ?? []).includes(parcel.blockId)) {
+    const def = expansionByBlock(parcel.blockId);
+    if (def?.kind === "plan") {
+      const proc = (state.planProcesses ?? []).find((p) => p.blockId === parcel.blockId);
+      const areaState = proc
+        ? ("process" as const)
+        : (state.ownedPlanAreas ?? []).includes(parcel.blockId)
+          ? ("ägd" as const)
+          : ("till-salu" as const);
+      return { kind: "planArea", parcel, areaState, proc };
+    }
+    return { kind: "kommunal", parcel };
+  }
+  if (hasAmbientBuilding(parcel, new Set(state.ambientGrown ?? []))) {
+    return { kind: "ambient", parcel };
+  }
   return null;
 }
+
+const STAGE_LABEL: Record<PlanProcess["stage"], string> = {
+  samråd: "Samråd pågår",
+  granskning: "Granskning pågår",
+  överklagad: "Överklagad – hos domstolen",
+};
 
 /** Lägesfaktor som läsbar rad: centralt läge ger premie, utkant rabatt. */
 function LocationRow({ parcelId }: { parcelId?: string }) {
@@ -144,6 +175,137 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
   const level = state.companyLevel ?? 1;
   const sel = resolveSelection(state, selectedId);
   if (!sel) return null;
+
+  // Mark & privatägda hus – markstrategin direkt i kartan.
+  if (sel.kind === "kommunal") {
+    return (
+      <div style={M.panel}>
+        <div style={M.title}>Kommunal mark</div>
+        <div style={M.sub}>Inhägnat expansionskvarter</div>
+        <div style={{ ...M.row, color: "#777" }}>
+          <span>Kommunen planlägger området och släpper det på detaljplaneauktion. Håll kassan redo.</span>
+        </div>
+      </div>
+    );
+  }
+  if (sel.kind === "planArea") {
+    const blockId = sel.parcel.blockId;
+    const price = rawLandPrice(blockId, state);
+    const fee = planFee(blockId);
+    return (
+      <div style={M.panel}>
+        <div style={M.title}>🌾 Planområde</div>
+        <div style={M.sub}>Privat råmark · obyggbar tills detaljplan finns</div>
+        {sel.areaState === "till-salu" && (
+          <>
+            <div style={M.row}>
+              <span>Råmarkspris</span>
+              <strong>{msek(price)}</strong>
+            </div>
+            <div style={M.row}>
+              <span>Planavgift (senare)</span>
+              <strong>{msek(fee)}</strong>
+            </div>
+            <div style={M.row}>
+              <span>Planprocess</span>
+              <strong>~{planMonths(blockId)} mån</strong>
+            </div>
+            <button
+              style={M.btn}
+              disabled={state.cash < price}
+              onClick={() => dispatch({ type: "BUY_RAW_LAND", blockId })}
+            >
+              Köp råmarken {msek(price)}
+            </button>
+          </>
+        )}
+        {sel.areaState === "ägd" && (
+          <>
+            <div style={M.row}>
+              <span>Råmarken</span>
+              <strong style={{ color: "#4d8b52" }}>Din</strong>
+            </div>
+            <div style={M.row}>
+              <span>Planavgift & utredningar</span>
+              <strong>{msek(fee)}</strong>
+            </div>
+            <div style={{ ...M.row, color: "#999", fontSize: 12 }}>
+              <span>Samråd, granskning… och kanske överklaganden. Gott anseende snabbar på processen.</span>
+            </div>
+            <button
+              style={M.btn}
+              disabled={state.cash < fee}
+              onClick={() => dispatch({ type: "START_PLAN", blockId })}
+            >
+              Starta detaljplan {msek(fee)}
+            </button>
+          </>
+        )}
+        {sel.areaState === "process" && sel.proc && (
+          <>
+            <div style={M.row}>
+              <span>Status</span>
+              <strong>{STAGE_LABEL[sel.proc.stage]}</strong>
+            </div>
+            <div style={M.row}>
+              <span>Klart om</span>
+              <strong>~{sel.proc.monthsLeft} mån</strong>
+            </div>
+            {(sel.proc.parkParcels ?? []).length > 0 && (
+              <div style={{ ...M.row, color: "#999", fontSize: 12 }}>
+                <span>🌊 Strandskydd: {sel.proc.parkParcels!.length} tomt avstås som park</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+  if (sel.kind === "ambient") {
+    const prof = ambientProfile(sel.parcel);
+    const deal = ambientAsk(sel.parcel, state);
+    const down = deal.ask * (1 - loanTerms(state).maxLtv);
+    return (
+      <div style={M.panel}>
+        <div style={M.title}>{prof.typeLabel} · privatägd</div>
+        <div style={M.sub}>
+          Inte till salu — men allt har ett pris
+        </div>
+        <div style={M.row}>
+          <span>Yta</span>
+          <strong>{prof.area} m²</strong>
+        </div>
+        <div style={M.row}>
+          <span>Skick</span>
+          <strong>{prof.condition}</strong>
+        </div>
+        <LocationRow parcelId={sel.parcel.id} />
+        <div style={M.row}>
+          <span>Värdering</span>
+          <strong>{msek(deal.value)}</strong>
+        </div>
+        <div style={M.row}>
+          <span>Ägaren begär</span>
+          <strong style={{ color: deal.holdout ? "#b5542a" : undefined }}>
+            {msek(deal.ask)} (+{Math.round((deal.premium - 1) * 100)} %)
+          </strong>
+        </div>
+        {deal.holdout && (
+          <div style={{ ...M.row, color: "#b5542a", fontSize: 12 }}>
+            <span>😤 Nejsägare — säljer bara mot rejäl överkurs</span>
+          </div>
+        )}
+        <button
+          style={M.btn}
+          disabled={state.cash < down}
+          title={state.cash < down ? `Kräver ${msek(down)} i handpenning` : `Handpenning ${msek(down)}`}
+          onClick={() => dispatch({ type: "BUY_AMBIENT", parcelId: sel.parcel.id })}
+        >
+          Köp av ägaren {msek(deal.ask)}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={M.panel}>

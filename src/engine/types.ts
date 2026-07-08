@@ -233,8 +233,27 @@ export interface DecisionEffect {
   addLot?: boolean;
   takeoverPressure?: number; // delta (positive = increase, negative = decrease)
   gameOver?: boolean;
+  /** Justering av en pågående detaljplansprocess (t.ex. förlikning). */
+  planSettle?: { blockId: string; monthsDelta: number };
   log: string;
   logKind: LogKind;
+}
+
+/** En pågående egen detaljplansprocess på köpt råmark. */
+export interface PlanProcess {
+  blockId: string;
+  district: string;
+  districtName: string;
+  /** Samråd → granskning → (ev. överklagad) → laga kraft vid 0 mån. */
+  stage: "samråd" | "granskning" | "överklagad";
+  monthsLeft: number;
+  totalMonths: number;
+  /** Nedlagda plankostnader (för tomternas bokförda värde). */
+  spent: number;
+  /** Utmaningar som redan inträffat (för att inte upprepas). */
+  challenges: string[];
+  /** Tomter som skänkts som park i en eftergift (ingår ej i planen). */
+  parkParcels?: string[];
 }
 
 /** En transaktion i fastighetens historik. */
@@ -572,6 +591,16 @@ export interface GameState {
   ownerWealth?: number;
   /** Ägarens köpta lyx och donationer (lyx-id:n). */
   ownerLuxuries?: string[];
+  /** Planområden (råmark) som spelaren köpt men ännu inte planlagt. */
+  ownedPlanAreas?: string[];
+  /** Pågående egna detaljplansprocesser. */
+  planProcesses?: PlanProcess[];
+  /** Tomter där dekorhus vuxit fram organiskt under spelets gång. */
+  ambientGrown?: string[];
+  /** Tomter avstådda som park (strandskydd m.m.) – bebyggs aldrig. */
+  parkParcels?: string[];
+  /** Absolutmånad då senaste detaljplaneauktionen startade. */
+  lastAuctionAbs?: number;
   pendingDecision: PendingDecision | null;
   stocks: Stock[];
   marketSentiment: number;
@@ -697,6 +726,9 @@ export type GameAction =
   | { type: "PAY_DIVIDEND"; amount: number }
   | { type: "START_MEGA"; projectId: string; blockId: string }
   | { type: "BUY_LUXURY"; luxuryId: string }
+  | { type: "BUY_AMBIENT"; parcelId: string }
+  | { type: "BUY_RAW_LAND"; blockId: string }
+  | { type: "START_PLAN"; blockId: string }
   | { type: "TOGGLE_SHORT_TERM"; id: number }
   | { type: "APPLY_ZONE_CHANGE"; id: number; targetType: PropTypeKey }
   | { type: "INVEST_DISTRICT"; districtId: string; amount: number }

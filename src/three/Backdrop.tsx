@@ -44,7 +44,8 @@ function makeRand(seed: number): () => number {
 /* ── Frizoner: staden och vattnet får inte växa igen ───────────────── */
 
 interface Rect { x0: number; x1: number; z0: number; z1: number }
-const CITY: Rect = { x0: -470, x1: 520, z0: -390, z1: 350 };
+// Rymmer även planområdena (råmarken) i stadens utkanter.
+const CITY: Rect = { x0: -490, x1: 530, z0: -405, z1: 350 };
 const WATER: Rect = { x0: -900, x1: 940, z0: 300, z1: 670 };
 
 const inRect = (x: number, z: number, r: Rect, m = 0) =>

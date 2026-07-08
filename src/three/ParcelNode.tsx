@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef, useState } from "react";
 import { Color, type Group } from "three";
 import type { Parcel } from "../engine/city";
-import { parcelHash } from "../engine/city";
+import { expansionByBlock, parcelHash } from "../engine/city";
 import { PROP_TYPES } from "../engine/data";
 import { msek } from "../engine/format";
 import type { Lot, Property, PropTypeKey } from "../engine/types";
@@ -133,32 +133,98 @@ function Crane({ towerH }: { towerH: number }) {
   );
 }
 
-/** Inhägnad expansionsmark: detaljplaneskylt och lantmätarpinnar. */
+/** Inhägnad expansionsmark. Två skepnader:
+ *  · kommunal: lantmätarpinnar + detaljplaneskylt (auktioneras ut)
+ *  · planområde: äng/åker med ett fåtal träd – privat råmark som
+ *    spelaren kan köpa och driva egen detaljplan på.
+ *  Klickbar: kartkortet visar köp-/planalternativen. */
 function LockedExpansion({ parcel }: { parcel: Parcel }) {
+  const select = useUiStore((s) => s.select);
+  const selected = useUiStore((s) => s.selectedParcelId === parcel.id);
+  const [hovered, setHovered] = useState(false);
+  useCursor(hovered);
+  const isPlan = expansionByBlock(parcel.blockId)?.kind === "plan";
+  const hash = parcelHash(parcel.id);
+
+  const handlers: PointerHandlers = {
+    onClick: (e) => {
+      e.stopPropagation();
+      select(parcel.id);
+    },
+    onPointerOver: (e) => {
+      e.stopPropagation();
+      setHovered(true);
+    },
+    onPointerOut: () => setHovered(false),
+  };
+
   return (
     <group position={[parcel.x, 0, parcel.z]}>
-      <mesh receiveShadow position={[0, 0.05, 0]}>
+      <mesh receiveShadow position={[0, 0.05, 0]} {...handlers}>
         <boxGeometry args={[parcel.w, 0.1, parcel.d]} />
-        <meshStandardMaterial color="#a7ae8b" />
+        <meshStandardMaterial color={isPlan ? "#9db07a" : "#a7ae8b"} />
       </mesh>
-      {/* Lantmätarpinnar i hörnen */}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
-        <mesh key={i} castShadow position={[sx * (parcel.w / 2 - 1.5), 0.9, sz * (parcel.d / 2 - 1.5)]}>
-          <cylinderGeometry args={[0.12, 0.12, 1.8, 5]} />
-          <meshStandardMaterial color="#c0392b" />
+      {selected && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.24, 0]}>
+          <ringGeometry args={[Math.max(parcel.w, parcel.d) / 2 + 0.4, Math.max(parcel.w, parcel.d) / 2 + 2.2, 40]} />
+          <meshBasicMaterial color="#ffffff" />
         </mesh>
-      ))}
-      {/* Detaljplaneskylt */}
-      <group position={[0, 0, parcel.d / 2 - 3]}>
-        <mesh castShadow position={[0, 1.6, 0]}>
-          <cylinderGeometry args={[0.12, 0.15, 3.2, 6]} />
-          <meshStandardMaterial color="#8a7a5a" />
-        </mesh>
-        <mesh castShadow position={[0, 3, 0]}>
-          <boxGeometry args={[4.6, 2.2, 0.2]} />
-          <meshStandardMaterial color="#e8dfc8" />
-        </mesh>
-      </group>
+      )}
+      {isPlan ? (
+        // Råmark: några ängsträd och en gärdesgårdsstolpe.
+        <>
+          {[0, 1, 2].map((i) => {
+            const h = (hash >> (i * 6 + 2)) & 0xff;
+            const x = (((h % 11) - 5) / 11) * parcel.w * 0.62;
+            const z = ((((h >> 4) % 11) - 5) / 11) * parcel.d * 0.62;
+            const s = 0.7 + (h % 4) * 0.15;
+            return (
+              <group key={i} position={[x, 0, z]}>
+                <mesh castShadow position={[0, 1.1 * s, 0]}>
+                  <cylinderGeometry args={[0.3 * s, 0.45 * s, 2.2 * s, 5]} />
+                  <meshStandardMaterial color="#7a5a3a" />
+                </mesh>
+                <mesh castShadow position={[0, 3.2 * s, 0]}>
+                  <coneGeometry args={[2.2 * s, 4.2 * s, 6]} />
+                  <meshStandardMaterial color="#6f8f57" />
+                </mesh>
+              </group>
+            );
+          })}
+        </>
+      ) : (
+        <>
+          {/* Lantmätarpinnar i hörnen */}
+          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+            <mesh key={i} castShadow position={[sx * (parcel.w / 2 - 1.5), 0.9, sz * (parcel.d / 2 - 1.5)]}>
+              <cylinderGeometry args={[0.12, 0.12, 1.8, 5]} />
+              <meshStandardMaterial color="#c0392b" />
+            </mesh>
+          ))}
+          {/* Detaljplaneskylt */}
+          <group position={[0, 0, parcel.d / 2 - 3]}>
+            <mesh castShadow position={[0, 1.6, 0]}>
+              <cylinderGeometry args={[0.12, 0.15, 3.2, 6]} />
+              <meshStandardMaterial color="#8a7a5a" />
+            </mesh>
+            <mesh castShadow position={[0, 3, 0]}>
+              <boxGeometry args={[4.6, 2.2, 0.2]} />
+              <meshStandardMaterial color="#e8dfc8" />
+            </mesh>
+          </group>
+        </>
+      )}
+      {hovered && (
+        <Html position={[0, 7, 0]} center zIndexRange={[40, 0]}>
+          <div style={TOOLTIP_STYLE}>
+            <strong>{isPlan ? "Råmark – planområde" : "Kommunal mark"}</strong>
+            <br />
+            <span style={{ opacity: 0.8 }}>
+              {isPlan ? "Klicka för köp & detaljplan" : "Släpps på detaljplaneauktion"}
+            </span>
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -178,8 +244,19 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   const hash = parcelHash(parcel.id);
   // Låst expansionsmark: inhägnat fält tills detaljplanen auktionerats ut.
   if (parcel.expansion && !unlockedExpansion) return <LockedExpansion parcel={parcel} />;
-  // Icke-interaktiva tomter (dekor, parker, mark) ritas billigt i StaticCity.
-  if (!content) return null;
+  // Icke-interaktiva tomter (dekor, parker, mark) ritas billigt i
+  // StaticCity – men ett valt privatägt hus får sin markeringsring här.
+  if (!content) {
+    if (!selected) return null;
+    return (
+      <group position={[parcel.x, 0, parcel.z]}>
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.24, 0]}>
+          <ringGeometry args={[Math.max(parcel.w, parcel.d) / 2 + 0.4, Math.max(parcel.w, parcel.d) / 2 + 2.2, 40]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+      </group>
+    );
+  }
 
   const handlers: PointerHandlers = {
     onClick: (e) => {

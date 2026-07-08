@@ -23,7 +23,8 @@ import {
   MeshStandardMaterial,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { PARCELS, hasAmbientBuilding, parcelHash, type Parcel } from "../engine/city";
+import type { ThreeEvent } from "@react-three/fiber";
+import { PARCELS, hasAmbientBuilding, parcelAt, parcelHash, type Parcel } from "../engine/city";
 import { type Inst, buildInstances, useDisposable, withColor } from "./meshHelpers";
 import { useUiStore } from "../store/uiStore";
 import { FLOOR_HEIGHT } from "./BuildingShapes";
@@ -43,6 +44,8 @@ interface CityProps {
   occupied: Set<string>;
   /** Låsta expansionskvarter (ritas som inhägnad mark i ParcelNode). */
   lockedBlocks: Set<string>;
+  /** Dekorhus som vuxit fram organiskt under spelets gång. */
+  grown: Set<string>;
 }
 
 const isLocked = (p: Parcel, locked: Set<string>) => !!p.expansion && locked.has(p.blockId);
@@ -73,12 +76,12 @@ function Sidewalks({ lockedBlocks }: { lockedBlocks: Set<string> }) {
 
 /* ── Markplattor för icke-interaktiva tomter ───────────────────────── */
 
-function PlotPlates({ occupied, lockedBlocks }: CityProps) {
+function PlotPlates({ occupied, lockedBlocks, grown, onAmbientClick }: CityProps & { onAmbientClick: (e: ThreeEvent<MouseEvent>) => void }) {
   const mesh = useMemo(() => {
     const items: Inst[] = [];
     for (const p of PARCELS) {
       if (occupied.has(p.id) || isLocked(p, lockedBlocks)) continue;
-      const park = !hasAmbientBuilding(p);
+      const park = !hasAmbientBuilding(p, grown);
       items.push({
         x: p.x, y: 0.07, z: p.z, sx: p.w, sy: 0.14, sz: p.d,
         color: new Color(park ? PARK_GREEN : (PLOT_COLORS[p.district] ?? PLOT_FALLBACK)),
@@ -90,19 +93,19 @@ function PlotPlates({ occupied, lockedBlocks }: CityProps) {
       items,
       { receive: true },
     );
-  }, [occupied, lockedBlocks]);
+  }, [occupied, lockedBlocks, grown]);
   useDisposable(mesh);
-  return <primitive object={mesh} />;
+  return <primitive object={mesh} onClick={onAmbientClick} />;
 }
 
 /* ── Parkträd på obebyggda tomter ──────────────────────────────────── */
 
-function ParkTrees({ occupied, lockedBlocks }: CityProps) {
+function ParkTrees({ occupied, lockedBlocks, grown }: CityProps) {
   const meshes = useMemo(() => {
     const trunks: Inst[] = [];
     const crowns: Inst[] = [];
     for (const p of PARCELS) {
-      if (occupied.has(p.id) || isLocked(p, lockedBlocks) || hasAmbientBuilding(p)) continue;
+      if (occupied.has(p.id) || isLocked(p, lockedBlocks) || hasAmbientBuilding(p, grown)) continue;
       const hash = parcelHash(p.id);
       const n = 1 + (hash % 3);
       for (let i = 0; i < n; i++) {
@@ -121,7 +124,7 @@ function ParkTrees({ occupied, lockedBlocks }: CityProps) {
       buildInstances(new CylinderGeometry(0.35, 0.5, 2.2, 6), new MeshStandardMaterial({ color: TREE_TRUNK }), trunks, { cast: true }),
       buildInstances(new ConeGeometry(2.5, 4.6, 7), new MeshStandardMaterial({ color: "#ffffff" }), crowns, { cast: true }),
     ];
-  }, [occupied, lockedBlocks]);
+  }, [occupied, lockedBlocks, grown]);
   useDisposable(meshes[0]);
   useDisposable(meshes[1]);
   return (
@@ -270,7 +273,7 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
 
 const AMBIENT_BUCKETS: AmbientBucket[] = ["bostad", "kontor", "butik", "industri", "glas"];
 
-function AmbientBuildings({ occupied, lockedBlocks }: CityProps) {
+function AmbientBuildings({ occupied, lockedBlocks, grown, onAmbientClick }: CityProps & { onAmbientClick: (e: ThreeEvent<MouseEvent>) => void }) {
   const overlayActive = useUiStore((s) => s.overlay !== "ingen");
 
   const geos = useMemo(() => {
@@ -278,7 +281,7 @@ function AmbientBuildings({ occupied, lockedBlocks }: CityProps) {
     const extras: BufferGeometry[] = [];
     const all: BufferGeometry[] = [];
     for (const p of PARCELS) {
-      if (occupied.has(p.id) || isLocked(p, lockedBlocks) || !hasAmbientBuilding(p)) continue;
+      if (occupied.has(p.id) || isLocked(p, lockedBlocks) || !hasAmbientBuilding(p, grown)) continue;
       const kind = ambientKindFor(p.district, parcelHash(p.id) >> 3);
       const bucket = facades.get(kind) ?? [];
       ambientBuildingGeo(p, bucket, extras);
@@ -292,7 +295,7 @@ function AmbientBuildings({ occupied, lockedBlocks }: CityProps) {
     const ext = extras.length ? mergeGeometries(extras, false) : null;
     for (const g of [...all, ...extras]) g.dispose();
     return { merged, ext };
-  }, [occupied, lockedBlocks]);
+  }, [occupied, lockedBlocks, grown]);
 
   const mats = useMemo(() => {
     const facade = new Map<AmbientBucket, MeshStandardMaterial>();
@@ -335,23 +338,37 @@ function AmbientBuildings({ occupied, lockedBlocks }: CityProps) {
           material={overlayActive ? mats.overlay : mats.facade.get(kind)}
           castShadow
           receiveShadow
+          onClick={onAmbientClick}
         />
       ))}
       {geos.ext && (
-        <mesh geometry={geos.ext} material={overlayActive ? mats.overlay : mats.extra} castShadow receiveShadow />
+        <mesh geometry={geos.ext} material={overlayActive ? mats.overlay : mats.extra} castShadow receiveShadow onClick={onAmbientClick} />
       )}
     </>
   );
 }
 
 /** Hela den statiska staden – fyra billiga komponenter. */
-export function StaticCity({ occupied, lockedBlocks }: CityProps) {
+export function StaticCity({ occupied, lockedBlocks, grown }: CityProps) {
+  const select = useUiStore((s) => s.select);
+
+  // Dekorhusen ritas sammanslaget men är ändå klickbara: träffpunkten
+  // slås upp mot tomtkartan och det privatägda huset kan väljas (och
+  // köpas loss i kartkortet).
+  const onAmbientClick = (e: ThreeEvent<MouseEvent>) => {
+    const pc = parcelAt(e.point.x, e.point.z);
+    if (pc && !occupied.has(pc.id) && hasAmbientBuilding(pc, grown)) {
+      e.stopPropagation();
+      select(pc.id);
+    }
+  };
+
   return (
     <>
       <Sidewalks lockedBlocks={lockedBlocks} />
-      <PlotPlates occupied={occupied} lockedBlocks={lockedBlocks} />
-      <ParkTrees occupied={occupied} lockedBlocks={lockedBlocks} />
-      <AmbientBuildings occupied={occupied} lockedBlocks={lockedBlocks} />
+      <PlotPlates occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} onAmbientClick={onAmbientClick} />
+      <ParkTrees occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
+      <AmbientBuildings occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} onAmbientClick={onAmbientClick} />
     </>
   );
 }

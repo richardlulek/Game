@@ -4,7 +4,8 @@
    ============================================================ */
 
 import { fullyOwnedBlocks } from "./blocks";
-import { EXPANSION_BLOCKS, PARCELS } from "./city";
+import { EXPANSION_BLOCKS, PARCELS, districtsWithSpace, emptyParcels } from "./city";
+import { planTick, rawLandPrice } from "./cityPlan";
 import {
   OVERLOAD_COST_PER_PROP,
   OVERLOAD_WEAR_MULT,
@@ -1026,10 +1027,56 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
+  // ── Egen detaljplan: processerna tickar genom samråd/granskning ──
+  if ((s.planProcesses ?? []).length > 0) {
+    const remaining: NonNullable<GameState["planProcesses"]> = [];
+    for (const proc of s.planProcesses ?? []) {
+      // Ett beslut i taget: väntande beslut pausar övriga processer.
+      if (s.pendingDecision) {
+        remaining.push(proc);
+        continue;
+      }
+      const res = planTick(proc, s, Math.random);
+      if (res.cost > 0) s.cash -= res.cost;
+      events.push(...res.events);
+      if (res.decision) s.pendingDecision = res.decision;
+      if (!res.done) {
+        remaining.push(res.proc);
+        continue;
+      }
+      // Laga kraft: kvarteret öppnas, parktomter undantas och de
+      // byggklara tomterna blir spelarens (bokförda till nedlagd kostnad).
+      const park = res.proc.parkParcels ?? [];
+      s.unlockedBlocks = [...(s.unlockedBlocks ?? []), proc.blockId];
+      s.parkParcels = [...(s.parkParcels ?? []), ...park];
+      s.ownedPlanAreas = (s.ownedPlanAreas ?? []).filter((b) => b !== proc.blockId);
+      const parcels = PARCELS.filter((pc) => pc.blockId === proc.blockId && !park.includes(pc.id));
+      const bookValue = res.proc.spent + rawLandPrice(proc.blockId, s);
+      const perLot = Math.round(bookValue / Math.max(1, parcels.length));
+      const born = s.year * 12 + s.month;
+      s.lots = [
+        ...s.lots,
+        ...parcels.map((pc) => ({
+          id: newId(),
+          district: proc.district,
+          districtName: proc.districtName,
+          parcelId: pc.id,
+          area: Math.round(pc.w * pc.d * 2),
+          price: perLot,
+          owned: true,
+          listedMonth: born,
+        })),
+      ];
+      s.reputation = Math.min(100, s.reputation + 2);
+    }
+    s.planProcesses = remaining;
+  }
+
   // ── AI-konkurrenter agerar (riktiga portföljer + personligheter) ─
   // Rivalernas ekonomi värderas med samma formel som spelarens och
   // andas därmed med konjunktur, distriktutveckling och marknadsläge.
   const cyclePhase = s.marketCycle?.phase ?? "stable";
+  const spaceDistricts = districtsWithSpace(s);
   const cycleNOI = cyclePhase === "boom" ? 1.10 : cyclePhase === "bust" ? 0.88 : 1.0;
   s.competitors = s.competitors.map((c) => {
     const nc = { ...c, portfolio: [...(c.portfolio ?? [])] };
@@ -1052,8 +1099,12 @@ export function advanceMonth(state: GameState): GameState {
     // inte är lågkonjunktur – staden växer även utan spelaren.
     const buildChance = nc.strategy === "tillväxt" ? 0.05 : 0.02;
     if (cyclePhase !== "bust" && nc.cash > 8_000_000 && Math.random() < buildChance * rateAppetite(s.interestRate)) {
-      const build = genWorldProperty(s);
-      const district = nc.preferredDistrict ?? build.district;
+      // Bygg bara där det finns obebyggd mark – inga hus trängs undan.
+      const build = genWorldProperty(s, spaceDistricts);
+      const district =
+        nc.preferredDistrict && spaceDistricts.has(nc.preferredDistrict)
+          ? nc.preferredDistrict
+          : build.district;
       const dObj = DISTRICTS.find((d) => d.id === district);
       const cost = Math.round(build.askPrice * 0.85);
       if (nc.cash >= cost) {
@@ -1512,11 +1563,16 @@ export function advanceMonth(state: GameState): GameState {
   });
 
   // ── Detaljplaneauktion: kommunen släpper nytt kvarter ────────────
+  // Tidsstyrd (var 30:e månad) MEN också behovsstyrd: när staden har
+  // ont om obebyggd mark tidigarelägger kommunen nästa auktion.
   {
     const absM = s.year * 12 + s.month;
     const unlocked = new Set(s.unlockedBlocks ?? []);
     const nextBlock = EXPANSION_BLOCKS.find((b) => !unlocked.has(b.blockId));
-    if (!s.auction && nextBlock && absM % 30 === 0) {
+    const scheduled = absM % 30 === 0;
+    const shortage =
+      emptyParcels(s).length < 5 && absM - (s.lastAuctionAbs ?? -99) >= 12;
+    if (!s.auction && nextBlock && (scheduled || shortage)) {
       const parcels = PARCELS.filter((p) => p.blockId === nextBlock.blockId);
       const d = DISTRICTS.find((x) => x.id === nextBlock.district)!;
       const landValue = parcels.reduce((a, p) => a + p.w * p.d * 2 * d.base * 0.18, 0);
@@ -1531,10 +1587,33 @@ export function advanceMonth(state: GameState): GameState {
         leader: null,
         round: 0,
       };
+      s.lastAuctionAbs = absM;
       events.push({
-        t: `🏛️ DETALJPLANEAUKTION: Kommunen släpper ett nytt kvarter i ${d.name} (${parcels.length} tomter, utrop ${msek(minBid)}). Spelet pausar tills auktionen avgjorts.`,
+        t: `🏛️ DETALJPLANEAUKTION: ${shortage && !scheduled ? "Markbristen får kommunen att tidigarelägga planläggningen — ett" : "Kommunen släpper ett"} nytt kvarter i ${d.name} (${parcels.length} tomter, utrop ${msek(minBid)}). Spelet pausar tills auktionen avgjorts.`,
         kind: "event",
       });
+    }
+  }
+
+  // ── Naturlig tillväxt: privata byggherrar förtätar staden ────────
+  // Obebyggd mark bebyggs sakta av sig själv (mer i högkonjunktur).
+  // Husen blir en del av det privata beståndet – och kan köpas loss.
+  {
+    const candidates = emptyParcels(s);
+    const phase = s.marketCycle?.phase ?? "stable";
+    const growChance =
+      (phase === "boom" ? 0.3 : phase === "bust" ? 0.04 : 0.12) *
+      Math.min(1.4, s.demandMod ?? 1);
+    if (candidates.length > 0 && Math.random() < growChance) {
+      const pc = candidates[Math.floor(Math.random() * candidates.length)];
+      s.ambientGrown = [...(s.ambientGrown ?? []), pc.id];
+      if (s.ambientGrown.length % 5 === 0) {
+        const d = DISTRICTS.find((x) => x.id === pc.district);
+        events.push({
+          t: `🏘️ Staden växer: privata byggherrar har uppfört ${s.ambientGrown.length} nya hus sedan starten — senast i ${d?.name ?? pc.district}.`,
+          kind: "info",
+        });
+      }
     }
   }
 
@@ -1631,15 +1710,16 @@ export function advanceMonth(state: GameState): GameState {
     ].slice(0, MAX_LISTINGS);
     s.worldPool = pool.slice(reveal);
   }
-  // Om världspoolen tar slut: generera nybyggnation (expansionen av världen)
+  // Om världspoolen tar slut: generera nybyggnation (expansionen av
+  // världen) – enbart i distrikt med obebyggd mark kvar.
   if ((s.worldPool ?? []).length === 0 && s.listings.length < MAX_LISTINGS) {
-    const newProp = genListing(s);
+    const newProp = genListing(s, districtsWithSpace(s));
     s.listings = [...s.listings, newProp];
     s.worldTotal = (s.worldTotal ?? 0) + 1;
     events.push({ t: `🏗️ Nyproduktion utökar marknaden: ${newProp.typeLabel} i ${newProp.districtName}.`, kind: "info" });
   }
   if (Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS) {
-    s.lots = [...s.lots, genLot(s)];
+    s.lots = [...s.lots, genLot(s, districtsWithSpace(s))];
   }
 
   // Lånelöptid: refinansiering var 48–72 månad

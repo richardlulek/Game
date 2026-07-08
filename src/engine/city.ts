@@ -93,10 +93,13 @@ export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
 export type { ZoneDef };
 
 /**
- * Expansionskvarter – mark som kommunen släpper via detaljplaneauktioner
- * (i den ordning de listas). Låsta tills de vunnits i auktion.
+ * Expansionskvarter – mark utanför de färdiga kvarteren. Två slag:
+ *  · "kommunal": kommunen planlägger och släpper via detaljplaneauktion
+ *  · "plan": privat råmark (åker/äng) – spelaren kan köpa marken och
+ *    driva EGEN detaljplan genom planprocessen (cityPlan.ts)
+ * Låsta (obyggbara) tills de vunnits i auktion respektive vunnit laga kraft.
  */
-interface ExpansionDef {
+export interface ExpansionDef {
   blockId: string;
   district: string;
   cx: number;
@@ -105,22 +108,40 @@ interface ExpansionDef {
   parcelRows: number;
   parcelW: number;
   parcelD: number;
+  kind: "kommunal" | "plan";
+  /** Nära vattnet → strandskydd kan bli en utmaning i planprocessen. */
+  waterfront?: boolean;
 }
 
 const EXPANSIONS: ExpansionDef[] = [
-  { blockId: "innerstad-exp0", district: "innerstad", cx: -73, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24 },
-  { blockId: "industri-exp0", district: "industri", cx: 270, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38 },
-  { blockId: "innerstad-exp1", district: "innerstad", cx: 53, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24 },
-  { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52 },
-  { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38 },
+  { blockId: "innerstad-exp0", district: "innerstad", cx: -73, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "kommunal" },
+  { blockId: "industri-exp0", district: "industri", cx: 270, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "kommunal" },
+  { blockId: "innerstad-exp1", district: "innerstad", cx: 53, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "kommunal" },
+  { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "kommunal" },
+  { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "kommunal" },
+  // Planområden: privat råmark i stadens utkanter.
+  { blockId: "kulle-plan0", district: "kulle", cx: -440, cz: -195, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 22, kind: "plan" },
+  { blockId: "förort-plan0", district: "förort", cx: -447, cz: 90, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "plan" },
+  { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "plan" },
+  { blockId: "finans-plan0", district: "finans", cx: 335, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
+  { blockId: "industri-plan0", district: "industri", cx: 480, cz: -40, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
+  { blockId: "industri-plan1", district: "industri", cx: 480, cz: -220, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
+  { blockId: "hamnen-plan0", district: "hamnen", cx: 260, cz: 265, parcelCols: 2, parcelRows: 1, parcelW: 24, parcelD: 24, kind: "plan", waterfront: true },
 ];
 
-/** Auktionsordningen för expansionskvarteren. */
-export const EXPANSION_BLOCKS = EXPANSIONS.map((e) => ({
+/** Auktionsordningen för de KOMMUNALA expansionskvarteren. */
+export const EXPANSION_BLOCKS = EXPANSIONS.filter((e) => e.kind === "kommunal").map((e) => ({
   blockId: e.blockId,
   district: e.district,
   parcels: e.parcelCols * e.parcelRows,
 }));
+
+/** Planområdena – råmark för spelarens egen detaljplansprocess. */
+export const PLAN_AREAS: ExpansionDef[] = EXPANSIONS.filter((e) => e.kind === "plan");
+
+/** Slår upp expansionskvarterets definition (kommunal eller plan). */
+export const expansionByBlock = (blockId: string): ExpansionDef | undefined =>
+  EXPANSIONS.find((e) => e.blockId === blockId);
 
 function blockSize(z: ZoneDef): { w: number; d: number } {
   return {
@@ -251,26 +272,63 @@ export function ambientChanceFor(district: string): number {
   return 58;
 }
 
-/** Bär tomten ett dekorhus (deterministiskt ur tomt-hashen)? */
-export function hasAmbientBuilding(p: Parcel): boolean {
-  return !p.expansion && parcelHash(p.id) % 100 < ambientChanceFor(p.district);
+/** Bär tomten ett dekorhus? Deterministiskt ur tomt-hashen, plus de
+ *  hus som vuxit fram organiskt under spelets gång (ambientGrown). */
+export function hasAmbientBuilding(p: Parcel, grown?: ReadonlySet<string>): boolean {
+  if (p.expansion) return false;
+  return parcelHash(p.id) % 100 < ambientChanceFor(p.district) || (grown?.has(p.id) ?? false);
+}
+
+/** Tomt-id:n som upptas av spelobjekt (ägda/annonser/tomter/rivaler). */
+export function occupiedParcelIds(state: GameState): Set<string> {
+  const used = new Set<string>();
+  for (const p of state.portfolio) if (p.parcelId) used.add(p.parcelId);
+  for (const p of state.listings) if (p.parcelId) used.add(p.parcelId);
+  for (const l of state.lots) if (l.parcelId) used.add(l.parcelId);
+  for (const c of state.competitors)
+    for (const p of c.portfolio ?? []) if (p.parcelId) used.add(p.parcelId);
+  return used;
+}
+
+/** Helt obebyggda, upplåsta tomtrutor (varken spelobjekt eller dekorhus).
+ *  Parktomter (avstådda i planprocesser) räknas aldrig som byggbara. */
+export function emptyParcels(state: GameState): Parcel[] {
+  const used = occupiedParcelIds(state);
+  const unlocked = new Set(state.unlockedBlocks ?? []);
+  const grown = new Set(state.ambientGrown ?? []);
+  const park = new Set(state.parkParcels ?? []);
+  return PARCELS.filter(
+    (p) =>
+      (!p.expansion || unlocked.has(p.blockId)) &&
+      !used.has(p.id) &&
+      !park.has(p.id) &&
+      !hasAmbientBuilding(p, grown),
+  );
+}
+
+/** Distrikt som fortfarande har obebyggd mark – nyproduktion och nya
+ *  tomter styrs hit så att bebyggda tomter aldrig behöver återanvändas. */
+export function districtsWithSpace(state: GameState): Set<string> {
+  return new Set(emptyParcels(state).map((p) => p.district));
 }
 
 /**
  * Slumpar en ledig tomtruta i distriktet och markerar den som upptagen
  * i det medskickade settet. Staden växer naturligt: obebyggd mark
- * (parker och lediga fält) bebyggs FÖRST – först när distriktet är
- * fullt tas rutor med dekorbebyggelse i anspråk (förtätning), och som
- * absolut sista utväg återanvänds en upptagen ruta (hellre än krasch).
+ * (parker och lediga fält) bebyggs FÖRST. Dekorhus (privatägda) tas
+ * bara i anspråk om distriktet är helt fullt, och en redan upptagen
+ * ruta återanvänds enbart som krasch-skydd – nygenereringen styrs
+ * numera till distrikt med ledig mark (districtsWithSpace).
  */
 export function claimRandomParcel(
   district: string,
   occupied: Set<string>,
   allowed?: (p: Parcel) => boolean,
+  grown?: ReadonlySet<string>,
 ): Parcel {
   const all = parcelsIn(district).filter((p) => (allowed ? allowed(p) : !p.expansion));
   const free = all.filter((p) => !occupied.has(p.id));
-  const empty = free.filter((p) => !hasAmbientBuilding(p));
+  const empty = free.filter((p) => !hasAmbientBuilding(p, grown));
   const pool = empty.length ? empty : free.length ? free : all;
   const chosen = pool[Math.floor(Math.random() * pool.length)];
   occupied.add(chosen.id);
@@ -288,14 +346,17 @@ export function placeCity(state: GameState): GameState {
   const used = new Set<string>();
   let anyChanged = false;
   const unlocked = new Set(state.unlockedBlocks ?? []);
-  const allowed = (p: Parcel) => !p.expansion || unlocked.has(p.blockId);
+  const grown = new Set(state.ambientGrown ?? []);
+  const park = new Set(state.parkParcels ?? []);
+  const allowed = (p: Parcel) =>
+    !park.has(p.id) && (!p.expansion || unlocked.has(p.blockId));
 
   function claimFor<T extends { district: string; parcelId?: string }>(o: T): T {
     if (o.parcelId && BY_ID.has(o.parcelId) && !used.has(o.parcelId)) {
       used.add(o.parcelId);
       return o;
     }
-    const parcel = claimRandomParcel(o.district, used, allowed);
+    const parcel = claimRandomParcel(o.district, used, allowed, grown);
     anyChanged = true;
     return { ...o, parcelId: parcel.id };
   }
@@ -342,6 +403,13 @@ export function locationFactor(parcelId: string | undefined): number {
   const MAX_DIST = 470; // ungefärlig kartradie
   const centrality = Math.max(0, 1 - dist / MAX_DIST);
   return +(0.94 + centrality * 0.18).toFixed(3);
+}
+
+/** Tomtruta under en världspunkt (x,z) – för klick på sammanslagen dekor. */
+export function parcelAt(x: number, z: number): Parcel | undefined {
+  return PARCELS.find(
+    (p) => Math.abs(x - p.x) <= p.w / 2 && Math.abs(z - p.z) <= p.d / 2,
+  );
 }
 
 /** Deterministisk hash (FNV-1a) – används för variation i 3D-vyn. */

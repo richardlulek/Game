@@ -118,10 +118,12 @@ function CityParcels() {
     for (const p of PARCELS) if (p.expansion && !unlocked.has(p.blockId)) locked.add(p.blockId);
     return locked;
   }, [state.unlockedBlocks]);
+  // Organiskt framvuxna dekorhus – identiteten följer arrayen i state.
+  const grown = useMemo(() => new Set(state.ambientGrown ?? []), [state.ambientGrown]);
 
   return (
     <>
-      <StaticCity occupied={occupied} lockedBlocks={lockedBlocks} />
+      <StaticCity occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
       {PARCELS.map((pc) => (
         <ParcelNode key={pc.id} parcel={pc} content={byParcel.get(pc.id)} />
       ))}

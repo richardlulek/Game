@@ -4,14 +4,16 @@
    denna rena funktion (se src/store/gameStore.ts).
    ============================================================ */
 
-import { PARCELS } from "./city";
+import { PARCELS, expansionByBlock, hasAmbientBuilding, occupiedParcelIds, parcelById } from "./city";
+import { newPlanProcess, planFee, rawLandPrice } from "./cityPlan";
 import { nextTier, qualifiesFor } from "./company";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
 import { fullyOwnedBlocks } from "./blocks";
 import { equityOf, loanTerms } from "./finance";
+import { ambientAsk, ambientProfile } from "./landDeals";
 import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
 import { kr, msek, pct } from "./format";
-import { calcCapacity, genListing, genLot, makeTenant } from "./generators";
+import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
 import {
   BROKER_FEE,
@@ -939,6 +941,20 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (e.takeoverPressure !== undefined) {
         s.takeoverPressure = Math.max(0, (s.takeoverPressure ?? 0) + e.takeoverPressure);
       }
+      if (e.planSettle) {
+        // Förlikning i överklagad detaljplan: tiden kortas och
+        // processen återgår till granskning.
+        const { blockId, monthsDelta } = e.planSettle;
+        s.planProcesses = (s.planProcesses ?? []).map((pp) =>
+          pp.blockId === blockId
+            ? {
+                ...pp,
+                stage: monthsDelta < 0 ? ("granskning" as const) : pp.stage,
+                monthsLeft: Math.max(1, pp.monthsLeft + monthsDelta),
+              }
+            : pp,
+        );
+      }
       if (e.gameOver) s.gameOver = true;
       return { ...s, log: [{ t: e.log, kind: e.logKind }, ...s.log] };
     }
@@ -1708,6 +1724,116 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ownerLuxuries: [...(state.ownerLuxuries ?? []), lux.id],
         reputation: Math.min(100, state.reputation + (lux.reputation ?? 0)),
         log: [{ t: `${lux.icon} ${lux.name} — ${lux.desc}`, kind: "event" }, ...state.log],
+      };
+    }
+    case "BUY_AMBIENT": {
+      // Off market-affär: ett privatägt hus (dekorbebyggelse) köps loss
+      // och blir en riktig fastighet i portföljen – beståndet VÄXER,
+      // inga hus ersätts. Ägaren säljer mot premie (se landDeals.ts).
+      const parcel = parcelById(action.parcelId);
+      if (!parcel) return state;
+      const grown = new Set(state.ambientGrown ?? []);
+      if (!hasAmbientBuilding(parcel, grown))
+        return log(state, "Tomten bär inget privatägt hus.", "warn");
+      if (occupiedParcelIds(state).has(parcel.id))
+        return log(state, "Fastigheten ägs redan av ett bolag.", "warn");
+      const deal = ambientAsk(parcel, state);
+      const prof = ambientProfile(parcel);
+      const { maxLtv } = loanTerms(state);
+      const down = deal.ask * (1 - maxLtv);
+      if (state.cash < down)
+        return log(state, `Ägaren begär ${msek(deal.ask)} — handpenning ${msek(down)} saknas.`, "warn");
+      const loan = deal.ask - down;
+      const d = DISTRICTS.find((x) => x.id === parcel.district)!;
+      const annualRent = deal.value * PROP_TYPES[prof.type].rentFactor * 12 * (0.7 + (prof.condition / 100) * 0.5);
+      const capacity = calcCapacity(prof.area);
+      const prop: Property = {
+        id: newId(),
+        district: parcel.district,
+        districtName: d.name,
+        type: prof.type,
+        typeLabel: prof.typeLabel,
+        area: prof.area,
+        condition: prof.condition,
+        askPrice: deal.ask,
+        purchasePrice: deal.ask,
+        baseRent: Math.round(annualRent),
+        upgrades: [],
+        owned: true,
+        rentMult: 1,
+        opexMult: 1,
+        vacancyMult: 1,
+        valueMult: 1,
+        // Bebott hus: hyresgästerna följer med köpet.
+        tenants: Array.from({ length: Math.max(1, Math.floor(capacity / 2)) }, () =>
+          makeTenant(Math.round(annualRent) / capacity, state.demandMod, prof.condition),
+        ),
+        capacity,
+        status: "klar",
+        buildLeft: 0,
+        parcelId: parcel.id,
+        energyClass: energyClassFor(prof.condition),
+        builtYear: builtYearFor(prof.condition, state.year),
+        txHistory: [{ type: "köp", price: deal.ask, month: state.month, year: state.year, party: "Privat ägare" }],
+      };
+      return {
+        ...state,
+        cash: state.cash - down,
+        debt: state.debt + loan,
+        portfolio: [...state.portfolio, prop],
+        log: [
+          {
+            t: `🤝 OFF MARKET: Köpte ${prof.typeLabel.toLowerCase()} i ${d.name} av privat ägare för ${msek(deal.ask)} (${Math.round((deal.premium - 1) * 100)} % över värdet${deal.holdout ? " – en riktig nejsägare" : ""}).`,
+            kind: "buy",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "BUY_RAW_LAND": {
+      // Råmark i ett planområde – billig, men obyggbar tills en egen
+      // detaljplan drivits genom planprocessen (START_PLAN).
+      const def = expansionByBlock(action.blockId);
+      if (!def || def.kind !== "plan") return state;
+      if ((state.unlockedBlocks ?? []).includes(def.blockId))
+        return log(state, "Området är redan planlagt.", "info");
+      if ((state.ownedPlanAreas ?? []).includes(def.blockId))
+        return log(state, "Du äger redan råmarken.", "info");
+      const price = rawLandPrice(def.blockId, state);
+      if (state.cash < price)
+        return log(state, `Råmarken kostar ${msek(price)} — kassan räcker inte (råmark belånas inte).`, "warn");
+      return {
+        ...state,
+        cash: state.cash - price,
+        ownedPlanAreas: [...(state.ownedPlanAreas ?? []), def.blockId],
+        log: [
+          { t: `🌾 Köpte råmarken vid ${DISTRICTS.find((x) => x.id === def.district)?.name} för ${msek(price)}. Starta detaljplan för att göra den byggbar.`, kind: "buy" },
+          ...state.log,
+        ],
+      };
+    }
+    case "START_PLAN": {
+      const def = expansionByBlock(action.blockId);
+      if (!def || def.kind !== "plan") return state;
+      if (!(state.ownedPlanAreas ?? []).includes(def.blockId))
+        return log(state, "Köp råmarken först.", "warn");
+      if ((state.planProcesses ?? []).some((p) => p.blockId === def.blockId))
+        return log(state, "Planprocessen pågår redan.", "info");
+      const fee = planFee(def.blockId);
+      if (state.cash < fee)
+        return log(state, `Planavgift och utredningar kostar ${msek(fee)} — kassan räcker inte.`, "warn");
+      const proc = newPlanProcess(def.blockId, state);
+      return {
+        ...state,
+        cash: state.cash - fee,
+        planProcesses: [...(state.planProcesses ?? []), proc],
+        log: [
+          {
+            t: `📋 DETALJPLAN PÅBÖRJAD: Planansökan för ${proc.districtName} inlämnad (${msek(fee)}). Samråd inleds — klart om ~${proc.totalMonths} mån om allt går vägen.`,
+            kind: "event",
+          },
+          ...state.log,
+        ],
       };
     }
     case "TOGGLE_SHORT_TERM": {

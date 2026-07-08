@@ -7,15 +7,20 @@ import { DISTRICTS, DISTRICT_GEN, PROP_TYPES, TENANT_NAMES, TENANT_PROFILES } fr
 import { newId, pick, rnd } from "./random";
 import type { District, GameState, Lot, Property, PropTypeKey, Tenant } from "./types";
 
-/** Viktad slumpning av distrikt (vikterna speglar tomtantal per zon). */
-function pickDistrict(): District {
-  const total = DISTRICTS.reduce((a, d) => a + (DISTRICT_GEN[d.id]?.weight ?? 10), 0);
+/** Viktad slumpning av distrikt (vikterna speglar tomtantal per zon).
+ *  Med `allowed` begränsas valet till distrikt med ledig mark, så att
+ *  nyproduktion aldrig behöver tränga undan befintliga hus. */
+function pickDistrict(allowed?: ReadonlySet<string>): District {
+  const pool =
+    allowed && allowed.size > 0 ? DISTRICTS.filter((d) => allowed.has(d.id)) : DISTRICTS;
+  const list = pool.length > 0 ? pool : DISTRICTS;
+  const total = list.reduce((a, d) => a + (DISTRICT_GEN[d.id]?.weight ?? 10), 0);
   let r = Math.random() * total;
-  for (const d of DISTRICTS) {
+  for (const d of list) {
     r -= DISTRICT_GEN[d.id]?.weight ?? 10;
     if (r <= 0) return d;
   }
-  return DISTRICTS[0];
+  return list[0];
 }
 
 /** Viktad fastighetstyp enligt distriktets profil. */
@@ -83,8 +88,13 @@ export function builtYearFor(condition: number, currentYear: number): number {
 export const absMonth = (state: GameState) => state.year * 12 + state.month;
 
 /** Gemensam kärna: distriktsprofilstyrd fastighet. */
-function genProperty(state: GameState, priceJitter: [number, number], condMin: number): Property {
-  const d = pickDistrict();
+function genProperty(
+  state: GameState,
+  priceJitter: [number, number],
+  condMin: number,
+  allowed?: ReadonlySet<string>,
+): Property {
+  const d = pickDistrict(allowed);
   const prof = DISTRICT_GEN[d.id];
   const typeKey = pickType(d.id);
   const t = PROP_TYPES[typeKey];
@@ -123,16 +133,16 @@ function genProperty(state: GameState, priceJitter: [number, number], condMin: n
 }
 
 /** Genererar en fastighet för världspoolen (off-market, ingen datumstämpel). */
-export function genWorldProperty(state: GameState): Property {
-  const p = genProperty(state, [0.85, 1.15], 30);
+export function genWorldProperty(state: GameState, allowed?: ReadonlySet<string>): Property {
+  const p = genProperty(state, [0.85, 1.15], 30, allowed);
   if (Math.random() < 0.4)
     p.tenants.push(makeTenant(p.baseRent / p.capacity, state.demandMod, p.condition));
   return p;
 }
 
 /** Genererar ett marknadsobjekt till salu. */
-export function genListing(state: GameState): Property {
-  const p = genProperty(state, [0.9, 1.12], 35);
+export function genListing(state: GameState, allowed?: ReadonlySet<string>): Property {
+  const p = genProperty(state, [0.9, 1.12], 35, allowed);
   const born = absMonth(state);
   p.listedMonth = born;
   p.expiresMonth = born + 3 + Math.floor(Math.random() * 2);
@@ -143,8 +153,8 @@ export function genListing(state: GameState): Property {
 }
 
 /** Genererar en byggbar tomt till salu. */
-export function genLot(state: GameState): Lot {
-  const d = pickDistrict();
+export function genLot(state: GameState, allowed?: ReadonlySet<string>): Lot {
+  const d = pickDistrict(allowed);
   const area = Math.round(rnd(600, 3500));
   const price = Math.round(area * d.base * 0.18 * state.marketMod);
   const born = absMonth(state);
