@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
+import { interestLabel, packageStats } from "../engine/selling";
 import type { GameAction, GameState, GlobalManagerSettings } from "../engine/types";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
 
@@ -31,6 +32,16 @@ export function PortfolioTable({ state, dispatch }: Props) {
   const [sortAsc, setSortAsc] = useState(false);
   const [districtFilter, setDistrictFilter] = useState("Alla");
   const [typeFilter, setTypeFilter] = useState("Alla");
+  // Paketförsäljning: bocka för fastigheter och annonsera som portfölj.
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [pkgAskPct, setPkgAskPct] = useState(102);
+  const toggleSelect = (id: number) =>
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const gm: GlobalManagerSettings = state.globalManager ?? {
     active: false,
@@ -242,6 +253,67 @@ export function PortfolioTable({ state, dispatch }: Props) {
         </span>
       </div>
 
+      {/* ── Säljpaket: aktiva annonser + skapa nytt ur urvalet ────── */}
+      {(state.salePackages ?? []).length > 0 && (
+        <div style={{ background: C.woodDark, border: `1px solid ${C.brass}55`, borderRadius: 6, padding: "10px 14px", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+            📦 Aktiva säljpaket
+          </div>
+          {(state.salePackages ?? []).map((pkg) => {
+            const st = packageStats(pkg, state);
+            const il = interestLabel(st.chance);
+            return (
+              <div key={pkg.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "4px 0", fontSize: 12.5, color: C.parchment }}>
+                <span>
+                  <strong>{pkg.name}</strong> · {pkg.propertyIds.length} fastigheter · utgångspris {msek(pkg.ask)}
+                  {" · "}värde {msek(st.value)} (paketpremie +{Math.round((st.premium - 1) * 100)} %)
+                </span>
+                <span style={{ display: "flex", gap: 10, alignItems: "center", whiteSpace: "nowrap" }}>
+                  <span style={{ color: il.color, fontWeight: 700, fontSize: 11.5 }}>{il.label}</span>
+                  <button
+                    style={{ background: "transparent", border: `1px solid ${C.brass}66`, color: C.creamSoft, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}
+                    onClick={() => dispatch({ type: "UNLIST_PACKAGE", packageId: pkg.id })}
+                  >
+                    Återkalla
+                  </button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {selected.size >= 2 && (() => {
+        const props = state.portfolio.filter((p) => selected.has(p.id) && p.status === "klar" && !p.forSale);
+        const value = props.reduce((a, p) => a + propMarketValue(p, state), 0);
+        const ask = Math.round((value * pkgAskPct) / 100);
+        return (
+          <div style={{ background: C.woodDark, border: `1px solid ${C.brass}`, borderRadius: 6, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: C.parchment }}>
+              <strong>{props.length} valda</strong> · värde {msek(value)}
+            </span>
+            <input
+              type="range" min={92} max={118} step={1}
+              value={pkgAskPct}
+              onChange={(e) => setPkgAskPct(+e.target.value)}
+              style={{ flex: 1, minWidth: 120, accentColor: C.brass }}
+            />
+            <span style={{ fontSize: 12.5, color: C.brassBright, fontWeight: 700 }}>
+              Utgångspris {msek(ask)} ({pkgAskPct} %)
+            </span>
+            <button
+              style={{ background: BURGUNDY, color: C.brassBright, border: "none", borderRadius: 4, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              disabled={props.length < 2}
+              onClick={() => {
+                dispatch({ type: "LIST_PACKAGE", ids: props.map((p) => p.id), ask });
+                setSelected(new Set());
+              }}
+            >
+              📦 Skapa säljpaket
+            </button>
+          </div>
+        );
+      })()}
+
       {/* ── Tabell ───────────────────────────────────────────────── */}
       {state.portfolio.length === 0 ? (
         <div style={{ color: C.creamSoft, fontSize: 13, padding: 20 }}>
@@ -252,6 +324,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: C.woodDark, borderBottom: `1px solid ${C.brass}` }}>
+                <th style={{ ...thStyle, width: 30 }} title="Välj för säljpaket">📦</th>
                 <th style={thStyle}>Fastighet</th>
                 <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("value")}>
                   Marknadsvärde{sortIndicator("value")}
@@ -291,6 +364,18 @@ export function PortfolioTable({ state, dispatch }: Props) {
                       height: 40,
                     }}
                   >
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      {p.status === "klar" && !p.forSale ? (
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                          style={{ accentColor: C.brass, cursor: "pointer" }}
+                        />
+                      ) : p.forSale ? (
+                        <span title={p.forSale.packageId != null ? "I säljpaket" : "Till salu"} style={{ fontSize: 11 }}>🏷️</span>
+                      ) : null}
+                    </td>
                     <td style={tdStyle}>
                       <div style={{ fontWeight: 600, color: C.parchment }}>{p.typeLabel}</div>
                       <div style={{ fontSize: 11, color: C.creamSoft }}>{p.districtName}</div>

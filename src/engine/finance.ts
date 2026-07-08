@@ -86,6 +86,37 @@ export function equityOf(state: GameState): number {
   );
 }
 
+/* ── Amorteringskravets trappa ──────────────────────────────────────
+   Delas av simulationen och Finans-panelen så att planeringsvyn
+   alltid visar exakt det som kommer att dras. */
+
+export interface AmortInfo {
+  ltv: number;
+  /** 0, 0.01 eller 0.02 – krav i andel av skulden per år. */
+  yearlyPct: number;
+  /** Kravet i kr per månad. */
+  monthly: number;
+  /** Nästa trappsteg nedåt (0.7 eller 0.5), null om amorteringsfritt. */
+  nextBreakLtv: number | null;
+  /** Skuld att amortera för att nå nästa trappsteg. */
+  amortToNextBreak: number | null;
+}
+
+export function amortTierPct(ltv: number): number {
+  return ltv > 0.7 ? 0.02 : ltv > 0.5 ? 0.01 : 0;
+}
+
+export function amortInfoOf(state: GameState): AmortInfo {
+  const portVal = portfolioValue(state);
+  const ltv = portVal > 0 ? state.debt / portVal : state.debt > 0 ? 1 : 0;
+  const yearlyPct = amortTierPct(ltv);
+  const monthly = Math.round((state.debt * yearlyPct) / 12);
+  const nextBreakLtv = ltv > 0.7 ? 0.7 : ltv > 0.5 ? 0.5 : null;
+  const amortToNextBreak =
+    nextBreakLtv != null ? Math.max(0, Math.ceil(state.debt - nextBreakLtv * portVal)) : null;
+  return { ltv, yearlyPct, monthly, nextBreakLtv, amortToNextBreak };
+}
+
 /** Belåningsgrad (LTV). 0 om portföljen är tom. Inkluderar revolverande kredit. */
 export function ltvOf(state: GameState): number {
   const totalDebt = state.debt + (state.revolving?.used ?? 0);

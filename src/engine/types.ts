@@ -168,16 +168,30 @@ export interface Tenant {
   anchorDeal?: boolean;
 }
 
-/** Ett inkommande erbjudande (t.ex. en rival som vill köpa din fastighet). */
+/** Ett inkommande erbjudande: oombett uppköpsbud ("buyout"), bud på en
+ *  utannonserad fastighet ("listing") eller på ett helt säljpaket ("paket"). */
 export interface Offer {
   id: number;
-  kind: "buyout";
+  kind: "buyout" | "listing" | "paket";
   propId: number;
   propLabel: string;
   districtName: string;
   from: string;
   amount: number;
   expiresIn: number;
+  /** Paketbud: alla fastigheter som ingår. */
+  propertyIds?: number[];
+  packageId?: number;
+}
+
+/** Ett säljpaket: flera fastigheter som annonseras som en portfölj –
+ *  institutionella köpare gillar volym och betalar paketpremie. */
+export interface SalePackage {
+  id: number;
+  name: string;
+  propertyIds: number[];
+  ask: number;
+  listedAbs: number;
 }
 
 /** Ett val som spelaren måste ta ställning till innan spelet kan gå vidare. */
@@ -244,6 +258,9 @@ export interface Property {
    *  (underhåll, uppgraderingar, energiåtgärder, projekt).
    *  Yield on cost = driftnetto / (inköpspris + capexTotal). */
   capexTotal?: number;
+  /** Utannonserad till försäljning: köpare hittas i takt med skick,
+   *  uthyrningsgrad och avkastning. packageId = del av säljpaket. */
+  forSale?: { ask: number; listedAbs: number; packageId?: number };
   upgrades: string[];
   owned: boolean;
   rentMult: number;
@@ -524,6 +541,8 @@ export interface GameState {
   history: HistoryPoint[];
   gameOver: boolean;
   offers: Offer[];
+  /** Aktiva säljpaket (portföljförsäljningar). */
+  salePackages?: SalePackage[];
   pendingDecision: PendingDecision | null;
   stocks: Stock[];
   marketSentiment: number;
@@ -620,6 +639,10 @@ export type GameAction =
   | { type: "RESOLVE_DECISION"; optionIndex: number }
   | { type: "ACCEPT_OFFER"; offerId: number }
   | { type: "DECLINE_OFFER"; offerId: number }
+  | { type: "LIST_FOR_SALE"; id: number; ask: number }
+  | { type: "UNLIST"; id: number }
+  | { type: "LIST_PACKAGE"; ids: number[]; ask: number }
+  | { type: "UNLIST_PACKAGE"; packageId: number }
   | { type: "BUY_SHARES"; stockId: string; qty: number }
   | { type: "SELL_SHARES"; stockId: string; qty: number }
   | { type: "ACQUIRE_COMPANY"; stockId: string }

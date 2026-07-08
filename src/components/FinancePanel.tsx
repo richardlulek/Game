@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { esgRatingOf } from "../engine/esg";
-import { LENDERS, loanTerms } from "../engine/finance";
+import { LENDERS, amortInfoOf, loanTerms } from "../engine/finance";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
 import type { GameAction, GameState, LoanTerms } from "../engine/types";
@@ -120,8 +120,60 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
             </div>
           );
         })()}
-        <h3 style={{ ...S.h3, marginTop: 18 }}>Amortera</h3>
-        <div style={S.amortRow}>
+        <h3 style={{ ...S.h3, marginTop: 18 }}>Skuldportfölj & amortering</h3>
+        {(() => {
+          const ai = amortInfoOf(state);
+          const bondInterestMo = (state.bonds ?? []).reduce(
+            (a, b) => a + Math.round((b.amount * b.rate) / 100 / 12), 0);
+          const revInterestMo = state.revolving?.used
+            ? Math.round((state.revolving.used * 0.015) / 12) : 0;
+          const bankInterestMo = Math.round(annualInterest / 12);
+          const totalDebtCostMo = bankInterestMo + bondInterestMo + revInterestMo + ai.monthly;
+          // Skuldtrappan: bankens alla LTV-nivåer, med nuvarande läge markerat.
+          const STEPS: { min: number; max: number; label: string; bad: boolean }[] = [
+            { min: 0.85, max: 9, label: "Bankstraff 1,5 %/år + rep-tapp", bad: true },
+            { min: 0.75, max: 0.85, label: "Räntepåslag 0,5 %/år", bad: true },
+            { min: 0.7, max: 0.75, label: "Amorteringskrav 2 %/år", bad: false },
+            { min: 0.5, max: 0.7, label: "Amorteringskrav 1 %/år", bad: false },
+            { min: 0, max: 0.5, label: "Amorteringsfritt", bad: false },
+          ];
+          return (
+            <>
+              <div style={{ marginBottom: 8 }}>
+                {STEPS.map((st) => {
+                  const here = ai.ltv > st.min && ai.ltv <= st.max;
+                  return (
+                    <div key={st.min} style={{
+                      display: "flex", justifyContent: "space-between", fontSize: 11.5,
+                      padding: "3px 8px", borderRadius: 4, marginBottom: 1,
+                      background: here ? (st.bad ? "#fbe9e4" : "#eef3e6") : "transparent",
+                      fontWeight: here ? 800 : 400,
+                      color: here ? (st.bad ? "#8a3a2a" : "#27660a") : "#888",
+                    }}>
+                      <span>{st.max > 1 ? `> ${st.min * 100} %` : st.min === 0 ? `< ${st.max * 100} %` : `${st.min * 100}–${st.max * 100} %`}{here ? ` ← du (${Math.round(ai.ltv * 100)} %)` : ""}</span>
+                      <span>{st.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <Line l="Amorteringskrav" v={ai.monthly > 0 ? `−${kr(ai.monthly)}/mån` : "0 kr (amorteringsfritt)"} accent={ai.monthly > 0 ? "#c0392b" : "#27660a"} />
+              <Line l="Ränta bank + obligationer + kredit" v={`−${kr(bankInterestMo + bondInterestMo + revInterestMo)}/mån`} />
+              <Line l="Skuldens månadskostnad" v={`−${kr(totalDebtCostMo)}/mån`} bold />
+              {ai.amortToNextBreak != null && ai.amortToNextBreak > 0 && ai.nextBreakLtv != null && (
+                <button
+                  style={{ ...S.amortBtn, background: "#1a4a6b", marginTop: 6 }}
+                  disabled={state.cash < ai.amortToNextBreak}
+                  title={state.cash < ai.amortToNextBreak ? `Kassan räcker inte (${kr(ai.amortToNextBreak)} behövs)` : ""}
+                  onClick={() => dispatch({ type: "AMORT", amount: ai.amortToNextBreak! })}
+                >
+                  Amortera till {Math.round(ai.nextBreakLtv * 100)} % LTV ({msek(ai.amortToNextBreak)})
+                  {ai.nextBreakLtv === 0.5 ? " → amorteringsfritt" : " → 1 %/år"}
+                </button>
+              )}
+            </>
+          );
+        })()}
+        <div style={{ ...S.amortRow, marginTop: 10 }}>
           <input
             type="range"
             min="0"
@@ -139,7 +191,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           style={S.amortBtn}
           onClick={() => dispatch({ type: "AMORT", amount: amortAmt })}
         >
-          Amortera
+          Amortera valfritt belopp
         </button>
       </div>
 

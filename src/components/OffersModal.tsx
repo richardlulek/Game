@@ -30,8 +30,12 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {offers.map((o) => {
-              const prop = state.portfolio.find((p) => p.id === o.propId);
-              const market = prop ? propMarketValue(prop, state) : o.amount;
+              // Paketbud värderas mot summan av alla ingående fastigheter.
+              const ids = o.propertyIds ?? [o.propId];
+              const props = state.portfolio.filter((p) => ids.includes(p.id));
+              const market = props.length
+                ? props.reduce((a, p) => a + propMarketValue(p, state), 0)
+                : o.amount;
               const premium = market > 0 ? ((o.amount / market - 1) * 100) : 0;
               return (
                 <div key={o.id} style={offerCard}>

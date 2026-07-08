@@ -5,6 +5,7 @@ import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
 import { propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propYieldOnCost } from "../engine/property";
+import { QUICK_SALE_FACTOR, attractiveness, interestChance, interestLabel } from "../engine/selling";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { BuildingArt } from "./BuildingArt";
@@ -57,6 +58,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
   const [showRaiseTenantId,  setShowRaiseTenantId]  = useState<number | null>(null);
   const [showLowerTenantId,  setShowLowerTenantId]  = useState<number | null>(null);
   const [showMgrSettings,    setShowMgrSettings]    = useState(false);
+  const [askPct,             setAskPct]             = useState(100);
 
   // ── Beräknade värden ────────────────────────────────────────────
   const value        = propMarketValue(p, state);
@@ -760,13 +762,71 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         );
       })()}
 
-      <ActionBtn
-        label={`Sälj fastighet · ${msek(value)}`}
-        sub="Realiserar vinst/förlust mot inköpspris"
-        color="#7a5a00"
-        disabled={state.gameOver}
-        onClick={() => dispatch({ type: "SELL", id: p.id })}
-      />
+      {/* ── Försäljning: annonsera och invänta köpare, eller snabbsälj ── */}
+      {p.forSale?.packageId != null ? (
+        <div style={{ fontSize: 12, color: "#8a6d1a", fontWeight: 700, padding: "8px 10px", background: "#f6f1e2", borderRadius: 6 }}>
+          📦 Ingår i säljpaket – hanteras i Bolag → Översikt.
+        </div>
+      ) : p.forSale ? (
+        (() => {
+          const A = attractiveness(p, state);
+          const chance = interestChance(A, p.forSale.ask, value, state.marketSentiment ?? 1);
+          const il = interestLabel(chance);
+          return (
+            <div style={{ padding: "8px 10px", background: "#f6f1e2", borderRadius: 6 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8a6d1a" }}>
+                🏷️ Till salu för {msek(p.forSale.ask)}
+              </div>
+              <div style={{ fontSize: 11.5, marginTop: 2 }}>
+                Köpintresse: <strong style={{ color: il.color }}>{il.label}</strong>
+                {" · "}bud landar i 💼-inkorgen
+              </div>
+              <button
+                style={{ ...contractBtn, marginTop: 6 }}
+                onClick={() => dispatch({ type: "UNLIST", id: p.id })}
+              >
+                Ta bort från marknaden
+              </button>
+            </div>
+          );
+        })()
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 12, color: C.inkSoft, minWidth: 92 }}>Utgångspris</span>
+            <input
+              type="range" min={90} max={115} step={1}
+              value={askPct}
+              onChange={(e) => setAskPct(+e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 12.5, fontWeight: 700, minWidth: 108, textAlign: "right" }}>
+              {msek(Math.round((value * askPct) / 100))} ({askPct} %)
+            </span>
+          </div>
+          {(() => {
+            const ask = Math.round((value * askPct) / 100);
+            const chance = interestChance(attractiveness(p, state), ask, value, state.marketSentiment ?? 1);
+            const il = interestLabel(chance);
+            return (
+              <ActionBtn
+                label={`🏷️ Lägg ut till försäljning · ${msek(ask)}`}
+                sub={`Förväntat köpintresse: ${il.label} – bra skick, hög uthyrning och rätt pris säljer snabbt`}
+                color="#7a5a00"
+                disabled={state.gameOver}
+                onClick={() => dispatch({ type: "LIST_FOR_SALE", id: p.id, ask })}
+              />
+            );
+          })()}
+          <ActionBtn
+            label={`⚡ Snabbförsäljning · ${msek(Math.round(value * QUICK_SALE_FACTOR))}`}
+            sub="Uppköpare betalar direkt men drar 15 % mot marknadsvärdet"
+            color="#8a4a2a"
+            disabled={state.gameOver}
+            onClick={() => dispatch({ type: "SELL", id: p.id })}
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -27,13 +27,14 @@ import {
 import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
-import { equityOf, loanTerms } from "./finance";
+import { amortInfoOf, equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { genListing, genLot, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
+import { BUYERS, attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats } from "./selling";
 import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
 import { tickHotel, tickEnergy, tickLogistik } from "./industries";
 import type { GameState, LogEntry, Offer } from "./types";
@@ -650,21 +651,17 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
-  // Amorteringskrav i trappa (jfr svenska regler): 2 %/år av skulden
-  // vid LTV över 70 %, 1 %/år i spannet 50–70 %, amorteringsfritt
-  // under 50 %. Amortering är ingen kostnad – skuld växlas mot eget
-  // kapital – så den rör bara kassan/skulden, inte månadens driftnetto.
+  // Amorteringskrav i trappa (jfr svenska regler) – formeln delas med
+  // Finans-panelen via amortInfoOf. Amortering är ingen kostnad – skuld
+  // växlas mot eget kapital – så den rör bara kassan/skulden.
   if (s.debt > 0) {
-    const portValAmort = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
-    const ltvAmort = portValAmort > 0 ? s.debt / portValAmort : 1;
-    const yearlyPct = ltvAmort > 0.70 ? 0.02 : ltvAmort > 0.50 ? 0.01 : 0;
-    if (yearlyPct > 0) {
-      const amort = Math.round((s.debt * yearlyPct) / 12);
-      s.cash -= amort;
-      s.debt = Math.max(0, s.debt - amort);
+    const ai = amortInfoOf(s);
+    if (ai.monthly > 0) {
+      s.cash -= ai.monthly;
+      s.debt = Math.max(0, s.debt - ai.monthly);
       if (s.month % 3 === 0) {
         events.push({
-          t: `🏦 Amorteringskrav: ${kr(amort)}/mån (${yearlyPct * 100} % av skulden/år vid LTV ${Math.round(ltvAmort * 100)} %). Amorteringsfritt under 50 % LTV.`,
+          t: `🏦 Amorteringskrav: ${kr(ai.monthly)}/mån (${ai.yearlyPct * 100} % av skulden/år vid LTV ${Math.round(ai.ltv * 100)} %). Amorteringsfritt under 50 % LTV.`,
           kind: "expense",
         });
       }
@@ -863,7 +860,8 @@ export function advanceMonth(state: GameState): GameState {
         events.push({ t: `⌛ Budet på ${o.propLabel} i ${o.districtName} drogs tillbaka.`, kind: "info" });
         return false;
       }
-      // Behåll bara bud på fastigheter du fortfarande äger.
+      // Behåll bara bud på fastigheter du fortfarande äger (paket: alla).
+      if (o.propertyIds) return o.propertyIds.every((id) => s.portfolio.some((p) => p.id === id));
       return s.portfolio.some((p) => p.id === o.propId);
     });
   // Nytt bud (~9 %): en rival vill köpa en av dina färdiga fastigheter över marknadsvärde.
@@ -891,6 +889,55 @@ export function advanceMonth(state: GameState): GameState {
       t: `📨 ${offers[offers.length - 1].from} bjuder ${msek(amount)} för din ${target.typeLabel} i ${target.districtName}.`,
       kind: "event",
     });
+  }
+
+  // ── Bud på utannonserade fastigheter ────────────────────────────
+  // Intresset styrs av skick, uthyrningsgrad, avkastning och pris:
+  // bra objekt till rätt pris säljer snabbt, liggare blir liggare.
+  const listedSingles = s.portfolio.filter(
+    (p) =>
+      p.status === "klar" &&
+      p.forSale &&
+      p.forSale.packageId == null &&
+      !offers.some((o) => o.kind === "listing" && o.propId === p.id),
+  );
+  for (const p of listedSingles) {
+    const A = attractiveness(p, s);
+    const value = propMarketValue(p, s);
+    if (Math.random() < interestChance(A, p.forSale!.ask, value, s.marketSentiment ?? 1)) {
+      const amount = offerAmount(A, p.forSale!.ask, value);
+      const from = pick(BUYERS);
+      offers = [
+        ...offers,
+        { id: newId(), kind: "listing", propId: p.id, propLabel: p.typeLabel, districtName: p.districtName, from, amount, expiresIn: 3 },
+      ];
+      events.push({ t: `🏷️ ${from} bjuder ${msek(amount)} på din utannonserade ${p.typeLabel} i ${p.districtName}.`, kind: "event" });
+    }
+  }
+  // Paketbud: institutioner gillar volym (paketpremie på budnivån).
+  for (const pkg of s.salePackages ?? []) {
+    if (offers.some((o) => o.packageId === pkg.id)) continue;
+    const st = packageStats(pkg, s);
+    if (Math.random() < st.chance) {
+      const amount = packageOfferAmount(pkg, s);
+      const from = pick(BUYERS);
+      offers = [
+        ...offers,
+        {
+          id: newId(),
+          kind: "paket",
+          propId: pkg.propertyIds[0],
+          propertyIds: pkg.propertyIds,
+          packageId: pkg.id,
+          propLabel: `${pkg.name} (${pkg.propertyIds.length} fastigheter)`,
+          districtName: "paketaffär",
+          from,
+          amount,
+          expiresIn: 3,
+        },
+      ];
+      events.push({ t: `📦 ${from} bjuder ${msek(amount)} på hela ${pkg.name} (${pkg.propertyIds.length} fastigheter).`, kind: "event" });
+    }
   }
   s.offers = offers;
 
