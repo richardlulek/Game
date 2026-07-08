@@ -650,17 +650,23 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
-  // Obligatorisk amortering: 0.5 % av skulden/mån när LTV > 40 %
+  // Amorteringskrav i trappa (jfr svenska regler): 2 %/år av skulden
+  // vid LTV över 70 %, 1 %/år i spannet 50–70 %, amorteringsfritt
+  // under 50 %. Amortering är ingen kostnad – skuld växlas mot eget
+  // kapital – så den rör bara kassan/skulden, inte månadens driftnetto.
   if (s.debt > 0) {
     const portValAmort = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     const ltvAmort = portValAmort > 0 ? s.debt / portValAmort : 1;
-    if (ltvAmort > 0.40) {
-      const amort = Math.round(s.debt * 0.005);
+    const yearlyPct = ltvAmort > 0.70 ? 0.02 : ltvAmort > 0.50 ? 0.01 : 0;
+    if (yearlyPct > 0) {
+      const amort = Math.round((s.debt * yearlyPct) / 12);
       s.cash -= amort;
       s.debt = Math.max(0, s.debt - amort);
-      monthlyNOI -= amort;
       if (s.month % 3 === 0) {
-        events.push({ t: `🏦 Obligatorisk amortering: ${kr(amort)}/mån (LTV ${Math.round(ltvAmort * 100)} %). Skulden minskar.`, kind: "expense" });
+        events.push({
+          t: `🏦 Amorteringskrav: ${kr(amort)}/mån (${yearlyPct * 100} % av skulden/år vid LTV ${Math.round(ltvAmort * 100)} %). Amorteringsfritt under 50 % LTV.`,
+          kind: "expense",
+        });
       }
     }
   }

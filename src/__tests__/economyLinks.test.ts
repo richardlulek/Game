@@ -272,3 +272,29 @@ describe("konjunktur talar med börs och rivaler", () => {
     expect(boomEq).toBeGreaterThan(bustEq);
   });
 });
+
+describe("amorteringskrav i trappa", () => {
+  const mkAt = (ltv: number) => {
+    const p = makeProperty({ id: 1, tenants: [makeTenantFixture()] });
+    const s0 = makeState({ cash: 5_000_000, portfolio: [p] });
+    const value = propMarketValue(p, s0);
+    return { ...s0, debt: Math.round(value * ltv) };
+  };
+
+  it("under 50 % LTV är det amorteringsfritt", () => {
+    const s0 = mkAt(0.45);
+    expect(advanceMonth(s0).debt).toBe(s0.debt);
+  });
+
+  it("50–70 % LTV amorterar 1 % av skulden per år", () => {
+    const s0 = mkAt(0.6);
+    const s1 = advanceMonth(s0);
+    expect(s1.debt).toBe(s0.debt - Math.round((s0.debt * 0.01) / 12));
+  });
+
+  it("över 70 % LTV amorterar 2 % av skulden per år", () => {
+    const s0 = mkAt(0.74);
+    const s1 = advanceMonth(s0);
+    expect(s1.debt).toBe(s0.debt - Math.round((s0.debt * 0.02) / 12));
+  });
+});
