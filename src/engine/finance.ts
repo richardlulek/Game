@@ -66,15 +66,23 @@ export function industryPortfolioValue(state: GameState): number {
   return (state.industryPortfolio ?? []).reduce((a, asset) => a + industryAssetValue(asset, state), 0);
 }
 
-/** Eget kapital = kassa + fastighetsvärde + industrivärde + aktier + dotterbolag − skuld. */
+/** Eget kapital = tillgångar (kassa, fastigheter, mark, industri, aktier,
+ *  dotterbolag) − skulder (banklån, obligationer, revolverkredit).
+ *  Obligationer och revolver räknades tidigare inte som skuld, vilket lät
+ *  en emission blåsa upp eget kapital med hela beloppet. */
 export function equityOf(state: GameState): number {
+  const bonds = (state.bonds ?? []).reduce((a, b) => a + b.amount, 0);
+  const lots = state.lots.filter((l) => l.owned).reduce((a, l) => a + l.price, 0);
   return (
     state.cash +
     portfolioValue(state) +
+    lots +
     industryPortfolioValue(state) +
     stockHoldingsValue(state) +
     subsidiaryValue(state) -
-    state.debt
+    state.debt -
+    bonds -
+    (state.revolving?.used ?? 0)
   );
 }
 
