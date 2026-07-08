@@ -363,22 +363,40 @@ export function OverlayToggle() {
 export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
   const state = useGameStore((s) => s.state);
   const dispatch = useGameStore((s) => s.dispatch);
+  const requestOpen = useUiStore((s) => s.requestOpen);
   const klar = state.portfolio.filter((p) => p.status === "klar");
   if (klar.length === 0) return null;
 
   const vacantSlots = klar
     .filter((p) => !p.shortTerm)
     .reduce((a, p) => a + Math.max(0, p.capacity - p.tenants.length), 0);
+  const vacantHouses = klar.filter((p) => !p.shortTerm && p.tenants.length < p.capacity).length;
   const totalApps = klar.reduce((a, p) => a + (p.applications ?? []).length, 0);
   const expiring = klar.reduce(
     (a, p) => a + p.tenants.filter((t) => t.monthsLeft <= 3).length,
     0,
   );
   const POOR = 45;
+  const GOOD = 70;
   const poor = klar.filter((p) => p.condition < POOR);
   const poorCost = poor.reduce((a, p) => a + Math.round(propMarketValue(p, state) * 0.02), 0);
+  // Underhållsskuld: uppskattad totalkostnad för att lyfta alla hus under
+  // "gott skick" (70) dit – varje underhållsrunda ger +15 skick och
+  // kostar 2 % av marknadsvärdet.
+  const maintDebt = klar.reduce((a, p) => {
+    if (p.condition >= GOOD) return a;
+    const rounds = Math.ceil((GOOD - p.condition) / 15);
+    return a + rounds * Math.round(propMarketValue(p, state) * 0.02);
+  }, 0);
+  const belowGood = klar.filter((p) => p.condition < GOOD).length;
+  // En underhållsrunda (+15 skick) för alla hus under gott skick.
+  const goodRoundCost = klar
+    .filter((p) => p.condition < GOOD)
+    .reduce((a, p) => a + Math.round(propMarketValue(p, state) * 0.02), 0);
+  const offersCount = (state.offers ?? []).length;
   const unmanaged = klar.filter((p) => !p.managed).length;
-  const nothing = vacantSlots === 0 && expiring === 0 && poor.length === 0;
+  const nothing =
+    vacantSlots === 0 && expiring === 0 && maintDebt === 0 && offersCount === 0;
   const up = canUpgrade(state);
   const load = orgLoadOf(state);
 
@@ -387,6 +405,14 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
       <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: 1, marginBottom: 4 }}>
         FÖRVALTNING · {klar.length} fastigheter
       </div>
+      {offersCount > 0 && (
+        <div style={{ ...T.hudRow, color: "#8a6d1a", fontWeight: 700 }}>
+          <span>📨 {offersCount} bud väntar på svar</span>
+          <button style={T.hudBtn} onClick={() => requestOpen("offers")}>
+            Öppna inkorgen
+          </button>
+        </div>
+      )}
       {up.qualified && (
         <div style={{ ...T.hudRow, color: "#8a6d1a", fontWeight: 700 }}>
           <span>📈 Redo att expandera bolaget!</span>
@@ -403,21 +429,22 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
           </button>
         </div>
       )}
-      {nothing && <div style={{ color: "#4d8b52" }}>✓ Allt uthyrt, förnyat och i gott skick.</div>}
-      {totalApps > 0 && (
+      {nothing && <div style={{ color: "#4d8b52" }}>✓ Inga bud, vakanser eller underhållsbehov.</div>}
+      {vacantSlots > 0 && (
         <div style={T.hudRow}>
-          <span>📬 {totalApps} ansökningar väntar</span>
-          <button style={T.hudBtn} onClick={() => dispatch({ type: "LEASE_ALL" })}>
-            Acceptera bästa
-          </button>
-        </div>
-      )}
-      {vacantSlots > 0 && totalApps === 0 && (
-        <div style={T.hudRow}>
-          <span>🏠 {vacantSlots} vakanser, inga sökande</span>
-          <button style={T.hudBtn2} onClick={() => openWindow("portfolio")}>
-            Justera hyror →
-          </button>
+          <span>
+            🔑 {vacantSlots} vakanser i {vacantHouses} hus
+            {totalApps > 0 ? ` · ${totalApps} sökande` : " · inga sökande"}
+          </span>
+          {totalApps > 0 ? (
+            <button style={T.hudBtn} onClick={() => dispatch({ type: "LEASE_ALL" })}>
+              Acceptera bästa
+            </button>
+          ) : (
+            <button style={T.hudBtn2} onClick={() => openWindow("portfolio")}>
+              Justera hyror →
+            </button>
+          )}
         </div>
       )}
       {expiring > 0 && (
@@ -428,17 +455,22 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
           </button>
         </div>
       )}
-      {poor.length > 0 && (
+      {maintDebt > 0 && (
         <div style={T.hudRow}>
-          <span>
-            🔧 {poor.length} med skick &lt; {POOR}
+          <span style={{ color: poor.length > 0 ? "#b5542a" : "#666" }}>
+            🔧 Underhållsskuld {msek(maintDebt)} ({belowGood} hus under skick {GOOD}
+            {poor.length > 0 ? `, ${poor.length} akuta` : ""})
           </span>
           <button
-            style={{ ...T.hudBtn, ...(state.cash < poorCost ? { opacity: 0.55 } : {}) }}
-            title={`Kostnad ca ${msek(poorCost)}`}
-            onClick={() => dispatch({ type: "MAINTAIN_ALL", threshold: POOR })}
+            style={{ ...T.hudBtn, ...(state.cash < (poor.length > 0 ? poorCost : goodRoundCost) ? { opacity: 0.55 } : {}) }}
+            title={
+              poor.length > 0
+                ? `Underhåller de akuta (skick < ${POOR}) för ca ${msek(poorCost)}. Hela skulden ${msek(maintDebt)} betas av i omgångar.`
+                : `En underhållsrunda (+15 skick) för alla hus under ${GOOD} – hela skulden betas av i omgångar.`
+            }
+            onClick={() => dispatch({ type: "MAINTAIN_ALL", threshold: poor.length > 0 ? POOR : GOOD })}
           >
-            Underhåll ({msek(poorCost)})
+            Underhåll ({msek(poor.length > 0 ? poorCost : goodRoundCost)})
           </button>
         </div>
       )}

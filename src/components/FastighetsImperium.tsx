@@ -8,6 +8,7 @@ import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
 import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
+import { useUiStore } from "../store/uiStore";
 import { listSaveSlots } from "../store/persistence";
 import { S } from "../styles/styles";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
@@ -150,6 +151,18 @@ export default function FastighetsImperium() {
     setWins((w) => (w[w.length - 1] === id ? w : [...w.filter((x) => x !== id), id]));
   };
   const minimizeWindow = (id: string) => setMinimized((m) => (m.includes(id) ? m : [...m, id]));
+
+  // Öppna-begäran från 3D-vyn (klick på statusikoner m.m.):
+  // "offers" öppnar budinkorgen, annars ett fönster-id.
+  const pendingOpen = useUiStore((s) => s.pendingOpen);
+  const clearOpen = useUiStore((s) => s.clearOpen);
+  useEffect(() => {
+    if (!pendingOpen) return;
+    if (pendingOpen === "offers") setShowOffers(true);
+    else openWindow(pendingOpen);
+    clearOpen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOpen]);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {

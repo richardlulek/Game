@@ -22,11 +22,34 @@ export type ParcelContent =
   | { kind: "lotOwned"; lot: Lot }
   | { kind: "rival"; prop: Property; owner: string; ownerIndex: number };
 
-/** Billboard-ikon ovanför huset: bud, vakans, till salu. */
-function StatusBadge({ emoji, y, order }: { emoji: string; y: number; order: number }) {
+/** Billboard-ikon ovanför huset: bud, vakans, till salu. Klick är en
+ *  genväg – budinkorgen, hyresgästerna eller portföljen öppnas direkt. */
+function StatusBadge({ emoji, y, order, onClick, title }: {
+  emoji: string; y: number; order: number; onClick: () => void; title: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  useCursor(hovered);
   return (
-    <sprite position={[0, y + order * 7, 0]} scale={[6, 6, 1]} renderOrder={40 + order}>
+    <sprite
+      position={[0, y + order * 7, 0]}
+      scale={hovered ? [7.2, 7.2, 1] : [6, 6, 1]}
+      renderOrder={40 + order}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerOut={() => setHovered(false)}
+    >
       <spriteMaterial map={iconTexture(emoji)} transparent depthTest={false} />
+      {hovered && (
+        <Html center position={[0, 1.1, 0]} zIndexRange={[45, 0]}>
+          <div style={TOOLTIP_STYLE}>{title}</div>
+        </Html>
+      )}
     </sprite>
   );
 }
@@ -144,6 +167,7 @@ function LockedExpansion({ parcel }: { parcel: Parcel }) {
 export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: ParcelContent }) {
   const selected = useUiStore((s) => s.selectedParcelId === parcel.id);
   const select = useUiStore((s) => s.select);
+  const requestOpen = useUiStore((s) => s.requestOpen);
   const overlayActive = useUiStore((s) => s.overlay !== "ingen");
   const unlockedExpansion = useGameStore((s) =>
     parcel.expansion ? (s.state.unlockedBlocks ?? []).includes(parcel.blockId) : true,
@@ -215,12 +239,30 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       ? "#e8c96a"
       : RING_COLORS[content.kind];
   // Statusikoner ovanför husen (ägda, färdiga): 📨 inkommet bud,
-  // 🔑 lediga platser, 🏷️ utannonserad till försäljning.
-  const badges: string[] = [];
+  // 🔑 lediga platser, 🏷️ utannonserad till försäljning. Klick öppnar
+  // rätt vy direkt (budinkorg / hyresgäster / portfölj).
+  const badges: { emoji: string; title: string; action: () => void }[] = [];
   if (content.kind === "owned" && content.prop.status === "klar") {
-    if (content.hasOffer) badges.push("📨");
-    if (content.prop.tenants.length < content.prop.capacity) badges.push("🔑");
-    if (content.prop.forSale) badges.push("🏷️");
+    if (content.hasOffer)
+      badges.push({ emoji: "📨", title: "Bud väntar – öppna inkorgen", action: () => requestOpen("offers") });
+    if (content.prop.tenants.length < content.prop.capacity)
+      badges.push({
+        emoji: "🔑",
+        title: `${content.prop.capacity - content.prop.tenants.length} vakanser – öppna Hyresgäster`,
+        action: () => {
+          select(parcel.id);
+          requestOpen("tenants");
+        },
+      });
+    if (content.prop.forSale)
+      badges.push({
+        emoji: "🏷️",
+        title: "Till salu – öppna Portfölj",
+        action: () => {
+          select(parcel.id);
+          requestOpen("portfolio");
+        },
+      });
   }
 
   return (
@@ -264,8 +306,8 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
           </GrowIn>
         )}
         {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
-        {badges.map((emoji, i) => (
-          <StatusBadge key={emoji} emoji={emoji} y={Math.min(fullH, 150) + 6} order={i} />
+        {badges.map((b, i) => (
+          <StatusBadge key={b.emoji} emoji={b.emoji} title={b.title} y={Math.min(fullH, 150) + 6} order={i} onClick={b.action} />
         ))}
       </group>
       {hovered && (

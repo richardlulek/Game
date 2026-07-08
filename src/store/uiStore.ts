@@ -18,6 +18,12 @@ interface UiStore {
   focusParcelId: string | null;
   focusSeq: number;
   requestFocus: (parcelId: string) => void;
+  /** Öppna-begäran från 3D-vyn (t.ex. klick på statusikon): "offers"
+   *  öppnar budinkorgen, annars ett fönster-id. Hanteras och nollas
+   *  av FastighetsImperium. */
+  pendingOpen: string | null;
+  requestOpen: (target: string) => void;
+  clearOpen: () => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -28,4 +34,7 @@ export const useUiStore = create<UiStore>((set) => ({
   focusParcelId: null,
   focusSeq: 0,
   requestFocus: (parcelId) => set((s) => ({ focusParcelId: parcelId, focusSeq: s.focusSeq + 1 })),
+  pendingOpen: null,
+  requestOpen: (pendingOpen) => set({ pendingOpen }),
+  clearOpen: () => set({ pendingOpen: null }),
 }));
