@@ -4,8 +4,8 @@
    skydd/energi → förvaltningschef. */
 
 import { CONTRACTS } from "../engine/leasing";
-import { msek } from "../engine/format";
-import type { CompanyPolicy, ContractKind, GameAction, GameState } from "../engine/types";
+import { kr, msek } from "../engine/format";
+import type { CompanyPolicy, ContractKind, GameAction, GameState, GlobalManagerSettings } from "../engine/types";
 import { BURGUNDY } from "../styles/tokens";
 
 const P: Record<string, React.CSSProperties> = {
@@ -67,6 +67,13 @@ export function PolicyPanel({
   const hasDirector = !!state.globalManager?.active;
   const hasCfo = (state.staff?.["cfo"] ?? 0) > 0;
   const hasOps = (state.staff?.["forvaltning"] ?? 0) > 0;
+
+  // Portföljdirektörens instruktioner – speglas här och i Hyresgäster.
+  const gmS: GlobalManagerSettings =
+    state.globalManager ?? { active: false, minCondition: 40, minTenantQuality: 0.8, rentTargetPct: 1.0 };
+  const setGm = (patch: Partial<GlobalManagerSettings>) =>
+    dispatch({ type: "SET_GLOBAL_MANAGER", settings: { ...gmS, ...patch } });
+  const gmFee = 15_000 + state.portfolio.length * 1_500;
 
   const aa = pol.autoAccept ?? { enabled: false, minQuality: 1.0, contract: "standard" as ContractKind };
   const am = pol.autoAmort ?? { enabled: false, ltvTarget: 0.6, cashFloor: 2_000_000 };
@@ -217,13 +224,55 @@ export function PolicyPanel({
         </div>
       </div>
 
-      {/* ── Befintlig direktörsstyrning ──────────────────────────── */}
+      {/* ── Förvaltning: portföljdirektörens instruktioner ───────── */}
       <div style={{ ...P.card, background: "#f2efe6" }}>
-        <div style={P.cardTitle}>👔 Portföljdirektören</div>
-        <div style={{ fontSize: 12.5, color: "#555" }}>
-          {hasDirector
-            ? "Aktiv: auto-underhåll, avtalsförnyelser och uthyrning enligt policyn ovan."
-            : "Inte anlitad. Anlita i Hyresgäster → Direktör för att policyerna för uthyrning ska verkställas automatiskt."}
+        <div style={P.cardTitle}>👔 Förvaltning & underhåll</div>
+        <div style={P.row}>
+          <span style={P.label}>Portföljdirektör</span>
+          <button style={toggleStyle(hasDirector)} onClick={() => setGm({ active: !hasDirector })}>
+            {hasDirector ? "ANLITAD" : "ANLITA"}
+          </button>
+          <span style={{ fontSize: 11.5, color: "#777" }}>
+            {hasDirector
+              ? `Arvode ${kr(gmFee)}/mån — sköter hela beståndet enligt instruktionerna nedan.`
+              : `Arvode ${kr(gmFee)}/mån (15 000 kr + 1 500 kr per fastighet). Finns även under Hyresgäster.`}
+          </span>
+        </div>
+        <div style={P.row}>
+          <span style={P.label}>Underhållströskel</span>
+          <input
+            type="range" min={0} max={100} step={5}
+            value={gmS.minCondition}
+            onChange={(e) => setGm({ minCondition: +e.target.value })}
+            style={{ flex: 1, accentColor: BURGUNDY, minWidth: 120 }}
+          />
+          <span style={P.value}>
+            {gmS.minCondition === 100 ? "100 (alltid)" : gmS.minCondition === 0 ? "0 (aldrig)" : gmS.minCondition}
+          </span>
+        </div>
+        <div style={P.row}>
+          <span style={P.label}>Hyresmål vid förlängning</span>
+          <input
+            type="range" min={80} max={130} step={5}
+            value={Math.round(gmS.rentTargetPct * 100)}
+            onChange={(e) => setGm({ rentTargetPct: +e.target.value / 100 })}
+            style={{ flex: 1, accentColor: BURGUNDY, minWidth: 120 }}
+          />
+          <span style={P.value}>{Math.round(gmS.rentTargetPct * 100)} %</span>
+        </div>
+        <div style={P.row}>
+          <span style={P.label}>Min. hyresgästkvalitet (autofyll)</span>
+          {[0, 0.8, 0.9, 1.0].map((q) => (
+            <button key={q} style={chipStyle(gmS.minTenantQuality === q)}
+              onClick={() => setGm({ minTenantQuality: q })}>
+              {q === 0 ? "Alla" : q.toFixed(2)}
+            </button>
+          ))}
+        </div>
+        <div style={P.hint}>
+          Underhåll utförs när skicket faller under tröskeln — 100 håller alla hus i toppskick men
+          kostar därefter. Fastigheter med egen förvaltare följer sina egna instruktioner i stället.
+          {hasDirector ? "" : " Instruktionerna sparas och gäller så fort direktören anlitas."}
         </div>
       </div>
     </div>

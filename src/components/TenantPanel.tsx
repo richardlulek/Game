@@ -198,7 +198,7 @@ export function TenantPanel({ state, dispatch }: Props) {
                   </div>
                   <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 2 }}>
                     {gm?.active
-                      ? `~30 % chans/vakans/mån · min. kvalitet ${((gm.minTenantQuality ?? 0.8) * 100).toFixed(0)} %`
+                      ? `~30 % chans/vakans/mån · min. kvalitet ${((gm.minTenantQuality ?? 0.8) * 100).toFixed(0)} % · instruktioner i 📋 Policy`
                       : "Per-fastighets förvaltare fyller också vakanser"}
                   </div>
                 </div>

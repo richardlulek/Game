@@ -29,21 +29,17 @@ import { TitleScreen } from "./TitleScreen";
 import { Toasts } from "./Toasts";
 import { Toolbar } from "./Toolbar";
 import { StockExchange } from "./StockExchange";
-import { GroupOverview } from "./GroupOverview";
 import { ResearchPanel } from "./ResearchPanel";
 import { StaffPanel } from "./StaffPanel";
-import { PortfolioTable } from "./PortfolioTable";
 import { AcquisitionPanel } from "./AcquisitionPanel";
 import { DistrictPanel } from "./DistrictPanel";
 import { ContractCalendar } from "./ContractCalendar";
-import { KPIPanel } from "./KPIPanel";
 import { TenantPanel } from "./TenantPanel";
-import { MilestonesPanel } from "./MilestonesPanel";
 import { NewsFeedPanel } from "./NewsFeedPanel";
 import { OnboardingOverlay } from "./OnboardingOverlay";
 import { IndustryPanel } from "./IndustryPanel";
 import { IndustryMarket } from "./IndustryMarket";
-import { CompanyPanel } from "./CompanyPanel";
+import { CompanyHub } from "./CompanyHub";
 import { NewspaperModal } from "./NewspaperModal";
 import { AuctionModal } from "./AuctionModal";
 import { PolicyPanel } from "./PolicyPanel";
@@ -60,25 +56,23 @@ const TAB_ICONS: Record<string, string> = {
   finance: "💰",
   stocks: "📈",
   acquisition: "🤝",
-  group: "🏛️",
   industri: "🏭",
   ind_marknad: "🛒",
   staff: "👔",
   research: "🔬",
-  milestones: "🏅",
-  overview: "📊",
-  kpi: "📐",
   districts: "🗺️",
   rivals: "🏆",
   nyheter: "📰",
   log: "📜",
 };
 
-/** Grupperna i verktygsraden: Fastighet | Finans | Bolag | Stad. */
+/** Grupperna i verktygsraden: Fastighet | Finans | Bolag | Stad.
+    Bolagsinfo (Koncern/Översikt/KPI/Milstolpar) ligger som flikar i
+    Bolag-fönstret i stället för egna ikoner. */
 const TAB_GROUPS: string[][] = [
   ["portfolio", "market", "build", "tenants", "calendar"],
-  ["finance", "stocks", "acquisition", "group", "industri", "ind_marknad"],
-  ["policy", "staff", "research", "milestones", "overview", "kpi"],
+  ["finance", "stocks", "acquisition", "industri", "ind_marknad"],
+  ["policy", "staff", "research"],
   ["districts", "rivals", "nyheter", "log"],
 ];
 
@@ -92,16 +86,12 @@ const TABS = [
   { id: "finance",   label: "Finans" },
   { id: "research",  label: "Forskning" },
   { id: "staff",     label: "Anställda" },
-  { id: "group",     label: "Koncern" },
   { id: "rivals",    label: "Topp" },
   { id: "log",       label: "Logg" },
-  { id: "overview",     label: "Översikt" },
   { id: "acquisition",  label: "Förvärv" },
   { id: "districts",    label: "Distrikt" },
   { id: "calendar",     label: "Kalender" },
-  { id: "kpi",          label: "KPI" },
   { id: "tenants",      label: "Hyresgäster" },
-  { id: "milestones",   label: "Milstolpar" },
   { id: "nyheter",      label: "Nyheter" },
   { id: "industri",    label: "Industri" },
   { id: "ind_marknad", label: "Ind. Marknad" },
@@ -376,7 +366,7 @@ export default function FastighetsImperium() {
           if (minimized.includes(id)) return null;
           const windowContent = (): React.ReactNode => {
             switch (id) {
-              case "company": return <CompanyPanel state={state} dispatch={dispatch} />;
+              case "company": return <CompanyHub state={state} dispatch={dispatch} />;
               case "policy": return <PolicyPanel state={state} dispatch={dispatch} />;
               case "portfolio":
                 return (
@@ -397,7 +387,6 @@ export default function FastighetsImperium() {
               case "stocks": return <StockExchange state={state} dispatch={dispatch} />;
               case "research": return <ResearchPanel state={state} dispatch={dispatch} />;
               case "staff": return <StaffPanel state={state} dispatch={dispatch} />;
-              case "group": return <GroupOverview state={state} dispatch={dispatch} />;
               case "finance":
                 return (
                   <>
@@ -409,13 +398,10 @@ export default function FastighetsImperium() {
                 );
               case "rivals": return <RivalsPanel state={state} equity={equity} />;
               case "log": return <LogPanel log={state.log} />;
-              case "overview": return <PortfolioTable state={state} dispatch={dispatch} />;
               case "acquisition": return <AcquisitionPanel state={state} dispatch={dispatch} />;
               case "districts": return <DistrictPanel state={state} dispatch={dispatch} />;
               case "calendar": return <ContractCalendar state={state} />;
-              case "kpi": return <KPIPanel state={state} dispatch={dispatch} />;
               case "tenants": return <TenantPanel state={state} dispatch={dispatch} />;
-              case "milestones": return <MilestonesPanel state={state} />;
               case "nyheter": return <NewsFeedPanel state={state} />;
               case "industri": return <IndustryPanel state={state} dispatch={dispatch} />;
               case "ind_marknad": return <IndustryMarket state={state} dispatch={dispatch} />;
