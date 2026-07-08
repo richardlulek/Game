@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { locationFactor } from "../engine/city";
-import { canUpgrade, orgLoadOf } from "../engine/company";
+import { canUpgrade, orgLoadOf, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { loanTerms } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propMarketValue } from "../engine/property";
@@ -116,11 +116,32 @@ function LocationRow({ parcelId }: { parcelId?: string }) {
   );
 }
 
+/** Genväg till ett fönster – visar 🔒 + nivåkrav i stället för att
+ *  tyst göra ingenting när fönstret inte är upplåst ännu. */
+function ShortcutBtn({
+  id, label, level, openWindow,
+}: { id: string; label: string; level: number; openWindow: (id: string) => void }) {
+  if (unlockedWindows(level).has(id)) {
+    return (
+      <button style={M.btn2} onClick={() => openWindow(id)}>
+        {label}
+      </button>
+    );
+  }
+  const req = tierForLevel(unlockLevelFor(id));
+  return (
+    <button style={{ ...M.btn2, opacity: 0.55, cursor: "default" }} disabled>
+      🔒 {label} – nivå {req.level}
+    </button>
+  );
+}
+
 /** Snabbinfo för vald byggnad/tomt med genvägar till rätt fönster. */
 export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => void }) {
   const state = useGameStore((s) => s.state);
   const dispatch = useGameStore((s) => s.dispatch);
   const selectedId = useUiStore((s) => s.selectedParcelId);
+  const level = state.companyLevel ?? 1;
   const sel = resolveSelection(state, selectedId);
   if (!sel) return null;
 
@@ -148,9 +169,7 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
               </button>
             </>
           )}
-          <button style={M.btn2} onClick={() => openWindow("build")}>
-            Öppna Bygg
-          </button>
+          <ShortcutBtn id="build" label="Öppna Bygg" level={level} openWindow={openWindow} />
         </>
       ) : (
         <>
@@ -198,20 +217,46 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
               </button>
             </>
           )}
-          {sel.kind === "rival" && (
-            <>
-              <div style={M.row}>
-                <span>Ägare</span>
-                <strong>{sel.owner}</strong>
-              </div>
-              <div style={{ ...M.row, color: "#999" }}>
-                <span>Inte till salu</span>
-              </div>
-              <button style={M.btn2} onClick={() => openWindow("acquisition")}>
-                Öppna Förvärv (M&A)
-              </button>
-            </>
-          )}
+          {sel.kind === "rival" && (() => {
+            // Direktbud på konkurrentens fastighet: ≥110 % övervägs,
+            // ≥125 % accepteras alltid (samma regler som OFFER_TO_RIVAL).
+            const ask = sel.prop.askPrice;
+            const { maxLtv } = loanTerms(state);
+            const mkBid = (mult: number) => Math.round((ask * mult) / 10_000) * 10_000;
+            return (
+              <>
+                <div style={M.row}>
+                  <span>Ägare</span>
+                  <strong>{sel.owner}</strong>
+                </div>
+                <div style={M.row}>
+                  <span>Värdering</span>
+                  <strong>{msek(ask)}</strong>
+                </div>
+                <div style={{ ...M.row, color: "#999", fontSize: 12 }}>
+                  <span>Inte till salu – men allt har ett pris</span>
+                </div>
+                {([[1.10, "Bud +10 %"], [1.25, "Bud +25 % (accepteras)"]] as const).map(([mult, label]) => {
+                  const bid = mkBid(mult);
+                  const down = bid * (1 - maxLtv);
+                  return (
+                    <button
+                      key={mult}
+                      style={mult === 1.25 ? M.btn : M.btn2}
+                      disabled={state.cash < down}
+                      title={state.cash < down ? `Kräver ${msek(down)} i handpenning` : `Handpenning ${msek(down)}`}
+                      onClick={() =>
+                        dispatch({ type: "OFFER_TO_RIVAL", competitorName: sel.owner, propertyId: sel.prop.id, amount: bid })
+                      }
+                    >
+                      {label}: {msek(bid)}
+                    </button>
+                  );
+                })}
+                <ShortcutBtn id="acquisition" label="Öppna Förvärv (M&A)" level={level} openWindow={openWindow} />
+              </>
+            );
+          })()}
         </>
       )}
     </div>
