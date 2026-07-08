@@ -26,7 +26,7 @@ import {
   Object3D,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { PARCELS, parcelHash, type Parcel } from "../engine/city";
+import { PARCELS, hasAmbientBuilding, parcelHash, type Parcel } from "../engine/city";
 import { useUiStore } from "../store/uiStore";
 import { FLOOR_HEIGHT } from "./BuildingShapes";
 import {
@@ -38,20 +38,7 @@ import {
   TREE_TRUNK,
 } from "./colors";
 import { ambientColorFor, districtFloors } from "./districtBuildings";
-import { windowTileTexture } from "./textures";
-
-/* ── Gemensam klassificering (delas med ParcelNode via export) ────── */
-
-/** Sannolikhet (i %) att en ledig tomt bär dekorativ bebyggelse. */
-export function ambientChanceFor(district: string): number {
-  if (district === "centrum" || district === "innerstad") return 80;
-  if (district === "finans" || district === "hamnen") return 70;
-  return 58;
-}
-
-export function hasAmbientBuilding(parcel: Parcel): boolean {
-  return !parcel.expansion && parcelHash(parcel.id) % 100 < ambientChanceFor(parcel.district);
-}
+import { facadeTexture, glassTexture, type FacadeKind } from "./textures";
 
 interface CityProps {
   /** Tomter med spelinnehåll (ägt/till salu/tomt/rival) – ritas i ParcelNode. */
@@ -250,6 +237,19 @@ function hipRoofGeo(w: number, d: number, x: number, y: number, z: number, rise:
 const ROOF_RED = new Color("#8a4a3a");
 const ROOF_DARK = new Color("#4a4540");
 
+/** Fasadfamilj för dekorbebyggelsen per distrikt (typmix i bakgrundsstaden). */
+type AmbientBucket = FacadeKind | "glas";
+function ambientKindFor(district: string, seed: number): AmbientBucket {
+  switch (district) {
+    case "finans": return "glas";
+    case "industri": return "industri";
+    case "hamnen": return "industri";
+    case "centrum": return seed % 4 === 0 ? "kontor" : "bostad";
+    case "innerstad": return seed % 3 === 0 ? "butik" : "bostad";
+    default: return "bostad";
+  }
+}
+
 /** Bygger dekorbebyggelsens silhuett för en tomt (fasader + extras). */
 function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: BufferGeometry[]) {
   const hash = parcelHash(p.id);
@@ -328,41 +328,59 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
   }
 }
 
+const AMBIENT_BUCKETS: AmbientBucket[] = ["bostad", "kontor", "butik", "industri", "glas"];
+
 function AmbientBuildings({ occupied, lockedBlocks }: CityProps) {
   const overlayActive = useUiStore((s) => s.overlay !== "ingen");
 
   const geos = useMemo(() => {
-    const facades: BufferGeometry[] = [];
+    const facades = new Map<AmbientBucket, BufferGeometry[]>();
     const extras: BufferGeometry[] = [];
+    const all: BufferGeometry[] = [];
     for (const p of PARCELS) {
       if (occupied.has(p.id) || isLocked(p, lockedBlocks) || !hasAmbientBuilding(p)) continue;
-      ambientBuildingGeo(p, facades, extras);
+      const kind = ambientKindFor(p.district, parcelHash(p.id) >> 3);
+      const bucket = facades.get(kind) ?? [];
+      ambientBuildingGeo(p, bucket, extras);
+      facades.set(kind, bucket);
     }
-    const fac = facades.length ? mergeGeometries(facades, false) : null;
+    const merged = new Map<AmbientBucket, BufferGeometry>();
+    for (const [kind, list] of facades) {
+      if (list.length) merged.set(kind, mergeGeometries(list, false));
+      all.push(...list);
+    }
     const ext = extras.length ? mergeGeometries(extras, false) : null;
-    for (const g of [...facades, ...extras]) g.dispose();
-    return { fac, ext };
+    for (const g of [...all, ...extras]) g.dispose();
+    return { merged, ext };
   }, [occupied, lockedBlocks]);
 
-  const mats = useMemo(
-    () => ({
-      facade: new MeshStandardMaterial({ vertexColors: true, map: windowTileTexture(), roughness: 0.82, metalness: 0.02 }),
+  const mats = useMemo(() => {
+    const facade = new Map<AmbientBucket, MeshStandardMaterial>();
+    for (const kind of AMBIENT_BUCKETS) {
+      facade.set(
+        kind,
+        kind === "glas"
+          ? new MeshStandardMaterial({ vertexColors: true, map: glassTexture(4, 4), roughness: 0.35, metalness: 0.25 })
+          : new MeshStandardMaterial({ vertexColors: true, map: facadeTexture(kind), roughness: 0.82, metalness: 0.02 }),
+      );
+    }
+    return {
+      facade,
       extra: new MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }),
       // Kartlager: dekor gråtonas så spelarens metrikfärger dominerar.
       overlay: new MeshStandardMaterial({ color: "#b0b4b0", roughness: 0.9 }),
-    }),
-    [],
-  );
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
-      geos.fac?.dispose();
+      for (const g of geos.merged.values()) g.dispose();
       geos.ext?.dispose();
     };
   }, [geos]);
   useEffect(() => {
     return () => {
-      mats.facade.dispose();
+      for (const m of mats.facade.values()) m.dispose();
       mats.extra.dispose();
       mats.overlay.dispose();
     };
@@ -370,9 +388,15 @@ function AmbientBuildings({ occupied, lockedBlocks }: CityProps) {
 
   return (
     <>
-      {geos.fac && (
-        <mesh geometry={geos.fac} material={overlayActive ? mats.overlay : mats.facade} castShadow receiveShadow />
-      )}
+      {[...geos.merged.entries()].map(([kind, geo]) => (
+        <mesh
+          key={kind}
+          geometry={geo}
+          material={overlayActive ? mats.overlay : mats.facade.get(kind)}
+          castShadow
+          receiveShadow
+        />
+      ))}
       {geos.ext && (
         <mesh geometry={geos.ext} material={overlayActive ? mats.overlay : mats.extra} castShadow receiveShadow />
       )}

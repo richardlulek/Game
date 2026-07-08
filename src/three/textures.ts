@@ -111,6 +111,213 @@ export function windowTileTexture(): CanvasTexture {
   return windowTexture(4, 4); // repeat 1,1 (kaklet är 4×4 fönster)
 }
 
+/* ============================================================
+   Fasadfamiljer per fastighetstyp + tillståndsvarianter.
+   Kaklet är alltid 4×4 celler à 64 px på vit botten (tintas av
+   materialfärgen). Varianterna kopplar 3D-vyn till spelläget:
+     normal  – blandat tänt/släckt
+     tänt    – fullt uthyrt: många varma fönster
+     släckt  – vakant: dött hus, inga tända fönster
+     sliten  – lågt skick: smuts och färre tända
+   ============================================================ */
+
+export type FacadeKind = "bostad" | "kontor" | "butik" | "industri";
+export type FacadeVariant = "normal" | "tänt" | "släckt" | "sliten";
+
+const facadeCanvasCache = new Map<string, HTMLCanvasElement>();
+
+/** Andel tända fönster per variant (multipliceras per typ). */
+const LIT_SHARE: Record<FacadeVariant, number> = {
+  normal: 1,
+  tänt: 2.6,
+  släckt: 0,
+  sliten: 0.5,
+};
+
+const CURTAIN_COLORS = ["#e8ddc8", "#d8c8b8", "#e2d4d0", "#ccd4c8"];
+const SIGN_COLORS = ["#b6413a", "#3c6ca8", "#c9a13b", "#4d8b52", "#7a5c8f"];
+
+function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext("2d")!;
+  const rand = mulberry32(kind.length * 1000 + variant.length * 77 + 42);
+  const CELL = 64;
+  g.fillStyle = "#ffffff";
+  g.fillRect(0, 0, 256, 256);
+  const lit = (base: number) => rand() < base * LIT_SHARE[variant];
+
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      const x = col * CELL;
+      const y = row * CELL;
+
+      if (kind === "bostad") {
+        // Bostadsfönster med gardiner; var ~femte cell är balkongdörr.
+        const door = rand() < 0.2;
+        const wx = x + (door ? 20 : 14);
+        const wy = y + (door ? 10 : 16);
+        const ww = door ? 24 : 36;
+        const wh = door ? 46 : 34;
+        g.fillStyle = "#4a4a44";
+        g.fillRect(wx - 3, wy - 3, ww + 6, wh + 6);
+        if (lit(0.16)) {
+          const warm = g.createLinearGradient(0, wy, 0, wy + wh);
+          warm.addColorStop(0, "#ffe3ae");
+          warm.addColorStop(1, "#e8b45f");
+          g.fillStyle = warm;
+          g.fillRect(wx, wy, ww, wh);
+        } else {
+          g.fillStyle = `rgb(${120 + rand() * 40 | 0},${130 + rand() * 40 | 0},${140 + rand() * 40 | 0})`;
+          g.fillRect(wx, wy, ww, wh);
+        }
+        // Gardiner i sidorna
+        if (!door && rand() < 0.65) {
+          g.fillStyle = CURTAIN_COLORS[(rand() * CURTAIN_COLORS.length) | 0];
+          g.fillRect(wx, wy, 6, wh);
+          g.fillRect(wx + ww - 6, wy, 6, wh);
+        }
+        // Balkongräcke framför dörren
+        if (door) {
+          g.fillStyle = "rgba(60,60,58,0.85)";
+          g.fillRect(x + 12, y + 38, 40, 3);
+          for (let b = 0; b < 6; b++) g.fillRect(x + 14 + b * 7, y + 38, 2, 16);
+        }
+      } else if (kind === "kontor") {
+        // Brett kontorsband med persienner; kallt ljus.
+        const wx = x + 8;
+        const wy = y + 18;
+        g.fillStyle = "#3e454c";
+        g.fillRect(wx - 2, wy - 2, 52, 32);
+        if (lit(0.12)) {
+          g.fillStyle = "#e8f0f8";
+          g.fillRect(wx, wy, 48, 28);
+          g.fillStyle = "rgba(150,160,170,0.5)";
+          g.fillRect(wx + 22, wy, 3, 28); // interiörpost
+        } else {
+          const shade = 0.9 + rand() * 0.3;
+          const glass = g.createLinearGradient(0, wy, 0, wy + 28);
+          glass.addColorStop(0, `rgb(${150 * shade | 0},${162 * shade | 0},${174 * shade | 0})`);
+          glass.addColorStop(1, `rgb(${92 * shade | 0},${102 * shade | 0},${112 * shade | 0})`);
+          g.fillStyle = glass;
+          g.fillRect(wx, wy, 48, 28);
+        }
+        // Persienner halvt nerdragna i hälften av cellerna
+        if (rand() < 0.5) {
+          const drop = 8 + rand() * 14;
+          g.fillStyle = "rgba(226,222,208,0.92)";
+          g.fillRect(wx, wy, 48, drop);
+          g.strokeStyle = "rgba(120,116,104,0.5)";
+          g.lineWidth = 1;
+          for (let l = 3; l < drop; l += 3.5) {
+            g.beginPath();
+            g.moveTo(wx, wy + l);
+            g.lineTo(wx + 48, wy + l);
+            g.stroke();
+          }
+        }
+        g.fillStyle = "#3e454c";
+        g.fillRect(wx + 23, wy - 2, 2, 32); // mittpost
+      } else if (kind === "butik") {
+        // Stora skyltfönster med varmt skyltljus och skyltband.
+        const wx = x + 6;
+        const wy = y + 14;
+        g.fillStyle = "#2e3338";
+        g.fillRect(wx - 2, wy - 2, 56, 42);
+        if (lit(0.3)) {
+          const glow = g.createLinearGradient(0, wy, 0, wy + 38);
+          glow.addColorStop(0, "#ffedc2");
+          glow.addColorStop(1, "#e8c47f");
+          g.fillStyle = glow;
+          g.fillRect(wx, wy, 52, 38);
+          // Silhuetter av varor i fönstret
+          g.fillStyle = "rgba(90,70,50,0.55)";
+          g.fillRect(wx + 6 + rand() * 8, wy + 20, 8, 18);
+          g.fillRect(wx + 28 + rand() * 8, wy + 24, 10, 14);
+        } else {
+          g.fillStyle = `rgb(${110 + rand() * 30 | 0},${118 + rand() * 30 | 0},${126 + rand() * 30 | 0})`;
+          g.fillRect(wx, wy, 52, 38);
+          g.fillStyle = "rgba(255,255,255,0.12)";
+          g.fillRect(wx, wy + 4, 52, 6);
+        }
+        // Skyltband ovanför fönstret
+        if (rand() < 0.6) {
+          g.fillStyle = SIGN_COLORS[(rand() * SIGN_COLORS.length) | 0];
+          g.fillRect(wx, y + 4, 52, 8);
+        }
+      } else {
+        // Industri: profilplåt med högt fönsterband och ventiler.
+        g.fillStyle = "rgba(0,0,0,0.07)";
+        for (let px = 0; px < CELL; px += 8) g.fillRect(x + px, y, 3, CELL);
+        g.fillStyle = "#3a4046";
+        g.fillRect(x + 6, y + 8, 52, 14);
+        if (lit(0.14)) {
+          g.fillStyle = "#f4e8be";
+          g.fillRect(x + 8, y + 10, 48, 10);
+        } else {
+          g.fillStyle = `rgb(${128 + rand() * 26 | 0},${136 + rand() * 26 | 0},${142 + rand() * 26 | 0})`;
+          g.fillRect(x + 8, y + 10, 48, 10);
+        }
+        g.fillStyle = "rgba(0,0,0,0.18)";
+        for (let p = 0; p < 5; p++) g.fillRect(x + 10 + p * 10, y + 10, 2, 10);
+        // Ventil/lucka
+        if (rand() < 0.3) {
+          g.fillStyle = "#6a7076";
+          g.fillRect(x + 40, y + 38, 14, 14);
+          g.fillStyle = "rgba(0,0,0,0.3)";
+          for (let v = 0; v < 3; v++) g.fillRect(x + 42, y + 41 + v * 4, 10, 2);
+        }
+      }
+
+      // Bjälklagsskugga
+      g.fillStyle = "rgba(0,0,0,0.10)";
+      g.fillRect(x, y + 58, CELL, 6);
+    }
+  }
+
+  // Sliten: smutsfläckar och rinnmärken under fönstren.
+  if (variant === "sliten") {
+    for (let i = 0; i < 26; i++) {
+      const bx = rand() * 256;
+      const by = rand() * 256;
+      const r = 8 + rand() * 22;
+      const blot = g.createRadialGradient(bx, by, 0, bx, by, r);
+      blot.addColorStop(0, "rgba(58,50,40,0.20)");
+      blot.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = blot;
+      g.fillRect(bx - r, by - r, r * 2, r * 2);
+    }
+    for (let i = 0; i < 12; i++) {
+      const sx = 12 + rand() * 232;
+      const sy = ((rand() * 4) | 0) * 64 + 50;
+      g.fillStyle = "rgba(52,46,38,0.16)";
+      g.fillRect(sx, sy, 3 + rand() * 3, 10 + rand() * 16);
+    }
+  }
+  return c;
+}
+
+/** Fasadkakel per typ+variant, repeat (1,1) – UV:erna styr upprepningen. */
+export function facadeTexture(kind: FacadeKind, variant: FacadeVariant = "normal"): CanvasTexture {
+  const key = `fac:${kind}:${variant}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  const ck = `${kind}:${variant}`;
+  let canvas = facadeCanvasCache.get(ck);
+  if (!canvas) {
+    canvas = drawFacadeTile(kind, variant);
+    facadeCanvasCache.set(ck, canvas);
+  }
+  const tex = new CanvasTexture(canvas);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(1, 1);
+  tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
+  return tex;
+}
+
 /**
  * Glasfasad (curtain wall) för skyskrapor: heltäckande glaspaneler med
  * smala poster, spegling i band och enstaka tända rutor. 4×4 paneler.

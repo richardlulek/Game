@@ -37,9 +37,10 @@ export function facadeBoxGeometry(w: number, h: number, d: number, glass = false
   scaleFace(1, colsX, floors); // -x
   scaleFace(4, colsZ, floors); // +z
   scaleFace(5, colsZ, floors); // -z
-  // Topp/botten: mörk punkt i kaklet (fönsterpost resp. panelpost).
-  const dark: [number, number] = glass ? [0.006, 0.5] : [0.123, 0.87];
-  for (let i = 8; i < 16; i++) uv.setXY(i, dark[0], dark[1]);
+  // Topp/botten: enfärgad punkt i kaklet – mörk fönsterpost för putshus,
+  // ljust glasparti för tornen (takdäck i stället för svart).
+  const solid: [number, number] = glass ? [0.5, 0.965] : [0.123, 0.87];
+  for (let i = 8; i < 16; i++) uv.setXY(i, solid[0], solid[1]);
   facadeGeoCache.set(key, g);
   return g;
 }

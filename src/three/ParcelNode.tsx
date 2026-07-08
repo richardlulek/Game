@@ -12,6 +12,7 @@ import { useUiStore } from "../store/uiStore";
 import { CONSTRUCTION, PLOT_COLORS, PLOT_FALLBACK, RING_COLORS, RIVAL_COLORS, TYPE_COLORS } from "./colors";
 import { ConstructionShell, FLOOR_HEIGHT, GrowIn, type PointerHandlers } from "./BuildingShapes";
 import { DistrictBuilding, districtFloors } from "./districtBuildings";
+import type { FacadeVariant } from "./textures";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
@@ -163,12 +164,22 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   let building: { type: PropTypeKey; floors: number; color: string; windows: boolean } | null = null;
   let underConstruction = false;
   let constructionProgress = 1;
+  // Fasadens tillstånd speglar spelläget: vakant = släckt hus, fullt
+  // uthyrt = tänt, lågt skick = smutsig/sliten fasad.
+  let variant: FacadeVariant = "normal";
+  let solar = false;
   if ("prop" in content) {
     const p = content.prop;
     underConstruction = p.status === "bygger";
     constructionProgress = underConstruction
       ? Math.max(0.08, 1 - p.buildLeft / PROP_TYPES[p.type].buildMonths)
       : 1;
+    if (p.status === "klar") {
+      if (p.condition < 40) variant = "sliten";
+      else if (content.kind !== "rival" && p.capacity > 0 && p.tenants.length === 0) variant = "släckt";
+      else if (content.kind === "owned" && p.tenants.length >= p.capacity) variant = "tänt";
+      solar = content.kind === "owned" && (p.energyClass === "A" || p.energyClass === "B");
+    }
     // Kartlager: egna hus färgas efter metrik, allt annat gråtonas.
     const baseColor =
       content.kind === "rival"
@@ -234,6 +245,8 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
               selected={selected}
               handlers={handlers}
               seed={hash >> 3}
+              variant={variant}
+              solar={solar}
             />
           </GrowIn>
         )}
