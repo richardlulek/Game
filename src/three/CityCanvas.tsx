@@ -174,7 +174,7 @@ export function CityCanvas() {
     <Canvas
       shadows="soft"
       dpr={[1, 2]}
-      camera={{ position: [230, 300, 430], fov: 38, near: 1, far: 3000 }}
+      camera={{ position: [230, 300, 430], fov: 38, near: 5, far: 3000 }}
       onPointerMissed={() => select(null)}
       onCreated={({ gl }) => {
         gl.toneMappingExposure = 1.22;

@@ -29,6 +29,9 @@ export function FloatingWindow({
   const drag = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null);
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
+    // Tryck på ✕/— får inte starta drag: pointer-capturen stjäl annars
+    // pointerup från knappen så att klicket aldrig fullbordas.
+    if ((e.target as HTMLElement).closest("button")) return;
     drag.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };

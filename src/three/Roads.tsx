@@ -97,9 +97,12 @@ function useDispose(...meshes: InstancedMesh[]) {
 /** Alla körbanor (huvudleder + kvartersgator) i EN instansierad mesh. */
 function RoadSurfaces() {
   const mesh = useMemo(() => {
+    // Rejäl höjdseparation mellan lagren – tätare avstånd z-fightar
+    // (blinkar) på kameraavstånd eftersom djupbuffertens upplösning
+    // är begränsad över en 3000-enheters vy.
     const items: Inst[] = [
-      ...ROADS.map((s) => ({ x: s.x, y: 0.015, z: s.z, sx: s.w, sy: s.d })),
-      ...ZONE_STREETS.map((s) => ({ x: s.x, y: 0.012, z: s.z, sx: s.w, sy: s.d })),
+      ...ROADS.map((s) => ({ x: s.x, y: 0.06, z: s.z, sx: s.w, sy: s.d })),
+      ...ZONE_STREETS.map((s) => ({ x: s.x, y: 0.045, z: s.z, sx: s.w, sy: s.d })),
     ];
     return buildStatic(
       new PlaneGeometry(1, 1),
@@ -126,7 +129,7 @@ function RoadMarkings() {
         const t = (i + 0.5) / count - 0.5;
         dashes.push({
           x: seg.x + (horizontal ? t * len : 0),
-          y: 0.03,
+          y: 0.11,
           z: seg.z + (horizontal ? 0 : t * len),
           sx: horizontal ? 5 : 0.9,
           sy: horizontal ? 0.9 : 5,
@@ -141,7 +144,7 @@ function RoadMarkings() {
           const t = ((i + 0.5) / n - 0.5) * across;
           stripes.push({
             x: seg.x + (horizontal ? alongPos : t),
-            y: 0.032,
+            y: 0.12,
             z: seg.z + (horizontal ? t : alongPos),
             sx: horizontal ? 2.2 : 1.3,
             sy: horizontal ? 1.3 : 2.2,
