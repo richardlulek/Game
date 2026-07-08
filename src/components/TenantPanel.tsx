@@ -127,7 +127,7 @@ export function TenantPanel({ state, dispatch }: Props) {
                   [
                     ["raise", "+10 %", "#27660a"],
                     ["keep", "Behåll", "#444"],
-                    ["lower", "−10 %", "#7a5a00"],
+                    ["lower", "−10 %", "#3d54d8"],
                     ["evict", "Avhys", "#7a0a0a"],
                   ] as const
                 ).map(([action, label, bg]) => (

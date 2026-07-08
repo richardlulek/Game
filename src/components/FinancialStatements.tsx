@@ -11,18 +11,18 @@ const P: Record<string, React.CSSProperties> = {
   card: {
     flex: "1 1 340px",
     minWidth: 320,
-    background: "#faf8f2",
-    border: "1px solid #e2ddcf",
+    background: "#f7f9fb",
+    border: "1px solid #dde4ec",
     borderRadius: 10,
     padding: "14px 16px",
   },
   title: { fontWeight: 800, fontSize: 15, marginBottom: 2 },
   sub: { fontSize: 11.5, color: "#888", marginBottom: 10 },
-  section: { fontSize: 11, color: "#8a6d1a", fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase", margin: "10px 0 3px" },
+  section: { fontSize: 11, color: "#4757c8", fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase", margin: "10px 0 3px" },
   row: { display: "flex", justifyContent: "space-between", gap: 12, padding: "2.5px 0", fontSize: 13 },
   sumRow: {
     display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0",
-    fontSize: 13, fontWeight: 800, borderTop: "1px solid #d8d2c0", marginTop: 3,
+    fontSize: 13, fontWeight: 800, borderTop: "1px solid #ccd6e0", marginTop: 3,
   },
   hint: { fontSize: 11, color: "#888", marginTop: 10 },
 };

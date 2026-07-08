@@ -24,7 +24,7 @@ const sectorColor: Record<IndustrySectorKey, string> = {
 
 const badge = (sector: IndustrySectorKey): React.CSSProperties => ({
   background: sectorColor[sector],
-  color: "#f0e6cc",
+  color: "#e4eaf2",
   borderRadius: 3,
   padding: "1px 7px",
   fontSize: 10,
@@ -199,7 +199,7 @@ function ListingCard({ asset, state, dispatch }: ListingCardProps) {
 function SectorInfo() {
   return (
     <div style={{
-      background: "linear-gradient(165deg, #f6efdc, #e6d6b4)",
+      background: "linear-gradient(165deg, #eef2f7, #d6dfeb)",
       border: `1px solid ${C.brass}`,
       borderRadius: 6,
       padding: "14px 16px",

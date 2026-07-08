@@ -43,7 +43,7 @@ export function OnboardingOverlay({ state, dispatch }: Props) {
     <div style={{
       position: "fixed", bottom: 100, right: 20, zIndex: 2000,
       maxWidth: 360, width: "90%",
-      background: "linear-gradient(160deg, #f6efdc, #e6d6b4)",
+      background: "linear-gradient(160deg, #eef2f7, #d6dfeb)",
       border: `2px solid ${BURGUNDY}`,
       borderRadius: 8, padding: "18px 20px",
       boxShadow: "0 6px 24px rgba(0,0,0,0.4)",

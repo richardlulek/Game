@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DISTRICT_ZONES, PARCELS, ZONE_STREETS, claimRandomParcel, hasAmbientBuilding, parcelsIn } from "../engine/city";
 import { DISTRICTS, DISTRICT_GEN } from "../engine/data";
 import { calcCapacity, genWorldProperty } from "../engine/generators";
+import { reducer } from "../engine/reducer";
 import { loadGame } from "../store/persistence";
 import { makeState } from "./factories";
 
@@ -106,5 +107,18 @@ describe("sparfilsgate", () => {
     );
     expect(loadGame(1)).toBeNull();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("bygge på köpt tomt", () => {
+  it("kranen står på den köpta tomtens ruta – inte en slumpad", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const s0 = makeState({
+      cash: 50_000_000,
+      lots: [{ id: 1, district: "centrum", districtName: "Centrum", area: 1200, price: 2_000_000, owned: true, parcelId: "centrum-b2-p3" }],
+    });
+    const s1 = reducer(s0, { type: "BUILD", id: 1, propType: "bostad" });
+    expect(s1.portfolio[0].status).toBe("bygger");
+    expect(s1.portfolio[0].parcelId).toBe("centrum-b2-p3");
   });
 });

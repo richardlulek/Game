@@ -18,7 +18,7 @@ interface Props {
 const SKY: Record<PropTypeKey, [string, string]> = {
   bostad:   ["#cfe8f5", "#eef8fc"],
   kontor:   ["#cadcef", "#eef5fb"],
-  butik:    ["#fde6cf", "#fff7ef"],
+  butik:    ["#fde6cf", "#f4f7fb"],
   industri: ["#e2e8ee", "#f3f7fa"],
 };
 

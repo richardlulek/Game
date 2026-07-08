@@ -115,7 +115,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           const nextLtv = 0.6 + (nextRep / 100) * 0.2;
           const nextRate = +(state.interestRate + nextSpread).toFixed(2);
           return (
-            <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 8px", background: "#f8f5f2", borderRadius: 6 }}>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 8px", background: "#f2f5f8", borderRadius: 6 }}>
               Med +10 reputation → ränta {nextRate} % · LTV {pct(nextLtv)}
             </div>
           );
@@ -269,7 +269,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           <span style={{ minWidth: 90, textAlign: "right" }}>{msek(divAmt)}</span>
         </div>
         <button
-          style={{ ...S.amortBtn, background: "#7a5c00" }}
+          style={{ ...S.amortBtn, background: "#3d54d8" }}
           onClick={() => dispatch({ type: "PAY_DIVIDEND", amount: divAmt })}
           disabled={state.cash < 600000}
         >
@@ -342,7 +342,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
               <Line l="Beräknad skatt/mån" v={kr(monthlyTax)} />
               <Line l="Totalt betald skatt" v={kr(state.totalTaxPaid ?? 0)} />
               {energyACount === 0 && (
-                <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 10px", background: "#f9f5ec", borderRadius: 4 }}>
+                <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 10px", background: "#f0f4f8", borderRadius: 4 }}>
                   💡 Uppgradera fastigheter till energiklass A för att sänka skattesatsen med 3 procentenheter.
                 </div>
               )}
@@ -373,7 +373,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                   padding: "10px 14px",
                   borderRadius: 6,
                   border: `2px solid ${active ? BURGUNDY : locked ? "#ddd" : C.brassDim}`,
-                  background: active ? "#fdf6e3" : locked ? "#f5f5f5" : "#fff",
+                  background: active ? "#e9efff" : locked ? "#f5f5f5" : "#fff",
                   cursor: locked ? "default" : "pointer",
                   opacity: locked ? 0.55 : 1,
                 }}

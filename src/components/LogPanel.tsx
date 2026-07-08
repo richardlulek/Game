@@ -71,7 +71,7 @@ export function LogPanel({ log }: LogPanelProps) {
 function chipStyle(active: boolean): React.CSSProperties {
   return {
     padding: "4px 10px", borderRadius: 12, border: "1px solid #ccc",
-    background: active ? "#5a3a00" : "#f8f5ee", color: active ? "#f5e6c0" : "#555",
+    background: active ? "#5a3a00" : "#f2f5f9", color: active ? "#f5e6c0" : "#555",
     fontWeight: active ? 700 : 400, fontSize: 12, cursor: "pointer",
     fontFamily: FONTS.body,
   };

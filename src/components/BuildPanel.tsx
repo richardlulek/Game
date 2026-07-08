@@ -46,7 +46,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
               {monthsLeft !== null && monthsLeft <= 2 && (
                 <div style={{
                   fontSize: 11, padding: "3px 8px", borderRadius: 4, marginBottom: 6,
-                  background: monthsLeft <= 1 ? "#fde8e8" : "#fff3cc",
+                  background: monthsLeft <= 1 ? "#fde8e8" : "#e7edff",
                   color: monthsLeft <= 1 ? C.negative : "#9a6a10",
                   fontWeight: 700,
                   border: `1px solid ${monthsLeft <= 1 ? C.negative + "44" : "transparent"}`,

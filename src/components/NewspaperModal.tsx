@@ -26,7 +26,7 @@ const N: Record<string, React.CSSProperties> = {
     width: "min(620px, 92vw)",
     maxHeight: "88vh",
     overflowY: "auto",
-    background: "#f3ecd9",
+    background: "#e9eef5",
     color: "#241f18",
     boxShadow: "0 24px 70px rgba(0,0,0,0.6)",
     padding: "22px 30px 24px",
@@ -70,7 +70,7 @@ const N: Record<string, React.CSSProperties> = {
   btnRow: { textAlign: "center", marginTop: 18 },
   btn: {
     background: "#241f18",
-    color: "#f3ecd9",
+    color: "#e9eef5",
     border: "none",
     padding: "10px 30px",
     fontSize: 14,

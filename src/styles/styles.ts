@@ -233,7 +233,7 @@ export const S: Record<string, CSSProperties> = {
     cursor: "pointer",
   },
   toolbarFwdBtn: {
-    background: "#2e1c10",
+    background: "#101722",
     color: C.brass,
     border: `1px solid ${C.brassDim}`,
     padding: "5px 11px",

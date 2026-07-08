@@ -100,7 +100,7 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
                       : comp.equity / ag.target;
                 const pctDone = Math.min(100, Math.round(progress * 100));
                 return (
-                  <span style={{ color: pctDone >= 80 ? "#c0392b" : "#8a6d1a", fontWeight: 600 }}>
+                  <span style={{ color: pctDone >= 80 ? "#c0392b" : "#4757c8", fontWeight: 600 }}>
                     🎯 Agenda: {ag.label} — {pctDone} %{ag.announced ? " ✓ UPPNÅTT" : ""}
                   </span>
                 );

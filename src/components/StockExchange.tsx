@@ -77,7 +77,7 @@ const secondaryBtn: React.CSSProperties = {
 
 const disabledBtn: React.CSSProperties = {
   background: "#9a8f7a",
-  color: "#e8e0d0",
+  color: "#dfe6f0",
   borderColor: "#8a7f6a",
   cursor: "default",
 };
@@ -100,7 +100,7 @@ const qtyInput: React.CSSProperties = {
   height: 32,
   textAlign: "center",
   border: `1px solid ${C.brassDim}`,
-  background: "#fbf5e6",
+  background: "#f0f4f9",
   color: C.ink,
   borderRadius: 4,
   fontSize: 14,
@@ -201,7 +201,7 @@ function LimitOrderForm({
   return (
     <div
       style={{
-        background: "#f8f0dc",
+        background: "#eaf0f7",
         border: `1px solid ${C.brass}`,
         borderRadius: 6,
         padding: 14,
@@ -466,7 +466,7 @@ function StockRow({
           ) : (
             <div style={{
               fontSize: 12, color: BURGUNDY, fontWeight: 600,
-              background: "#fff7ea", border: `1px solid ${C.brass}66`,
+              background: "#f4f7fb", border: `1px solid ${C.brass}66`,
               borderRadius: 4, padding: "6px 10px",
             }}>
               {ownShare > 0.4
@@ -628,7 +628,7 @@ function LimitOrdersPanel({
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                background: "#fbf5e6",
+                background: "#f0f4f9",
                 border: `1px solid ${C.brassDim}44`,
                 borderRadius: 4,
                 padding: "8px 12px",
@@ -708,7 +708,7 @@ function SectorSummary({ stocks }: { stocks: Stock[] }) {
           <div
             key={sec}
             style={{
-              background: "#fbf5e6",
+              background: "#f0f4f9",
               border: `1px solid ${C.brassDim}66`,
               borderRadius: 4,
               padding: "6px 12px",

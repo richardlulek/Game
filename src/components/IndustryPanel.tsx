@@ -80,7 +80,7 @@ export function IndustryPanel({ state, dispatch }: Props) {
         gap: 10,
         marginBottom: 18,
         padding: "14px 16px",
-        background: "linear-gradient(165deg, #f6efdc, #e6d6b4)",
+        background: "linear-gradient(165deg, #eef2f7, #d6dfeb)",
         border: `1px solid ${C.brass}`,
         borderRadius: 6,
       }}>

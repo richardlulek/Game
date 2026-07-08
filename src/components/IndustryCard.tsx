@@ -16,7 +16,7 @@ const label: React.CSSProperties = { fontSize: 11, color: C.inkSoft, marginBotto
 const value: React.CSSProperties = { fontFamily: FONTS.heading, fontSize: 15, fontWeight: 700, color: C.ink };
 const sectorBadge = (sector: string) => {
   const colors: Record<string, string> = { hotell: "#7b4a20", energi: "#1a6b3a", logistik: "#1a3a7b" };
-  return { background: colors[sector] ?? C.wood, color: "#f0e6cc", borderRadius: 3, padding: "1px 6px", fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5 };
+  return { background: colors[sector] ?? C.wood, color: "#e4eaf2", borderRadius: 3, padding: "1px 6px", fontSize: 10, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5 };
 };
 
 const btn: React.CSSProperties = {
@@ -219,7 +219,7 @@ export function IndustryCard({ asset, state, dispatch }: { asset: IndustryAsset;
         </div>
         <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 15, color: BURGUNDY, marginBottom: 6 }}>{asset.name}</div>
         <div style={{ fontSize: 12, color: C.inkSoft }}>{asset.districtName}</div>
-        <div style={{ marginTop: 12, padding: "10px", background: "#f0e8d044", borderRadius: 4, textAlign: "center", color: C.inkSoft }}>
+        <div style={{ marginTop: 12, padding: "10px", background: "#e4eaf244", borderRadius: 4, textAlign: "center", color: C.inkSoft }}>
           🏗️ Under byggnation — {asset.buildLeft} månader kvar
         </div>
       </div>

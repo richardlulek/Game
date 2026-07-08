@@ -39,7 +39,7 @@ export function NewsFeedPanel({ state }: Props) {
       {/* Lead story */}
       {headline && (
         <div style={{
-          background: "#fdf6e3", border: "1px solid #c8a030",
+          background: "#e9efff", border: "1px solid #c8a030",
           borderRadius: 4, padding: "16px 20px", marginBottom: 20,
           borderLeft: `5px solid ${logColor(headline.kind)}`,
         }}>
@@ -70,7 +70,7 @@ export function NewsFeedPanel({ state }: Props) {
         {recent.slice(1).map((entry, i) => (
           <div key={i} style={{
             padding: "10px 14px",
-            background: "#faf5e8",
+            background: "#f0f4f9",
             border: "1px solid #d4b870",
             borderRadius: 4,
             borderLeft: `3px solid ${logColor(entry.kind)}`,

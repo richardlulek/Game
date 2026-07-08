@@ -234,7 +234,7 @@ export function Landmarks() {
           <coneGeometry args={[5.4, 4.5, 4]} />
           <meshStandardMaterial color="#4a6a55" />
         </mesh>
-        <Flag x={0} y={29.5} z={0} color="#800020" />
+        <Flag x={0} y={29.5} z={0} color="#4f63e4" />
       </group>
       {/* Vattentorn – norr om Villakullen */}
       <group position={[-310, 0, -290]}>

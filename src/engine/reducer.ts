@@ -690,6 +690,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
         id: newId(),
         district: lot.district,
         districtName: lot.districtName,
+        // Bygget står på DEN köpta tomten – utan denna hamnade kranen
+        // på en slumpad ledig ruta i distriktet.
+        parcelId: lot.parcelId,
         type: action.propType,
         typeLabel: t.label,
         area: lot.area,

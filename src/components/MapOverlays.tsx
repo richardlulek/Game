@@ -406,7 +406,7 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
         FÖRVALTNING · {klar.length} fastigheter
       </div>
       {offersCount > 0 && (
-        <div style={{ ...T.hudRow, color: "#8a6d1a", fontWeight: 700 }}>
+        <div style={{ ...T.hudRow, color: "#4757c8", fontWeight: 700 }}>
           <span>📨 {offersCount} bud väntar på svar</span>
           <button style={T.hudBtn} onClick={() => requestOpen("offers")}>
             Öppna inkorgen
@@ -414,7 +414,7 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
         </div>
       )}
       {up.qualified && (
-        <div style={{ ...T.hudRow, color: "#8a6d1a", fontWeight: 700 }}>
+        <div style={{ ...T.hudRow, color: "#4757c8", fontWeight: 700 }}>
           <span>📈 Redo att expandera bolaget!</span>
           <button style={T.hudBtn} onClick={() => openWindow("company")}>
             Öppna Bolag

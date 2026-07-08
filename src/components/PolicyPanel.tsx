@@ -12,8 +12,8 @@ const P: Record<string, React.CSSProperties> = {
   wrap: { display: "flex", flexDirection: "column", gap: 14, color: "#1a1a1a" },
   intro: { fontSize: 13, color: "#555" },
   card: {
-    background: "#faf8f2",
-    border: "1px solid #e2ddcf",
+    background: "#f7f9fb",
+    border: "1px solid #dde4ec",
     borderRadius: 10,
     padding: "12px 14px",
   },
@@ -225,7 +225,7 @@ export function PolicyPanel({
       </div>
 
       {/* ── Förvaltning: portföljdirektörens instruktioner ───────── */}
-      <div style={{ ...P.card, background: "#f2efe6" }}>
+      <div style={{ ...P.card, background: "#eef2f6" }}>
         <div style={P.cardTitle}>👔 Förvaltning & underhåll</div>
         <div style={P.row}>
           <span style={P.label}>Portföljdirektör</span>

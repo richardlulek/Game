@@ -30,9 +30,9 @@ export const RIVAL_COLORS = [
 /** Markeringsringar runt tomtrutor. */
 export const RING_COLORS = {
   listing: "#e3b23c", // till salu
-  owned: "#800020", // ägd (burgundy)
+  owned: "#4f63e4", // ägd (indigo – spelarens färg)
   lotForSale: "#4d8b52", // tomt till salu
-  lotOwned: "#800020",
+  lotOwned: "#4f63e4",
   rival: "#8a8f98", // konkurrentägd
   selected: "#ffffff",
 } as const;

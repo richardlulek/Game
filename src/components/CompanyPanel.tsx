@@ -24,10 +24,10 @@ const P: Record<string, React.CSSProperties> = {
   head: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" },
   icon: { fontSize: 44, lineHeight: 1 },
   name: { fontSize: 22, fontWeight: 800 },
-  tier: { fontSize: 13, color: "#8a6d1a", fontWeight: 700, letterSpacing: 0.5 },
+  tier: { fontSize: 13, color: "#4757c8", fontWeight: 700, letterSpacing: 0.5 },
   card: {
-    background: "#faf8f2",
-    border: "1px solid #e2ddcf",
+    background: "#f7f9fb",
+    border: "1px solid #dde4ec",
     borderRadius: 10,
     padding: "12px 14px",
   },
@@ -35,7 +35,7 @@ const P: Record<string, React.CSSProperties> = {
   stat: { minWidth: 120 },
   statLabel: { fontSize: 11, color: "#888", letterSpacing: 1, textTransform: "uppercase" },
   statValue: { fontSize: 17, fontWeight: 800 },
-  barOuter: { height: 8, background: "#e8e4d8", borderRadius: 4, overflow: "hidden", marginTop: 4 },
+  barOuter: { height: 8, background: "#e2e8ef", borderRadius: 4, overflow: "hidden", marginTop: 4 },
   barLabel: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "#555" },
   ladder: { display: "flex", flexDirection: "column", gap: 6 },
   ladderRow: { display: "flex", alignItems: "baseline", gap: 10, fontSize: 13 },
@@ -169,7 +169,7 @@ export function CompanyPanel({
       </div>
 
       {/* Organisationen: kontorskostnad och förvaltningskapacitet */}
-      <div style={{ ...P.card, ...(load.over > 0 ? { border: "1px solid #d9a13b", background: "#fdf6e4" } : {}) }}>
+      <div style={{ ...P.card, ...(load.over > 0 ? { border: "1px solid #d9a13b", background: "#eef2f8" } : {}) }}>
         <div style={{ fontWeight: 800, marginBottom: 8 }}>Organisation</div>
         <div style={P.statRow}>
           <div style={P.stat}>
@@ -263,7 +263,7 @@ export function CompanyPanel({
           </div>
         </div>
       ) : (
-        <div style={{ ...P.card, color: "#8a6d1a", fontWeight: 700 }}>
+        <div style={{ ...P.card, color: "#4757c8", fontWeight: 700 }}>
           👑 Högsta nivån nådd – ditt imperium dominerar staden.
         </div>
       )}

@@ -103,6 +103,6 @@ const primaryBtn: React.CSSProperties = {
 };
 const disabledBtn: React.CSSProperties = {
   width: "100%", padding: "9px", borderRadius: 4, border: "1px solid #8a7f6a",
-  background: "#9a8f7a", color: "#e8e0d0", fontWeight: 700, fontSize: 13, cursor: "default", fontFamily: FONTS.body,
+  background: "#9a8f7a", color: "#dfe6f0", fontWeight: 700, fontSize: 13, cursor: "default", fontFamily: FONTS.body,
 };
 const hint: React.CSSProperties = { fontSize: 11, color: C.inkSoft, textAlign: "center", marginTop: 5 };

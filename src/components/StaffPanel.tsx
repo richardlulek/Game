@@ -133,7 +133,7 @@ const primaryBtn: React.CSSProperties = {
 };
 const disabledBtn: React.CSSProperties = {
   flex: 1, padding: "9px", borderRadius: 4, border: "1px solid #8a7f6a",
-  background: "#9a8f7a", color: "#e8e0d0", fontWeight: 700, fontSize: 13, cursor: "default", fontFamily: FONTS.body,
+  background: "#9a8f7a", color: "#dfe6f0", fontWeight: 700, fontSize: 13, cursor: "default", fontFamily: FONTS.body,
 };
 const fireBtn: React.CSSProperties = {
   padding: "9px 12px", borderRadius: 4, border: `1px solid ${C.brassDim}`,

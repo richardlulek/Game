@@ -491,7 +491,7 @@ export default function FastighetsImperium() {
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div style={{
-            background: "linear-gradient(165deg, #f6efdc, #e6d6b4)", border: `2px solid ${C.brass}`, borderRadius: 8,
+            background: "linear-gradient(165deg, #eef2f7, #d6dfeb)", border: `2px solid ${C.brass}`, borderRadius: 8,
             padding: "36px 44px", maxWidth: 480, width: "100%", textAlign: "center",
             boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
           }}>
@@ -521,7 +521,7 @@ export default function FastighetsImperium() {
                       ["Reputation", `${Math.round(state.reputation)}`],
                       ["Milstolpar", `${milestonesCount} / 10`],
                     ].map(([label, val]) => (
-                      <div key={label as string} style={{ background: "#f0e8d0", borderRadius: 4, padding: "8px 12px" }}>
+                      <div key={label as string} style={{ background: "#e4eaf2", borderRadius: 4, padding: "8px 12px" }}>
                         <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
                         <div style={{ fontWeight: 800, fontSize: 16, color: BURGUNDY }}>{val}</div>
                       </div>

@@ -26,7 +26,7 @@ const C: Record<string, CSSProperties> = {
     color: "#ddd",
     cursor: "pointer",
   },
-  speedActive: { background: "#e8e2d6", color: "#1a1a1a", border: "1px solid #e8e2d6" },
+  speedActive: { background: "#e2e8f0", color: "#1a1a1a", border: "1px solid #e2e8f0" },
 };
 
 const SPEEDS: ClockSpeed[] = [1, 2, 4];

@@ -70,7 +70,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                     {[1.05, 1.12].map((m) => (
                       <button
                         key={m}
-                        style={{ ...declineBtn, borderColor: "#8a6d1a", color: "#8a6d1a" }}
+                        style={{ ...declineBtn, borderColor: "#4757c8", color: "#4757c8" }}
                         title="Begär mer – köparen kan gå med på priset eller dra sig ur"
                         onClick={() =>
                           dispatch({ type: "COUNTER_OFFER", offerId: o.id, amount: Math.round((o.amount * m) / 10_000) * 10_000 })

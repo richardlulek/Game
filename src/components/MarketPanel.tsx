@@ -146,7 +146,7 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
             style={{
               ...S.smallBtn,
               background: canBroker ? C.wood : "#9a8f7a",
-              color: canBroker ? C.brassBright : "#e8e0d0",
+              color: canBroker ? C.brassBright : "#dfe6f0",
               cursor: canBroker ? "pointer" : "default",
               fontSize: 12,
             }}

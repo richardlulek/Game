@@ -38,7 +38,7 @@ const ageChipStyle = (monthsLeft: number | null): React.CSSProperties => ({
   justifyContent: "space-between",
   background:
     monthsLeft !== null && monthsLeft <= 1 ? "#fde8e8" :
-    monthsLeft !== null && monthsLeft <= 2 ? "#fff3cc" : "#eef5ee",
+    monthsLeft !== null && monthsLeft <= 2 ? "#e7edff" : "#eef5ee",
   color:
     monthsLeft !== null && monthsLeft <= 1 ? C.negative :
     monthsLeft !== null && monthsLeft <= 2 ? "#9a6a10" : C.inkSoft,
@@ -242,7 +242,7 @@ const profitBox = (positive: boolean): React.CSSProperties => ({
 const guideBox: React.CSSProperties = {
   fontSize: 11,
   padding: "5px 8px",
-  background: "#ece0c6",
+  background: "#dfe6f0",
   borderRadius: 5,
   marginBottom: 6,
   display: "flex",
@@ -264,7 +264,7 @@ const bidToggle = (active: boolean): React.CSSProperties => ({
 const bidPanel: React.CSSProperties = {
   marginTop: 10,
   padding: "11px 12px",
-  background: "#fbf5e6",
+  background: "#f0f4f9",
   border: `1px solid ${C.brass}`,
   borderRadius: 5,
 };

@@ -40,7 +40,7 @@ function acceptProb(newRent: number, marketMo: number) {
   const r = newRent / marketMo;
   if (r < 1.0)  return { text: "Mycket låg risk",  color: "#27660a", prob: 97 };
   if (r < 1.1)  return { text: "Låg risk",         color: "#5a8a10", prob: 80 };
-  if (r < 1.2)  return { text: "Medel risk",       color: "#b07010", prob: 55 };
+  if (r < 1.2)  return { text: "Medel risk",       color: "#c07f16", prob: 55 };
   if (r < 1.35) return { text: "Hög risk",         color: "#b04010", prob: 28 };
   return             { text: "Mycket hög risk",  color: "#c0392b", prob: 10 };
 }
@@ -49,7 +49,7 @@ function acceptProb(newRent: number, marketMo: number) {
 function satChip(sat: number): { icon: string; color: string } {
   if (sat >= 75) return { icon: "😀", color: "#27660a" };
   if (sat >= 50) return { icon: "🙂", color: "#7b8a2e" };
-  if (sat >= 30) return { icon: "😐", color: "#b07010" };
+  if (sat >= 30) return { icon: "😐", color: "#c07f16" };
   return { icon: "☹️", color: "#c0392b" };
 }
 
@@ -132,11 +132,11 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         const gap = blockGap(p, state);
         if (gap === null) return null;
         return gap === 0 ? (
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#8a6d1a", margin: "2px 0 6px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#4757c8", margin: "2px 0 6px" }}>
             🏆 Helkvarter: +10 % hyra · −15 % driftkostnad
           </div>
         ) : (
-          <div style={{ fontSize: 11.5, color: "#997", margin: "2px 0 6px" }}>
+          <div style={{ fontSize: 11.5, color: "#8291a3", margin: "2px 0 6px" }}>
             Kvarterspussel: {gap} {gap === 1 ? "fastighet" : "fastigheter"} kvar till helkvartersbonus.
           </div>
         );
@@ -154,7 +154,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         <Stat
           label="Yield on cost"
           value={`${yieldPct.toFixed(1)} %`}
-          color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#b07010" : "#c0392b"}
+          color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#c07f16" : "#c0392b"}
         />
         <Stat label="Investerat" value={`${(invested / 1e6).toFixed(1)} Msek`} />
         {cashOnCash !== null && (
@@ -165,7 +165,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
           />
         )}
       </div>
-      <div style={{ fontSize: 10.5, color: "#998", marginTop: 2 }}>
+      <div style={{ fontSize: 10.5, color: "#8291a3", marginTop: 2 }}>
         Yield = NOI / (inköp {((p.purchasePrice ?? p.askPrice) / 1e6).toFixed(1)} M
         {(p.capexTotal ?? 0) > 0 ? ` + åtgärder ${((p.capexTotal ?? 0) / 1e6).toFixed(1)} M` : ""})
         · {marketYield.toFixed(1)} % på marknadsvärde
@@ -405,7 +405,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                   step={5}
                   value={Math.round(eff * 100)}
                   onChange={(e) => dispatch({ type: "SET_ASK_RENT", id: p.id, pct: +e.target.value / 100 })}
-                  style={{ flex: 1, accentColor: "#800020" }}
+                  style={{ flex: 1, accentColor: BURGUNDY }}
                 />
                 <strong style={{ fontSize: 12.5, minWidth: 88, color: eff > 1.1 ? "#b5542a" : eff < 0.95 ? "#4d8b52" : "#333" }}>
                   {Math.round(eff * 100)} % · {kr(Math.round(slotPotential * eff))}
@@ -415,7 +415,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
           })()}
           {/* Inkomna ansökningar */}
           {(p.applications ?? []).length === 0 ? (
-            <div style={{ fontSize: 12, color: "#997", marginBottom: 6 }}>
+            <div style={{ fontSize: 12, color: "#8291a3", marginBottom: 6 }}>
               Inga ansökningar ännu — {(p.askRentPct ?? 1) > 1.05 ? "utgångshyran ligger över marknaden, sänk eller vänta" : "sökande brukar dyka upp inom någon månad"}.
             </div>
           ) : (
@@ -446,14 +446,14 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                     <button
                       title={CONTRACTS["ankare"].desc}
                       onClick={() => dispatch({ type: "ACCEPT_APPLICATION", id: p.id, applicationId: a.id, contract: "ankare" })}
-                      style={{ ...contractBtn, background: "#8a6d1a", borderColor: "#8a6d1a", color: "#fff" }}
+                      style={{ ...contractBtn, background: "#4757c8", borderColor: "#4757c8", color: "#fff" }}
                     >
                       Ankare ⭐
                     </button>
                   )}
                   <button
                     onClick={() => dispatch({ type: "REJECT_APPLICATION", id: p.id, applicationId: a.id })}
-                    style={{ ...contractBtn, color: "#997", borderColor: "#ddd" }}
+                    style={{ ...contractBtn, color: "#8291a3", borderColor: "#ddd" }}
                   >
                     Avslå
                   </button>
@@ -532,7 +532,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         <>
           <div style={sectionLabel}>Utvecklingsprojekt</div>
           {p.tenants.length > 0 && (
-            <div style={{ fontSize: 11.5, color: "#997", margin: "2px 0 6px" }}>
+            <div style={{ fontSize: 11.5, color: "#8291a3", margin: "2px 0 6px" }}>
               Kräver vakant fastighet — säg upp eller vänta ut kontrakten.
             </div>
           )}
@@ -658,7 +658,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                     currentMgrSettings.maintainThreshold <= 85 ? "Hög standard" : "Toppskick"
                   }
                   color={
-                    currentMgrSettings.maintainThreshold <= 30 ? "#b07010" :
+                    currentMgrSettings.maintainThreshold <= 30 ? "#c07f16" :
                     currentMgrSettings.maintainThreshold <= 55 ? "#2a4a8a" : "#27660a"
                   }
                 />
@@ -691,12 +691,12 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                   color={
                     currentMgrSettings.rentTargetPct < 0.95 ? "#2a4a8a" :
                     currentMgrSettings.rentTargetPct <= 1.05 ? "#27660a" :
-                    currentMgrSettings.rentTargetPct <= 1.15 ? "#b07010" : "#c0392b"
+                    currentMgrSettings.rentTargetPct <= 1.15 ? "#c07f16" : "#c0392b"
                   }
                 />
               </div>
               {currentMgrSettings.rentTargetPct > 1.10 && (
-                <div style={{ fontSize: 11, color: "#b07010", marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: "#c07f16", marginTop: 6 }}>
                   ⚠ Mål {Math.round(currentMgrSettings.rentTargetPct * 100)} % – 60 % chans att hyresgäster lämnar vid förlängning.
                 </div>
               )}
@@ -764,7 +764,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       {/* ── Försäljning: annonsera och invänta köpare, eller snabbsälj ── */}
       {p.forSale?.packageId != null ? (
-        <div style={{ fontSize: 12, color: "#8a6d1a", fontWeight: 700, padding: "8px 10px", background: "#f6f1e2", borderRadius: 6 }}>
+        <div style={{ fontSize: 12, color: "#4757c8", fontWeight: 700, padding: "8px 10px", background: "#eef2f6", borderRadius: 6 }}>
           📦 Ingår i säljpaket – hanteras i Bolag → Översikt.
         </div>
       ) : p.forSale ? (
@@ -773,8 +773,8 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
           const chance = interestChance(A, p.forSale.ask, value, state.marketSentiment ?? 1);
           const il = interestLabel(chance);
           return (
-            <div style={{ padding: "8px 10px", background: "#f6f1e2", borderRadius: 6 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8a6d1a" }}>
+            <div style={{ padding: "8px 10px", background: "#eef2f6", borderRadius: 6 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#4757c8" }}>
                 🏷️ Till salu för {msek(p.forSale.ask)}
               </div>
               <div style={{ fontSize: 11.5, marginTop: 2 }}>
@@ -812,7 +812,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
               <ActionBtn
                 label={`🏷️ Lägg ut till försäljning · ${msek(ask)}`}
                 sub={`Förväntat köpintresse: ${il.label} – bra skick, hög uthyrning och rätt pris säljer snabbt`}
-                color="#7a5a00"
+                color="#3d54d8"
                 disabled={state.gameOver}
                 onClick={() => dispatch({ type: "LIST_FOR_SALE", id: p.id, ask })}
               />
@@ -933,7 +933,7 @@ interface ActionBtnProps {
   disabled?: boolean; done?: boolean; onClick: () => void;
 }
 function ActionBtn({ label, sub, color, disabled, done, onClick }: ActionBtnProps) {
-  const bg     = disabled ? (done ? "#dfe9d6" : "#e3d8bf") : (color ? color + "1f" : "#ece0c6");
+  const bg     = disabled ? (done ? "#dfe9d6" : "#e3d8bf") : (color ? color + "1f" : "#dfe6f0");
   const border = disabled ? (done ? C.positive + "66" : C.brassDim) : (color ?? C.brassDim);
   const tc     = disabled ? (done ? C.positive : C.inkSoft) : (color ?? C.ink);
   return (
@@ -996,12 +996,12 @@ const detailToggleBtn: React.CSSProperties = {
   fontSize: 12, color: C.inkSoft, cursor: "pointer", fontWeight: 600,
 };
 const detailBox: React.CSSProperties = {
-  background: "#ece0c6", border: `1px solid ${C.brassDim}`, borderRadius: 5,
+  background: "#dfe6f0", border: `1px solid ${C.brassDim}`, borderRadius: 5,
   padding: "10px 12px", marginBottom: 4,
 };
 const subPanel: React.CSSProperties = {
   marginTop: 10, padding: "10px 12px",
-  background: "#fbf5e6", borderRadius: 5, border: `1px solid ${C.brassDim}`,
+  background: "#f0f4f9", borderRadius: 5, border: `1px solid ${C.brassDim}`,
 };
 const rentOptionBtn = (color: string): React.CSSProperties => ({
   display: "block", width: "100%", textAlign: "left",
@@ -1012,7 +1012,7 @@ const rentOptionBtn = (color: string): React.CSSProperties => ({
 const candidateBtn: React.CSSProperties = {
   display: "block", width: "100%", textAlign: "left",
   marginBottom: 6, padding: "9px 10px", borderRadius: 4,
-  border: `1px solid ${C.brass}`, background: "#fbf5e6", cursor: "pointer",
+  border: `1px solid ${C.brass}`, background: "#f0f4f9", cursor: "pointer",
 };
 const contractBtn: React.CSSProperties = {
   padding: "4px 10px", borderRadius: 5,
@@ -1021,7 +1021,7 @@ const contractBtn: React.CSSProperties = {
 };
 
 const tenantBox: React.CSSProperties = {
-  background: "#ece0c6", borderRadius: 5, padding: "10px 12px", marginBottom: 6,
+  background: "#dfe6f0", borderRadius: 5, padding: "10px 12px", marginBottom: 6,
   border: `1px solid ${C.brassDim}66`,
 };
 const tenantName: React.CSSProperties = { fontWeight: 700, fontSize: 14, color: BURGUNDY, fontFamily: FONTS.heading };
