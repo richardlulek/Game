@@ -2,7 +2,7 @@
    kvartersköp i förorten och sparfilsgaten. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DISTRICT_ZONES, PARCELS, ZONE_STREETS, parcelsIn } from "../engine/city";
+import { DISTRICT_ZONES, PARCELS, ZONE_STREETS, claimRandomParcel, hasAmbientBuilding, parcelsIn } from "../engine/city";
 import { DISTRICTS, DISTRICT_GEN } from "../engine/data";
 import { calcCapacity, genWorldProperty } from "../engine/generators";
 import { loadGame } from "../store/persistence";
@@ -24,6 +24,19 @@ describe("stadskartan 3.0", () => {
       expect(DISTRICT_GEN[d.id]).toBeDefined();
     }
     expect(PARCELS.length).toBeGreaterThanOrEqual(200);
+  });
+
+  it("staden växer naturligt: tom mark bebyggs före dekorbebyggelse", () => {
+    const occupied = new Set<string>();
+    const empty = parcelsIn("centrum").filter((p) => !p.expansion && !hasAmbientBuilding(p));
+    // Alla lediga fält tas i anspråk innan något dekorhus ersätts …
+    for (let i = 0; i < empty.length; i++) {
+      const chosen = claimRandomParcel("centrum", occupied);
+      expect(hasAmbientBuilding(chosen)).toBe(false);
+    }
+    // … och först därefter förtätas kvarter med dekorbebyggelse.
+    const next = claimRandomParcel("centrum", occupied);
+    expect(hasAmbientBuilding(next)).toBe(true);
   });
 
   it("tomter har kvarter och gatukanter; slutna kvarter delar väggar", () => {

@@ -241,9 +241,27 @@ export function zoneStreets(): StreetSeg[] {
 export const ZONE_STREETS: StreetSeg[] = zoneStreets();
 
 /**
+ * Sannolikhet (i %) att en ledig tomtruta bär dekorativ bebyggelse.
+ * Delas av 3D-vyn (StaticCity) och tillväxtlogiken nedan så att kartan
+ * och motorn alltid är överens om vad som är bebyggt.
+ */
+export function ambientChanceFor(district: string): number {
+  if (district === "centrum" || district === "innerstad") return 80;
+  if (district === "finans" || district === "hamnen") return 70;
+  return 58;
+}
+
+/** Bär tomten ett dekorhus (deterministiskt ur tomt-hashen)? */
+export function hasAmbientBuilding(p: Parcel): boolean {
+  return !p.expansion && parcelHash(p.id) % 100 < ambientChanceFor(p.district);
+}
+
+/**
  * Slumpar en ledig tomtruta i distriktet och markerar den som upptagen
- * i det medskickade settet. Om distriktet är fullt återanvänds en
- * slumpad ruta (två hus delar ruta visuellt – hellre det än krasch).
+ * i det medskickade settet. Staden växer naturligt: obebyggd mark
+ * (parker och lediga fält) bebyggs FÖRST – först när distriktet är
+ * fullt tas rutor med dekorbebyggelse i anspråk (förtätning), och som
+ * absolut sista utväg återanvänds en upptagen ruta (hellre än krasch).
  */
 export function claimRandomParcel(
   district: string,
@@ -252,7 +270,8 @@ export function claimRandomParcel(
 ): Parcel {
   const all = parcelsIn(district).filter((p) => (allowed ? allowed(p) : !p.expansion));
   const free = all.filter((p) => !occupied.has(p.id));
-  const pool = free.length ? free : all;
+  const empty = free.filter((p) => !hasAmbientBuilding(p));
+  const pool = empty.length ? empty : free.length ? free : all;
   const chosen = pool[Math.floor(Math.random() * pool.length)];
   occupied.add(chosen.id);
   return chosen;
