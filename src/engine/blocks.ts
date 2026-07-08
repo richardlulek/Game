@@ -59,3 +59,44 @@ export function blockGap(p: Property, state: GameState): number | null {
   );
   return parcelIds.filter((id) => !ownedParcels.has(id)).length;
 }
+
+/* ── Grannskapseffekt ───────────────────────────────────────────────
+   Kvarterets skick smittar: välskötta grannar lyfter värde och hyra,
+   förfallna drar ner. Cachen byggs en gång per tillstånd (WeakMap)
+   eftersom värderingen anropas ofta under rendering och simulering. */
+
+const HOOD_CACHE = new WeakMap<GameState, Map<string, { sum: number; n: number }>>();
+
+function hoodMap(state: GameState): Map<string, { sum: number; n: number }> {
+  let m = HOOD_CACHE.get(state);
+  if (m) return m;
+  m = new Map();
+  const add = (p: Property) => {
+    if (p.status !== "klar" || !p.parcelId) return;
+    const parcel = parcelById(p.parcelId);
+    if (!parcel) return;
+    const e = m!.get(parcel.blockId) ?? { sum: 0, n: 0 };
+    e.sum += p.condition;
+    e.n += 1;
+    m!.set(parcel.blockId, e);
+  };
+  for (const p of state.portfolio) add(p);
+  for (const p of state.listings) add(p);
+  for (const c of state.competitors) for (const p of c.portfolio ?? []) add(p);
+  HOOD_CACHE.set(state, m);
+  return m;
+}
+
+/** Grannarnas snittskick → värdefaktor: ≥75 upp till +4 %, <45 ned till −6 %. */
+export function blockConditionMult(p: Property, state: GameState): number {
+  if (!p.parcelId) return 1;
+  const parcel = parcelById(p.parcelId);
+  if (!parcel) return 1;
+  const e = hoodMap(state).get(parcel.blockId);
+  if (!e || e.n < 2) return 1;
+  // Grannarna = kvarteret minus fastigheten själv.
+  const avg = (e.sum - p.condition) / (e.n - 1);
+  if (avg >= 75) return 1 + Math.min(0.04, (avg - 75) / 600);
+  if (avg < 45) return 1 - Math.min(0.06, (45 - avg) / 500);
+  return 1;
+}

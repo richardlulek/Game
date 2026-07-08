@@ -24,20 +24,21 @@ import {
   satisfactionTarget,
   signContract,
 } from "./leasing";
-import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, RARE_EVENTS } from "./data";
+import { AI_NAMES, DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { makeDecision } from "./decisions";
+import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import { amortInfoOf, equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
-import { genListing, genLot, makeTenant } from "./generators";
+import { genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
 import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
 import { tickHotel, tickEnergy, tickLogistik } from "./industries";
-import type { GameState, LogEntry, Offer } from "./types";
+import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
 export function advanceMonth(state: GameState): GameState {
@@ -76,6 +77,24 @@ export function advanceMonth(state: GameState): GameState {
       events.push({ t: `📉 KONJUNKTURNEDGÅNG! Marknaden sviktar (${dur} mån kvar).`, kind: "warn" });
     } else {
       events.push({ t: `📊 Konjunkturen stabiliseras — stabilt läge (${dur} mån).`, kind: "event" });
+    }
+  }
+  const cyclePhaseNow = s.marketCycle.phase;
+
+  // ── Riksbanken: kvartalsvisa räntebesked ─────────────────────────
+  // Styrräntan söker sig i 25-punkterssteg mot ett konjunkturstyrt
+  // mål. Räntan andas i fastighetsvärdena (rateValueFactor) och i
+  // rivalernas köpaptit – räntebindning blir ett riktigt val.
+  if (s.month % 3 === 1) {
+    const target = policyRateTarget(cyclePhaseNow);
+    const diff = target - s.interestRate;
+    if (Math.abs(diff) >= RATE_STEP - 0.001) {
+      const step = Math.sign(diff) * RATE_STEP;
+      s.interestRate = +(s.interestRate + step).toFixed(2);
+      events.push({
+        t: `🏛️ Riksbanken ${step > 0 ? "höjer" : "sänker"} styrräntan med 25 punkter till ${s.interestRate.toFixed(2)} % — fastighetsvärdena ${step > 0 ? "pressas" : "lyfts"}.`,
+        kind: step > 0 ? "warn" : "income",
+      });
     }
   }
 
@@ -131,6 +150,11 @@ export function advanceMonth(state: GameState): GameState {
   // ger extra slitage (och administrativ merkostnad längre ned).
   const orgLoad = orgLoadOf(state);
   const overloadWear = orgLoad.over > 0 ? OVERLOAD_WEAR_MULT : 1;
+
+  // Flyttkedjor: stadens vakansläge styr hur lätt hyresgäster flyttar,
+  // och de som lämnar kan dyka upp som sökande hos dina andra hus.
+  const moveP = movePressure(cityVacancyRate(s));
+  const movers: Tenant[] = [];
 
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
@@ -247,16 +271,26 @@ export function advanceMonth(state: GameState): GameState {
       const consMonths = (t.consecutiveMonths ?? 0) + 1;
       const loyaltyFactor = consMonths >= 24 ? 0.5 : 1.0;
       const recFactor = (s.recessionMonthsLeft ?? 0) > 0 ? 2.5 : 1.0;
+      // Hyresgästernas livscykel: konkursrisken andas med konjunkturen.
+      const cycleRisk = cyclePhaseNow === "bust" ? 1.6 : cyclePhaseNow === "boom" ? 0.6 : 1.0;
       // Seasonal effect on default risk for residential
-      const effDefaultRisk = t.defaultRisk * loyaltyFactor * recFactor * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
+      const effDefaultRisk = t.defaultRisk * loyaltyFactor * recFactor * cycleRisk * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
       if (Math.random() < effDefaultRisk) {
         const evictionCost = Math.round(t.rent * 2);
         monthlyNOI -= evictionCost;
         events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Vräkningskostnad: ${kr(evictionCost)}.`, kind: "expense" });
         continue;
       }
-      // Djupt missnöjda lämnar i förtid (U3).
-      if (sat < 30 && Math.random() < 0.06) {
+      // Livscykel: kommersiella hyresgäster expanderar i högkonjunktur
+      // (hyr mer yta, +15 % hyra – en gång per hyresgäst).
+      if (cyclePhaseNow === "boom" && np.type !== "bostad" && !t.expanded && Math.random() < 0.01) {
+        t.expanded = true;
+        t.rent = Math.round(t.rent * 1.15);
+        events.push({ t: `📈 ${t.name} expanderar i ${np.districtName} – hyr mer yta (+15 % hyra).`, kind: "income" });
+      }
+      // Djupt missnöjda lämnar i förtid (U3) – lättare i löst marknadsläge.
+      if (sat < 30 && Math.random() < 0.06 * moveP) {
+        movers.push(t);
         events.push({ t: `😟 ${t.name} lämnade ${np.districtName} i förtid – missnöjd (nöjdhet ${sat}).`, kind: "warn" });
         continue;
       }
@@ -270,10 +304,12 @@ export function advanceMonth(state: GameState): GameState {
           const targetRent = Math.round(baseRent * rentTargetPct);
           const premiumRatio = targetRent / Math.max(1, baseRent);
           // Nöjda hyresgäster stannar; ankare mest av alla (U3/U5).
+          // Flyttkedjor: gott om vakanser i staden → lättare att lämna.
           const satMult = Math.max(0.3, Math.min(1.3, sat / 65));
+          const stayMult = Math.max(0.5, Math.min(1.3, 2 - moveP));
           const willStay = premiumRatio <= 1.10 && sat >= 30
             ? true
-            : Math.random() < (isAnchor ? 0.65 : 0.40) * satMult;
+            : Math.random() < (isAnchor ? 0.65 : 0.40) * satMult * stayMult;
           if (willStay) {
             const newRent = rentTargetPct < 1.0
               ? Math.min(t.rent, targetRent)
@@ -283,6 +319,7 @@ export function advanceMonth(state: GameState): GameState {
             nextTenants.push({ ...t, monthsLeft: t.termTotal, rent: newRent, consecutiveMonths: consMonths, isAnchor });
             events.push({ t: `📄 Förvaltare förnyade avtal med ${t.name} i ${np.districtName}: ${kr(newRent)}/mån.`, kind: "info" });
           } else {
+            movers.push(t);
             events.push({ t: `📄 ${t.name} lämnade ${np.districtName} – för hög hyra vid förlängning.`, kind: "info" });
           }
         } else {
@@ -380,6 +417,31 @@ export function advanceMonth(state: GameState): GameState {
     const regulatedCount = s.portfolio.filter((p) => p.regulated && p.status === "klar").length;
     if (regulatedCount > 0)
       s.reputation = Math.min(100, +(s.reputation + Math.min(0.5, regulatedCount * 0.05)).toFixed(2));
+
+    // Flyttkedjor: ~40 % av dem som lämnade söker nytt i staden och
+    // kan dyka upp som ansökningar hos dina andra lediga hus.
+    if (movers.length > 0) {
+      let chained = 0;
+      s.portfolio = s.portfolio.map((p) => {
+        if (p.status === "klar" && movers.length > 0 && Math.random() < 0.4) {
+          const room = p.capacity - p.tenants.length + 3 - (p.applications ?? []).length;
+          if (room > 0 && p.capacity > p.tenants.length && !p.regulated) {
+            const mover = movers.shift()!;
+            chained += 1;
+            return {
+              ...p,
+              applications: [
+                ...(p.applications ?? []),
+                { id: newId(), tenant: { ...mover, monthsLeft: mover.termTotal }, expiresAbs: nowAbsApp + 2 },
+              ],
+            };
+          }
+        }
+        return p;
+      });
+      if (chained > 0)
+        events.push({ t: `🔄 Flyttkedja: ${chained} hyresgäst${chained === 1 ? "" : "er"} som lämnat söker nu bland dina lediga lokaler.`, kind: "info" });
+    }
   }
 
   // ── Bolagspolicyn verkställs av cheferna ─────────────────────────
@@ -777,6 +839,46 @@ export function advanceMonth(state: GameState): GameState {
     events.push({ t: `🏘️ Lokalt: ${ev.text}`, kind: "event" });
   }
 
+  // ── Kommunala infrastrukturprojekt ───────────────────────────────
+  // Fleråriga byggen som annonseras vid byggstart och permanent lyfter
+  // distriktets områdesutveckling vid invigningen – läs tidningen och
+  // köp i distriktet innan spårvägen står klar.
+  {
+    const done: InfraProject[] = [];
+    s.infraProjects = (s.infraProjects ?? [])
+      .map((pr) => ({ ...pr, monthsLeft: pr.monthsLeft - 1 }))
+      .filter((pr) => {
+        if (pr.monthsLeft <= 0) {
+          done.push(pr);
+          return false;
+        }
+        return true;
+      });
+    for (const pr of done) {
+      s.districtDev = {
+        ...(s.districtDev ?? {}),
+        [pr.district]: +(((s.districtDev?.[pr.district] ?? 1) + pr.boost).toFixed(3)),
+      };
+      events.push({
+        t: `🎉 INVIGT: ${pr.name} i ${pr.districtName} står klar — området lyfter (+${Math.round(pr.boost * 100)} % områdesutveckling).`,
+        kind: "event",
+      });
+    }
+    if ((s.infraProjects ?? []).length === 0 && Math.random() < 0.015) {
+      const kind = pick(INFRA_KINDS);
+      const d = pick(DISTRICTS);
+      const months = kind.months[0] + Math.floor(Math.random() * (kind.months[1] - kind.months[0] + 1));
+      const boost = +(kind.boost[0] + Math.random() * (kind.boost[1] - kind.boost[0])).toFixed(3);
+      s.infraProjects = [
+        { id: newId(), name: kind.name, district: d.id, districtName: d.name, monthsLeft: months, totalMonths: months, boost },
+      ];
+      events.push({
+        t: `🏛️ BYGGSTART: Kommunen bygger ${kind.name.toLowerCase()} i ${d.name} — klart om ~${months} mån. Läget väntas lyfta rejält.`,
+        kind: "event",
+      });
+    }
+  }
+
   // ── AI-konkurrenter agerar (riktiga portföljer + personligheter) ─
   // Rivalernas ekonomi värderas med samma formel som spelarens och
   // andas därmed med konjunktur, distriktutveckling och marknadsläge.
@@ -787,6 +889,41 @@ export function advanceMonth(state: GameState): GameState {
     const portVal = nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI) / 12);
     nc.cash += nc.monthlyNOI;
+    // Rivalernas byggen tickar och färdigställs (kranar på kartan).
+    let finishedBuild: string | null = null;
+    nc.portfolio = nc.portfolio.map((p) => {
+      if (p.status !== "bygger") return p;
+      if (p.buildLeft <= 1) {
+        finishedBuild = `${p.typeLabel} i ${p.districtName}`;
+        return { ...p, status: "klar" as const, buildLeft: 0 };
+      }
+      return { ...p, buildLeft: p.buildLeft - 1 };
+    });
+    if (finishedBuild)
+      events.push({ t: `🏢 ${nc.name} färdigställde sitt nybygge: ${finishedBuild}.`, kind: "event" });
+    // Nybyggnation: kapitalstarka bolag bygger i sina distrikt när det
+    // inte är lågkonjunktur – staden växer även utan spelaren.
+    const buildChance = nc.strategy === "tillväxt" ? 0.05 : 0.02;
+    if (cyclePhase !== "bust" && nc.cash > 8_000_000 && Math.random() < buildChance * rateAppetite(s.interestRate)) {
+      const build = genWorldProperty(s);
+      const district = nc.preferredDistrict ?? build.district;
+      const dObj = DISTRICTS.find((d) => d.id === district);
+      const cost = Math.round(build.askPrice * 0.85);
+      if (nc.cash >= cost) {
+        nc.cash -= cost;
+        nc.portfolio.push({
+          ...build,
+          district,
+          districtName: dObj?.name ?? build.districtName,
+          tenants: [],
+          status: "bygger",
+          buildLeft: PROP_TYPES[build.type].buildMonths,
+          parcelId: undefined,
+          purchasePrice: cost,
+        });
+        events.push({ t: `🏗️ ${nc.name} bygger nytt: ${build.typeLabel} i ${dObj?.name ?? build.districtName} (${msek(cost)}).`, kind: "event" });
+      }
+    }
     // Strategisk försäljning: motivdriven (renodling, renoveringsobjekt,
     // vinsthemtagning i boom) – annonseras öppet så att spelaren och
     // andra rivaler konkurrerar om samma objekt.
@@ -817,7 +954,8 @@ export function advanceMonth(state: GameState): GameState {
   });
   // Konkurrent köper från marknaden med strategi-filtrering – även
   // objekt som andra rivaler just annonserat (rival-till-rival-affärer).
-  if (s.listings.length > 1 && Math.random() < (rivalIsClose ? 0.55 : 0.25)) {
+  // Köpaptiten följer räntan: billiga pengar → fler affärer.
+  if (s.listings.length > 1 && Math.random() < (rivalIsClose ? 0.55 : 0.25) * rateAppetite(s.interestRate)) {
     const buyer = pick(s.competitors);
     const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
     const buyable = s.listings.filter((p) => {
@@ -895,15 +1033,27 @@ export function advanceMonth(state: GameState): GameState {
   // Intresset styrs av skick, uthyrningsgrad, avkastning och pris:
   // bra objekt till rätt pris säljer snabbt, liggare blir liggare.
   const listedSingles = s.portfolio.filter(
-    (p) =>
-      p.status === "klar" &&
-      p.forSale &&
-      p.forSale.packageId == null &&
-      !offers.some((o) => o.kind === "listing" && o.propId === p.id),
+    (p) => p.status === "klar" && p.forSale && p.forSale.packageId == null,
   );
   for (const p of listedSingles) {
+    const existing = offers.filter((o) => o.kind === "listing" && o.propId === p.id);
+    if (existing.length >= 2) continue;
     const A = attractiveness(p, s);
     const value = propMarketValue(p, s);
+    if (existing.length === 1) {
+      // Budkrig: ett bud ligger redan – 25 % chans att en annan aktör
+      // bjuder över. Vänta med att svara och priset kan stiga.
+      if (Math.random() < 0.25) {
+        const rivalBid = Math.round((existing[0].amount * (1.03 + Math.random() * 0.05)) / 10_000) * 10_000;
+        const from = pick(AI_NAMES.filter((n) => n !== existing[0].from));
+        offers = [
+          ...offers,
+          { id: newId(), kind: "listing", propId: p.id, propLabel: p.typeLabel, districtName: p.districtName, from, amount: rivalBid, expiresIn: 2 },
+        ];
+        events.push({ t: `💥 Budkrig om ${p.typeLabel} i ${p.districtName}! ${from} bjuder över: ${msek(rivalBid)}.`, kind: "event" });
+      }
+      continue;
+    }
     if (Math.random() < interestChance(A, p.forSale!.ask, value, s.marketSentiment ?? 1)) {
       const amount = offerAmount(A, p.forSale!.ask, value);
       const from = pick(AI_NAMES);
@@ -1251,29 +1401,58 @@ export function advanceMonth(state: GameState): GameState {
     events.push({ t: `🤔 Beslut krävs: ${decision.title}`, kind: "event" });
   }
 
-  // ── Utgångna listings återgår till världspoolen ─────────────────
+  // ── Utgångna listings: hus försvinner INTE från kartan ──────────
+  // Synliga objekt (med tomtruta) som ingen köpt plockas upp av ett av
+  // stadens bolag till rabatt – byggnaden står kvar i köparens färg.
+  // Bara osynliga poolobjekt återgår till den abstrakta världspoolen.
   const nowAbs2 = s.year * 12 + s.month;
-  const expiredListings: typeof s.listings = [];
+  const expiredToPool: typeof s.listings = [];
+  const pickedUp: { buyer: string; prop: (typeof s.listings)[number] }[] = [];
   s.listings = s.listings.filter((p) => {
     if ((p.expiresMonth ?? Infinity) <= nowAbs2) {
-      // Tillbaka till poolen med ursprungspriset återställt (annars skulle
-      // marknadspåslaget ackumuleras varje gång objektet listas om) och
-      // utan tomtruta – poolen är abstrakt tills objektet syns igen.
-      expiredListings.push({
-        ...p,
-        askPrice: p.poolAskPrice ?? p.askPrice,
-        baseRent: p.poolBaseRent ?? p.baseRent,
-        poolAskPrice: undefined,
-        poolBaseRent: undefined,
-        parcelId: undefined,
-        listedMonth: undefined,
-        expiresMonth: undefined,
-      });
+      if (p.parcelId && s.competitors.length > 0) {
+        const buyer = pick(s.competitors);
+        pickedUp.push({
+          buyer: buyer.name,
+          prop: {
+            ...p,
+            owned: false,
+            askPrice: Math.round(p.askPrice * 0.9),
+            listedMonth: undefined,
+            expiresMonth: undefined,
+            poolAskPrice: undefined,
+            poolBaseRent: undefined,
+          },
+        });
+      } else {
+        // Ursprungspriset återställs (annars ackumuleras marknadspåslaget
+        // varje gång objektet listas om).
+        expiredToPool.push({
+          ...p,
+          askPrice: p.poolAskPrice ?? p.askPrice,
+          baseRent: p.poolBaseRent ?? p.baseRent,
+          poolAskPrice: undefined,
+          poolBaseRent: undefined,
+          parcelId: undefined,
+          listedMonth: undefined,
+          expiresMonth: undefined,
+        });
+      }
       return false;
     }
     return true;
   });
-  s.worldPool = [...(s.worldPool ?? []), ...expiredListings];
+  if (pickedUp.length > 0) {
+    s.competitors = s.competitors.map((c) => {
+      const mine = pickedUp.filter((x) => x.buyer === c.name).map((x) => x.prop);
+      if (mine.length === 0) return c;
+      const cost = mine.reduce((a, p) => a + p.askPrice, 0);
+      return { ...c, portfolio: [...(c.portfolio ?? []), ...mine], cash: Math.max(0, c.cash - cost) };
+    });
+    for (const x of pickedUp)
+      events.push({ t: `🤝 ${x.buyer} plockade upp ${x.prop.typeLabel} i ${x.prop.districtName} när annonsen löpte ut (${msek(x.prop.askPrice)}).`, kind: "event" });
+  }
+  s.worldPool = [...(s.worldPool ?? []), ...expiredToPool];
   s.lots = s.lots.filter((l) => {
     if (!l.owned && (l.expiresMonth ?? Infinity) <= nowAbs2) {
       events.push({ t: `📋 Tomt i ${l.districtName} drogs tillbaka.`, kind: "info" });

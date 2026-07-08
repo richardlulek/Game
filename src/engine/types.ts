@@ -166,6 +166,8 @@ export interface Tenant {
   satisfaction?: number;
   /** Signerad med ankaravtal (U5): rabatterad hyra, lyfter hela kvarteret. */
   anchorDeal?: boolean;
+  /** Kommersiell hyresgäst som expanderat i högkonjunktur (+15 % hyra, en gång). */
+  expanded?: boolean;
 }
 
 /** Ett inkommande erbjudande: oombett uppköpsbud ("buyout"), bud på en
@@ -182,6 +184,18 @@ export interface Offer {
   /** Paketbud: alla fastigheter som ingår. */
   propertyIds?: number[];
   packageId?: number;
+}
+
+/** Kommunalt infrastrukturprojekt: annonseras vid byggstart och lyfter
+ *  distriktets områdesutveckling permanent när det invigs. */
+export interface InfraProject {
+  id: number;
+  name: string;
+  district: string;
+  districtName: string;
+  monthsLeft: number;
+  totalMonths: number;
+  boost: number;
 }
 
 /** Ett säljpaket: flera fastigheter som annonseras som en portfölj –
@@ -543,6 +557,8 @@ export interface GameState {
   offers: Offer[];
   /** Aktiva säljpaket (portföljförsäljningar). */
   salePackages?: SalePackage[];
+  /** Pågående kommunala infrastrukturprojekt. */
+  infraProjects?: InfraProject[];
   pendingDecision: PendingDecision | null;
   stocks: Stock[];
   marketSentiment: number;
@@ -640,6 +656,7 @@ export type GameAction =
   | { type: "ACCEPT_OFFER"; offerId: number }
   | { type: "DECLINE_OFFER"; offerId: number }
   | { type: "LIST_FOR_SALE"; id: number; ask: number }
+  | { type: "COUNTER_OFFER"; offerId: number; amount: number }
   | { type: "UNLIST"; id: number }
   | { type: "LIST_PACKAGE"; ids: number[]; ask: number }
   | { type: "UNLIST_PACKAGE"; packageId: number }

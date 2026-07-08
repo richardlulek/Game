@@ -3,8 +3,9 @@
    Formlerna är oförändrade från prototypen.
    ============================================================ */
 
-import { BLOCK_OPEX_CUT, BLOCK_RENT_BONUS, hasBlockBonus } from "./blocks";
+import { BLOCK_OPEX_CUT, BLOCK_RENT_BONUS, blockConditionMult, hasBlockBonus } from "./blocks";
 import { locationFactor } from "./city";
+import { rateValueFactor } from "./economyLife";
 import { DISTRICTS, PROP_TYPES } from "./data";
 import {
   REGULATED_RENT,
@@ -32,7 +33,11 @@ export function propMarketValue(p: Property, state: GameState): number {
   const dev = districtDevOf(state, p.district);
   // Läget på kartan (närhet till stadskärnan) slår igenom fullt på värdet.
   const loc = locationFactor(p.parcelId);
-  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc;
+  // Räntan andas i värdet (låg ränta lyfter, hög trycker; neutral 4 %)
+  // och kvarterets skick smittar (grannskapseffekt).
+  const rate = rateValueFactor(state.interestRate);
+  const hood = blockConditionMult(p, state);
+  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc * rate * hood;
 
   if (p.status === "bygger") return Math.round(assetValue * 0.5);
 
@@ -92,7 +97,9 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const mix = p.owned ? blockMixFor(p, state).rentMult : 1;
   // Bostadskön (U6): reglerad hyra −20 %, men noll vakans.
   const reg = p.regulated ? REGULATED_RENT : 1;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent * single * mix * reg;
+  // Grannskapseffekt: kvarterets skick smittar hyran med halv effekt.
+  const hoodRent = 1 + (blockConditionMult(p, state) - 1) * 0.5;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent * single * mix * reg * hoodRent;
   const vacancy = p.regulated
     ? 0
     : Math.max(

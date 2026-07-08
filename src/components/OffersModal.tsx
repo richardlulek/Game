@@ -57,7 +57,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 1 }}>
                     Marknadsvärde: {kr(market)}
                   </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                     <button
                       style={acceptBtn}
                       onClick={() => {
@@ -67,6 +67,18 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                     >
                       Acceptera & sälj
                     </button>
+                    {[1.05, 1.12].map((m) => (
+                      <button
+                        key={m}
+                        style={{ ...declineBtn, borderColor: "#8a6d1a", color: "#8a6d1a" }}
+                        title="Begär mer – köparen kan gå med på priset eller dra sig ur"
+                        onClick={() =>
+                          dispatch({ type: "COUNTER_OFFER", offerId: o.id, amount: Math.round((o.amount * m) / 10_000) * 10_000 })
+                        }
+                      >
+                        Motbud +{Math.round((m - 1) * 100)} %
+                      </button>
+                    ))}
                     <button
                       style={declineBtn}
                       onClick={() => dispatch({ type: "DECLINE_OFFER", offerId: o.id })}

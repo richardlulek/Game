@@ -31,7 +31,7 @@ import {
   hireFee,
 } from "./progression";
 import { newId } from "./random";
-import { QUICK_SALE_FACTOR } from "./selling";
+import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceMonth } from "./simulation";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
 import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
@@ -935,8 +935,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!offer) return state;
       // Sålda hus försvinner INTE från kartan: köparen är ett av stadens
       // bolag och fastigheten flyttar till dess portfölj (tomtrutan behålls).
-      // Bara om köparen inte finns i staden faller den till världspoolen.
-      const buyer = state.competitors.find((c) => c.name === offer.from);
+      // Har budgivaren hunnit fusioneras bort tar ett annat bolag affären;
+      // världspoolen är bara sista utväg om staden saknar bolag helt.
+      const buyer =
+        state.competitors.find((c) => c.name === offer.from) ??
+        (state.competitors.length > 0
+          ? state.competitors[Math.floor(Math.random() * state.competitors.length)]
+          : undefined);
       const soldProp = (x: Property, price: number): Property => ({
         ...x,
         owned: false,
@@ -1036,6 +1041,42 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         [p.id],
       );
+    }
+    case "COUNTER_OFFER": {
+      // Motbud: begär mer än budet. Köparens smärtgräns växer med
+      // objektets attraktivitet – går hen med på priset genomförs
+      // affären direkt, annars dras budet tillbaka. Risk mot belöning.
+      const offer = (state.offers ?? []).find((o) => o.id === action.offerId);
+      if (!offer) return state;
+      const amount = Math.round(action.amount);
+      if (amount <= offer.amount) return state;
+      const ids = offer.propertyIds ?? [offer.propId];
+      const props = state.portfolio.filter((p) => ids.includes(p.id));
+      if (props.length === 0) return state;
+      const totalValue = props.reduce((a, p) => a + propMarketValue(p, state), 0);
+      const A =
+        totalValue > 0
+          ? props.reduce((a, p) => a + attractiveness(p, state) * propMarketValue(p, state), 0) / totalValue
+          : 0;
+      const ceiling = offer.amount * (1.02 + 0.1 * A);
+      const stretch = offer.amount * (1.1 + 0.08 * A);
+      const accepted = amount <= ceiling || (amount <= stretch && Math.random() < 0.35);
+      if (accepted) {
+        const bumped: GameState = {
+          ...state,
+          offers: (state.offers ?? []).map((o) => (o.id === offer.id ? { ...o, amount } : o)),
+          log: [{ t: `🤝 ${offer.from} gick med på ditt motbud ${msek(amount)}.`, kind: "sell" }, ...state.log],
+        };
+        return reducer(bumped, { type: "ACCEPT_OFFER", offerId: offer.id });
+      }
+      return {
+        ...state,
+        offers: (state.offers ?? []).filter((o) => o.id !== offer.id),
+        log: [
+          { t: `🚪 ${offer.from} drog sig ur affären efter ditt motbud på ${msek(amount)}.`, kind: "warn" },
+          ...state.log,
+        ],
+      };
     }
     case "DECLINE_OFFER": {
       const offer = (state.offers ?? []).find((o) => o.id === action.offerId);
