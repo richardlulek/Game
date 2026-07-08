@@ -46,10 +46,12 @@ import { IndustryMarket } from "./IndustryMarket";
 import { CompanyPanel } from "./CompanyPanel";
 import { NewspaperModal } from "./NewspaperModal";
 import { AuctionModal } from "./AuctionModal";
+import { PolicyPanel } from "./PolicyPanel";
 
 /** Ikon per fönster (Capitalism-stil ikonverktygsrad). */
 const TAB_ICONS: Record<string, string> = {
   company: "🏠",
+  policy: "📋",
   portfolio: "📁",
   market: "🏷️",
   build: "🏗️",
@@ -76,12 +78,13 @@ const TAB_ICONS: Record<string, string> = {
 const TAB_GROUPS: string[][] = [
   ["portfolio", "market", "build", "tenants", "calendar"],
   ["finance", "stocks", "acquisition", "group", "industri", "ind_marknad"],
-  ["staff", "research", "milestones", "overview", "kpi"],
+  ["policy", "staff", "research", "milestones", "overview", "kpi"],
   ["districts", "rivals", "nyheter", "log"],
 ];
 
 const TABS = [
   { id: "company",   label: "Bolag" },
+  { id: "policy",    label: "Policy" },
   { id: "portfolio", label: "Portfölj" },
   { id: "market",    label: "Marknad" },
   { id: "build",     label: "Bygg" },
@@ -374,6 +377,7 @@ export default function FastighetsImperium() {
           const windowContent = (): React.ReactNode => {
             switch (id) {
               case "company": return <CompanyPanel state={state} dispatch={dispatch} />;
+              case "policy": return <PolicyPanel state={state} dispatch={dispatch} />;
               case "portfolio":
                 return (
                   <div style={S.grid}>

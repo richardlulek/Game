@@ -311,16 +311,26 @@ export function advanceMonth(state: GameState): GameState {
       nextTenants.push({ ...t, monthsLeft: t.monthsLeft - 1, consecutiveMonths: consMonths, isAnchor });
     }
     np.tenants = nextTenants;
-    // Förvaltare: accepterar bästa ansökan som möter kvalitetskravet (U1).
-    if (effectiveManaged && np.status === "klar" && np.tenants.length < np.capacity) {
-      const minQuality = gm?.minTenantQuality ?? 0;
+    // Delegerad uthyrning: förvaltade fastigheter ELLER bolagspolicyn
+    // (kräver portföljdirektör) accepterar bästa ansökan som möter
+    // kvalitetskravet. Policyn styr även kontraktspaketet.
+    const acceptPol = s.policy?.autoAccept;
+    const policyAccept = !!acceptPol?.enabled && !!s.globalManager?.active;
+    if ((effectiveManaged || policyAccept) && np.status === "klar" && np.tenants.length < np.capacity) {
+      const minQuality = policyAccept ? acceptPol!.minQuality : (gm?.minTenantQuality ?? 0);
+      const contractKind = policyAccept ? acceptPol!.contract : "standard";
       const app = bestApplication(np, minQuality);
-      if (app) {
-        const signed = signContract(app.tenant, "standard");
+      if (app && !(contractKind === "ankare" && !app.anchorEligible)) {
+        const signed = signContract(app.tenant, contractKind);
         np.tenants = [...np.tenants, signed];
         np.applications = (np.applications ?? []).filter((a) => a.id !== app.id);
-        events.push({ t: `👔 Förvaltare accepterade ansökan i ${np.typeLabel} ${np.districtName}: ${signed.name}, ${kr(signed.rent)}/mån.`, kind: "info" });
+        events.push({ t: `👔 ${policyAccept ? "Policyn" : "Förvaltaren"} accepterade ansökan i ${np.typeLabel} ${np.districtName}: ${signed.name}, ${kr(signed.rent)}/mån.`, kind: "info" });
       }
+    }
+    // Inkorgspolicy: avslå ansökningar under kvalitetsgränsen automatiskt.
+    if (s.policy?.rejectBelowQuality && s.globalManager?.active && (np.applications ?? []).length > 0) {
+      const kept = (np.applications ?? []).filter((a) => a.tenant.quality >= s.policy!.rejectBelowQuality!);
+      if (kept.length !== (np.applications ?? []).length) np.applications = kept;
     }
     // Opex dras alltid
     monthlyNOI -= propAnnualOpex(np, s) / 12;
@@ -368,6 +378,68 @@ export function advanceMonth(state: GameState): GameState {
     const regulatedCount = s.portfolio.filter((p) => p.regulated && p.status === "klar").length;
     if (regulatedCount > 0)
       s.reputation = Math.min(100, +(s.reputation + Math.min(0.5, regulatedCount * 0.05)).toFixed(2));
+  }
+
+  // ── Bolagspolicyn verkställs av cheferna ─────────────────────────
+  // Ekonomi kräver CFO, skydd/energi kräver förvaltningschef. Utan rätt
+  // chef ligger policyn vilande (syns i Policy-panelen).
+  {
+    const pol = s.policy;
+    const hasCfo = (s.staff?.["cfo"] ?? 0) > 0;
+    const hasOps = (s.staff?.["forvaltning"] ?? 0) > 0;
+    // CFO: automatisk amortering mot mål-LTV, med bibehållen kassabuffert.
+    if (pol?.autoAmort?.enabled && hasCfo && s.debt > 0) {
+      const portVal = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+      const ltv = portVal > 0 ? s.debt / portVal : 0;
+      if (ltv > pol.autoAmort.ltvTarget && s.cash > pol.autoAmort.cashFloor) {
+        const excess = Math.min(
+          s.cash - pol.autoAmort.cashFloor,
+          s.debt - pol.autoAmort.ltvTarget * portVal,
+        );
+        const amort = Math.floor(Math.max(0, excess) / 10_000) * 10_000;
+        if (amort >= 50_000) {
+          s.cash -= amort;
+          s.debt = Math.max(0, s.debt - amort);
+          events.push({ t: `💼 CFO-policyn amorterade ${kr(amort)} (mål-LTV ${Math.round(pol.autoAmort.ltvTarget * 100)} %).`, kind: "info" });
+        }
+      }
+    }
+    // Förvaltningschef: automatisk försäkring av värdefulla fastigheter.
+    if (pol?.autoInsure?.enabled && hasOps) {
+      let insured = 0;
+      s.portfolio = s.portfolio.map((p) => {
+        if (p.status !== "klar" || p.insurance) return p;
+        if (propMarketValue(p, s) < pol.autoInsure!.minValue) return p;
+        insured += 1;
+        return { ...p, insurance: true };
+      });
+      if (insured > 0)
+        events.push({ t: `🛡️ Skyddspolicyn försäkrade ${insured} ${insured === 1 ? "fastighet" : "fastigheter"} över värdegränsen.`, kind: "info" });
+    }
+    // Förvaltningschef: energiuppgradering mot målklassen (en per månad).
+    if (pol?.autoEnergy?.enabled && hasOps && s.cash > pol.autoEnergy.cashFloor) {
+      const CLASSES = ["F", "E", "D", "C", "B", "A"] as const;
+      const COSTS: Record<string, number> = { F: 80_000, E: 120_000, D: 180_000, C: 250_000, B: 350_000 };
+      const targetIdx = CLASSES.indexOf(pol.autoEnergy.targetClass);
+      const candidates = s.portfolio
+        .filter((p) => p.status === "klar" && CLASSES.indexOf((p.energyClass ?? "D") as (typeof CLASSES)[number]) < targetIdx)
+        .sort((a, b) => (COSTS[a.energyClass ?? "D"] ?? 150_000) - (COSTS[b.energyClass ?? "D"] ?? 150_000));
+      const target = candidates[0];
+      if (target) {
+        const cur = (target.energyClass ?? "D") as (typeof CLASSES)[number];
+        const cost = COSTS[cur] ?? 150_000;
+        if (s.cash - cost > pol.autoEnergy.cashFloor) {
+          const nextClass = CLASSES[CLASSES.indexOf(cur) + 1];
+          s.cash -= cost;
+          s.portfolio = s.portfolio.map((p) =>
+            p.id === target.id
+              ? { ...p, energyClass: nextClass as typeof p.energyClass, condition: Math.min(100, p.condition + 5), rentMult: +(p.rentMult * 1.03).toFixed(3) }
+              : p,
+          );
+          events.push({ t: `⚡ Energipolicyn uppgraderade ${target.typeLabel} i ${target.districtName} till klass ${nextClass} (${kr(cost)}).`, kind: "upg" });
+        }
+      }
+    }
   }
 
   // Städa förhandlingslistan: behåll bara ärenden där fastigheten fortfarande

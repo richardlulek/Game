@@ -288,6 +288,28 @@ export type RenovationKind = "totalrenovering" | "påbyggnad" | "lokalanpassning
 /** Kontraktspaket vid signering av ny hyresgäst. */
 export type ContractKind = "kort" | "standard" | "långt" | "ankare";
 
+/**
+ * Bolagspolicy – företagsledarens styrdokument. Policys sätter standarder
+ * för hela portföljen; inställningar på enskilda fastigheter går alltid
+ * före. Automatisk VERKSTÄLLighet kräver rätt chef i organisationen:
+ * uthyrning/inkorg → portföljdirektören, ekonomi → CFO,
+ * skydd/energi → förvaltningschefen.
+ */
+export interface CompanyPolicy {
+  /** Standard utgångshyra för fastigheter utan egen inställning (0.8–1.3). */
+  askRentPct?: number;
+  /** Direktören accepterar automatiskt bästa ansökan ≥ kvalitetskravet. */
+  autoAccept?: { enabled: boolean; minQuality: number; contract: ContractKind };
+  /** Ansökningar under denna kvalitet avslås automatiskt. */
+  rejectBelowQuality?: number;
+  /** CFO amorterar automatiskt ned mot mål-LTV när kassan tillåter. */
+  autoAmort?: { enabled: boolean; ltvTarget: number; cashFloor: number };
+  /** Förvaltningschefen försäkrar automatiskt fastigheter över värdegränsen. */
+  autoInsure?: { enabled: boolean; minValue: number };
+  /** Förvaltningschefen energiuppgraderar mot målklassen när kassan tillåter. */
+  autoEnergy?: { enabled: boolean; targetClass: "A" | "B"; cashFloor: number };
+}
+
 /** En inkommen ansökan om att hyra – väntar på spelarens besked. */
 export interface Application {
   id: number;
@@ -533,6 +555,8 @@ export interface GameState {
   esgRating?: string;
   /** Distriktens nuvarande statusnivå (för att upptäcka byten). */
   districtTiers?: Record<string, string>;
+  /** Bolagspolicy – portföljstandarder med per-fastighet-överstyrning. */
+  policy?: CompanyPolicy;
   recessionMonthsLeft?: number;
   rateMode?: "variable" | "fixed";
   fixedRate?: number;
@@ -652,6 +676,7 @@ export type GameAction =
   | { type: "REJECT_APPLICATION"; id: number; applicationId: number }
   | { type: "TOGGLE_REGULATED"; id: number }
   | { type: "TOGGLE_BROKER"; id: number }
+  | { type: "SET_POLICY"; policy: Partial<CompanyPolicy> }
   | { type: "AUCTION_BID" }
   | { type: "AUCTION_PASS" }
   | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string };

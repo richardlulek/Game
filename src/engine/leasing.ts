@@ -40,6 +40,11 @@ export function maxCapacityFor(p: Property): number {
   return Math.max(1, Math.min(6, Math.floor(p.area / 500)));
 }
 
+/** Effektiv utgångshyra: fastighetens egen inställning går före policyn. */
+export function effectiveAskRent(p: Property, state: GameState): number {
+  return p.askRentPct ?? state.policy?.askRentPct ?? 1;
+}
+
 /** Kontraktspaketens villkor (U2). */
 export const CONTRACTS: Record<
   ContractKind,
@@ -128,7 +133,7 @@ export function applicationRate(
   if (p.status !== "klar" || p.shortTerm || p.regulated) return 0;
   const free = p.capacity - p.tenants.length;
   if (free <= 0) return 0;
-  const ask = p.askRentPct ?? 1;
+  const ask = effectiveAskRent(p, state);
   // Priselasticitet: 80 % av marknadshyra ≈ ×1,6 flöde, 125 % ≈ ×0,6.
   const price = Math.pow(1 / ask, 2.2);
   const cond = 0.5 + (p.condition / 100) * 0.7;
@@ -150,7 +155,7 @@ export function makeApplication(
   nowAbs: number,
   marketSlotRent: number,
 ): Application {
-  const ask = p.askRentPct ?? 1;
+  const ask = effectiveAskRent(p, state);
   const t = makeTenant(marketSlotRent * 12, state.demandMod, p.condition);
   // Sökande accepterar utgångshyran; överpris skrämmer bort kvalitet.
   const qualityPenalty = ask > 1.1 ? 0.94 : 1;

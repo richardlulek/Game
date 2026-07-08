@@ -55,7 +55,7 @@ export const TIERS: CompanyTier[] = [
     upgradeCost: 400_000,
     monthlyOverhead: 9_000,
     selfManagedCap: 6,
-    unlocks: ["build", "rivals", "calendar", "milestones", "nyheter"],
+    unlocks: ["build", "rivals", "calendar", "milestones", "nyheter", "policy"],
     desc: "Bolaget registreras och flyttar in på ett riktigt kontor.",
     headline: "{n} registrerat – nytt fastighetsbolag tar plats i staden",
   },

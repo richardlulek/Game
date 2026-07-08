@@ -292,6 +292,7 @@ export function CompanyPanel({
 /** Läsbara namn för fönster-id:n (håll i synk med TABS i FastighetsImperium). */
 const WINDOW_LABELS: Record<string, string> = {
   company: "Bolag",
+  policy: "Policy",
   portfolio: "Portfölj",
   market: "Marknad",
   build: "Bygg",

@@ -1895,6 +1895,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
       };
     }
+    case "SET_POLICY": {
+      // Bolagspolicyn: delvis uppdatering, resten behålls.
+      return { ...state, policy: { ...(state.policy ?? {}), ...action.policy } };
+    }
     case "SET_COMPANY_NAME": {
       const name = action.name.trim().slice(0, 32);
       if (!name) return state;

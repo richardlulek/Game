@@ -3,7 +3,7 @@ import { blockGap } from "../engine/blocks";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
-import { CONTRACTS, maxCapacityFor } from "../engine/leasing";
+import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
 import { propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
@@ -380,22 +380,30 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
             </span>
             <span style={vacantSub}>Marknadshyra {kr(slotPotential)}/mån</span>
           </div>
-          {/* Utgångshyra: låg = kö av sökande, hög = glest och sämre mix */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, color: "#666", whiteSpace: "nowrap" }}>Utgångshyra</span>
-            <input
-              type="range"
-              min={80}
-              max={130}
-              step={5}
-              value={Math.round((p.askRentPct ?? 1) * 100)}
-              onChange={(e) => dispatch({ type: "SET_ASK_RENT", id: p.id, pct: +e.target.value / 100 })}
-              style={{ flex: 1, accentColor: "#800020" }}
-            />
-            <strong style={{ fontSize: 12.5, minWidth: 88, color: (p.askRentPct ?? 1) > 1.1 ? "#b5542a" : (p.askRentPct ?? 1) < 0.95 ? "#4d8b52" : "#333" }}>
-              {Math.round((p.askRentPct ?? 1) * 100)} % · {kr(Math.round(slotPotential * (p.askRentPct ?? 1)))}
-            </strong>
-          </div>
+          {/* Utgångshyra: låg = kö av sökande, hög = glest och sämre mix.
+              Utan egen inställning gäller bolagspolicyn. */}
+          {(() => {
+            const eff = effectiveAskRent(p, state);
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 11.5, color: "#666", whiteSpace: "nowrap" }}>
+                  Utgångshyra{p.askRentPct === undefined ? " (policy)" : ""}
+                </span>
+                <input
+                  type="range"
+                  min={80}
+                  max={130}
+                  step={5}
+                  value={Math.round(eff * 100)}
+                  onChange={(e) => dispatch({ type: "SET_ASK_RENT", id: p.id, pct: +e.target.value / 100 })}
+                  style={{ flex: 1, accentColor: "#800020" }}
+                />
+                <strong style={{ fontSize: 12.5, minWidth: 88, color: eff > 1.1 ? "#b5542a" : eff < 0.95 ? "#4d8b52" : "#333" }}>
+                  {Math.round(eff * 100)} % · {kr(Math.round(slotPotential * eff))}
+                </strong>
+              </div>
+            );
+          })()}
           {/* Inkomna ansökningar */}
           {(p.applications ?? []).length === 0 ? (
             <div style={{ fontSize: 12, color: "#997", marginBottom: 6 }}>
