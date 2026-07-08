@@ -96,7 +96,14 @@ function CityParcels() {
   }, [portfolio, listings, lots, competitors, overlay, state.marketMod, state.demandMod]);
 
   // Statisk stad: allt icke-interaktivt instansieras/sammanslås.
-  const occupied = useMemo(() => new Set(byParcel.keys()), [byParcel]);
+  // Identiteten måste vara innehållsstabil: byParcel byggs om varje
+  // månad (marknadsläget ändras), men de sammanslagna geometrierna
+  // ska bara byggas om när tomtupptagningen faktiskt ändras.
+  const occupiedKey = useMemo(() => [...byParcel.keys()].sort().join(","), [byParcel]);
+  const occupied = useMemo(
+    () => new Set(occupiedKey ? occupiedKey.split(",") : []),
+    [occupiedKey],
+  );
   const lockedBlocks = useMemo(() => {
     const unlocked = new Set(state.unlockedBlocks ?? []);
     const locked = new Set<string>();

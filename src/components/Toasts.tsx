@@ -25,6 +25,14 @@ function soundFor(kind: LogKind) {
   else if (kind === "warn" || kind === "expense") playWarn();
 }
 
+/**
+ * Bara genuint viktiga händelser toastas – varningar, affärer och
+ * nyheter. Rutinposter (kvartalskostnader, underhåll, hyresintäkter,
+ * policyverkställighet) stannar i Logg/Nyheter, annars dränks spelaren
+ * i notiser så fort klockan rullar.
+ */
+const TOAST_KINDS = new Set<LogKind>(["warn", "buy", "sell", "event"]);
+
 /** Flytande notiser som speglar nya, viktiga loggrader. */
 export function Toasts({ log }: { log: LogEntry[] }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -45,13 +53,13 @@ export function Toasts({ log }: { log: LogEntry[] }) {
 
     const fresh = log
       .slice(0, idx)
-      .filter((e) => !e.t.startsWith("Månad ")) // hoppa över rutinsammanfattningen
-      .slice(0, 4)
+      .filter((e) => TOAST_KINDS.has(e.kind) && !e.t.startsWith("Månad "))
+      .slice(0, 3)
       .reverse(); // äldst först → nyast hamnar nederst i stacken
     if (fresh.length === 0) return;
 
     const added = fresh.map((entry) => ({ id: idRef.current++, entry }));
-    setToasts((cur) => [...cur, ...added].slice(-5));
+    setToasts((cur) => [...cur, ...added].slice(-4));
     soundFor(fresh[fresh.length - 1].kind);
 
     const timers = added.map((t) =>

@@ -43,8 +43,12 @@ export function useGameClock(): void {
       }
       if (ticked) {
         const store = useGameStore.getState();
-        store.save(); // autospara varje månad
+        // Autospar EN gång per spelår (inte varje månad – serialiseringen
+        // av hela tillståndet till localStorage gav ett märkbart hack
+        // varje tick). Viktiga stopp sparas alltid direkt nedan.
+        if (store.state.month === 1) store.save();
         if (blocked()) {
+          store.save();
           store.setRunning(false);
           return;
         }
@@ -52,6 +56,14 @@ export function useGameClock(): void {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    // Fångstnät: spara när fliken stängs/döljs så inga månader tappas.
+    const onHide = () => useGameStore.getState().save();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+    };
   }, [running, speed]);
 }
