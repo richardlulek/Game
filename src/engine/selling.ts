@@ -9,7 +9,7 @@
    ============================================================ */
 
 import { propMarketValue, propNOI } from "./property";
-import type { GameState, Property, SalePackage } from "./types";
+import type { Competitor, GameState, Property, SalePackage } from "./types";
 
 /* Köparna är stadens rivalbolag (AI_NAMES) – då stannar sålda hus
    kvar på kartan i köparens färg och kan köpas tillbaka via
@@ -91,4 +91,70 @@ export function packageOfferAmount(pkg: SalePackage, s: GameState): number {
   const anchor = Math.min(pkg.ask, st.value * (0.86 + 0.17 * st.attractiveness) * st.premium);
   const wiggle = 0.97 + Math.random() * 0.06;
   return Math.max(10_000, Math.round((anchor * wiggle) / 10_000) * 10_000);
+}
+
+/* ── Rivalernas strategiska försäljningar ──────────────────────────
+   Rivalerna säljer med MOTIV, inte bara på slump: distriktsbolag
+   renodlar mot sitt distrikt, slitna hus säljs som renoverings-
+   objekt med rabatt, och i högkonjunktur realiseras vinster i
+   toppen. Det som säljs annonseras öppet – spelaren och andra
+   rivaler konkurrerar om samma objekt. */
+
+export interface RivalSale {
+  index: number;
+  price: number;
+  motive: string;
+}
+
+export function pickStrategicSale(
+  c: Competitor,
+  s: GameState,
+  phase: "boom" | "bust" | "stable",
+): RivalSale | null {
+  const pf = c.portfolio ?? [];
+  if (pf.length <= 2) return null;
+
+  // 1) Distriktsbolag renodlar: sälj innehav utanför fokusdistriktet.
+  if (c.strategy === "distrikt" && c.preferredDistrict) {
+    const idx = pf.findIndex((p) => p.district !== c.preferredDistrict && p.status === "klar");
+    if (idx >= 0) {
+      const value = propMarketValue(pf[idx], s);
+      return {
+        index: idx,
+        price: Math.round(value * (0.97 + Math.random() * 0.06)),
+        motive: `renodlar mot ${c.preferredDistrict}`,
+      };
+    }
+  }
+  // 2) Slitna hus säljs som renoveringsobjekt med rabatt.
+  const wornIdx = pf.findIndex((p) => p.condition < 40 && p.status === "klar");
+  if (wornIdx >= 0) {
+    const value = propMarketValue(pf[wornIdx], s);
+    return {
+      index: wornIdx,
+      price: Math.round(value * (0.82 + Math.random() * 0.08)),
+      motive: "säljer renoveringsobjekt",
+    };
+  }
+  // 3) Högkonjunktur: värdebolagen realiserar vinster i toppen.
+  if (c.strategy === "värde" || phase === "boom") {
+    const idx = pf.reduce(
+      (best, p, i) => (propMarketValue(p, s) > propMarketValue(pf[best], s) ? i : best),
+      0,
+    );
+    const value = propMarketValue(pf[idx], s);
+    const premium = phase === "boom" ? 1.02 + Math.random() * 0.1 : 0.97 + Math.random() * 0.08;
+    return { index: idx, price: Math.round(value * premium), motive: phase === "boom" ? "tar hem vinsten i högkonjunkturen" : "frigör kapital" };
+  }
+  // 4) Annars: trimma det svagaste innehavet (lägst skick).
+  const idx = pf.reduce((worst, p, i) => (p.condition < pf[worst].condition ? i : worst), 0);
+  const value = propMarketValue(pf[idx], s);
+  return { index: idx, price: Math.round(value * (0.94 + Math.random() * 0.08)), motive: "trimmar portföljen" };
+}
+
+/** Säljbenägenhet per månad: strategi × konjunkturfas. */
+export function rivalSellChance(c: Competitor, phase: "boom" | "bust" | "stable"): number {
+  const base = c.strategy === "tillväxt" ? 0.015 : c.strategy === "värde" ? 0.08 : 0.05;
+  const cycle = phase === "boom" ? 1.6 : phase === "bust" ? 0.7 : 1;
+  return Math.min(0.25, base * cycle);
 }

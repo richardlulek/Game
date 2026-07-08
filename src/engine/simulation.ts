@@ -34,7 +34,7 @@ import { genListing, genLot, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
-import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats } from "./selling";
+import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
 import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
 import { tickHotel, tickEnergy, tickLogistik } from "./industries";
 import type { GameState, LogEntry, Offer } from "./types";
@@ -787,37 +787,37 @@ export function advanceMonth(state: GameState): GameState {
     const portVal = nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI) / 12);
     nc.cash += nc.monthlyNOI;
-    // Säljchans per strategi
-    const sellProb = nc.strategy === "tillväxt" ? 0.01 : nc.strategy === "värde" ? 0.08 : 0.05;
-    if (nc.portfolio.length > 2 && Math.random() < sellProb) {
-      // värde-strategi säljer helst sin dyraste fastighet (realiserar vinst)
-      const idx = nc.strategy === "värde"
-        ? nc.portfolio.reduce((best, p, i) => p.askPrice > nc.portfolio[best].askPrice ? i : best, 0)
-        : Math.floor(Math.random() * nc.portfolio.length);
-      const selling = nc.portfolio.splice(idx, 1)[0];
-      const sellPrice = Math.round(selling.askPrice * rnd(0.95, 1.10));
-      nc.cash += sellPrice;
-      const born = s.year * 12 + s.month;
-      s.listings = [
-        ...s.listings,
-        {
-          ...selling,
-          owned: false,
-          askPrice: sellPrice,
-          listedMonth: born,
-          expiresMonth: born + 3 + Math.floor(Math.random() * 2),
-          poolAskPrice: undefined,
-          poolBaseRent: undefined,
-        },
-      ];
-      events.push({ t: `🏷️ ${c.name} säljer ${selling.typeLabel} i ${selling.districtName} (${msek(sellPrice)}).`, kind: "event" });
+    // Strategisk försäljning: motivdriven (renodling, renoveringsobjekt,
+    // vinsthemtagning i boom) – annonseras öppet så att spelaren och
+    // andra rivaler konkurrerar om samma objekt.
+    if (Math.random() < rivalSellChance(nc, cyclePhase as "boom" | "bust" | "stable")) {
+      const sale = pickStrategicSale(nc, s, cyclePhase as "boom" | "bust" | "stable");
+      if (sale) {
+        const selling = nc.portfolio.splice(sale.index, 1)[0];
+        nc.cash += sale.price;
+        const born = s.year * 12 + s.month;
+        s.listings = [
+          ...s.listings,
+          {
+            ...selling,
+            owned: false,
+            askPrice: sale.price,
+            listedMonth: born,
+            expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+            poolAskPrice: undefined,
+            poolBaseRent: undefined,
+          },
+        ];
+        events.push({ t: `🏷️ ${c.name} ${sale.motive}: ${selling.typeLabel} i ${selling.districtName} till salu (${msek(sale.price)}).`, kind: "event" });
+      }
     }
     nc.units = nc.portfolio.length;
     nc.equity = nc.cash + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     return nc;
   });
-  // Konkurrent köper från marknaden med strategi-filtrering
-  if (s.listings.length > 3 && Math.random() < (rivalIsClose ? 0.55 : 0.25)) {
+  // Konkurrent köper från marknaden med strategi-filtrering – även
+  // objekt som andra rivaler just annonserat (rival-till-rival-affärer).
+  if (s.listings.length > 1 && Math.random() < (rivalIsClose ? 0.55 : 0.25)) {
     const buyer = pick(s.competitors);
     const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
     const buyable = s.listings.filter((p) => {

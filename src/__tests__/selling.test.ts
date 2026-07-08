@@ -5,8 +5,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { propMarketValue } from "../engine/property";
 import { reducer } from "../engine/reducer";
-import { QUICK_SALE_FACTOR, attractiveness, interestChance } from "../engine/selling";
+import { QUICK_SALE_FACTOR, attractiveness, interestChance, pickStrategicSale, rivalSellChance } from "../engine/selling";
 import { advanceMonth } from "../engine/simulation";
+import type { Competitor } from "../engine/types";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 
 beforeEach(() => {
@@ -91,6 +92,52 @@ describe("snabbförsäljning", () => {
     const s1 = reducer(s0, { type: "SELL", id: 1 });
     expect(s1.portfolio).toHaveLength(0);
     expect(s1.cash).toBe(Math.round(value * QUICK_SALE_FACTOR));
+  });
+});
+
+describe("rivalernas strategiska försäljningar", () => {
+  const rival = (over: Partial<Competitor>): Competitor => ({
+    name: "Kustlinjen AB",
+    cash: 10_000_000,
+    units: 3,
+    equity: 50_000_000,
+    portfolio: [
+      makeProperty({ id: 11, district: "centrum", districtName: "Centrum", condition: 90 }),
+      makeProperty({ id: 12, district: "hamnen", districtName: "Hamnen", condition: 90 }),
+      makeProperty({ id: 13, district: "centrum", districtName: "Centrum", condition: 90 }),
+    ],
+    ...over,
+  });
+
+  it("distriktsbolag renodlar: säljer innehav utanför fokusdistriktet", () => {
+    const c = rival({ strategy: "distrikt", preferredDistrict: "centrum" });
+    const sale = pickStrategicSale(c, makeState({}), "stable");
+    expect(sale).not.toBeNull();
+    expect(c.portfolio[sale!.index].district).toBe("hamnen");
+    expect(sale!.motive).toContain("renodlar");
+  });
+
+  it("slitna hus säljs som renoveringsobjekt med rabatt", () => {
+    const c = rival({ strategy: "tillväxt" });
+    c.portfolio[1] = makeProperty({ id: 12, condition: 25 });
+    const s = makeState({});
+    const sale = pickStrategicSale(c, s, "stable");
+    expect(sale!.index).toBe(1);
+    expect(sale!.price).toBeLessThan(propMarketValue(c.portfolio[1], s));
+    expect(sale!.motive).toContain("renoveringsobjekt");
+  });
+
+  it("boom höjer säljbenägenheten – vinsthemtagning i toppen", () => {
+    const c = rival({ strategy: "värde" });
+    expect(rivalSellChance(c, "boom")).toBeGreaterThan(rivalSellChance(c, "stable"));
+    const sale = pickStrategicSale(c, makeState({}), "boom");
+    expect(sale!.motive).toContain("vinsten");
+  });
+
+  it("för små portföljer säljer inte (behåller minst 2 hus)", () => {
+    const c = rival({});
+    c.portfolio = c.portfolio.slice(0, 2);
+    expect(pickStrategicSale(c, makeState({}), "stable")).toBeNull();
   });
 });
 
