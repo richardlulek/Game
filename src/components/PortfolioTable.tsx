@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
-import { propMarketValue, propNOI } from "../engine/property";
+import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import type { GameAction, GameState, GlobalManagerSettings } from "../engine/types";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
 
@@ -64,13 +64,10 @@ export function PortfolioTable({ state, dispatch }: Props) {
         va = propMarketValue(a, state);
         vb = propMarketValue(b, state);
         break;
-      case "yield": {
-        const va_ = propMarketValue(a, state);
-        const vb_ = propMarketValue(b, state);
-        va = va_ > 0 ? propNOI(a, state) / va_ : 0;
-        vb = vb_ > 0 ? propNOI(b, state) / vb_ : 0;
+      case "yield":
+        va = propYieldOnCost(a, state);
+        vb = propYieldOnCost(b, state);
         break;
-      }
       case "condition":
         va = a.condition;
         vb = b.condition;
@@ -136,7 +133,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
             </label>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <input
-                type="range" min={20} max={80} step={5}
+                type="range" min={0} max={100} step={5}
                 value={localGm.minCondition}
                 onChange={(e) => updateGm({ minCondition: +e.target.value })}
                 style={{ flex: 1, accentColor: C.brass }}
@@ -259,8 +256,12 @@ export function PortfolioTable({ state, dispatch }: Props) {
                 <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("value")}>
                   Marknadsvärde{sortIndicator("value")}
                 </th>
-                <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("yield")}>
-                  Yield %{sortIndicator("yield")}
+                <th
+                  style={{ ...thStyle, cursor: "pointer" }}
+                  onClick={() => toggleSort("yield")}
+                  title="Yield on cost: driftnetto / (inköpspris + förbättringar och omkostnader)"
+                >
+                  Yield on cost %{sortIndicator("yield")}
                 </th>
                 <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("condition")}>
                   Skick{sortIndicator("condition")}
@@ -279,7 +280,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
               {rows.map((p, i) => {
                 const mv = propMarketValue(p, state);
                 const noi = propNOI(p, state);
-                const yld = mv > 0 ? noi / mv : 0;
+                const yld = propYieldOnCost(p, state);
                 const vacant = p.capacity - p.tenants.length;
                 return (
                   <tr

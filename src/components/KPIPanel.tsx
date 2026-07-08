@@ -2,7 +2,7 @@ import { useState } from "react";
 import { DISTRICTS } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, pct } from "../engine/format";
-import { propMarketValue, propNOI } from "../engine/property";
+import { propInvestedCost, propMarketValue, propNOI } from "../engine/property";
 import type { GameAction, GameState } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
@@ -45,6 +45,9 @@ export function KPIPanel({ state, dispatch }: Props) {
   const capRate = totalValue > 0 ? (totalNOI / totalValue) * 100 : 0;
   const dscr = annualInterest > 0 ? totalNOI / annualInterest : Infinity;
   const grossYield = totalValue > 0 ? (totalRent / totalValue) * 100 : 0;
+  // Yield on cost: NOI mot investerat kapital (inköp + förbättringar/omkostnader).
+  const totalInvested = completedProps.reduce((a, p) => a + propInvestedCost(p), 0);
+  const yieldOnCost = totalInvested > 0 ? (totalNOI / totalInvested) * 100 : 0;
 
   // Per-district KPIs
   const districtKPIs = DISTRICTS.map((d) => {
@@ -71,6 +74,7 @@ export function KPIPanel({ state, dispatch }: Props) {
 
       {/* Key metrics grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+        <KPICard label="Yield on cost" value={`${yieldOnCost.toFixed(2)} %`} sub="NOI / investerat kapital" color={yieldOnCost >= 6 ? C.green : yieldOnCost >= 4 ? C.gold : C.negative} />
         <KPICard label="Direktavkastning" value={`${capRate.toFixed(2)} %`} sub="NOI / marknadsvärde" color={capColor} />
         <KPICard label="Bruttoyield" value={`${grossYield.toFixed(2)} %`} sub="Bruttohyra / värde" color={C.ink} />
         <KPICard label="DSCR" value={isFinite(dscr) ? dscr.toFixed(2) : "∞"} sub="NOI / räntekostnad" color={dscrColor} />

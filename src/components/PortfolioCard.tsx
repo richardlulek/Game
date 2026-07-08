@@ -4,7 +4,7 @@ import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
-import { propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "../engine/property";
+import { propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propYieldOnCost } from "../engine/property";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { BuildingArt } from "./BuildingArt";
@@ -66,12 +66,16 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
   const maintainCost = Math.round(value * 0.02);
   const canMaintain  = state.cash >= maintainCost && !state.gameOver && p.status !== "bygger";
 
-  const yieldPct    = value > 0 ? (noi / value) * 100 : 0;
+  // Yield on cost: driftnetto genom investerat kapital (inköp + förbättringar
+  // och omkostnader) – avkastningen på pengarna du faktiskt lagt in.
+  const invested    = propInvestedCost(p);
+  const yieldPct    = propYieldOnCost(p, state) * 100;
+  const marketYield = value > 0 ? (noi / value) * 100 : 0;
   const condIn3     = Math.max(10, Math.round(p.condition - 3 * 0.45));
   const totalEarned = p.totalEarnedRent ?? 0;
-  const unrealGain  = p.purchasePrice ? value - p.purchasePrice : 0;
-  const cashOnCash  = p.purchasePrice
-    ? ((totalEarned + unrealGain) / p.purchasePrice) * 100
+  const unrealGain  = value - invested;
+  const cashOnCash  = invested > 0
+    ? ((totalEarned + unrealGain) / invested) * 100
     : null;
 
   // Kassaflödesanalys
@@ -146,13 +150,11 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
       {/* ── Snabbfakta rad 2 ───────────────────────────────────── */}
       <div style={{ ...statRow, marginTop: 8 }}>
         <Stat
-          label="Direktavk."
+          label="Yield on cost"
           value={`${yieldPct.toFixed(1)} %`}
           color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#b07010" : "#c0392b"}
         />
-        {p.purchasePrice && (
-          <Stat label="Köptes för" value={`${(p.purchasePrice / 1e6).toFixed(1)} Msek`} />
-        )}
+        <Stat label="Investerat" value={`${(invested / 1e6).toFixed(1)} Msek`} />
         {cashOnCash !== null && (
           <Stat
             label="Total avkastn."
@@ -160,6 +162,11 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
             color={cashOnCash >= 0 ? "#27660a" : "#c0392b"}
           />
         )}
+      </div>
+      <div style={{ fontSize: 10.5, color: "#998", marginTop: 2 }}>
+        Yield = NOI / (inköp {((p.purchasePrice ?? p.askPrice) / 1e6).toFixed(1)} M
+        {(p.capexTotal ?? 0) > 0 ? ` + åtgärder ${((p.capexTotal ?? 0) / 1e6).toFixed(1)} M` : ""})
+        · {marketYield.toFixed(1)} % på marknadsvärde
       </div>
 
       {/* ── Kassaflöde & distrikt (vikbar) ─────────────────────── */}
@@ -630,7 +637,7 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                 <input
-                  type="range" min={20} max={80} step={5}
+                  type="range" min={20} max={100} step={5}
                   value={currentMgrSettings.maintainThreshold}
                   onChange={(e) =>
                     dispatch({
@@ -643,8 +650,15 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                 />
                 <span style={{ fontWeight: 700, fontSize: 13, minWidth: 26 }}>{currentMgrSettings.maintainThreshold}</span>
                 <Chip
-                  label={currentMgrSettings.maintainThreshold <= 30 ? "Låg standard" : currentMgrSettings.maintainThreshold <= 55 ? "Standard" : "Hög standard"}
-                  color={currentMgrSettings.maintainThreshold <= 30 ? "#b07010" : currentMgrSettings.maintainThreshold <= 55 ? "#2a4a8a" : "#27660a"}
+                  label={
+                    currentMgrSettings.maintainThreshold <= 30 ? "Låg standard" :
+                    currentMgrSettings.maintainThreshold <= 55 ? "Standard" :
+                    currentMgrSettings.maintainThreshold <= 85 ? "Hög standard" : "Toppskick"
+                  }
+                  color={
+                    currentMgrSettings.maintainThreshold <= 30 ? "#b07010" :
+                    currentMgrSettings.maintainThreshold <= 55 ? "#2a4a8a" : "#27660a"
+                  }
                 />
               </div>
 

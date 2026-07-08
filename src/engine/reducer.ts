@@ -232,6 +232,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         askRentPct: undefined,
         regulated: undefined,
         brokerMandate: undefined,
+        capexTotal: undefined,
       };
       return {
         ...state,
@@ -255,7 +256,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p || !u || p.status === "bygger") return state;
       const cost = propMarketValue(p, state) * u.cost;
       if (state.cash < cost) return log(state, "För lite kontanter för åtgärden.", "warn");
-      const np: Property = { ...p, upgrades: [...p.upgrades, u.id] };
+      const np: Property = { ...p, upgrades: [...p.upgrades, u.id], capexTotal: (p.capexTotal ?? 0) + Math.round(cost) };
       if (u.rentBoost) np.rentMult *= 1 + u.rentBoost;
       if (u.opexCut) np.opexMult *= 1 - u.opexCut;
       if (u.vacancyCut) np.vacancyMult *= 1 - u.vacancyCut;
@@ -451,7 +452,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) =>
-          x.id === p.id ? { ...x, condition: Math.min(100, x.condition + 15) } : x,
+          x.id === p.id ? { ...x, condition: Math.min(100, x.condition + 15), capexTotal: (x.capexTotal ?? 0) + cost } : x,
         ),
         log: [
           {
@@ -501,7 +502,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash -= cost;
         totalCost += cost;
         fixed += 1;
-        return { ...p, condition: Math.min(100, p.condition + 15) };
+        return { ...p, condition: Math.min(100, p.condition + 15), capexTotal: (p.capexTotal ?? 0) + cost };
       });
       if (fixed === 0)
         return log(state, `Inget att underhålla under skick ${action.threshold} (eller kassan räcker inte).`, "info");
@@ -851,6 +852,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         askRentPct: undefined,
         regulated: undefined,
         brokerMandate: undefined,
+        capexTotal: undefined,
         txHistory: [...(p.txHistory ?? []), soldTx],
       };
       return {
@@ -1340,7 +1342,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) =>
           x.id === action.id
-            ? { ...x, energyClass: nextClass as Property["energyClass"], condition: Math.min(100, x.condition + 5), rentMult: +(x.rentMult * 1.03).toFixed(3) }
+            ? { ...x, energyClass: nextClass as Property["energyClass"], condition: Math.min(100, x.condition + 5), rentMult: +(x.rentMult * 1.03).toFixed(3), capexTotal: (x.capexTotal ?? 0) + cost }
             : x,
         ),
         log: [{ t: `⚡ Energiuppgradering: ${p.typeLabel} i ${p.districtName} → klass ${nextClass} (−${kr(cost)}, +3 % hyra, +5 skick).`, kind: "upg" }, ...state.log],
@@ -1802,6 +1804,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
                 status: "bygger" as const,
                 buildLeft: months,
                 renovation,
+                capexTotal: (x.capexTotal ?? 0) + cost,
                 applications: [],
                 txHistory: [
                   ...(x.txHistory ?? []),

@@ -197,6 +197,7 @@ export function advanceMonth(state: GameState): GameState {
         if (s.cash >= maintainCost) {
           monthlyNOI -= maintainCost;
           np.condition = Math.min(100, np.condition + 15);
+          np.capexTotal = (np.capexTotal ?? 0) + maintainCost;
           events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName} (tröskel ${effectiveMaintainThreshold}).`, kind: "upg" });
         }
       }
@@ -433,7 +434,7 @@ export function advanceMonth(state: GameState): GameState {
           s.cash -= cost;
           s.portfolio = s.portfolio.map((p) =>
             p.id === target.id
-              ? { ...p, energyClass: nextClass as typeof p.energyClass, condition: Math.min(100, p.condition + 5), rentMult: +(p.rentMult * 1.03).toFixed(3) }
+              ? { ...p, energyClass: nextClass as typeof p.energyClass, condition: Math.min(100, p.condition + 5), rentMult: +(p.rentMult * 1.03).toFixed(3), capexTotal: (p.capexTotal ?? 0) + cost }
               : p,
           );
           events.push({ t: `⚡ Energipolicyn uppgraderade ${target.typeLabel} i ${target.districtName} till klass ${nextClass} (${kr(cost)}).`, kind: "upg" });

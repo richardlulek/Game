@@ -240,6 +240,10 @@ export interface Property {
   askPrice: number;
   baseRent: number;
   purchasePrice?: number;
+  /** Ackumulerade förbättrings- och omkostnader efter förvärvet
+   *  (underhåll, uppgraderingar, energiåtgärder, projekt).
+   *  Yield on cost = driftnetto / (inköpspris + capexTotal). */
+  capexTotal?: number;
   upgrades: string[];
   owned: boolean;
   rentMult: number;

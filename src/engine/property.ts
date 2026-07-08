@@ -116,3 +116,16 @@ export function propAnnualOpex(p: Property, state: GameState): number {
 export function propNOI(p: Property, state: GameState): number {
   return propAnnualRent(p, state) - propAnnualOpex(p, state);
 }
+
+/** Totalt investerat kapital: inköpspris (eller byggkostnad) plus
+ *  ackumulerade förbättrings- och omkostnader efter förvärvet. */
+export function propInvestedCost(p: Property): number {
+  return (p.purchasePrice ?? p.askPrice) + (p.capexTotal ?? 0);
+}
+
+/** Yield on cost: driftnetto genom investerat kapital (inte marknadsvärde).
+ *  Det är avkastningen på pengarna du faktiskt lagt in i fastigheten. */
+export function propYieldOnCost(p: Property, state: GameState): number {
+  const cost = propInvestedCost(p);
+  return cost > 0 ? propNOI(p, state) / cost : 0;
+}
