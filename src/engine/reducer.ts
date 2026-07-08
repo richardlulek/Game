@@ -933,67 +933,15 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "ACCEPT_OFFER": {
       const offer = (state.offers ?? []).find((o) => o.id === action.offerId);
       if (!offer) return state;
-      // Paketbud: hela portföljen byter ägare i en affär.
-      if (offer.propertyIds && offer.propertyIds.length > 0) {
-        const props = state.portfolio.filter((x) => offer.propertyIds!.includes(x.id));
-        if (props.length === 0) return { ...state, offers: state.offers.filter((o) => o.id !== offer.id) };
-        const totalValue = props.reduce((a, x) => a + propMarketValue(x, state), 0);
-        const payoff = Math.min(
-          state.debt,
-          props.reduce((a, x) => a + (x.purchasePrice || (offer.amount * propMarketValue(x, state)) / Math.max(1, totalValue)) * 0.6, 0),
-        );
-        const soldIds = props.map((x) => x.id);
-        const toPool: Property[] = props.map((x) => ({
-          ...x,
-          owned: false,
-          askPrice: Math.round((offer.amount * propMarketValue(x, state)) / Math.max(1, totalValue)),
-          parcelId: undefined,
-          listedMonth: undefined,
-          expiresMonth: undefined,
-          poolAskPrice: undefined,
-          poolBaseRent: undefined,
-          applications: undefined,
-          askRentPct: undefined,
-          regulated: undefined,
-          brokerMandate: undefined,
-          capexTotal: undefined,
-          forSale: undefined,
-          txHistory: [...(x.txHistory ?? []), { type: "sälj" as const, price: Math.round((offer.amount * propMarketValue(x, state)) / Math.max(1, totalValue)), month: state.month, year: state.year, party: offer.from }],
-        }));
-        return removeFromPackages(
-          {
-            ...state,
-            cash: state.cash + (offer.amount - payoff),
-            debt: Math.max(0, state.debt - payoff),
-            reputation: Math.min(100, state.reputation + 2),
-            portfolio: state.portfolio.filter((x) => !soldIds.includes(x.id)),
-            worldPool: [...(state.worldPool ?? []), ...toPool],
-            salePackages: (state.salePackages ?? []).filter((x) => x.id !== offer.packageId),
-            offers: state.offers.filter(
-              (o) => o.id !== offer.id && !soldIds.includes(o.propId) && o.packageId !== offer.packageId,
-            ),
-            pendingRenewals: dropRenewals(state, (r) => soldIds.includes(r.propertyId)),
-            log: [
-              {
-                t: `📦 Paketaffär! Sålde ${props.length} fastigheter till ${offer.from} för ${msek(offer.amount)} (netto ${msek(offer.amount - payoff)}).`,
-                kind: "sell",
-              },
-              ...state.log,
-            ],
-          },
-          soldIds,
-        );
-      }
-      const p = state.portfolio.find((x) => x.id === offer.propId);
-      if (!p) return { ...state, offers: state.offers.filter((o) => o.id !== offer.id) };
-      const payoff = Math.min(state.debt, (p.purchasePrice || offer.amount) * 0.6);
-      // Fastigheten lämnar inte världen – köparen lägger den i off-market poolen.
-      const soldTx = { type: "sälj" as const, price: offer.amount, month: state.month, year: state.year, party: offer.from };
-      const toPool: Property = {
-        ...p,
+      // Sålda hus försvinner INTE från kartan: köparen är ett av stadens
+      // bolag och fastigheten flyttar till dess portfölj (tomtrutan behålls).
+      // Bara om köparen inte finns i staden faller den till världspoolen.
+      const buyer = state.competitors.find((c) => c.name === offer.from);
+      const soldProp = (x: Property, price: number): Property => ({
+        ...x,
         owned: false,
-        askPrice: offer.amount,
-        parcelId: undefined,
+        askPrice: price,
+        parcelId: buyer ? x.parcelId : undefined,
         listedMonth: undefined,
         expiresMonth: undefined,
         poolAskPrice: undefined,
@@ -1004,26 +952,88 @@ export function reducer(state: GameState, action: GameAction): GameState {
         brokerMandate: undefined,
         capexTotal: undefined,
         forSale: undefined,
-        txHistory: [...(p.txHistory ?? []), soldTx],
+        managed: false,
+        managerSettings: undefined,
+        txHistory: [
+          ...(x.txHistory ?? []),
+          { type: "sälj" as const, price, month: state.month, year: state.year, party: offer.from },
+        ],
+      });
+      const settle = (s: GameState, sold: Property[], amount: number): GameState => {
+        if (!buyer) return { ...s, worldPool: [...(s.worldPool ?? []), ...sold] };
+        return {
+          ...s,
+          competitors: s.competitors.map((c) =>
+            c.name === buyer.name
+              ? { ...c, portfolio: [...c.portfolio, ...sold], cash: Math.max(0, c.cash - amount) }
+              : c,
+          ),
+        };
       };
-      return removeFromPackages(
-        {
-          ...state,
-          cash: state.cash + (offer.amount - payoff),
-          debt: Math.max(0, state.debt - payoff),
-          reputation: Math.min(100, state.reputation + 1),
-          portfolio: state.portfolio.filter((x) => x.id !== p.id),
-          worldPool: [...(state.worldPool ?? []), toPool],
-          offers: state.offers.filter((o) => o.id !== offer.id && o.propId !== p.id),
-          pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
-          log: [
+      // Paketbud: hela portföljen byter ägare i en affär.
+      if (offer.propertyIds && offer.propertyIds.length > 0) {
+        const props = state.portfolio.filter((x) => offer.propertyIds!.includes(x.id));
+        if (props.length === 0) return { ...state, offers: state.offers.filter((o) => o.id !== offer.id) };
+        const totalValue = props.reduce((a, x) => a + propMarketValue(x, state), 0);
+        const payoff = Math.min(
+          state.debt,
+          props.reduce((a, x) => a + (x.purchasePrice || (offer.amount * propMarketValue(x, state)) / Math.max(1, totalValue)) * 0.6, 0),
+        );
+        const soldIds = props.map((x) => x.id);
+        const sold = props.map((x) =>
+          soldProp(x, Math.round((offer.amount * propMarketValue(x, state)) / Math.max(1, totalValue))),
+        );
+        return removeFromPackages(
+          settle(
             {
-              t: `Accepterade bud: sålde ${p.typeLabel} i ${p.districtName} till ${offer.from} för ${msek(offer.amount)}.`,
-              kind: "sell",
+              ...state,
+              cash: state.cash + (offer.amount - payoff),
+              debt: Math.max(0, state.debt - payoff),
+              reputation: Math.min(100, state.reputation + 2),
+              portfolio: state.portfolio.filter((x) => !soldIds.includes(x.id)),
+              salePackages: (state.salePackages ?? []).filter((x) => x.id !== offer.packageId),
+              offers: state.offers.filter(
+                (o) => o.id !== offer.id && !soldIds.includes(o.propId) && o.packageId !== offer.packageId,
+              ),
+              pendingRenewals: dropRenewals(state, (r) => soldIds.includes(r.propertyId)),
+              log: [
+                {
+                  t: `📦 Paketaffär! Sålde ${props.length} fastigheter till ${offer.from} för ${msek(offer.amount)} (netto ${msek(offer.amount - payoff)}).`,
+                  kind: "sell",
+                },
+                ...state.log,
+              ],
             },
-            ...state.log,
-          ],
-        },
+            sold,
+            offer.amount,
+          ),
+          soldIds,
+        );
+      }
+      const p = state.portfolio.find((x) => x.id === offer.propId);
+      if (!p) return { ...state, offers: state.offers.filter((o) => o.id !== offer.id) };
+      const payoff = Math.min(state.debt, (p.purchasePrice || offer.amount) * 0.6);
+      return removeFromPackages(
+        settle(
+          {
+            ...state,
+            cash: state.cash + (offer.amount - payoff),
+            debt: Math.max(0, state.debt - payoff),
+            reputation: Math.min(100, state.reputation + 1),
+            portfolio: state.portfolio.filter((x) => x.id !== p.id),
+            offers: state.offers.filter((o) => o.id !== offer.id && o.propId !== p.id),
+            pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
+            log: [
+              {
+                t: `Accepterade bud: sålde ${p.typeLabel} i ${p.districtName} till ${offer.from} för ${msek(offer.amount)}.`,
+                kind: "sell",
+              },
+              ...state.log,
+            ],
+          },
+          [soldProp(p, offer.amount)],
+          offer.amount,
+        ),
         [p.id],
       );
     }

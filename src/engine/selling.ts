@@ -11,16 +11,9 @@
 import { propMarketValue, propNOI } from "./property";
 import type { GameState, Property, SalePackage } from "./types";
 
-/** Institutionella och privata köpare som lägger bud. */
-export const BUYERS = [
-  "Pensionskassan Trygg",
-  "Fastighets AB Norden",
-  "Stiftelsen Stadsbo",
-  "Familjen Wallenmark",
-  "Kommunala Bostäder AB",
-  "Nordic Property Partners",
-  "Försäkringsbolaget Eken",
-];
+/* Köparna är stadens rivalbolag (AI_NAMES) – då stannar sålda hus
+   kvar på kartan i köparens färg och kan köpas tillbaka via
+   direktbud. Abstrakta institutioner gav försvinnande hus. */
 
 /** Köparens intresse 0–1: skick, uthyrningsgrad och direktavkastning. */
 export function attractiveness(p: Property, s: GameState): number {

@@ -64,6 +64,25 @@ describe("annonsering och bud", () => {
   });
 });
 
+describe("sålda hus stannar på kartan", () => {
+  it("köparen tar över fastigheten med tomtruta – den försvinner inte", () => {
+    const p = makeProperty({ ...fineProp(), parcelId: "centrum-b1-p1" });
+    const s0 = makeState({
+      cash: 0,
+      portfolio: [p],
+      competitors: [{ name: "Kustlinjen AB", cash: 50_000_000, units: 0, equity: 50_000_000, portfolio: [] }],
+      offers: [{ id: 1, kind: "listing", propId: 1, propLabel: "Bostadshus", districtName: "Centrum", from: "Kustlinjen AB", amount: 10_000_000, expiresIn: 3 }],
+    });
+    const s1 = reducer(s0, { type: "ACCEPT_OFFER", offerId: 1 });
+    expect(s1.portfolio).toHaveLength(0);
+    const hosRival = s1.competitors[0].portfolio.find((x) => x.id === 1);
+    expect(hosRival).toBeDefined();
+    expect(hosRival!.parcelId).toBe("centrum-b1-p1"); // kvar på samma tomt
+    expect(s1.competitors[0].cash).toBe(40_000_000); // köparen betalade
+    expect(s1.worldPool ?? []).toHaveLength(0); // inte till abstrakta poolen
+  });
+});
+
 describe("snabbförsäljning", () => {
   it("ger 85 % av marknadsvärdet direkt", () => {
     const p = fineProp();

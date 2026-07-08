@@ -34,7 +34,7 @@ import { genListing, genLot, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
-import { BUYERS, attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats } from "./selling";
+import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats } from "./selling";
 import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
 import { tickHotel, tickEnergy, tickLogistik } from "./industries";
 import type { GameState, LogEntry, Offer } from "./types";
@@ -906,7 +906,7 @@ export function advanceMonth(state: GameState): GameState {
     const value = propMarketValue(p, s);
     if (Math.random() < interestChance(A, p.forSale!.ask, value, s.marketSentiment ?? 1)) {
       const amount = offerAmount(A, p.forSale!.ask, value);
-      const from = pick(BUYERS);
+      const from = pick(AI_NAMES);
       offers = [
         ...offers,
         { id: newId(), kind: "listing", propId: p.id, propLabel: p.typeLabel, districtName: p.districtName, from, amount, expiresIn: 3 },
@@ -920,7 +920,7 @@ export function advanceMonth(state: GameState): GameState {
     const st = packageStats(pkg, s);
     if (Math.random() < st.chance) {
       const amount = packageOfferAmount(pkg, s);
-      const from = pick(BUYERS);
+      const from = pick(AI_NAMES);
       offers = [
         ...offers,
         {
