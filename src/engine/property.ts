@@ -6,6 +6,7 @@
 import { BLOCK_OPEX_CUT, BLOCK_RENT_BONUS, blockConditionMult, hasBlockBonus } from "./blocks";
 import { locationFactor } from "./city";
 import { rateValueFactor } from "./economyLife";
+import { obsolescenceFactor } from "./lifecycle";
 import { DISTRICTS, PROP_TYPES } from "./data";
 import {
   REGULATED_RENT,
@@ -37,7 +38,9 @@ export function propMarketValue(p: Property, state: GameState): number {
   // och kvarterets skick smittar (grannskapseffekt).
   const rate = rateValueFactor(state.interestRate);
   const hood = blockConditionMult(p, state);
-  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc * rate * hood;
+  // Livscykel: åldrade byggnader blir omoderna och tappar i värde.
+  const obs = obsolescenceFactor(p, state);
+  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc * rate * hood * obs;
 
   if (p.status === "bygger") return Math.round(assetValue * 0.5);
 
@@ -99,7 +102,9 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const reg = p.regulated ? REGULATED_RENT : 1;
   // Grannskapseffekt: kvarterets skick smittar hyran med halv effekt.
   const hoodRent = 1 + (blockConditionMult(p, state) - 1) * 0.5;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent * single * mix * reg * hoodRent;
+  // Livscykel: åldrade byggnader tappar i hyra (halv effekt mot värdet).
+  const obsRent = 1 + (obsolescenceFactor(p, state) - 1) * 0.5;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent * single * mix * reg * hoodRent * obsRent;
   const vacancy = p.regulated
     ? 0
     : Math.max(

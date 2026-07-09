@@ -25,6 +25,7 @@ import {
 } from "./leasing";
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
+import { nextBidRound } from "./lifecycle";
 import { propMarketValue, propPotentialRent } from "./property";
 import {
   RESEARCH,
@@ -1544,24 +1545,42 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "ACCEPT_COMPETING_BID": {
+      // Budkrig: spelaren höjer 2 % över rivalens bud. Rivalen kan svara med
+      // ett ännu högre motbud (nextBidRound) i upp till tre rundor innan de
+      // ger sig – annars vinner spelaren direkt.
       const cb = state.competingBid;
       if (!cb) return state;
       const listing = state.listings.find((p) => p.id === cb.listingId);
       if (!listing) return { ...state, competingBid: undefined };
+      const myBid = Math.round(cb.amount * 1.02);
       const { maxLtv } = loanTerms(state);
-      const down = cb.amount * (1 - maxLtv);
+      const down = myBid * (1 - maxLtv);
       if (state.cash < down)
-        return log(state, `Behöver ${msek(down)} i handpenning för att vinna budgivningen.`, "warn");
-      const loan = cb.amount - down;
+        return log(state, `Behöver ${msek(down)} i handpenning för att höja budet till ${msek(myBid)}.`, "warn");
+      const round = cb.round ?? 1;
+      const response = nextBidRound(myBid, round);
+      if (!response.fold) {
+        // Rivalen kontrar – budkriget eskalerar, spelaren betalar inget ännu.
+        return {
+          ...state,
+          competingBid: { ...cb, amount: response.amount, round: round + 1, expiresAbs: state.year * 12 + state.month + 1 },
+          log: [
+            { t: `🔥 BUDKRIG (runda ${round + 1}): ${cb.rivalName} kontrar med ${msek(response.amount)} på ${listing.typeLabel} i ${listing.districtName}. Höj igen eller släpp taget.`, kind: "warn" },
+            ...state.log,
+          ],
+        };
+      }
+      // Rivalen ger sig – spelaren vinner till sitt bud.
+      const loan = myBid - down;
       return {
         ...state,
         cash: state.cash - down,
         debt: state.debt + loan,
         reputation: Math.min(100, +(state.reputation + 0.4).toFixed(1)),
-        portfolio: [...state.portfolio, { ...listing, owned: true, purchasePrice: cb.amount }],
+        portfolio: [...state.portfolio, { ...listing, owned: true, purchasePrice: myBid }],
         listings: state.listings.filter((p) => p.id !== listing.id),
         competingBid: undefined,
-        log: [{ t: `✅ Du vann budgivningen! ${listing.typeLabel} i ${listing.districtName} köpt för ${msek(cb.amount)}.`, kind: "buy" }, ...state.log],
+        log: [{ t: `✅ Du vann budkriget! ${listing.typeLabel} i ${listing.districtName} köpt för ${msek(myBid)} efter ${round} ${round === 1 ? "runda" : "rundor"}.`, kind: "buy" }, ...state.log],
       };
     }
     case "PASS_COMPETING_BID": {
@@ -2226,6 +2245,43 @@ export function reducer(state: GameState, action: GameAction): GameState {
             t: `🏗️ Utvecklingsprojekt startat: ${action.kind} av ${p.typeLabel} i ${p.districtName} (${msek(cost)}, klart om ${months} mån).`,
             kind: "upg",
           },
+          ...state.log,
+        ],
+      };
+    }
+    case "REDEVELOP": {
+      // Livscykel: riv det gamla huset och bygg nytt. Kräver vakant fastighet;
+      // nollställer åldern och ger ett större, effektivare hus (klart i sim).
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || p.status !== "klar") return state;
+      if (p.tenants.length > 0)
+        return log(state, "Fastigheten måste vara vakant för rivning & nybyggnation.", "warn");
+      const t = PROP_TYPES[p.type];
+      const cost = Math.round(p.area * t.buildCostM2 * buildCostMult(state) * 1.1);
+      const months = Math.max(5, t.buildMonths + buildMonthsDelta(state));
+      if (state.cash < cost)
+        return log(state, `Rivning & nybyggnation kostar ${msek(cost)} (fastigheten måste vara vakant).`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cost,
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id
+            ? {
+                ...x,
+                status: "bygger" as const,
+                buildLeft: months,
+                renovation: { kind: "nybyggnation" as const },
+                capexTotal: (x.capexTotal ?? 0) + cost,
+                applications: [],
+                txHistory: [
+                  ...(x.txHistory ?? []),
+                  { type: "nybygg" as const, price: cost, month: state.month, year: state.year, party: "Rivning & nybyggnation" },
+                ],
+              }
+            : x,
+        ),
+        log: [
+          { t: `🏗️ Rivning & nybyggnation startad: ${p.typeLabel} i ${p.districtName} (${msek(cost)}, klart om ${months} mån).`, kind: "upg" },
           ...state.log,
         ],
       };

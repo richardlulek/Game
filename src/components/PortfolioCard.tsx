@@ -5,6 +5,8 @@ import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
 import { propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propYieldOnCost } from "../engine/property";
+import { buildingAge, isObsolete, obsolescenceFactor } from "../engine/lifecycle";
+import { buildCostMult } from "../engine/progression";
 import { QUICK_SALE_FACTOR, attractiveness, interestChance, interestLabel } from "../engine/selling";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
@@ -574,6 +576,23 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             disabled={p.tenants.length > 0 || state.cash < value * 0.3 || state.gameOver}
             onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "påbyggnad" })}
           />
+          {/* Livscykel: rivning & nybyggnation för åldrade hus */}
+          {(() => {
+            const age = buildingAge(p, state);
+            const obs = obsolescenceFactor(p, state);
+            const redevCost = Math.round(p.area * PROP_TYPES[p.type].buildCostM2 * buildCostMult(state) * 1.1);
+            const obsolete = isObsolete(p, state);
+            if (age < 15) return null;
+            return (
+              <ActionBtn
+                label={`🏙️ Rivning & nybyggnation · ${msek(redevCost)}`}
+                sub={`Ålder ${age} år${obsolete ? ` · omodernt (−${Math.round((1 - obs) * 100)} % värde)` : ""} · nollställer åldern, +15 % yta, +1 plats, energiklass A`}
+                color={obsolete ? BURGUNDY : "#7a5c2a"}
+                disabled={p.tenants.length > 0 || state.cash < redevCost || state.gameOver}
+                onClick={() => dispatch({ type: "REDEVELOP", id: p.id })}
+              />
+            );
+          })()}
           {/* Lokalanpassning: single- vs multi-tenant */}
           {maxCapacityFor(p) > 1 && (
             <div style={{ margin: "4px 0 8px" }}>

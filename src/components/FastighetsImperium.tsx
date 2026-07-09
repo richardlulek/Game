@@ -642,19 +642,19 @@ export default function FastighetsImperium() {
             boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
           }}>
             <div style={{ fontFamily: FONTS.heading, color: BURGUNDY, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>
-              ⚡ BUDGIVNING PÅGÅR
+              ⚡ BUDKRIG PÅGÅR{cb.round && cb.round > 1 ? ` · RUNDA ${cb.round}` : ""}
             </div>
             <div style={{ fontSize: 13, color: C.parchment, marginBottom: 12 }}>
               {cb.rivalName} har lagt <strong style={{ color: C.gold }}>{(cb.amount / 1_000_000).toFixed(1)} MSEK</strong>
               {listing ? ` på ${listing.typeLabel} i ${listing.districtName}` : ""}.
-              Slå budet för att vinna!
+              Höj budet 2 % för att pressa dem – de kan kontra i upp till tre rundor.
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => dispatch({ type: "ACCEPT_COMPETING_BID" })}
                 style={{ flex: 1, padding: "9px", background: BURGUNDY, color: C.parchment, border: "none", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body, fontSize: 13 }}
               >
-                Lägg motbud ({cb.rivalName}s pris +1 %)
+                Höj budet ({((cb.amount * 1.02) / 1_000_000).toFixed(1)} MSEK)
               </button>
               <button
                 onClick={() => dispatch({ type: "PASS_COMPETING_BID" })}

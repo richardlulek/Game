@@ -230,6 +230,22 @@ export function advanceMonth(state: GameState): GameState {
               t: `✨ Totalrenovering klar: ${np.typeLabel} i ${np.districtName} – skick 100, energiklass A, +15 % hyrespotential.`,
               kind: "income",
             });
+          } else if (np.renovation.kind === "nybyggnation") {
+            // Livscykel: rivet & nybyggt hus – nollställd ålder, större och effektivare.
+            np.condition = 100;
+            np.energyClass = "A";
+            np.builtYear = s.year;
+            np.area = Math.round(np.area * 1.15);
+            np.capacity = Math.min(np.wholeBlock ? 9 : 4, np.capacity + 1);
+            np.valueMult = +(np.valueMult * 1.25).toFixed(3);
+            np.baseRent = Math.round(np.baseRent * 1.2);
+            np.rentMult = 1;
+            np.vacancyMult = Math.max(0.6, np.vacancyMult * 0.8);
+            s.reputation = Math.min(100, s.reputation + 2);
+            events.push({
+              t: `🏙️ Nybyggnation klar: ${np.typeLabel} i ${np.districtName} ersatte det gamla huset – nollställd ålder, +15 % yta, +1 hyresplats, energiklass A.`,
+              kind: "income",
+            });
           } else {
             np.area = Math.round(np.area * 1.25);
             np.capacity = Math.min(np.wholeBlock ? 9 : 4, np.capacity + 1);
@@ -840,7 +856,7 @@ export function advanceMonth(state: GameState): GameState {
       const rival = pick(s.competitors);
       const amount = Math.round(target.askPrice * rnd(1.02, 1.15));
       const absNow = s.year * 12 + s.month;
-      s.competingBid = { listingId: target.id, rivalName: rival.name, amount, expiresAbs: absNow + 1 };
+      s.competingBid = { listingId: target.id, rivalName: rival.name, amount, expiresAbs: absNow + 1, round: 1 };
       events.push({ t: `⚡ BUDGIVNING: ${rival.name} lade ${msek(amount)} på ${target.typeLabel} i ${target.districtName}! Slå budet eller låt dem köpa.`, kind: "warn" });
     }
   } else if (s.competingBid) {

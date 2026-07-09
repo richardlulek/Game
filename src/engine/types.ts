@@ -335,9 +335,10 @@ export interface Property {
   brokerMandate?: boolean;
 }
 
-/** Utvecklingsprojekt: totalrenovering, påbyggnad eller lokalanpassning
- *  (ändrar antalet lokaler – single- vs multi-tenant). */
-export type RenovationKind = "totalrenovering" | "påbyggnad" | "lokalanpassning";
+/** Utvecklingsprojekt: totalrenovering, påbyggnad, lokalanpassning
+ *  (ändrar antalet lokaler – single- vs multi-tenant) eller rivning &
+ *  nybyggnation (livscykel: föråldrat hus rivs och ersätts av ett nytt). */
+export type RenovationKind = "totalrenovering" | "påbyggnad" | "lokalanpassning" | "nybyggnation";
 
 /** Kontraktspaket vid signering av ny hyresgäst. */
 export type ContractKind = "kort" | "standard" | "långt" | "ankare";
@@ -558,6 +559,8 @@ export interface CompetingBid {
   rivalName: string;
   amount: number;
   expiresAbs: number;
+  /** Budkrig: vilken runda vi är i (1, 2, 3 …). Rivaler höjer per runda. */
+  round?: number;
 }
 
 /** En emitterad företagsobligation. */
@@ -786,6 +789,7 @@ export type GameAction =
   | { type: "SET_COMPANY_NAME"; name: string }
   | { type: "UPGRADE_COMPANY" }
   | { type: "START_RENOVATION"; id: number; kind: RenovationKind; targetCapacity?: number }
+  | { type: "REDEVELOP"; id: number }
   | { type: "SET_ASK_RENT"; id: number; pct: number }
   | { type: "ACCEPT_APPLICATION"; id: number; applicationId: number; contract: ContractKind }
   | { type: "REJECT_APPLICATION"; id: number; applicationId: number }
