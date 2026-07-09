@@ -4,7 +4,7 @@ import { canUpgrade, tierForLevel, unlockLevelFor, unlockedWindows } from "../en
 import { formatGameDate } from "../engine/date";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
-import { propNOI } from "../engine/property";
+import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
 import { useGameClock } from "../hooks/useGameClock";
@@ -129,6 +129,8 @@ export default function FastighetsImperium() {
   const [portfolioView, setPortfolioView] = useState<"list" | "cards">(
     () => (state.portfolio.length > 4 ? "list" : "cards"),
   );
+  // Sortering i kort-vyn (listan har egen kolumnsortering).
+  const [portfolioSort, setPortfolioSort] = useState<"value" | "yield" | "condition" | "noi" | "vacant">("value");
 
   const startNew = (scenarioId: ScenarioId, slot: number, companyName: string) => {
     setSlotFn(slot);
@@ -403,7 +405,25 @@ export default function FastighetsImperium() {
                           <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.brassBright, fontSize: 15 }}>
                             {state.portfolio.length} {state.portfolio.length === 1 ? "fastighet" : "fastigheter"}
                           </span>
-                          <div style={{ display: "flex", gap: 6 }}>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            {portfolioView === "cards" && (
+                              <select
+                                value={portfolioSort}
+                                onChange={(e) => setPortfolioSort(e.target.value as typeof portfolioSort)}
+                                title="Sortera korten"
+                                style={{
+                                  height: 30, borderRadius: 6, fontSize: 12, fontWeight: 700,
+                                  fontFamily: FONTS.body, padding: "0 8px", cursor: "pointer",
+                                  border: `1px solid ${C.brassDim}`, background: C.wood, color: C.brassBright,
+                                }}
+                              >
+                                <option value="value">Värde ↓</option>
+                                <option value="yield">Yield ↓</option>
+                                <option value="condition">Skick ↓</option>
+                                <option value="noi">NOI ↓</option>
+                                <option value="vacant">Vakanser ↓</option>
+                              </select>
+                            )}
                             {(["list", "cards"] as const).map((v) => (
                               <button
                                 key={v}
@@ -424,10 +444,21 @@ export default function FastighetsImperium() {
                         {portfolioView === "list" ? (
                           <PortfolioTable state={state} dispatch={dispatch} />
                         ) : (
-                          <div style={S.grid}>
-                            {state.portfolio.map((p) => (
-                              <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
-                            ))}
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(460px, 1fr))", gap: 16, alignItems: "start" }}>
+                            {[...state.portfolio]
+                              .sort((a, b) => {
+                                switch (portfolioSort) {
+                                  case "value": return propMarketValue(b, state) - propMarketValue(a, state);
+                                  case "yield": return propYieldOnCost(b, state) - propYieldOnCost(a, state);
+                                  case "condition": return b.condition - a.condition;
+                                  case "noi": return propNOI(b, state) - propNOI(a, state);
+                                  case "vacant": return (b.capacity - b.tenants.length) - (a.capacity - a.tenants.length);
+                                  default: return 0;
+                                }
+                              })
+                              .map((p) => (
+                                <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} wide />
+                              ))}
                           </div>
                         )}
                       </>

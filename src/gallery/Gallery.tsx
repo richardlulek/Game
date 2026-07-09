@@ -75,6 +75,11 @@ export function Gallery() {
         <Section id="g-portfoliocard" title="Fastighetskort (uthyrt)" width={360}>{<PortfolioCard p={state.portfolio[0]} state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliocard-vac" title="Fastighetskort (vakant)" width={360}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliocard-wide" title="Fastighetskort – bred layout (utfälld i lista)" width={960}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} wide />}</Section>
+        <Section id="g-portfolio-cardsview" title="Kort-vy (breda kort i rutnät)" width={1040}>
+          {<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(460px, 1fr))", gap: 16, alignItems: "start" }}>
+            {state.portfolio.map((p) => <PortfolioCard key={p.id} p={p} state={state} dispatch={noop} wide />)}
+          </div>}
+        </Section>
         <Section id="g-listing" title="Objektkort (Marknad)" width={360}>{<ListingCard p={state.listings[0]} state={state} dispatch={noop} />}</Section>
         <Section id="g-finance" title="Finans" width={640}>{<FinancePanel state={state} dispatch={noop} equity={equity} ltv={ltv} terms={terms} />}</Section>
         <Section id="g-company" title="Bolag">{<CompanyPanel state={state} dispatch={noop} />}</Section>
