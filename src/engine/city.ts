@@ -330,7 +330,21 @@ export function claimRandomParcel(
   const free = all.filter((p) => !occupied.has(p.id));
   const empty = free.filter((p) => !hasAmbientBuilding(p, grown));
   const pool = empty.length ? empty : free.length ? free : all;
-  const chosen = pool[Math.floor(Math.random() * pool.length)];
+  // Kontinuerlig tillväxt: nya hus reser sig helst intill redan bebyggd mark i
+  // distriktet, så området växer UTÅT i ett sammanhängande stråk i stället för
+  // att spridas som enstaka hus. Bland de närmaste tomterna väljs en slumpvis
+  // för att undvika en stelt geometrisk front.
+  const anchors = parcelsIn(district).filter((p) => occupied.has(p.id));
+  let chosen: Parcel;
+  if (anchors.length > 0 && pool.length > 1) {
+    const ranked = pool
+      .map((p) => ({ p, d: Math.min(...anchors.map((a) => Math.hypot(a.x - p.x, a.z - p.z))) }))
+      .sort((x, y) => x.d - y.d);
+    const near = ranked.slice(0, Math.min(3, ranked.length));
+    chosen = near[Math.floor(Math.random() * near.length)].p;
+  } else {
+    chosen = pool[Math.floor(Math.random() * pool.length)];
+  }
   occupied.add(chosen.id);
   return chosen;
 }
@@ -343,7 +357,6 @@ export function claimRandomParcel(
  * Världspoolen rörs aldrig – den är abstrakt tills objekt avslöjas.
  */
 export function placeCity(state: GameState): GameState {
-  const used = new Set<string>();
   let anyChanged = false;
   const unlocked = new Set(state.unlockedBlocks ?? []);
   const grown = new Set(state.ambientGrown ?? []);
@@ -351,12 +364,30 @@ export function placeCity(state: GameState): GameState {
   const allowed = (p: Parcel) =>
     !park.has(p.id) && (!p.expansion || unlocked.has(p.blockId));
 
+  // Pass 1: reservera VARJE redan placerad byggnads ruta – oavsett kategori och
+  // ordning – så att ett nytt objekt (t.ex. en nygenererad tomt) aldrig kan
+  // knuffa undan ett befintligt hus. Det var den gamla ordningsberoende
+  // omplaceringen som fick hus att "hoppa" eller ersättas av tomter.
+  const reserved = new Set<string>();
+  const reserve = (o: { parcelId?: string }) => {
+    if (o.parcelId && BY_ID.has(o.parcelId)) reserved.add(o.parcelId);
+  };
+  state.portfolio.forEach(reserve);
+  state.lots.forEach(reserve);
+  state.listings.forEach(reserve);
+  for (const c of state.competitors) (c.portfolio ?? []).forEach(reserve);
+
+  // Pass 2: behåll giltiga rutor, dela bara ut nya till objekt som saknar en –
+  // och styr aldrig en nykomling till en ruta som redan är reserverad.
+  const used = new Set<string>();
   function claimFor<T extends { district: string; parcelId?: string }>(o: T): T {
     if (o.parcelId && BY_ID.has(o.parcelId) && !used.has(o.parcelId)) {
       used.add(o.parcelId);
       return o;
     }
-    const parcel = claimRandomParcel(o.district, used, allowed, grown);
+    const occ = new Set<string>([...used, ...reserved]);
+    const parcel = claimRandomParcel(o.district, occ, allowed, grown);
+    used.add(parcel.id);
     anyChanged = true;
     return { ...o, parcelId: parcel.id };
   }

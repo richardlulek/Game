@@ -90,4 +90,22 @@ describe("placeCity", () => {
     expect(placed.portfolio[0].parcelId).toBe("centrum-0");
     expect(placed.portfolio[1].parcelId).not.toBe("centrum-0");
   });
+
+  it("en ny tomt får ALDRIG knuffa undan ett befintligt hus (tvåpass-reservation)", () => {
+    // Ett rivalhus ligger redan på industri-0; en ny tomt utan ruta läggs i
+    // samma distrikt. Tomterna placeras före konkurrenterna i iterationen,
+    // men reservationen ska ändå skydda huset.
+    const s = makeState({
+      lots: [{ id: 9, district: "industri", districtName: "Industriområdet", area: 3000, price: 4e6 }],
+      competitors: [
+        {
+          name: "Rival AB", cash: 5e6, units: 1, equity: 20e6,
+          portfolio: [makeProperty({ id: 4, district: "industri", owned: false, parcelId: "industri-0" })],
+        },
+      ],
+    });
+    const placed = placeCity(s);
+    expect(placed.competitors[0].portfolio[0].parcelId).toBe("industri-0");
+    expect(placed.lots[0].parcelId).not.toBe("industri-0");
+  });
 });
