@@ -51,9 +51,9 @@ describe("uppköp av konkurrent", () => {
     expect(next.competitors).toHaveLength(1);
   });
 
-  it("ACQUIRE_COMPANY vid majoritet absorberar bolaget till dotterbolag", () => {
+  it("ACQUIRE_COMPANY vid 50–75 % är ett fientligt bud (premie 30 %)", () => {
     const s = makeState({
-      cash: 10e6, competitors: [comp],
+      cash: 10e6, competitors: [comp], reputation: 50,
       stocks: [stock({ id: "c0", name: "Rival AB", competitorName: "Rival AB", owned: 600, sharesOutstanding: 1000, price: 100 })],
     });
     const next = reducer(s, { type: "ACQUIRE_COMPANY", stockId: "c0" });
@@ -61,7 +61,21 @@ describe("uppköp av konkurrent", () => {
     expect(next.stocks).toHaveLength(0);
     expect(next.subsidiaries).toHaveLength(1);
     expect(next.subsidiaries[0].monthlyIncome).toBe(50_000);
-    expect(next.cash).toBeCloseTo(10e6 - 400 * 100 * 1.2, 2);
+    // fientligt bud: 30 % premie på resterande 400 aktier + ryktekostnad
+    expect(next.cash).toBeCloseTo(10e6 - 400 * 100 * 1.3, 2);
+    expect(next.reputation).toBe(47);
+  });
+
+  it("ACQUIRE_COMPANY vid bred majoritet (>75 %) är ett vänligt bud (premie 15 %)", () => {
+    const s = makeState({
+      cash: 10e6, competitors: [comp], reputation: 50,
+      stocks: [stock({ id: "c0", name: "Rival AB", competitorName: "Rival AB", owned: 800, sharesOutstanding: 1000, price: 100 })],
+    });
+    const next = reducer(s, { type: "ACQUIRE_COMPANY", stockId: "c0" });
+    expect(next.subsidiaries).toHaveLength(1);
+    // vänligt bud: 15 % premie på resterande 200 aktier + rykte +4
+    expect(next.cash).toBeCloseTo(10e6 - 200 * 100 * 1.15, 2);
+    expect(next.reputation).toBe(54);
   });
 });
 

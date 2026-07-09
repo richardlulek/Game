@@ -51,7 +51,7 @@ import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
-import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
+import { applyStockNews, executeLimitOrders, maybeListingEvents, priceStocks, quarterlyEarnings, rivalNews, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { tickHotel, tickEnergy, tickLogistik } from "./industries";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
@@ -74,9 +74,11 @@ export function advanceDay(state: GameState): GameState {
     // Månadsskifte: kör hela månadssimuleringen och landa på dag 1.
     return { ...advanceMonth(state), day: 1 };
   }
-  // Vanlig dag: bara kalendern rör sig. (Framtida steg kan schemalägga
-  // enskilda kassaflöden – hyra den 25:e osv – här utan att röra advanceMonth.)
-  return { ...state, day };
+  // Vanlig dag: kalendern rör sig och börskurserna vandrar intradag (feature 3)
+  // så marknaden lever i realtid. Fundamenta är oförändrade – månadsstängningen
+  // i advanceMonth sätter fortfarande riktningen.
+  const stocks = state.stocks && state.stocks.length ? stepStocksDaily(state.stocks) : state.stocks;
+  return { ...state, day, stocks };
 }
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
@@ -1321,7 +1323,13 @@ export function advanceMonth(state: GameState): GameState {
   const sentReturn = (prevSent > 0 ? sent / prevSent : 1) - 1;
   s.marketSentiment = sent;
   s.sentimentHistory = [...(s.sentimentHistory ?? [prevSent]), sent].slice(-32);
-  const market = priceStocks(s.stocks ?? [], sentReturn, s.competitors);
+  // Nyhetsstämpel + makroläge som kopplar börsen till den levande ekonomin.
+  const stockDate = { day: s.day ?? 1, month: s.month, year: s.year };
+  const macro = {
+    rateChange: +(s.interestRate - state.interestRate).toFixed(2),
+    cyclePhase: s.marketCycle?.phase,
+  };
+  const market = priceStocks(s.stocks ?? [], sentReturn, s.competitors, macro);
   s.stocks = market.stocks;
   if (market.dividends > 0) {
     s.cash += market.dividends;
@@ -1329,14 +1337,22 @@ export function advanceMonth(state: GameState): GameState {
     if (s.month % 3 === 0)
       events.push({ t: `📈 Aktieutdelning inkom: ${kr(market.dividends)}.`, kind: "income" });
   }
+  // Kausala rivalnyheter: rivalaktier reagerar på konkurrenternas faktiska månad.
+  const rivalResult = rivalNews(s.stocks, s.competitors, stockDate);
+  s.stocks = rivalResult.stocks;
+  for (const ev of rivalResult.events) events.push({ t: ev, kind: "event" });
   // Bolagsspecifika nyhetshändelser
-  const stockNewsResult = applyStockNews(s.stocks);
+  const stockNewsResult = applyStockNews(s.stocks, stockDate);
   s.stocks = stockNewsResult.stocks;
   if (stockNewsResult.newsEntry)
     events.push({ t: stockNewsResult.newsEntry, kind: "event" });
+  // Dynamisk marknad: nynoteringar, samgåenden och avnoteringar.
+  const listingResult = maybeListingEvents(s.stocks, stockDate);
+  s.stocks = listingResult.stocks;
+  for (const ev of listingResult.events) events.push({ t: ev, kind: "event" });
   // Kvartalsvinster var tredje månad (Q1=3, Q2=6, Q3=9, Q4=12)
   if (s.month % 3 === 0) {
-    const earnings = quarterlyEarnings(s.stocks, s.marketSentiment ?? 1);
+    const earnings = quarterlyEarnings(s.stocks, s.marketSentiment ?? 1, stockDate);
     s.stocks = earnings.stocks;
     for (const ev of earnings.events) {
       events.push({ t: ev, kind: "event" });

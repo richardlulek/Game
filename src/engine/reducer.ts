@@ -1167,29 +1167,37 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const ownPct = st.owned / st.sharesOutstanding;
       if (ownPct <= 0.5)
         return log(state, `Du behöver majoritet (>50 %) i ${st.name} för att förvärva bolaget.`, "warn");
+      // Uppköpsdrama (feature 9): premien beror på om budet är vänligt eller
+      // fientligt. Med en bred majoritet (>75 %) rekommenderar styrelsen budet
+      // och premien är låg; ett fientligt bud (50–75 %) möter styrelsemotstånd
+      // (giftpiller) och kräver en högre premie samt kostar rykte.
+      const friendly = ownPct >= 0.75;
+      const premium = friendly ? 0.15 : 0.30;
       const remaining = st.sharesOutstanding - st.owned;
-      const cost = remaining * st.price * 1.2; // budpremie 20 %
+      const cost = remaining * st.price * (1 + premium);
       if (state.cash < cost)
-        return log(state, `Förvärvet kräver ${msek(cost)} för resterande aktier i ${st.name}.`, "warn");
+        return log(
+          state,
+          `${friendly ? "Vänligt" : "Fientligt"} bud på ${st.name} kräver ${msek(cost)} för resterande aktier (premie ${Math.round(premium * 100)} %).`,
+          "warn",
+        );
       const comp = state.competitors.find((c) => c.name === st.competitorName);
       const monthlyIncome = Math.max(
         20_000,
         Math.round(comp?.monthlyNOI ?? ((comp?.equity ?? 0) * 0.06) / 12),
       );
+      const repDelta = friendly ? 4 : -3;
+      const dramaLog = friendly
+        ? `🏛️ FÖRVÄRV: Styrelsen i ${st.name} rekommenderade ditt bud. Du köpte upp bolaget för ${msek(cost)} (premie 15 %). Blir dotterbolag (${kr(monthlyIncome)}/mån).`
+        : `🏛️ FIENTLIGT FÖRVÄRV: Trots styrelsens giftpiller vann du budstriden om ${st.name} för ${msek(cost)} (premie 30 %). Blir dotterbolag (${kr(monthlyIncome)}/mån). Rykte −3.`;
       return {
         ...state,
         cash: state.cash - cost,
-        reputation: Math.min(100, state.reputation + 4),
+        reputation: Math.max(0, Math.min(100, state.reputation + repDelta)),
         competitors: state.competitors.filter((c) => c.name !== st.competitorName),
         stocks: state.stocks.filter((x) => x.id !== st.id),
         subsidiaries: [...(state.subsidiaries ?? []), { name: st.name, monthlyIncome }],
-        log: [
-          {
-            t: `🏛️ FÖRVÄRV: Du köpte upp ${st.name} för ${msek(cost)}. Bolaget blir ett dotterbolag (${kr(monthlyIncome)}/mån).`,
-            kind: "buy",
-          },
-          ...state.log,
-        ],
+        log: [{ t: dramaLog, kind: "buy" }, ...state.log],
       };
     }
     case "CHANGE_USE": {

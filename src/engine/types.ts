@@ -434,13 +434,24 @@ export interface Competitor {
 /** Bransch på börsen. */
 export type Sector = "fastighet" | "bank" | "bygg" | "handel" | "industri";
 
+/** En bolagsspecifik nyhet i aktiens egen nyhetshistorik (detaljvyn). */
+export interface StockNews {
+  text: string;
+  day: number;
+  month: number;
+  year: number;
+  dir: "up" | "down" | "flat";
+}
+
 /** Ett börsnoterat bolag. */
 export interface Stock {
   id: string;
   name: string;
   sector: Sector;
   price: number;
-  prevPrice: number;
+  prevPrice: number;       // gårdagens kurs (intradagsförändring + flash)
+  monthClose?: number;     // kurs vid senaste månadsstängning (månadsförändring)
+  targetPrice?: number;    // månadens fundamentala ankare – intradagsvandringen dras hit
   sharesOutstanding: number;
   owned: number;
   avgCost: number;
@@ -448,12 +459,19 @@ export interface Stock {
   beta: number;            // känslighet mot marknadssentiment
   drift: number;           // grundtrend per månad
   volatility: number;
-  history: number[];       // senaste priserna
+  history: number[];       // senaste (månads-)priserna
   competitorName?: string; // länk till en Competitor om det är en rival
   eps?: number;          // earnings per share (quarterly)
   analystRating?: "Köp" | "Behåll" | "Sälj";
+  targetKurs?: number;   // analytikernas riktkurs
   shortQty?: number;     // player's short position (shares)
   shortAvgPrice?: number;
+  newsHistory?: StockNews[]; // bolagsspecifik nyhetshistorik (detaljvyn)
+  listedYear?: number;   // för "NY"-märke på nynoteringar
+  listedMonth?: number;
+  delisting?: number;    // månader kvar till avnotering (om markerad)
+  rivalPrevUnits?: number; // föregående månads bestånd – för kausala rivalnyheter
+  rivalPrevNOI?: number;   // föregående månads driftnetto
 }
 
 /** Ett förvärvat dotterbolag som ger månadsintäkt. */
