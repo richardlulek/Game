@@ -16,7 +16,16 @@ export function NewsFeedPanel({ state }: Props) {
   const recent = log.slice(0, 40);
 
   return (
-    <div style={{ fontFamily: FONTS.body, color: "#1a0a00", maxWidth: 720, margin: "0 auto" }}>
+    <div style={{
+      fontFamily: FONTS.body, color: "#1a0a00", maxWidth: 720, margin: "0 auto",
+      // Tidningen är ett medvetet tematiskt element: varmt papper så den mörka
+      // tidningssättningen blir läsbar (annars mörk text på mörkt fönster).
+      background: "#f4ecd6",
+      border: "1px solid #cbb27a",
+      borderRadius: 8,
+      padding: "22px 26px",
+      boxShadow: "0 10px 30px rgba(4,8,14,0.5)",
+    }}>
       {/* Newspaper header */}
       <div style={{
         textAlign: "center", borderBottom: "3px solid #2a1a00",
