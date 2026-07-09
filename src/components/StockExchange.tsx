@@ -4,6 +4,7 @@
    ============================================================ */
 
 import { useState } from "react";
+import { calYear } from "../engine/date";
 import { kr, msek, pct } from "../engine/format";
 import { COURTAGE, stockHoldingsValue } from "../engine/stocks";
 import type { GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
@@ -797,7 +798,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
             BÖRSEN
           </div>
           <div style={{ fontFamily: FONTS.heading, fontSize: 13, color: C.creamSoft }}>
-            Stockholms Fondbörs · {state.year}
+            Stockholms Fondbörs · {calYear(state.year)}
           </div>
         </div>
 

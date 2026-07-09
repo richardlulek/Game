@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DEFAULT_COMPANY_NAME } from "../engine/company";
+import { calYear, formatMonthYear } from "../engine/date";
 import { SCENARIOS } from "../engine/scenarios";
 import type { ScenarioId } from "../engine/types";
 import { msek } from "../engine/format";
@@ -120,7 +121,11 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                   </div>
                   {sl.exists ? (
                     <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 4 }}>
-                      År {sl.year} · {sl.month ? `Mån ${sl.month}` : ""}<br />
+                      {sl.year !== undefined
+                        ? sl.month
+                          ? formatMonthYear(sl.month, sl.year)
+                          : calYear(sl.year)
+                        : ""}<br />
                       {sl.equity !== undefined ? msek(sl.equity) : ""}
                     </div>
                   ) : (

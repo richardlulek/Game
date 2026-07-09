@@ -44,6 +44,7 @@ import {
 } from "./lateGame";
 import { amortInfoOf, equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
+import { calYear, daysInMonth, formatMonthYear } from "./date";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { seasonOf } from "./season";
@@ -53,6 +54,30 @@ import { attractiveness, interestChance, offerAmount, packageOfferAmount, packag
 import { applyStockNews, executeLimitOrders, priceStocks, quarterlyEarnings, stepSentiment, stockHoldingsValue } from "./stocks";
 import { tickHotel, tickEnergy, tickLogistik } from "./industries";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
+
+/**
+ * Stegar fram spelet EN dag och returnerar det nya tillståndet.
+ *
+ * Kalendern (`s.day`) rullar 1..antal dagar i månaden (riktiga månadslängder
+ * med skottår, se engine/date.ts) för ett mjukt, kontinuerligt flöde à la
+ * Capitalism Lab. De tunga ekonomiberäkningarna sker fortfarande en gång per
+ * månad: när dagen passerar månadens sista dag nollställs `day` och hela
+ * `advanceMonth` körs som vanligt. All befintlig ekonomi- och bokslutslogik
+ * är därmed orörd – dagsticken lägger bara en finare tidsupplösning ovanpå.
+ */
+export function advanceDay(state: GameState): GameState {
+  // Ett pågående beslut eller en auktion pausar tiden – som för månadssteget.
+  if (state.pendingDecision || state.auction) return state;
+
+  const day = (state.day ?? 1) + 1;
+  if (day > daysInMonth(state.year, state.month)) {
+    // Månadsskifte: kör hela månadssimuleringen och landa på dag 1.
+    return { ...advanceMonth(state), day: 1 };
+  }
+  // Vanlig dag: bara kalendern rör sig. (Framtida steg kan schemalägga
+  // enskilda kassaflöden – hyra den 25:e osv – här utan att röra advanceMonth.)
+  return { ...state, day };
+}
 
 /** Stegar fram spelet en månad och returnerar det nya tillståndet. */
 export function advanceMonth(state: GameState): GameState {
@@ -1770,7 +1795,7 @@ export function advanceMonth(state: GameState): GameState {
       const eqNow = equityOf(s);
       const diffPct = Math.round(((eqNow - prevYearEq) / Math.abs(prevYearEq)) * 100);
       events.push({
-        t: `📆 ÅRSBOKSLUT ${s.year - 1}: eget kapital ${msek(eqNow)} (${diffPct >= 0 ? "+" : ""}${diffPct} % under året), ${unitCount(s)} fastigheter i beståndet.`,
+        t: `📆 ÅRSBOKSLUT ${calYear(s.year - 1)}: eget kapital ${msek(eqNow)} (${diffPct >= 0 ? "+" : ""}${diffPct} % under året), ${unitCount(s)} fastigheter i beståndet.`,
         kind: diffPct >= 0 ? "income" : "warn",
       });
     }
@@ -1782,7 +1807,7 @@ export function advanceMonth(state: GameState): GameState {
     if (sc?.check(s)) {
       s.gameWon = true;
       s.log = [
-        { t: `🏆 MÅL UPPNÅTT: ${sc.title} – ${sc.subtitle}! Spelat klart år ${s.year}.`, kind: "income" },
+        { t: `🏆 MÅL UPPNÅTT: ${sc.title} – ${sc.subtitle}! Spelat klart ${formatMonthYear(s.month, s.year)}.`, kind: "income" },
         ...s.log,
       ];
     }
@@ -1814,7 +1839,7 @@ export function advanceMonth(state: GameState): GameState {
 
   const net = monthlyNOI - interest;
   const summary: LogEntry = {
-    t: `Månad ${s.month}/${s.year}: driftnetto ${kr(monthlyNOI)} − ränta ${kr(interest)} = ${kr(net)}.`,
+    t: `${formatMonthYear(s.month, s.year)}: driftnetto ${kr(monthlyNOI)} − ränta ${kr(interest)} = ${kr(net)}.`,
     kind: net >= 0 ? "income" : "expense",
   };
   s.log = [...events, summary, ...s.log].slice(0, 70);

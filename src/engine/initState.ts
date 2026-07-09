@@ -17,6 +17,7 @@ const WORLD_SIZE = 190;
 /** Skapar ett nytt speltillstånd med en ändlig fastighetsmarknad. */
 export function initState(): GameState {
   const base: GameState = {
+    day: 1, // 1 januari (spelår 1 = kalenderår 2000, se engine/date.ts)
     month: 1,
     year: 1,
     cash: 5_000_000,

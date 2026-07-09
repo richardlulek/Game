@@ -1,4 +1,5 @@
 import { playClick } from "../audio/sound";
+import { formatGameDate } from "../engine/date";
 import { BURGUNDY } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
@@ -36,7 +37,7 @@ export function Toolbar({
         FASTIGHETS<span style={{ color: BURGUNDY }}>IMPERIUM</span>
       </div>
       <div style={S.toolbarDate}>
-        {state.month}/{state.year}
+        {formatGameDate(state.day ?? 1, state.month, state.year)}
       </div>
       <ClockControls />
       <button

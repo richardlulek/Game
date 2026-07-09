@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
 import { canUpgrade, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
+import { formatGameDate } from "../engine/date";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propNOI } from "../engine/property";
@@ -509,7 +510,7 @@ export default function FastighetsImperium() {
                   {sc && (
                     <div style={{ fontSize: 15, color: C.inkSoft, marginBottom: 12 }}>
                       {sc.title}: {sc.subtitle}<br />
-                      <span style={{ fontSize: 13 }}>Spelat klart år {state.year}, månad {state.month}</span>
+                      <span style={{ fontSize: 13 }}>Spelat klart {formatGameDate(state.day ?? 1, state.month, state.year)}</span>
                     </div>
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18, textAlign: "left" }}>

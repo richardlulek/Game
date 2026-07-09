@@ -1,12 +1,17 @@
 /* ============================================================
-   Spelklockan – driver månadsticks med fast tidssteg.
+   Spelklockan – driver dagsticks med fast tidssteg.
    requestAnimationFrame mäter verklig tid; en ackumulator avgör
-   när nästa månad tickas. dt klipps till max 100 ms, vilket gör
-   att en dold flik inte ger "catch-up". Klockan pausar sig själv
-   vid game over, vinst och väntande beslut (DecisionModal).
+   när nästa DAG tickas. Kalendern rullar dag för dag för mjukt
+   flöde, medan den tunga ekonomin fortfarande räknas per månad
+   (advanceMonth körs vid månadsskifte inuti advanceDay). En månad
+   tar lika lång verklig tid oavsett längd: dagssteget är MONTH_MS
+   delat med antalet dagar i den aktuella månaden. dt klipps till max
+   100 ms, vilket gör att en dold flik inte ger "catch-up". Klockan
+   pausar sig själv vid game over, vinst och väntande beslut.
    ============================================================ */
 
 import { useEffect } from "react";
+import { daysInMonth } from "../engine/date";
 import { useGameStore } from "../store/gameStore";
 
 /** Verklig tid per spelmånad vid 1× hastighet. */
@@ -36,17 +41,27 @@ export function useGameClock(): void {
       }
       acc += dt * speed;
       let ticked = false;
-      while (acc >= MONTH_MS && !blocked()) {
-        acc -= MONTH_MS;
-        useGameStore.getState().dispatch({ type: "NEXT_MONTH" });
+      let yearRolled = false;
+      // Dagssteget beror på aktuell månadslängd så varje månad tar MONTH_MS.
+      let dayMs = MONTH_MS / daysInMonth(
+        useGameStore.getState().state.year,
+        useGameStore.getState().state.month,
+      );
+      while (acc >= dayMs && !blocked()) {
+        acc -= dayMs;
+        const prevYear = useGameStore.getState().state.year;
+        useGameStore.getState().dispatch({ type: "NEXT_DAY" });
         ticked = true;
+        const st = useGameStore.getState().state;
+        if (st.year !== prevYear) yearRolled = true;
+        dayMs = MONTH_MS / daysInMonth(st.year, st.month);
       }
       if (ticked) {
         const store = useGameStore.getState();
-        // Autospar EN gång per spelår (inte varje månad – serialiseringen
-        // av hela tillståndet till localStorage gav ett märkbart hack
-        // varje tick). Viktiga stopp sparas alltid direkt nedan.
-        if (store.state.month === 1) store.save();
+        // Autospar EN gång per spelår (inte varje dag/månad – serialiseringen
+        // av hela tillståndet till localStorage gav ett märkbart hack varje
+        // tick). Viktiga stopp sparas alltid direkt nedan.
+        if (yearRolled) store.save();
         if (blocked()) {
           store.save();
           store.setRunning(false);

@@ -58,7 +58,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 21;
+export const SAVE_VERSION = 22;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -246,6 +246,13 @@ const migrations: Record<number, (state: GameState) => GameState> = {
     competitors: s.competitors.map((c) =>
       c.agenda ? c : { ...c, agenda: agendaFor(c.strategy ?? "tillväxt", c.preferredDistrict) },
     ),
+  }),
+  // v21 → v22: rullande kalender – dag i månaden ovanpå månadsmodellen.
+  // Året förblir 1-baserat (spelår 1 = kalenderår 2000, se engine/date.ts),
+  // så inga andra fält behöver konverteras.
+  21: (s) => ({
+    ...s,
+    day: (s as { day?: number }).day ?? 1,
   }),
 };
 

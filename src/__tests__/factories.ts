@@ -4,6 +4,7 @@ import type { GameState, IndustryAsset, Property, Tenant } from "../engine/types
 
 export function makeState(over: Partial<GameState> = {}): GameState {
   return {
+    day: 1,
     month: 1,
     year: 1,
     cash: 5_000_000,

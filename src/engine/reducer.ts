@@ -36,7 +36,7 @@ import {
 } from "./progression";
 import { newId } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
-import { advanceMonth } from "./simulation";
+import { advanceDay, advanceMonth } from "./simulation";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
 import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
 
@@ -2149,8 +2149,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case "NEXT_DAY":
+      return advanceDay(state);
     case "NEXT_MONTH":
-      return advanceMonth(state);
+      // Manuellt månadssteg: kör hela månadssimuleringen och landa på dag 1
+      // i den nya månaden så att den rullande kalendern förblir koherent.
+      return { ...advanceMonth(state), day: 1 };
     case "FAST_FORWARD": {
       let s = state;
       const n = Math.min(action.months, 24);
@@ -2158,7 +2162,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         if (s.gameOver || s.pendingDecision) break;
         s = advanceMonth(s);
       }
-      return s;
+      return { ...s, day: 1 };
     }
     case "START_RENOVATION": {
       // Utvecklingsprojekt: totalrenovering (skick/energi/hyra), påbyggnad

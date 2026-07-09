@@ -2,14 +2,10 @@
    trycker en rubrik när spelarens bolag når en ny nivå. */
 
 import { tierForLevel } from "../engine/company";
+import { formatMonthYear } from "../engine/date";
 import { msek } from "../engine/format";
 import { equityOf } from "../engine/finance";
 import type { GameState } from "../engine/types";
-
-const MONTH_NAMES = [
-  "januari", "februari", "mars", "april", "maj", "juni",
-  "juli", "augusti", "september", "oktober", "november", "december",
-];
 
 const N: Record<string, React.CSSProperties> = {
   overlay: {
@@ -102,7 +98,7 @@ export function NewspaperModal({
           <div style={N.mastheadTitle}>STADSBLADET</div>
         </div>
         <div style={N.dateline}>
-          <span>År {state.year}, {MONTH_NAMES[(state.month - 1) % 12]}</span>
+          <span>{formatMonthYear(state.month, state.year)}</span>
           <span>Näringsliv</span>
           <span>Pris 2 kr</span>
         </div>

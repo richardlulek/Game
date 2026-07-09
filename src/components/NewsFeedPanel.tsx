@@ -1,3 +1,4 @@
+import { formatMonthYear } from "../engine/date";
 import type { GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";
 import { logColor } from "./logColor";
@@ -28,7 +29,7 @@ export function NewsFeedPanel({ state }: Props) {
           FASTIGHETS&shy;POSTEN
         </div>
         <div style={{ fontSize: 12, color: "#6a4a00", marginTop: 4, display: "flex", justifyContent: "center", gap: 20 }}>
-          <span>År {year}, Månad {month}</span>
+          <span>{formatMonthYear(month, year)}</span>
           <span>|</span>
           <span>{log.length} händelser i logg</span>
           <span>|</span>

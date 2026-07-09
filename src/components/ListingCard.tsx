@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatMonthYear } from "../engine/date";
 import { kr, msek, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
 import { propAnnualOpex, propPotentialRent } from "../engine/property";
@@ -96,7 +97,7 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
           </div>
           {[...p.txHistory].reverse().slice(0, 3).map((tx, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#666", lineHeight: 1.6 }}>
-              <span>{tx.year}:{tx.month < 10 ? "0" : ""}{tx.month} · {tx.type} · {tx.party}</span>
+              <span>{formatMonthYear(tx.month, tx.year)} · {tx.type} · {tx.party}</span>
               <span style={{ fontWeight: 700 }}>{msek(tx.price)}</span>
             </div>
           ))}

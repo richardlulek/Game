@@ -560,6 +560,11 @@ export interface GlobalManagerSettings {
 
 /** Hela speltillståndet. */
 export interface GameState {
+  /** Dag i månaden (1..antal dagar i månaden). Kalendern rullar dag för dag
+      för mjukt flöde; den tunga ekonomin räknas fortfarande per månad i
+      advanceMonth. Se engine/date.ts för kalenderkonvertering (spelår 1 =
+      2000). */
+  day: number;
   month: number;
   year: number;
   cash: number;
@@ -756,6 +761,7 @@ export type GameAction =
   | { type: "SET_HOTEL_CHANNEL"; assetId: number; channels: BookingChannel[] }
   | { type: "TOGGLE_INDUSTRY_MANAGER"; id: number }
   | { type: "BUY_INDUSTRY_INSURANCE"; id: number }
+  | { type: "NEXT_DAY" }
   | { type: "NEXT_MONTH" }
   | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
