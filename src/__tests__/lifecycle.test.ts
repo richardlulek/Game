@@ -5,6 +5,7 @@ import {
   nextBidRound,
   obsolescenceFactor,
 } from "../engine/lifecycle";
+import { maxDevLevel } from "../engine/districtTiers";
 import { advanceMonth } from "../engine/simulation";
 import { makeProperty, makeState } from "./factories";
 
@@ -56,6 +57,28 @@ describe("Utbyggnad syns på kartan (devLevel)", () => {
     const p = makeProperty({ status: "bygger", buildLeft: 1, renovation: { kind: "nybyggnation" }, area: 1000 });
     const next = advanceMonth(makeState({ portfolio: [p], debt: 0 }));
     expect(next.portfolio[0].devLevel).toBe(1);
+  });
+});
+
+describe("Investeringsdriven mognad (Fas 2 – höjdtak)", () => {
+  it("investeringstaket stiger med distriktets status", () => {
+    const eftersatt = makeState({ districtDev: { centrum: 0.8 } });
+    const exklusivt = makeState({ districtDev: { centrum: 1.4 } });
+    expect(maxDevLevel(exklusivt, "centrum")).toBeGreaterThan(maxDevLevel(eftersatt, "centrum"));
+  });
+
+  it("påbyggnad reser inte huset över distriktets tak", () => {
+    // Eftersatt distrikt: tak = devLevel 1. Ett hus som redan är på taket
+    // får inte fler våningar av ännu en påbyggnad.
+    const p = makeProperty({ status: "bygger", buildLeft: 1, renovation: { kind: "påbyggnad" }, district: "centrum", devLevel: 1 });
+    const next = advanceMonth(makeState({ portfolio: [p], debt: 0, districtDev: { centrum: 0.8 } }));
+    expect(next.portfolio[0].devLevel).toBe(1);
+  });
+
+  it("i ett moget distrikt fortsätter huset att resa sig", () => {
+    const p = makeProperty({ status: "bygger", buildLeft: 1, renovation: { kind: "påbyggnad" }, district: "centrum", devLevel: 1 });
+    const next = advanceMonth(makeState({ portfolio: [p], debt: 0, districtDev: { centrum: 1.4 } }));
+    expect(next.portfolio[0].devLevel).toBe(2);
   });
 });
 

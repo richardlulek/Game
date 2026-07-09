@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   DISTRICT_ZONES,
+  frontierScore,
+  hasAmbientBuilding,
   locationFactor,
   PARCELS,
   parcelById,
   parcelsIn,
+  pickFrontierParcel,
   placeCity,
 } from "../engine/city";
 import { DISTRICTS } from "../engine/data";
@@ -89,6 +92,40 @@ describe("placeCity", () => {
     const placed = placeCity(s);
     expect(placed.portfolio[0].parcelId).toBe("centrum-0");
     expect(placed.portfolio[1].parcelId).not.toBe("centrum-0");
+  });
+
+  it("tillväxtfronten: byggda grannar höjer en rutas tillväxttryck", () => {
+    // Hitta en ruta med minst en granne som INTE bär dekorbebyggelse, så att
+    // grannbebyggelse (ambientGrown) bevisligen kan höja poängen.
+    const ps = parcelsIn("hamnen");
+    let tested = false;
+    for (const p of ps) {
+      const nonDecorNear = ps.filter(
+        (q) => q.id !== p.id && Math.hypot(q.x - p.x, q.z - p.z) <= 62 && !hasAmbientBuilding(q),
+      );
+      if (nonDecorNear.length === 0) continue;
+      const withNeighbors = frontierScore(makeState({ ambientGrown: nonDecorNear.map((q) => q.id) }), p);
+      const bare = frontierScore(makeState(), p);
+      expect(withNeighbors).toBeGreaterThan(bare);
+      tested = true;
+      break;
+    }
+    expect(tested).toBe(true);
+  });
+
+  it("tillväxtfronten: heta distrikt (högre districtDev) drar tillväxten", () => {
+    const p = parcelsIn("centrum")[0];
+    const hot = frontierScore(makeState({ districtDev: { centrum: 1.4 } }), p);
+    const cold = frontierScore(makeState({ districtDev: { centrum: 0.9 } }), p);
+    expect(hot).toBeGreaterThan(cold);
+  });
+
+  it("pickFrontierParcel returnerar en ledig ruta, null när staden är full", () => {
+    const chosen = pickFrontierParcel(makeState(), () => 0.5);
+    expect(chosen).not.toBeNull();
+    // Fyll varenda ruta – då finns ingen ledig mark kvar.
+    const full = makeState({ ambientGrown: PARCELS.map((p) => p.id) });
+    expect(pickFrontierParcel(full)).toBeNull();
   });
 
   it("en ny tomt får ALDRIG knuffa undan ett befintligt hus (tvåpass-reservation)", () => {

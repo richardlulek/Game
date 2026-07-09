@@ -423,6 +423,62 @@ export function placeCity(state: GameState): GameState {
   };
 }
 
+/* ── Tillväxtfront (Fas 1) ──────────────────────────────────────────────────
+   Bakgrundsstaden (privata byggherrar) breder ut sig UTÅT från kärnor längs en
+   front i stället för att poppa upp på slumpvisa rutor. Varje tom ruta får ett
+   tillväxttryck: högt intill redan byggd mark (infill vid fronten), nära
+   stadskärnan och i heta distrikt. Månadens nybygge lottas viktat mot trycket. */
+
+const FRONTIER_RADIUS = 62; // världsenheter – fångar angränsande kvarter
+
+function scoreParcelFrontier(
+  p: Parcel,
+  occupied: Set<string>,
+  grown: ReadonlySet<string>,
+  state: GameState,
+): number {
+  let adj = 0;
+  for (const b of parcelsIn(p.district)) {
+    if (b.id === p.id) continue;
+    if (!(occupied.has(b.id) || hasAmbientBuilding(b, grown))) continue;
+    if (Math.hypot(b.x - p.x, b.z - p.z) <= FRONTIER_RADIUS) adj++;
+  }
+  const coreBias = locationFactor(p.id);
+  const devBias = state.districtDev?.[p.district] ?? 1;
+  return (0.25 + adj) * coreBias * devBias;
+}
+
+/** Tillväxttryck för en enskild tom ruta (för test och felsökning). */
+export function frontierScore(state: GameState, p: Parcel): number {
+  return scoreParcelFrontier(
+    p,
+    occupiedParcelIds(state),
+    new Set(state.ambientGrown ?? []),
+    state,
+  );
+}
+
+/** Väljer nästa ruta som bakgrundsstaden bebygger – viktat mot fronten så att
+ *  staden växer sammanhängande utåt. `null` när det inte finns ledig mark. */
+export function pickFrontierParcel(
+  state: GameState,
+  rand: () => number = Math.random,
+): Parcel | null {
+  const candidates = emptyParcels(state);
+  if (candidates.length === 0) return null;
+  const occupied = occupiedParcelIds(state);
+  const grown = new Set(state.ambientGrown ?? []);
+  const scored = candidates.map((p) => ({ p, s: scoreParcelFrontier(p, occupied, grown, state) }));
+  const total = scored.reduce((a, x) => a + x.s, 0);
+  if (total <= 0) return candidates[Math.floor(rand() * candidates.length)];
+  let r = rand() * total;
+  for (const x of scored) {
+    r -= x.s;
+    if (r <= 0) return x.p;
+  }
+  return scored[scored.length - 1].p;
+}
+
 /**
  * Lägesfaktor: närmare stadskärnan (0,0) är mer attraktivt.
  * ~1,12 mitt i Centrum, ner mot ~0,94 i kartans utkanter.

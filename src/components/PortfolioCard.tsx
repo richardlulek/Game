@@ -6,6 +6,7 @@ import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
 import { propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propYieldOnCost } from "../engine/property";
 import { buildingAge, isObsolete, obsolescenceFactor } from "../engine/lifecycle";
+import { districtTier, maxDevLevel } from "../engine/districtTiers";
 import { buildCostMult } from "../engine/progression";
 import { QUICK_SALE_FACTOR, attractiveness, interestChance, interestLabel } from "../engine/selling";
 import type { GameAction, GameState, Property } from "../engine/types";
@@ -571,7 +572,11 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           />
           <ActionBtn
             label={`🏗️ Påbyggnad · ${msek(Math.round(value * 0.3))}`}
-            sub="10 mån · +25 % yta, +1 hyresplats, +20 % värde"
+            sub={
+              (p.devLevel ?? 0) >= maxDevLevel(state, p.district)
+                ? `10 mån · +25 % yta, +1 plats, +20 % värde · höjdtak nått (${districtTier(state, p.district).name}) – lyft distriktet för att bygga högre`
+                : "10 mån · +25 % yta, +1 hyresplats, +20 % värde · huset reser sig på kartan"
+            }
             color="#7a5c2a"
             disabled={p.tenants.length > 0 || state.cash < value * 0.3 || state.gameOver}
             onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "påbyggnad" })}

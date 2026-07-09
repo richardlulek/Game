@@ -38,3 +38,24 @@ export function nextDistrictTier(tier: DistrictTier): DistrictTier | null {
   const i = DISTRICT_TIERS.findIndex((t) => t.id === tier.id);
   return DISTRICT_TIERS[i + 1] ?? null;
 }
+
+/**
+ * Investeringstak (Fas 2): hur många utbyggnadsprojekt (devLevel) ett
+ * distrikts status tillåter innan husen får resa sig högre. Distriktet mognar
+ * → taket höjs → investeringar (dina OCH rivalernas påbyggnad/nybyggnation)
+ * kan bygga på höjden. Husen växer aldrig av sig själva – taket bygger inte
+ * åt någon, det avgör bara hur högt en investering får sträcka sig.
+ * Varje devLevel motsvarar +2 våningar på 3D-kartan.
+ */
+export function maxDevLevel(state: GameState, district: string): number {
+  switch (districtTier(state, district).id) {
+    case "exklusivt":
+      return 7; // +14 våningar
+    case "uppatgaende":
+      return 4; // +8
+    case "stabilt":
+      return 2; // +4
+    default:
+      return 1; // eftersatt: +2
+  }
+}

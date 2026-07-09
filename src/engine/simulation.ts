@@ -4,7 +4,7 @@
    ============================================================ */
 
 import { fullyOwnedBlocks } from "./blocks";
-import { EXPANSION_BLOCKS, PARCELS, districtsWithSpace, emptyParcels } from "./city";
+import { EXPANSION_BLOCKS, PARCELS, districtsWithSpace, emptyParcels, pickFrontierParcel } from "./city";
 import { planTick, rawLandPrice } from "./cityPlan";
 import {
   OVERLOAD_COST_PER_PROP,
@@ -15,7 +15,7 @@ import {
   tierForLevel,
   unitCount,
 } from "./company";
-import { DISTRICT_TIERS, tierOfDev } from "./districtTiers";
+import { DISTRICT_TIERS, maxDevLevel, tierOfDev } from "./districtTiers";
 import { esgRatingOf } from "./esg";
 import {
   BROKER_FEE,
@@ -241,8 +241,9 @@ export function advanceMonth(state: GameState): GameState {
             np.baseRent = Math.round(np.baseRent * 1.2);
             np.rentMult = 1;
             np.vacancyMult = Math.max(0.6, np.vacancyMult * 0.8);
-            // Nybygget reser sig högre än det gamla huset på kartan.
-            np.devLevel = (np.devLevel ?? 0) + 1;
+            // Nybygget reser sig högre – men bara så högt som distriktets
+            // status (investeringstaket) tillåter.
+            if ((np.devLevel ?? 0) < maxDevLevel(s, np.district)) np.devLevel = (np.devLevel ?? 0) + 1;
             s.reputation = Math.min(100, s.reputation + 2);
             events.push({
               t: `🏙️ Nybyggnation klar: ${np.typeLabel} i ${np.districtName} ersatte det gamla huset – nollställd ålder, +15 % yta, +1 hyresplats, energiklass A.`,
@@ -254,8 +255,8 @@ export function advanceMonth(state: GameState): GameState {
             np.valueMult = +(np.valueMult * 1.2).toFixed(3);
             np.baseRent = Math.round(np.baseRent * 1.25);
             np.condition = Math.max(85, np.condition);
-            // Påbyggnad = fler våningar: huset växer synligt på kartan.
-            np.devLevel = (np.devLevel ?? 0) + 1;
+            // Påbyggnad = fler våningar, upp till distriktets investeringstak.
+            if ((np.devLevel ?? 0) < maxDevLevel(s, np.district)) np.devLevel = (np.devLevel ?? 0) + 1;
             events.push({
               t: `🏗️ Påbyggnad klar: ${np.typeLabel} i ${np.districtName} – +25 % yta, +1 hyresplats, +20 % värde.`,
               kind: "income",
@@ -1169,6 +1170,33 @@ export function advanceMonth(state: GameState): GameState {
         events.push({ t: `🏗️ ${nc.name} bygger nytt: ${build.typeLabel} i ${dObj?.name ?? build.districtName} (${msek(cost)}).`, kind: "event" });
       }
     }
+    // Investeringsdriven mognad (Fas 2): kapitalstarka rivaler bygger PÅ sina
+    // egna hus i heta distrikt (uppåtgående/exklusivt) – deras hus reser sig på
+    // kartan, upp till distriktets investeringstak. Stadens skyline mognar
+    // därmed av faktiska investeringar, inte av sig själv.
+    if (cyclePhase !== "bust" && nc.cash > 5_000_000 && Math.random() < 0.035 * rateAppetite(s.interestRate)) {
+      const idx = nc.portfolio.findIndex((p) => {
+        if (p.status !== "klar") return false;
+        const tier = tierOfDev(s.districtDev?.[p.district] ?? 1).id;
+        return (tier === "uppatgaende" || tier === "exklusivt") && (p.devLevel ?? 0) < maxDevLevel(s, p.district);
+      });
+      if (idx >= 0) {
+        const p = nc.portfolio[idx];
+        const cost = Math.round(propMarketValue(p, s) * 0.3);
+        if (nc.cash >= cost) {
+          nc.cash -= cost;
+          nc.portfolio[idx] = {
+            ...p,
+            devLevel: (p.devLevel ?? 0) + 1,
+            area: Math.round(p.area * 1.2),
+            valueMult: +(p.valueMult * 1.15).toFixed(3),
+            capacity: Math.min(p.wholeBlock ? 9 : 4, p.capacity + 1),
+            condition: Math.max(85, p.condition),
+          };
+          events.push({ t: `🏗️ ${nc.name} bygger på sitt hus i ${p.districtName} — kvarteret reser sig.`, kind: "event" });
+        }
+      }
+    }
     // Strategisk försäljning: motivdriven (renodling, renoveringsobjekt,
     // vinsthemtagning i boom) – annonseras öppet så att spelaren och
     // andra rivaler konkurrerar om samma objekt.
@@ -1657,23 +1685,25 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── Naturlig tillväxt: privata byggherrar förtätar staden ────────
-  // Obebyggd mark bebyggs sakta av sig själv (mer i högkonjunktur).
-  // Husen blir en del av det privata beståndet – och kan köpas loss.
+  // Obebyggd mark bebyggs sakta av sig själv (mer i högkonjunktur) – men
+  // fronten breder ut sig UTÅT från redan byggd mark (pickFrontierParcel)
+  // i stället för på slumpvisa rutor, så staden växer sammanhängande.
   {
-    const candidates = emptyParcels(s);
     const phase = s.marketCycle?.phase ?? "stable";
     const growChance =
       (phase === "boom" ? 0.3 : phase === "bust" ? 0.04 : 0.12) *
       Math.min(1.4, s.demandMod ?? 1);
-    if (candidates.length > 0 && Math.random() < growChance) {
-      const pc = candidates[Math.floor(Math.random() * candidates.length)];
-      s.ambientGrown = [...(s.ambientGrown ?? []), pc.id];
-      if (s.ambientGrown.length % 5 === 0) {
-        const d = DISTRICTS.find((x) => x.id === pc.district);
-        events.push({
-          t: `🏘️ Staden växer: privata byggherrar har uppfört ${s.ambientGrown.length} nya hus sedan starten — senast i ${d?.name ?? pc.district}.`,
-          kind: "info",
-        });
+    if (Math.random() < growChance) {
+      const pc = pickFrontierParcel(s);
+      if (pc) {
+        s.ambientGrown = [...(s.ambientGrown ?? []), pc.id];
+        if (s.ambientGrown.length % 5 === 0) {
+          const d = DISTRICTS.find((x) => x.id === pc.district);
+          events.push({
+            t: `🏘️ Staden växer: privata byggherrar har uppfört ${s.ambientGrown.length} nya hus sedan starten — senast i ${d?.name ?? pc.district}.`,
+            kind: "info",
+          });
+        }
       }
     }
   }
