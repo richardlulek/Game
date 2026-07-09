@@ -15,6 +15,9 @@ interface Props {
   p: Property;
   state: GameState;
   dispatch: (a: GameAction) => void;
+  /** Bred layout: sektionerna flödar i flera kolumner i stället för ett
+      smalt kort. Används i portföljlistans utfällda detaljvy. */
+  wide?: boolean;
 }
 
 const UPG_EFFECT: Record<string, string> = {
@@ -53,7 +56,7 @@ function satChip(sat: number): { icon: string; color: string } {
   return { icon: "☹️", color: "#c0392b" };
 }
 
-export function PortfolioCard({ p, state, dispatch }: Props) {
+export function PortfolioCard({ p, state, dispatch, wide }: Props) {
   const [showDetails,        setShowDetails]        = useState(false);
   const [showRaiseTenantId,  setShowRaiseTenantId]  = useState<number | null>(null);
   const [showLowerTenantId,  setShowLowerTenantId]  = useState<number | null>(null);
@@ -117,9 +120,16 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
     );
   }
 
+  // Bred layout: tre tematiska kolumner (auto-fit → 1 kolumn i smalt kort,
+  // 2–3 i utfälld lista). Smalt läge = vanlig vertikal stapling.
+  const colGridStyle: React.CSSProperties = wide
+    ? { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18, alignItems: "start" }
+    : undefined as unknown as React.CSSProperties;
+  const colStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12, minWidth: 0 };
+
   return (
     <div style={card}>
-      <CardHeader p={p} managed={p.managed} month={state.month} />
+      <CardHeader p={p} managed={p.managed} month={state.month} wide={wide} />
 
       {/* ── Värde ──────────────────────────────────────────────── */}
       <div style={valueRow}>
@@ -171,7 +181,10 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         · {marketYield.toFixed(1)} % på marknadsvärde
       </div>
 
-      {/* ── Kassaflöde & distrikt (vikbar) ─────────────────────── */}
+      {/* Avdelare mellan nyckeltalen ovan och inställningar/funktioner nedan. */}
+      <div style={{ height: 1, background: "#cdd6e2", margin: "12px 0 14px" }} />
+
+      {/* ── Kassaflöde & distriktsfakta (vikbar) – full bredd ovanför kolumnerna ── */}
       <button
         onClick={() => setShowDetails(!showDetails)}
         style={detailToggleBtn}
@@ -206,6 +219,10 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       <Divider />
 
+      {/* ── Tematiska kolumner ───────────────────────────────────── */}
+      <div style={colGridStyle}>
+      {/* Kolumn 1 – Hyresgäst & förhandling */}
+      <div style={colStyle}>
       {/* ── Hyresgäster ────────────────────────────────────────── */}
       <div style={sectionLabel}>Hyresgäster</div>
       <div style={{ marginBottom: 8 }}>
@@ -503,6 +520,9 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       <Divider />
 
+      </div>
+      {/* Kolumn 2 – Investeringar & utveckling */}
+      <div style={colStyle}>
       {/* ── Investeringar ───────────────────────────────────────── */}
       <div style={sectionLabel}>Investeringar</div>
 
@@ -594,6 +614,9 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
       <Divider />
 
+      </div>
+      {/* Kolumn 3 – Förvaltning, energi & försäljning */}
+      <div style={colStyle}>
       {/* ── Förvaltning ─────────────────────────────────────────── */}
       <div style={sectionLabel}>Förvaltning</div>
 
@@ -796,17 +819,19 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
         })()
       ) : (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 12, color: C.inkSoft, minWidth: 92 }}>Utgångspris</span>
+          <div style={{ marginBottom: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
+              <span style={{ fontSize: 12, color: C.inkSoft }}>Utgångspris</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>
+                {msek(Math.round((value * askPct) / 100))} ({askPct} %)
+              </span>
+            </div>
             <input
               type="range" min={90} max={115} step={1}
               value={askPct}
               onChange={(e) => setAskPct(+e.target.value)}
-              style={{ flex: 1 }}
+              style={{ width: "100%" }}
             />
-            <span style={{ fontSize: 12.5, fontWeight: 700, minWidth: 108, textAlign: "right" }}>
-              {msek(Math.round((value * askPct) / 100))} ({askPct} %)
-            </span>
           </div>
           {(() => {
             const ask = Math.round((value * askPct) / 100);
@@ -831,6 +856,8 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
           />
         </>
       )}
+      </div>
+      </div>
     </div>
   );
 }
@@ -839,11 +866,11 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
 
 const ESG_COLOR: Record<string, string> = { A: "#1a7a1a", B: "#2d8a2d", C: "#8a7a10", D: "#8a5a10", E: "#8a3010", F: "#7a1010" };
 
-function CardHeader({ p, managed, month }: { p: Property; managed?: boolean; month?: number }) {
+function CardHeader({ p, managed, month, wide }: { p: Property; managed?: boolean; month?: number; wide?: boolean }) {
   const esg = p.energyClass;
   return (
-    <div style={banner}>
-      <BuildingArt p={p} month={month} />
+    <div style={wide ? { ...banner, maxHeight: undefined, height: 150 } : banner}>
+      <BuildingArt p={p} month={month} cover={wide} />
       <div style={bannerOverlay}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span style={badge}>{p.typeLabel}</span>

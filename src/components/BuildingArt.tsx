@@ -13,6 +13,9 @@ import type { Property, PropTypeKey } from "../engine/types";
 interface Props {
   p: Property;
   month?: number;
+  /** Fyll containern och beskär mot botten (för breda banners) i stället för
+      att skala med bredden. Håller byggnaden synlig utan tom himmel. */
+  cover?: boolean;
 }
 
 const SKY: Record<PropTypeKey, [string, string]> = {
@@ -70,7 +73,7 @@ function windowGrid(
   return out;
 }
 
-export function BuildingArt({ p, month }: Props) {
+export function BuildingArt({ p, month, cover }: Props) {
   const gid = `sky-${p.id}`;
   const winter = month !== undefined && seasonOf(month) === "vinter";
   const sky = winter ? (["#c2d2e0", "#e6eef5"] as [string, string]) : SKY[p.type];
@@ -85,8 +88,10 @@ export function BuildingArt({ p, month }: Props) {
   return (
     <svg
       viewBox="0 0 160 100"
-      style={{ display: "block", width: "100%", height: "auto" }}
-      preserveAspectRatio="xMidYMid meet"
+      style={cover
+        ? { display: "block", width: "100%", height: "100%" }
+        : { display: "block", width: "100%", height: "auto" }}
+      preserveAspectRatio={cover ? "xMidYMax slice" : "xMidYMid meet"}
       aria-hidden
     >
       <defs>

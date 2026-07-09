@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { interestLabel, packageStats } from "../engine/selling";
 import type { GameAction, GameState, GlobalManagerSettings } from "../engine/types";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
+import { PortfolioCard } from "./PortfolioCard";
 
 interface Props {
   state: GameState;
@@ -30,6 +31,8 @@ function condColor(c: number): string {
 export function PortfolioTable({ state, dispatch }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("value");
   const [sortAsc, setSortAsc] = useState(false);
+  // Klick på en rad fäller ut fastighetens fullständiga hantering (bred layout).
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [districtFilter, setDistrictFilter] = useState("Alla");
   const [typeFilter, setTypeFilter] = useState("Alla");
   // Paketförsäljning: bocka för fastigheter och annonsera som portfölj.
@@ -355,11 +358,12 @@ export function PortfolioTable({ state, dispatch }: Props) {
                 const noi = propNOI(p, state);
                 const yld = propYieldOnCost(p, state);
                 const vacant = p.capacity - p.tenants.length;
+                const isOpen = expandedId === p.id;
                 return (
+                  <Fragment key={p.id}>
                   <tr
-                    key={p.id}
                     style={{
-                      background: i % 2 === 0 ? C.feltDark : C.felt,
+                      background: isOpen ? C.woodDark : i % 2 === 0 ? C.feltDark : C.felt,
                       borderBottom: `1px solid ${C.woodLight}`,
                       height: 40,
                     }}
@@ -376,9 +380,18 @@ export function PortfolioTable({ state, dispatch }: Props) {
                         <span title={p.forSale.packageId != null ? "I säljpaket" : "Till salu"} style={{ fontSize: 11 }}>🏷️</span>
                       ) : null}
                     </td>
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 600, color: C.parchment }}>{p.typeLabel}</div>
-                      <div style={{ fontSize: 11, color: C.creamSoft }}>{p.districtName}</div>
+                    <td
+                      style={{ ...tdStyle, cursor: "pointer" }}
+                      onClick={() => setExpandedId(isOpen ? null : p.id)}
+                      title="Klicka för att hantera fastigheten"
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ color: C.brass, fontSize: 11, width: 10 }}>{isOpen ? "▾" : "▸"}</span>
+                        <div>
+                          <div style={{ fontWeight: 600, color: C.parchment }}>{p.typeLabel}</div>
+                          <div style={{ fontSize: 11, color: C.creamSoft }}>{p.districtName}</div>
+                        </div>
+                      </div>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>{msek(mv)}</td>
                     <td style={{ ...tdStyle, textAlign: "right", color: yld >= 0.05 ? C.positive : yld >= 0.03 ? C.gold : C.negative }}>
@@ -424,6 +437,16 @@ export function PortfolioTable({ state, dispatch }: Props) {
                       )}
                     </td>
                   </tr>
+                  {isOpen && (
+                    <tr>
+                      <td colSpan={9} style={{ padding: 0, background: C.feltDark, borderBottom: `2px solid ${C.brass}` }}>
+                        <div style={{ padding: 12 }}>
+                          <PortfolioCard p={p} state={state} dispatch={dispatch} wide />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
