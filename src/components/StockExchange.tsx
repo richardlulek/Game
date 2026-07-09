@@ -11,6 +11,7 @@ import { kr, msek, pct } from "../engine/format";
 import { COURTAGE, stockHoldingsValue } from "../engine/stocks";
 import type { Competitor, GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
+import { AreaChart, FlashCell, GoldRule, Sparkline as Spark, signed, trendColor } from "./ui";
 
 interface StockExchangeProps {
   state: GameState;
@@ -128,89 +129,11 @@ const subLabel: React.CSSProperties = {
 
 // ── Hjälpkomponenter ───────────────────────────────────────────────────
 
-function GoldRule() {
-  return <div style={{ height: 2, background: THEME.goldRule, margin: "10px 0" }} />;
-}
-
-const trendColor = (v: number) => (v >= 0 ? C.positive : C.negative);
-const signed = (v: number) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " %";
-
-/** Sparkline. */
-function Spark({
-  data,
-  width = 92,
-  height = 26,
-  color,
-}: {
-  data: number[];
-  width?: number;
-  height?: number;
-  color: string;
-}) {
-  if (!data || data.length < 2) return <div style={{ width, height }} />;
-  const pad = 2;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data
-    .map((v, i) => {
-      const x = pad + (i / (data.length - 1)) * (width - 2 * pad);
-      const y = height - pad - ((v - min) / range) * (height - 2 * pad);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width, height, display: "block" }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** Prisområde-graf med fylld yta (detaljvyn). */
-function AreaChart({ data, width = 520, height = 120, color }: { data: number[]; width?: number; height?: number; color: string }) {
-  if (!data || data.length < 2) return <div style={{ width: "100%", height, color: C.inkSoft, fontSize: 12 }}>För lite historik ännu.</div>;
-  const pad = 6;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const xy = data.map((v, i) => {
-    const x = pad + (i / (data.length - 1)) * (width - 2 * pad);
-    const y = height - pad - ((v - min) / range) * (height - 2 * pad);
-    return [x, y] as const;
-  });
-  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const area = `${pad},${height - pad} ${line} ${(width - pad).toFixed(1)},${height - pad}`;
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: "100%", height, display: "block" }}>
-      <polygon points={area} fill={color} opacity={0.12} />
-      <polyline points={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** Kursflash: grön/röd puls när värdet ändras (feature 5). */
-function FlashCell({ value, prev, children }: { value: number; prev: number; children: React.ReactNode }) {
-  const dir = value > prev ? "up" : value < prev ? "down" : "flat";
-  return (
-    <span
-      key={value}
-      style={{
-        display: "inline-block",
-        borderRadius: 3,
-        padding: "0 3px",
-        animation: dir === "up" ? "flashUp 0.6s ease-out" : dir === "down" ? "flashDown 0.6s ease-out" : undefined,
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
 function RatingBadge({ rating }: { rating: NonNullable<Stock["analystRating"]> }) {
   return (
     <span style={{
       fontSize: 10, fontWeight: 700,
-      background: rating === "Köp" ? C.green : rating === "Sälj" ? "#b83030" : C.wood,
+      background: rating === "Köp" ? C.green : rating === "Sälj" ? C.negative : C.wood,
       color: C.creamText,
       padding: "2px 7px", borderRadius: 10,
     }}>
