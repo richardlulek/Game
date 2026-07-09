@@ -75,18 +75,18 @@ interface ZoneDef {
 const ZONES: ZoneDef[] = [
   // Centrum: 9 slutna kvarter à 3×2 tomter som delar väggar = 54 fastigheter
   { district: "centrum", cx: 0, cz: 10, blockCols: 3, blockRows: 3, parcelCols: 3, parcelRows: 2, parcelW: 24, parcelD: 24, innerGap: 0, street: 16 },
-  // Finansdistriktet: 20 skyskrapetomter i tätt rutnät, sydost mot vattnet
-  { district: "finans", cx: 214, cz: 120, blockCols: 5, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 26, parcelD: 26, innerGap: 0, street: 12 },
+  // Finansdistriktet: utökat österut = 24 skyskrapetomter, sydost mot vattnet
+  { district: "finans", cx: 240, cz: 120, blockCols: 6, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 26, parcelD: 26, innerGap: 0, street: 12 },
   // Innerstaden: 15 kvarter à 2×2 tomter norr om centrum = 60 fastigheter
   { district: "innerstad", cx: -10, cz: -185, blockCols: 5, blockRows: 3, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, innerGap: 0, street: 15 },
-  // Hamnen: kajnära dubbelrad längs vattnet
-  { district: "hamnen", cx: 0, cz: 262, blockCols: 10, blockRows: 2, parcelCols: 1, parcelRows: 1, parcelW: 24, parcelD: 24, innerGap: 0, street: 10 },
-  // Industriområdet: stora fristående tomter i nordost
-  { district: "industri", cx: 320, cz: -125, blockCols: 5, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, innerGap: 0, street: 12 },
+  // Hamnen: kajnära rad längs vattnet – utökad österut till 24 tomter
+  { district: "hamnen", cx: 0, cz: 262, blockCols: 12, blockRows: 2, parcelCols: 1, parcelRows: 1, parcelW: 24, parcelD: 24, innerGap: 0, street: 10 },
+  // Industriområdet: utökat norrut = 25 stora tomter i nordost
+  { district: "industri", cx: 320, cz: -150, blockCols: 5, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, innerGap: 0, street: 12 },
   // Förorten: 16 storkvarter i väst – varje tomt är ETT helt kvarter
   { district: "förort", cx: -295, cz: 55, blockCols: 4, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, innerGap: 0, street: 13 },
-  // Villakullen: små villatomter i nordväst
-  { district: "kulle", cx: -305, cz: -195, blockCols: 6, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 22, parcelD: 22, innerGap: 0, street: 11 },
+  // Villakullen: utökad i nordvästra hörnet = 35 villatomter
+  { district: "kulle", cx: -330, cz: -210, blockCols: 7, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 22, parcelD: 22, innerGap: 0, street: 11 },
 ];
 
 export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
@@ -120,10 +120,10 @@ const EXPANSIONS: ExpansionDef[] = [
   { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "kommunal" },
   { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "kommunal" },
   // Planområden: privat råmark i stadens utkanter.
-  { blockId: "kulle-plan0", district: "kulle", cx: -440, cz: -195, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 22, kind: "plan" },
+  { blockId: "kulle-plan0", district: "kulle", cx: -472, cz: -120, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 22, kind: "plan" },
   { blockId: "förort-plan0", district: "förort", cx: -447, cz: 90, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "plan" },
   { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "plan" },
-  { blockId: "finans-plan0", district: "finans", cx: 335, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
+  { blockId: "finans-plan0", district: "finans", cx: 405, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
   { blockId: "industri-plan0", district: "industri", cx: 480, cz: -40, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
   { blockId: "industri-plan1", district: "industri", cx: 480, cz: -220, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
   { blockId: "hamnen-plan0", district: "hamnen", cx: 260, cz: 265, parcelCols: 2, parcelRows: 1, parcelW: 24, parcelD: 24, kind: "plan", waterfront: true },
@@ -261,22 +261,35 @@ export function zoneStreets(): StreetSeg[] {
 /** Beräknas en gång – gatunätet är statiskt. */
 export const ZONE_STREETS: StreetSeg[] = zoneStreets();
 
+const ZONE_BY_DISTRICT = new Map(DISTRICT_ZONES.map((z) => [z.district, z] as const));
+
 /**
- * Sannolikhet (i %) att en ledig tomtruta bär dekorativ bebyggelse.
- * Delas av 3D-vyn (StaticCity) och tillväxtlogiken nedan så att kartan
- * och motorn alltid är överens om vad som är bebyggt.
+ * Grundtäthet (i %) i distriktets KÄRNA för dekorativ bebyggelse. Sänkt så att
+ * staden startar med rejält med tom mark att växa in i (tillväxtfronten, Fas 1).
+ * Delas av 3D-vyn (StaticCity) och tillväxtlogiken så att kartan och motorn
+ * alltid är överens om vad som är bebyggt.
  */
 export function ambientChanceFor(district: string): number {
-  if (district === "centrum" || district === "innerstad") return 80;
-  if (district === "finans" || district === "hamnen") return 70;
-  return 58;
+  if (district === "centrum" || district === "innerstad") return 60;
+  if (district === "finans" || district === "hamnen") return 50;
+  return 38;
 }
 
-/** Bär tomten ett dekorhus? Deterministiskt ur tomt-hashen, plus de
- *  hus som vuxit fram organiskt under spelets gång (ambientGrown). */
+/** Bär tomten ett dekorhus? Deterministiskt ur tomt-hashen, plus de hus som
+ *  vuxit fram organiskt under spelets gång (ambientGrown). Tätheten avtar mot
+ *  distriktets kanter så att kärnorna är byggda medan utkanterna är tomma –
+ *  det ger fronten mark att breda ut sig UTÅT i. */
 export function hasAmbientBuilding(p: Parcel, grown?: ReadonlySet<string>): boolean {
   if (p.expansion) return false;
-  return parcelHash(p.id) % 100 < ambientChanceFor(p.district) || (grown?.has(p.id) ?? false);
+  if (grown?.has(p.id)) return true;
+  const zone = ZONE_BY_DISTRICT.get(p.district);
+  let chance = ambientChanceFor(p.district);
+  if (zone) {
+    const ex = Math.min(1, Math.abs(p.x - zone.x) / Math.max(1, zone.w / 2));
+    const ez = Math.min(1, Math.abs(p.z - zone.z) / Math.max(1, zone.d / 2));
+    chance *= 1 - 0.55 * Math.max(ex, ez); // upp till 55 % glesare vid kanterna
+  }
+  return parcelHash(p.id) % 100 < chance;
 }
 
 /** Tomt-id:n som upptas av spelobjekt (ägda/annonser/tomter/rivaler). */
