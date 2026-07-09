@@ -1,0 +1,98 @@
+/* ============================================================
+   UI-galleri – renderar varje panel isolerat med ett fabricerat
+   tillstånd, utan 3D-canvas eller spelklocka. Aktiveras med
+   ?gallery i URL:en. Gör visuell QA av hela UI:t deterministisk
+   och skärmbildbar (sidan är statisk – ingen rAF-loop).
+   ============================================================ */
+
+import { Component, type ReactNode } from "react";
+import { equityOf, loanTerms, ltvOf } from "../engine/finance";
+import { propNOI } from "../engine/property";
+import { C, FONTS, THEME } from "../styles/tokens";
+import { galleryState } from "./galleryState";
+
+import { MarketPanel } from "../components/MarketPanel";
+import { PortfolioTable } from "../components/PortfolioTable";
+import { PortfolioCard } from "../components/PortfolioCard";
+import { ListingCard } from "../components/ListingCard";
+import { FinancePanel } from "../components/FinancePanel";
+import { CompanyPanel } from "../components/CompanyPanel";
+import { GroupOverview } from "../components/GroupOverview";
+import { StockExchange } from "../components/StockExchange";
+import { TenantPanel } from "../components/TenantPanel";
+import { PolicyPanel } from "../components/PolicyPanel";
+import { IndustryMarket } from "../components/IndustryMarket";
+import { StaffPanel } from "../components/StaffPanel";
+import { ResearchPanel } from "../components/ResearchPanel";
+import { DistrictPanel } from "../components/DistrictPanel";
+import { KPIPanel } from "../components/KPIPanel";
+import { LegacyPanel } from "../components/LegacyPanel";
+import { BuildPanel } from "../components/BuildPanel";
+import { AcquisitionPanel } from "../components/AcquisitionPanel";
+import { ContractCalendar } from "../components/ContractCalendar";
+import { MilestonesPanel } from "../components/MilestonesPanel";
+import { NewsFeedPanel } from "../components/NewsFeedPanel";
+import { FinancialStatements } from "../components/FinancialStatements";
+
+const noop = () => {};
+
+class Boundary extends Component<{ children: ReactNode }, { err: string | null }> {
+  state = { err: null as string | null };
+  static getDerivedStateFromError(e: unknown) { return { err: String(e) }; }
+  render() {
+    if (this.state.err) return <div style={{ color: C.negative, fontSize: 12, padding: 12 }}>⚠ {this.state.err}</div>;
+    return this.props.children;
+  }
+}
+
+function Section({ id, title, width = 480, children }: { id: string; title: string; width?: number; children: ReactNode }) {
+  return (
+    <section id={id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.brassBright, fontSize: 14, letterSpacing: 0.4, borderBottom: `1px solid ${C.brassDim}`, paddingBottom: 4 }}>
+        {title}
+      </div>
+      <div style={{ width, maxWidth: "100%", background: C.felt, border: `1px solid ${C.brassDim}`, borderRadius: 8, padding: 14 }}>
+        <Boundary>{children}</Boundary>
+      </div>
+    </section>
+  );
+}
+
+export function Gallery() {
+  const state = galleryState();
+  const equity = equityOf(state);
+  const ltv = ltvOf(state);
+  const terms = loanTerms(state);
+  const monthlyNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.feltBg, color: C.creamText, fontFamily: FONTS.body, padding: 24 }}>
+      <h1 style={{ fontFamily: FONTS.display, color: C.brassBright, fontSize: 22, letterSpacing: 2, marginBottom: 4 }}>UI-GALLERI</h1>
+      <div style={{ color: C.creamSoft, fontSize: 13, marginBottom: 24 }}>Alla paneler med fabricerat tillstånd – för visuell QA (?gallery).</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 28, alignItems: "flex-start" }}>
+        <Section id="g-market" title="Marknad">{<MarketPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-portfoliotable" title="Portföljtabell" width={640}>{<PortfolioTable state={state} dispatch={noop} />}</Section>
+        <Section id="g-portfoliocard" title="Fastighetskort (Portfölj)" width={360}>{<PortfolioCard p={state.portfolio[0]} state={state} dispatch={noop} />}</Section>
+        <Section id="g-listing" title="Objektkort (Marknad)" width={360}>{<ListingCard p={state.listings[0]} state={state} dispatch={noop} />}</Section>
+        <Section id="g-finance" title="Finans" width={640}>{<FinancePanel state={state} dispatch={noop} equity={equity} ltv={ltv} terms={terms} />}</Section>
+        <Section id="g-company" title="Bolag">{<CompanyPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-group" title="Koncernöversikt" width={640}>{<GroupOverview state={state} dispatch={noop} />}</Section>
+        <Section id="g-stocks" title="Börs" width={860}>{<StockExchange state={state} dispatch={noop} />}</Section>
+        <Section id="g-tenants" title="Uthyrning" width={640}>{<TenantPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-policy" title="Policy">{<PolicyPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-industry" title="Industrimarknad" width={640}>{<IndustryMarket state={state} dispatch={noop} />}</Section>
+        <Section id="g-staff" title="Anställda">{<StaffPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-research" title="Forskning">{<ResearchPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-district" title="Distrikt">{<DistrictPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-kpi" title="Nyckeltal (KPI)">{<KPIPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-legacy" title="Arv & slutspel">{<LegacyPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-build" title="Bygg">{<BuildPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-acquisition" title="Förvärv" width={640}>{<AcquisitionPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-contracts" title="Kontraktskalender" width={640}>{<ContractCalendar state={state} />}</Section>
+        <Section id="g-milestones" title="Milstolpar">{<MilestonesPanel state={state} />}</Section>
+        <Section id="g-news" title="Nyhetsflöde" width={520}>{<NewsFeedPanel state={state} />}</Section>
+        <Section id="g-statements" title="Bokslut" width={640}>{<FinancialStatements state={state} />}</Section>
+      </div>
+    </div>
+  );
+}
