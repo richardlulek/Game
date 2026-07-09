@@ -36,13 +36,22 @@ describe("bolagsnivåer", () => {
       expect(w.has(id)).toBe(false);
   });
 
+  it("Börsen låses upp på nivå 2 men förvärv/koncern först på nivå 4", () => {
+    const w2 = unlockedWindows(2);
+    expect(w2.has("stocks")).toBe(true); // börsen tidigt tillgänglig
+    expect(w2.has("acquisition")).toBe(false); // förvärv kvar på nivå 4
+    expect(w2.has("group")).toBe(false);
+  });
+
   it("upplåsningarna är kumulativa och unlockLevelFor pekar rätt", () => {
     const w4 = unlockedWindows(4);
     expect(w4.has("build")).toBe(true); // nivå 2
+    expect(w4.has("stocks")).toBe(true); // nivå 2
     expect(w4.has("staff")).toBe(true); // nivå 3
-    expect(w4.has("stocks")).toBe(true); // nivå 4
+    expect(w4.has("acquisition")).toBe(true); // nivå 4
     expect(w4.has("industri")).toBe(false); // nivå 5
-    expect(unlockLevelFor("stocks")).toBe(4);
+    expect(unlockLevelFor("stocks")).toBe(2);
+    expect(unlockLevelFor("acquisition")).toBe(4);
     expect(unlockLevelFor("industri")).toBe(5);
     expect(unlockLevelFor("portfolio")).toBe(1);
   });

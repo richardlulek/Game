@@ -21,3 +21,27 @@ button:disabled {
 body {
   margin: 0;
 }
+
+/* Börsen: kursflash när en kurs uppdateras (feature 5). */
+@keyframes flashUp {
+  from { background: rgba(46, 139, 87, 0.55); }
+  to { background: transparent; }
+}
+@keyframes flashDown {
+  from { background: rgba(184, 48, 48, 0.55); }
+  to { background: transparent; }
+}
+
+/* Börsen: rullande kursremsa / ticker-tape (feature 4). */
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: tickerScroll 60s linear infinite;
+}
+.ticker-viewport:hover .ticker-track {
+  animation-play-state: paused;
+}

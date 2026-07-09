@@ -55,8 +55,8 @@ export const TIERS: CompanyTier[] = [
     upgradeCost: 400_000,
     monthlyOverhead: 9_000,
     selfManagedCap: 6,
-    unlocks: ["build", "rivals", "calendar", "milestones", "nyheter", "policy"],
-    desc: "Bolaget registreras och flyttar in på ett riktigt kontor.",
+    unlocks: ["build", "rivals", "calendar", "milestones", "nyheter", "policy", "stocks"],
+    desc: "Bolaget registreras och flyttar in på ett riktigt kontor – och börsen öppnas.",
     headline: "{n} registrerat – nytt fastighetsbolag tar plats i staden",
   },
   {
@@ -81,9 +81,9 @@ export const TIERS: CompanyTier[] = [
     upgradeCost: 3_500_000,
     monthlyOverhead: 65_000,
     selfManagedCap: 16,
-    unlocks: ["stocks", "acquisition", "group"],
-    desc: "Kapitalmarknaden öppnas: börshandel och företagsförvärv.",
-    headline: "{n} växer till regional koncern – börsen och förvärv väntar",
+    unlocks: ["acquisition", "group"],
+    desc: "Koncernmakt: företagsförvärv och koncernöversikt.",
+    headline: "{n} växer till regional koncern – förvärv och koncernstyrning väntar",
   },
   {
     level: 5,

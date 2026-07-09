@@ -1,13 +1,15 @@
 /* ============================================================
-   Börsen – djupare aktiemarknadsvy med limitorder, nyhetshändelser
-   och portföljhistorik. Inline-stilar, inga externa beroenden.
+   Börsen – levande handelsterminal: rullande ticker, sorterbar och
+   sökbar kurslista med kursflash, samt en rik detaljvy per aktie med
+   graf, fundamenta, rivalinsyn, uppköpsdrama och nyhetshistorik.
+   Inline-stilar, inga externa beroenden.
    ============================================================ */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { calYear } from "../engine/date";
 import { kr, msek, pct } from "../engine/format";
 import { COURTAGE, stockHoldingsValue } from "../engine/stocks";
-import type { GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
+import type { Competitor, GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
 interface StockExchangeProps {
@@ -29,6 +31,13 @@ const SECTOR_LABEL: Record<Sector, string> = {
   bygg: "Bygg",
   handel: "Handel",
   industri: "Industri",
+};
+
+const STRATEGY_LABEL: Record<string, string> = {
+  tillväxt: "Tillväxt",
+  utdelning: "Utdelning",
+  värde: "Värde",
+  distrikt: "Distriktsfokus",
 };
 
 // ── Gemensamma stilar ──────────────────────────────────────────────────
@@ -157,26 +166,90 @@ function Spark({
   );
 }
 
-/** Branschchip. */
-function SectorChip({ sector }: { sector: Sector }) {
+/** Prisområde-graf med fylld yta (detaljvyn). */
+function AreaChart({ data, width = 520, height = 120, color }: { data: number[]; width?: number; height?: number; color: string }) {
+  if (!data || data.length < 2) return <div style={{ width: "100%", height, color: C.inkSoft, fontSize: 12 }}>För lite historik ännu.</div>;
+  const pad = 6;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const xy = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (width - 2 * pad);
+    const y = height - pad - ((v - min) / range) * (height - 2 * pad);
+    return [x, y] as const;
+  });
+  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const area = `${pad},${height - pad} ${line} ${(width - pad).toFixed(1)},${height - pad}`;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: "100%", height, display: "block" }}>
+      <polygon points={area} fill={color} opacity={0.12} />
+      <polyline points={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Kursflash: grön/röd puls när värdet ändras (feature 5). */
+function FlashCell({ value, prev, children }: { value: number; prev: number; children: React.ReactNode }) {
+  const dir = value > prev ? "up" : value < prev ? "down" : "flat";
   return (
     <span
+      key={value}
       style={{
-        background: SECTOR_COLOR[sector],
-        color: C.creamText,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0.8,
-        textTransform: "uppercase",
-        padding: "2px 8px",
+        display: "inline-block",
         borderRadius: 3,
-        border: `1px solid ${C.brass}88`,
-        fontFamily: FONTS.body,
-        whiteSpace: "nowrap",
+        padding: "0 3px",
+        animation: dir === "up" ? "flashUp 0.6s ease-out" : dir === "down" ? "flashDown 0.6s ease-out" : undefined,
       }}
     >
-      {SECTOR_LABEL[sector]}
+      {children}
     </span>
+  );
+}
+
+function RatingBadge({ rating }: { rating: NonNullable<Stock["analystRating"]> }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700,
+      background: rating === "Köp" ? C.green : rating === "Sälj" ? "#b83030" : C.wood,
+      color: C.creamText,
+      padding: "2px 7px", borderRadius: 10,
+    }}>
+      {rating}
+    </span>
+  );
+}
+
+// ── Rullande kursremsa (ticker-tape, feature 4) ─────────────────────────
+
+function TickerTape({ stocks }: { stocks: Stock[] }) {
+  if (stocks.length === 0) return null;
+  const item = (s: Stock, i: number) => {
+    const dayCh = s.prevPrice ? s.price / s.prevPrice - 1 : 0;
+    const up = dayCh >= 0;
+    return (
+      <span key={`${s.id}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 16px", fontFamily: FONTS.heading, fontSize: 13 }}>
+        <span style={{ color: C.creamSoft, fontWeight: 700, letterSpacing: 0.5 }}>{s.name.toUpperCase()}</span>
+        <span style={{ color: C.brassBright }}>{kr(s.price)}</span>
+        <span style={{ color: up ? C.positiveBright : C.negativeBright, fontWeight: 700 }}>
+          {up ? "▲" : "▼"} {Math.abs(dayCh * 100).toFixed(1)}%
+        </span>
+      </span>
+    );
+  };
+  return (
+    <div className="ticker-viewport" style={{
+      overflow: "hidden",
+      background: "#12100a",
+      border: `1px solid ${C.brass}`,
+      borderRadius: 6,
+      padding: "8px 0",
+      boxShadow: THEME.insetGold,
+    }}>
+      <div className="ticker-track">
+        {stocks.map(item)}
+        {stocks.map((s, i) => item(s, i + stocks.length))}
+      </div>
+    </div>
   );
 }
 
@@ -184,12 +257,10 @@ function SectorChip({ sector }: { sector: Sector }) {
 
 function LimitOrderForm({
   stock,
-  currentMonth,
   dispatch,
   onClose,
 }: {
   stock: Stock;
-  currentMonth: number;
   dispatch: (a: GameAction) => void;
   onClose: () => void;
 }) {
@@ -200,28 +271,16 @@ function LimitOrderForm({
   const isValid = qty > 0 && price > 0;
 
   return (
-    <div
-      style={{
-        background: "#eaf0f7",
-        border: `1px solid ${C.brass}`,
-        borderRadius: 6,
-        padding: 14,
-        marginTop: 10,
-      }}
-    >
+    <div style={{ background: "#eaf0f7", border: `1px solid ${C.brass}`, borderRadius: 6, padding: 14, marginTop: 10 }}>
       <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: BURGUNDY, marginBottom: 10 }}>
         Limitorder – {stock.name}
       </div>
-
-      {/* Sida */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         {(["buy", "sell"] as const).map((s) => (
           <button
             key={s}
             style={{
-              ...secondaryBtn,
-              flex: 1,
-              padding: "7px 0",
+              ...secondaryBtn, flex: 1, padding: "7px 0",
               background: side === s ? BURGUNDY : "transparent",
               color: side === s ? C.brassBright : C.ink,
               border: `1px solid ${side === s ? C.brass : C.brassDim}`,
@@ -232,250 +291,191 @@ function LimitOrderForm({
           </button>
         ))}
       </div>
-
       <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div>
           <div style={subLabel}>Antal aktier</div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button style={stepBtn} onClick={() => setQty(Math.max(1, qty - 100))}>−</button>
-            <input
-              type="number"
-              min={1}
-              value={qty}
-              onChange={(e) => setQty(Math.max(1, Math.floor(+e.target.value) || 1))}
-              style={{ ...qtyInput, width: 80 }}
-            />
+            <input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Math.floor(+e.target.value) || 1))} style={{ ...qtyInput, width: 80 }} />
             <button style={stepBtn} onClick={() => setQty(qty + 100)}>+</button>
           </div>
         </div>
         <div>
           <div style={subLabel}>Limitkurs (kr)</div>
-          <input
-            type="number"
-            min={0.01}
-            step={0.5}
-            value={price}
-            onChange={(e) => setPrice(Math.max(0.01, +e.target.value))}
-            style={{ ...qtyInput, width: 100 }}
-          />
+          <input type="number" min={0.01} step={0.5} value={price} onChange={(e) => setPrice(Math.max(0.01, +e.target.value))} style={{ ...qtyInput, width: 100 }} />
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
           <button
             style={isValid ? primaryBtn : { ...primaryBtn, ...disabledBtn }}
             disabled={!isValid}
-            onClick={() => {
-              dispatch({
-                type: "PLACE_LIMIT_ORDER",
-                stockId: stock.id,
-                qty,
-                limitPrice: price,
-                side,
-              });
-              onClose();
-            }}
+            onClick={() => { dispatch({ type: "PLACE_LIMIT_ORDER", stockId: stock.id, qty, limitPrice: price, side }); onClose(); }}
           >
             Lägg order
           </button>
-          <button style={secondaryBtn} onClick={onClose}>
-            Avbryt
-          </button>
+          <button style={secondaryBtn} onClick={onClose}>Avbryt</button>
         </div>
       </div>
-
       <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
         Nu: {kr(stock.price)} · Order exekveras automatiskt nästa månad om kursen når ditt mål.
-        Notera att kurs och tillgång kan skilja sig vid exekvering.
       </div>
     </div>
   );
 }
 
-// ── En aktierad ────────────────────────────────────────────────────────
+// ── Aktiedetaljvy (feature 6, 8, 9) ─────────────────────────────────────
 
-function StockRow({
-  stock,
-  state,
-  dispatch,
-}: {
-  stock: Stock;
-  state: GameState;
-  dispatch: (a: GameAction) => void;
-}) {
+const TIMEFRAMES: { id: string; label: string; points: number }[] = [
+  { id: "6m", label: "6 mån", points: 6 },
+  { id: "1y", label: "1 år", points: 12 },
+  { id: "all", label: "Allt", points: 999 },
+];
+
+function StockDetail({ stock, state, dispatch }: { stock: Stock; state: GameState; dispatch: (a: GameAction) => void }) {
   const [qty, setQty] = useState(100);
   const [showLimit, setShowLimit] = useState(false);
+  const [shortQtyInput, setShortQtyInput] = useState(100);
+  const [tf, setTf] = useState("1y");
   const setQtyClamp = (v: number) => setQty(Math.max(0, Math.floor(v) || 0));
 
   const cost = qty * stock.price * (1 + COURTAGE);
   const canBuy = qty > 0 && state.cash >= cost;
-  const canSell = stock.owned > 0 && qty > 0;
   const sellQty = Math.min(qty, stock.owned);
+  const canSell = stock.owned > 0 && qty > 0;
   const proceeds = sellQty * stock.price * (1 - COURTAGE);
   const maxAffordable = Math.floor(state.cash / (stock.price * (1 + COURTAGE)));
-  const monthChange = stock.prevPrice ? stock.price / stock.prevPrice - 1 : 0;
+  const monthChange = stock.monthClose ? stock.price / stock.monthClose - 1 : 0;
   const ownShare = stock.sharesOutstanding > 0 ? stock.owned / stock.sharesOutstanding : 0;
   const marketCap = stock.price * stock.sharesOutstanding;
   const unrealized = stock.owned > 0 ? stock.owned * (stock.price - stock.avgCost) : 0;
-
-  const shortQty = stock.shortQty ?? 0;
-  const shortPnl = shortQty > 0 && stock.shortAvgPrice
-    ? Math.round(shortQty * (stock.shortAvgPrice - stock.price))
-    : 0;
-  const pe = stock.eps && stock.eps > 0 ? Math.round(stock.price / stock.eps * 10) / 10 : null;
+  const pe = stock.eps && stock.eps > 0 ? Math.round((stock.price / stock.eps) * 10) / 10 : null;
   const high52 = stock.history.length > 0 ? Math.max(...stock.history) : stock.price;
   const low52 = stock.history.length > 0 ? Math.min(...stock.history) : stock.price;
   const fromHigh = (stock.price - high52) / high52;
-  const [shortQtyInput, setShortQtyInput] = useState(100);
   const isPlayerCompany = stock.competitorName === "__player__";
 
-  const linkedComp = stock.competitorName
+  const shortQty = stock.shortQty ?? 0;
+  const shortPnl = shortQty > 0 && stock.shortAvgPrice ? Math.round(shortQty * (stock.shortAvgPrice - stock.price)) : 0;
+
+  const linkedComp: Competitor | undefined = stock.competitorName && !isPlayerCompany
     ? state.competitors.find((c) => c.name === stock.competitorName)
     : undefined;
   const canAcquire = ownShare > 0.5;
-  const acquireCost = (stock.sharesOutstanding - stock.owned) * stock.price * 1.2;
+  const friendly = ownShare >= 0.75;
+  const premium = friendly ? 0.15 : 0.30;
+  const acquireCost = (stock.sharesOutstanding - stock.owned) * stock.price * (1 + premium);
+
+  const chartData = useMemo(() => {
+    const n = TIMEFRAMES.find((t) => t.id === tf)?.points ?? 999;
+    return stock.history.slice(-n);
+  }, [stock.history, tf]);
+  const chartChange = chartData.length > 1 ? chartData[chartData.length - 1] / chartData[0] - 1 : 0;
+
+  const Metric = ({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) => (
+    <div>
+      <div style={subLabel}>{label}</div>
+      <div style={{ ...num, fontSize: 15, fontWeight: 700, color: color ?? C.ink }}>{value}</div>
+    </div>
+  );
 
   return (
-    <div style={{ ...card, padding: 14 }}>
-      {/* Namn + chip + pris */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: FONTS.heading, fontSize: 17, fontWeight: 700, color: C.ink }}>
-              {stock.name}
-            </span>
-            <SectorChip sector={stock.sector} />
-            {stock.analystRating && (
-              <span style={{
-                fontSize: 10, fontWeight: 700,
-                background: stock.analystRating === "Köp" ? C.green : stock.analystRating === "Sälj" ? "#b83030" : C.wood,
-                color: C.creamText,
-                padding: "2px 7px", borderRadius: 10,
-              }}>
-                {stock.analystRating}
-              </span>
-            )}
-            {stock.owned > 0 && (
-              <span style={{
-                fontSize: 10, fontWeight: 700, background: C.green, color: "#fff",
-                padding: "2px 7px", borderRadius: 10,
-              }}>
-                ÄGER
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: 12, color: C.inkSoft }}>
-            Utdelning: <span style={num}>{pct(stock.dividendYield)}</span>/år
-            {" · "}Mktcap: <span style={num}>{msek(marketCap)}</span>
-          </div>
+    <div style={{ background: "#f6f2e8", border: `1px solid ${C.brass}`, borderTop: "none", borderRadius: "0 0 6px 6px", padding: 16 }}>
+      {/* Graf + tidsval */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: BURGUNDY, fontSize: 14 }}>
+          Kursutveckling{" "}
+          <span style={{ color: trendColor(chartChange), fontSize: 13 }}>{signed(chartChange)}</span>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Spark data={stock.history} color={trendColor(monthChange)} />
-          <div style={{ textAlign: "right" }}>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(stock.price)}</div>
-            <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(monthChange) }}>
-              {signed(monthChange)}
-            </div>
-          </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {TIMEFRAMES.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTf(t.id)}
+              style={{
+                ...secondaryBtn, padding: "4px 10px", fontSize: 11,
+                background: tf === t.id ? C.wood : "transparent",
+                color: tf === t.id ? C.brassBright : C.ink,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
-
-      {/* Konkurrentens drift */}
-      {linkedComp && (
-        <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 12, color: C.inkSoft }}>
-          <span>Bestånd: <span style={num}>{linkedComp.units.toLocaleString("sv-SE")}</span> objekt</span>
-          {linkedComp.monthlyNOI !== undefined && (
-            <span>Driftnetto: <span style={num}>{kr(linkedComp.monthlyNOI)}</span>/mån</span>
-          )}
-        </div>
-      )}
+      <AreaChart data={chartData} color={trendColor(chartChange)} />
 
       <GoldRule />
 
-      {/* Innehav + P&L */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 8, marginBottom: 4 }}>
-        <div>
-          <div style={subLabel}>Ditt innehav</div>
-          <div style={{ ...num, fontSize: 15, color: C.ink, fontWeight: 700 }}>
-            {stock.owned.toLocaleString("sv-SE")} st
-          </div>
-        </div>
-        <div>
-          <div style={subLabel}>Marknadsvärde</div>
-          <div style={{ ...num, fontSize: 15, color: C.ink, fontWeight: 700 }}>
-            {kr(stock.owned * stock.price)}
-          </div>
-        </div>
-        {stock.owned > 0 && (
-          <div>
-            <div style={subLabel}>Orealiserat</div>
-            <div style={{ ...num, fontSize: 15, fontWeight: 700, color: trendColor(unrealized) }}>
-              {(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))}
-            </div>
-          </div>
-        )}
-        <div>
-          <div style={subLabel}>Ägarandel</div>
-          <div style={{ ...num, fontSize: 15, fontWeight: 700, color: ownShare > 0.5 ? BURGUNDY : C.ink }}>
-            {pct(ownShare)}
-          </div>
-        </div>
-        {pe !== null && (
-          <div>
-            <div style={subLabel}>P/E-tal</div>
-            <div style={{ ...num, fontSize: 15, fontWeight: 700, color: pe < 10 ? C.green : pe > 25 ? "#b83030" : C.ink }}>
-              {pe}×
-            </div>
-          </div>
-        )}
-        <div>
-          <div style={subLabel}>52v Intervall</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft }}>
-            {kr(low52)} – {kr(high52)}
-          </div>
-          <div style={{ fontSize: 10, color: fromHigh < -0.15 ? "#b83030" : C.inkSoft }}>
-            {((stock.price - high52) / high52 * 100).toFixed(0)} % från topp
-          </div>
-        </div>
-        {shortQty > 0 && (
-          <div>
-            <div style={subLabel}>Blankat</div>
-            <div style={{ ...num, fontSize: 15, fontWeight: 700, color: shortPnl >= 0 ? C.green : "#b83030" }}>
-              {shortQty.toLocaleString("sv-SE")} st
-            </div>
-            <div style={{ ...num, fontSize: 12, fontWeight: 700, color: shortPnl >= 0 ? C.green : "#b83030" }}>
-              {shortPnl >= 0 ? "+" : ""}{kr(shortPnl)}
-            </div>
-          </div>
-        )}
+      {/* Fundamenta */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(96px,1fr))", gap: 10 }}>
+        <Metric label="Kurs" value={kr(stock.price)} />
+        <Metric label="Månad" value={signed(monthChange)} color={trendColor(monthChange)} />
+        {pe !== null && <Metric label="P/E-tal" value={`${pe}×`} color={pe < 10 ? C.green : pe > 25 ? "#b83030" : C.ink} />}
+        {stock.eps !== undefined && <Metric label="Vinst/aktie" value={kr(stock.eps)} />}
+        {stock.targetKurs !== undefined && <Metric label="Riktkurs" value={kr(stock.targetKurs)} color={stock.targetKurs > stock.price ? C.green : "#b83030"} />}
+        <Metric label="Utdelning" value={`${pct(stock.dividendYield)}/år`} />
+        <Metric label="Mktcap" value={msek(marketCap)} />
+        <Metric label="52v intervall" value={<span style={{ fontSize: 12 }}>{kr(low52)}–{kr(high52)}</span>} color={fromHigh < -0.15 ? "#b83030" : C.inkSoft} />
+        <Metric label="Ägarandel" value={pct(ownShare)} color={ownShare > 0.5 ? BURGUNDY : C.ink} />
+        {stock.owned > 0 && <Metric label="Orealiserat" value={(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))} color={trendColor(unrealized)} />}
       </div>
 
-      {/* Förvärvsknapp / hint */}
-      {stock.competitorName && (canAcquire || ownShare > 0.25) && (
-        <div style={{ marginTop: 10 }}>
-          {canAcquire ? (
-            <>
-              <button
-                style={{ ...primaryBtn, width: "100%" }}
-                onClick={() => dispatch({ type: "ACQUIRE_COMPANY", stockId: stock.id })}
-              >
-                Förvärva bolaget
-              </button>
-              <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 5, textAlign: "center" }}>
-                Restpost (ca +20 %): <span style={num}>{kr(acquireCost)}</span>
-              </div>
-            </>
-          ) : (
-            <div style={{
-              fontSize: 12, color: BURGUNDY, fontWeight: 600,
-              background: "#f4f7fb", border: `1px solid ${C.brass}66`,
-              borderRadius: 4, padding: "6px 10px",
-            }}>
-              {ownShare > 0.4
-                ? "Du närmar dig majoritet – över 50 % krävs för förvärv."
-                : "Du är störste ägare – köp mer för att ta kontroll."}
+      {/* Rivalinsyn (feature 8) */}
+      {linkedComp && (
+        <>
+          <GoldRule />
+          <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: BURGUNDY, fontSize: 13, marginBottom: 6 }}>
+            ⚔ Konkurrentinsyn — {linkedComp.name}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 10 }}>
+            <Metric label="Bestånd" value={`${linkedComp.units.toLocaleString("sv-SE")} objekt`} />
+            {linkedComp.monthlyNOI !== undefined && <Metric label="Driftnetto" value={`${kr(linkedComp.monthlyNOI)}/mån`} />}
+            <Metric label="Eget kapital" value={msek(linkedComp.equity)} />
+            {linkedComp.strategy && <Metric label="Strategi" value={STRATEGY_LABEL[linkedComp.strategy] ?? linkedComp.strategy} />}
+          </div>
+          {linkedComp.agenda && (
+            <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 6 }}>
+              🎯 Rivalens mål: <span style={{ fontWeight: 700, color: C.ink }}>{linkedComp.agenda.label}</span>
             </div>
           )}
-        </div>
+          {linkedComp.lastBuy && (
+            <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
+              Senaste förvärv: {linkedComp.lastBuy}
+            </div>
+          )}
+
+          {/* Uppköpsdrama (feature 9) */}
+          {(canAcquire || ownShare > 0.25) && (
+            <div style={{ marginTop: 10 }}>
+              {canAcquire ? (
+                <div style={{
+                  background: friendly ? "#eef6ee" : "#fbeeee",
+                  border: `1px solid ${friendly ? C.green : "#b83030"}66`,
+                  borderRadius: 6, padding: 12,
+                }}>
+                  <div style={{ fontWeight: 700, color: friendly ? C.green : "#b83030", marginBottom: 4 }}>
+                    {friendly ? "🤝 Vänligt bud — styrelsen rekommenderar" : "⚔ Fientligt bud — styrelsen reser giftpiller"}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 8 }}>
+                    {friendly
+                      ? "Med bred majoritet (>75 %) rekommenderar styrelsen ditt bud. Premie 15 %, rykte +4."
+                      : "Med 50–75 % möter du styrelsemotstånd och budkrig. Premie 30 %, rykte −3. Köp fler aktier för ett vänligt bud."}
+                  </div>
+                  <button
+                    style={{ ...primaryBtn, width: "100%", background: friendly ? C.green : BURGUNDY }}
+                    disabled={state.cash < acquireCost}
+                    onClick={() => dispatch({ type: "ACQUIRE_COMPANY", stockId: stock.id })}
+                  >
+                    {friendly ? "Lägg vänligt bud" : "Lägg fientligt bud"} · restpost {kr(acquireCost)}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: BURGUNDY, fontWeight: 600, background: "#f4f7fb", border: `1px solid ${C.brass}66`, borderRadius: 4, padding: "6px 10px" }}>
+                  {ownShare > 0.4 ? "Du närmar dig majoritet – över 50 % krävs för ett bud." : "Du är störste ägare – köp mer för att ta kontroll."}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       <GoldRule />
@@ -484,72 +484,20 @@ function StockRow({
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button style={stepBtn} onClick={() => setQtyClamp(qty - 100)}>−</button>
-          <input
-            type="number"
-            min={0}
-            value={qty}
-            onChange={(e) => setQtyClamp(+e.target.value)}
-            style={qtyInput}
-          />
+          <input type="number" min={0} value={qty} onChange={(e) => setQtyClamp(+e.target.value)} style={qtyInput} />
           <button style={stepBtn} onClick={() => setQtyClamp(qty + 100)}>+</button>
         </div>
-        <button
-          style={{ ...secondaryBtn, padding: "8px 10px" }}
-          disabled={maxAffordable <= 0}
-          onClick={() => setQtyClamp(maxAffordable)}
-        >
-          Max
-        </button>
-        <button
-          style={canBuy ? primaryBtn : { ...primaryBtn, ...disabledBtn }}
-          disabled={!canBuy}
-          onClick={() => dispatch({ type: "BUY_SHARES", stockId: stock.id, qty })}
-        >
-          Köp
-        </button>
-        <button
-          style={canSell ? secondaryBtn : { ...secondaryBtn, ...disabledBtn }}
-          disabled={!canSell}
-          onClick={() => dispatch({ type: "SELL_SHARES", stockId: stock.id, qty: sellQty })}
-        >
-          Sälj
-        </button>
-        <button
-          style={{
-            ...secondaryBtn,
-            padding: "8px 12px",
-            background: showLimit ? C.wood : "transparent",
-            color: showLimit ? C.brassBright : C.ink,
-          }}
-          onClick={() => setShowLimit((v) => !v)}
-        >
-          Limit
-        </button>
+        <button style={{ ...secondaryBtn, padding: "8px 10px" }} disabled={maxAffordable <= 0} onClick={() => setQtyClamp(maxAffordable)}>Max</button>
+        <button style={canBuy ? primaryBtn : { ...primaryBtn, ...disabledBtn }} disabled={!canBuy} onClick={() => dispatch({ type: "BUY_SHARES", stockId: stock.id, qty })}>Köp</button>
+        <button style={canSell ? secondaryBtn : { ...secondaryBtn, ...disabledBtn }} disabled={!canSell} onClick={() => dispatch({ type: "SELL_SHARES", stockId: stock.id, qty: sellQty })}>Sälj</button>
+        <button style={{ ...secondaryBtn, padding: "8px 12px", background: showLimit ? C.wood : "transparent", color: showLimit ? C.brassBright : C.ink }} onClick={() => setShowLimit((v) => !v)}>Limit</button>
       </div>
-
-      {/* Kostnads-/likvidförhandsvisning */}
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12, color: C.inkSoft }}>
-        <span>
-          Köp {qty.toLocaleString("sv-SE")} st:{" "}
-          <span style={{ ...num, color: canBuy ? C.ink : C.negative }}>{kr(cost)}</span>
-        </span>
-        {stock.owned > 0 && (
-          <span>
-            Sälj {sellQty.toLocaleString("sv-SE")} st:{" "}
-            <span style={{ ...num, color: C.ink }}>{kr(proceeds)}</span>
-          </span>
-        )}
+        <span>Köp {qty.toLocaleString("sv-SE")} st: <span style={{ ...num, color: canBuy ? C.ink : C.negative }}>{kr(cost)}</span></span>
+        {stock.owned > 0 && <span>Sälj {sellQty.toLocaleString("sv-SE")} st: <span style={{ ...num, color: C.ink }}>{kr(proceeds)}</span></span>}
       </div>
 
-      {/* Limitorderformulär */}
-      {showLimit && (
-        <LimitOrderForm
-          stock={stock}
-          currentMonth={state.month}
-          dispatch={dispatch}
-          onClose={() => setShowLimit(false)}
-        />
-      )}
+      {showLimit && <LimitOrderForm stock={stock} dispatch={dispatch} onClose={() => setShowLimit(false)} />}
 
       {/* Blankning */}
       {!isPlayerCompany && (
@@ -561,34 +509,18 @@ function StockRow({
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <button style={stepBtn} onClick={() => setShortQtyInput(Math.max(1, shortQtyInput - 100))}>−</button>
-                  <input
-                    type="number"
-                    min={1}
-                    value={shortQtyInput}
-                    onChange={(e) => setShortQtyInput(Math.max(1, Math.floor(+e.target.value) || 1))}
-                    style={{ ...qtyInput, width: 72 }}
-                  />
+                  <input type="number" min={1} value={shortQtyInput} onChange={(e) => setShortQtyInput(Math.max(1, Math.floor(+e.target.value) || 1))} style={{ ...qtyInput, width: 72 }} />
                   <button style={stepBtn} onClick={() => setShortQtyInput(shortQtyInput + 100)}>+</button>
                 </div>
-                <button
-                  style={{ ...secondaryBtn, border: "1px solid #b83030", color: "#b83030" }}
-                  onClick={() => dispatch({ type: "SHORT_STOCK", stockId: stock.id, qty: shortQtyInput })}
-                >
-                  Sälj blankt
-                </button>
-                <span style={{ fontSize: 10, color: C.inkSoft }}>
-                  Marginal: {kr(Math.round(stock.price * shortQtyInput * 1.5))}
-                </span>
+                <button style={{ ...secondaryBtn, border: "1px solid #b83030", color: "#b83030" }} onClick={() => dispatch({ type: "SHORT_STOCK", stockId: stock.id, qty: shortQtyInput })}>Sälj blankt</button>
+                <span style={{ fontSize: 10, color: C.inkSoft }}>Marginal: {kr(Math.round(stock.price * shortQtyInput * 1.5))}</span>
               </>
             ) : (
               <>
                 <span style={{ fontSize: 12, color: shortPnl >= 0 ? C.green : "#b83030" }}>
                   {shortQty.toLocaleString("sv-SE")} aktier blankade @ {stock.shortAvgPrice ? kr(stock.shortAvgPrice) : "—"}
                 </span>
-                <button
-                  style={{ ...primaryBtn, background: shortPnl >= 0 ? C.green : "#b83030" }}
-                  onClick={() => dispatch({ type: "COVER_SHORT", stockId: stock.id })}
-                >
+                <button style={{ ...primaryBtn, background: shortPnl >= 0 ? C.green : "#b83030" }} onClick={() => dispatch({ type: "COVER_SHORT", stockId: stock.id })}>
                   Täck blankning ({shortPnl >= 0 ? "+" : ""}{kr(shortPnl)})
                 </button>
               </>
@@ -596,67 +528,111 @@ function StockRow({
           </div>
         </>
       )}
+
+      {/* Nyhetshistorik (feature 6/7) */}
+      {stock.newsHistory && stock.newsHistory.length > 0 && (
+        <>
+          <GoldRule />
+          <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: BURGUNDY, fontSize: 13, marginBottom: 6 }}>Nyhetshistorik</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {stock.newsHistory.slice(0, 6).map((n, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, fontSize: 12, alignItems: "baseline" }}>
+                <span style={{ color: n.dir === "up" ? C.green : n.dir === "down" ? "#b83030" : C.inkSoft, fontWeight: 700, width: 14 }}>
+                  {n.dir === "up" ? "▲" : n.dir === "down" ? "▼" : "•"}
+                </span>
+                <span style={{ color: C.inkSoft, fontFamily: FONTS.heading, whiteSpace: "nowrap" }}>{n.month}/{calYear(n.year)}</span>
+                <span style={{ color: C.ink }}>{n.text}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+// ── Kompakt tabellrad (feature 1) ───────────────────────────────────────
+
+function StockTableRow({ stock, state, dispatch, expanded, onToggle }: {
+  stock: Stock;
+  state: GameState;
+  dispatch: (a: GameAction) => void;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const dayChange = stock.prevPrice ? stock.price / stock.prevPrice - 1 : 0;
+  const monthChange = stock.monthClose ? stock.price / stock.monthClose - 1 : 0;
+  const ownShare = stock.sharesOutstanding > 0 ? stock.owned / stock.sharesOutstanding : 0;
+  const pe = stock.eps && stock.eps > 0 ? Math.round((stock.price / stock.eps) * 10) / 10 : null;
+  const isNew = stock.listedYear !== undefined;
+  const isRival = !!stock.competitorName && stock.competitorName !== "__player__";
+
+  const cell: React.CSSProperties = { padding: "9px 10px", verticalAlign: "middle", borderBottom: `1px solid ${C.brassDim}33` };
+
+  return (
+    <>
+      <tr
+        onClick={onToggle}
+        style={{ cursor: "pointer", background: expanded ? "#efe7d4" : stock.owned > 0 ? "#f3f6f0" : "transparent" }}
+      >
+        <td style={{ ...cell, width: 22, textAlign: "center", color: C.brassDim }}>{expanded ? "▾" : "▸"}</td>
+        <td style={cell}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: SECTOR_COLOR[stock.sector], flexShrink: 0 }} />
+            <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.ink, fontSize: 14 }}>{stock.name}</span>
+            {isRival && <span title="Konkurrent" style={{ fontSize: 11 }}>⚔</span>}
+            {isNew && <span style={{ fontSize: 9, fontWeight: 700, background: C.brass, color: "#1a1000", padding: "1px 5px", borderRadius: 8 }}>NY</span>}
+            {stock.owned > 0 && <span style={{ fontSize: 9, fontWeight: 700, background: C.green, color: "#fff", padding: "1px 5px", borderRadius: 8 }}>ÄGER</span>}
+            {stock.analystRating && <RatingBadge rating={stock.analystRating} />}
+          </div>
+        </td>
+        <td style={{ ...cell, textAlign: "right", ...num, fontWeight: 700, color: C.ink }}>
+          <FlashCell value={stock.price} prev={stock.prevPrice}>{kr(stock.price)}</FlashCell>
+        </td>
+        <td style={{ ...cell, textAlign: "right", ...num, fontWeight: 700, fontSize: 12, color: trendColor(dayChange) }}>{signed(dayChange)}</td>
+        <td style={{ ...cell, textAlign: "right", ...num, fontWeight: 700, fontSize: 12, color: trendColor(monthChange) }}>{signed(monthChange)}</td>
+        <td style={{ ...cell, width: 96 }}><Spark data={stock.history} color={trendColor(monthChange)} /></td>
+        <td style={{ ...cell, textAlign: "right", ...num, fontSize: 12, color: C.inkSoft }}>{pe !== null ? `${pe}×` : "—"}</td>
+        <td style={{ ...cell, textAlign: "right", ...num, fontSize: 12, fontWeight: 700, color: ownShare > 0.5 ? BURGUNDY : C.inkSoft }}>
+          {ownShare > 0 ? pct(ownShare) : "—"}
+        </td>
+        <td style={{ ...cell, textAlign: "right", ...num, fontSize: 12, color: C.ink }}>{stock.owned > 0 ? kr(stock.owned * stock.price) : "—"}</td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={9} style={{ padding: 0 }}>
+            <StockDetail stock={stock} state={state} dispatch={dispatch} />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
 // ── Limitorderlista ────────────────────────────────────────────────────
 
-function LimitOrdersPanel({
-  orders,
-  state,
-  dispatch,
-}: {
-  orders: LimitOrder[];
-  state: GameState;
-  dispatch: (a: GameAction) => void;
-}) {
+function LimitOrdersPanel({ orders, state, dispatch }: { orders: LimitOrder[]; state: GameState; dispatch: (a: GameAction) => void }) {
   if (orders.length === 0) return null;
   return (
     <div style={card}>
-      <h3 style={{ ...heading, fontSize: 16, marginBottom: 8 }}>
-        Öppna limitorder ({orders.length})
-      </h3>
+      <h3 style={{ ...heading, fontSize: 16, marginBottom: 8 }}>Öppna limitorder ({orders.length})</h3>
       <GoldRule />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {orders.map((o) => {
           const stock = state.stocks.find((s) => s.id === o.stockId);
-          const dist = stock ? ((stock.price - o.limitPrice) / o.limitPrice * 100) : null;
+          const dist = stock ? (stock.price - o.limitPrice) / o.limitPrice * 100 : null;
           return (
-            <div
-              key={o.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "#f0f4f9",
-                border: `1px solid ${C.brassDim}44`,
-                borderRadius: 4,
-                padding: "8px 12px",
-                flexWrap: "wrap",
-                gap: 8,
-              }}
-            >
+            <div key={o.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f0f4f9", border: `1px solid ${C.brassDim}44`, borderRadius: 4, padding: "8px 12px", flexWrap: "wrap", gap: 8 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: C.ink }}>
                   {o.side === "buy" ? "🟢 Köp" : "🔴 Sälj"} {o.qty.toLocaleString("sv-SE")} × {o.stockName}
                 </span>
                 <span style={{ fontSize: 12, color: C.inkSoft }}>
-                  Limitkurs {kr(o.limitPrice)}
-                  {" · "}Nu: {stock ? kr(stock.price) : "—"}
-                  {dist !== null && (
-                    <span style={{ color: Math.abs(dist) < 3 ? C.positive : C.inkSoft }}>
-                      {" "}({dist > 0 ? "+" : ""}{dist.toFixed(1)} % till trigger)
-                    </span>
-                  )}
+                  Limitkurs {kr(o.limitPrice)}{" · "}Nu: {stock ? kr(stock.price) : "—"}
+                  {dist !== null && <span style={{ color: Math.abs(dist) < 3 ? C.positive : C.inkSoft }}> ({dist > 0 ? "+" : ""}{dist.toFixed(1)} % till trigger)</span>}
                 </span>
               </div>
-              <button
-                style={{ ...secondaryBtn, padding: "5px 12px", fontSize: 12 }}
-                onClick={() => dispatch({ type: "CANCEL_LIMIT_ORDER", orderId: o.id })}
-              >
-                Avbryt
-              </button>
+              <button style={{ ...secondaryBtn, padding: "5px 12px", fontSize: 12 }} onClick={() => dispatch({ type: "CANCEL_LIMIT_ORDER", orderId: o.id })}>Avbryt</button>
             </div>
           );
         })}
@@ -672,18 +648,13 @@ function PortfolioHistoryCard({ history }: { history: number[] }) {
   const latest = history[history.length - 1];
   const oldest = history[0];
   const change = oldest > 0 ? (latest - oldest) / oldest : 0;
-
   return (
     <div style={card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ fontFamily: FONTS.display, fontSize: 13, letterSpacing: 1.5, color: C.brassDim, textTransform: "uppercase", marginBottom: 4 }}>
-            Portföljens värde
-          </div>
+          <div style={{ fontFamily: FONTS.display, fontSize: 13, letterSpacing: 1.5, color: C.brassDim, textTransform: "uppercase", marginBottom: 4 }}>Portföljens värde</div>
           <div style={{ ...num, fontSize: 24, fontWeight: 700, color: C.ink }}>{msek(latest)}</div>
-          <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(change), marginTop: 2 }}>
-            {signed(change)} totalt ({history.length} månader)
-          </div>
+          <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(change), marginTop: 2 }}>{signed(change)} totalt ({history.length} månader)</div>
         </div>
         <Spark data={history} width={200} height={44} color={trendColor(change)} />
       </div>
@@ -694,46 +665,18 @@ function PortfolioHistoryCard({ history }: { history: number[] }) {
 // ── Branschindex-rad ───────────────────────────────────────────────────
 
 function SectorSummary({ stocks }: { stocks: Stock[] }) {
-  const sectors = (["fastighet", "bank", "bygg", "handel", "industri"] as Sector[]);
+  const sectors = ["fastighet", "bank", "bygg", "handel", "industri"] as Sector[];
   return (
-    <div style={{
-      display: "flex",
-      gap: 8,
-      flexWrap: "wrap",
-    }}>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       {sectors.map((sec) => {
         const sectorStocks = stocks.filter((s) => s.sector === sec);
         if (sectorStocks.length === 0) return null;
-        const avgChange = sectorStocks.reduce((a, s) => a + (s.prevPrice ? s.price / s.prevPrice - 1 : 0), 0) / sectorStocks.length;
+        const avgChange = sectorStocks.reduce((a, s) => a + (s.monthClose ? s.price / s.monthClose - 1 : 0), 0) / sectorStocks.length;
         return (
-          <div
-            key={sec}
-            style={{
-              background: "#f0f4f9",
-              border: `1px solid ${C.brassDim}66`,
-              borderRadius: 4,
-              padding: "6px 12px",
-              fontSize: 12,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: SECTOR_COLOR[sec],
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.inkSoft }}>
-              {SECTOR_LABEL[sec]}
-            </span>
-            <span style={{ ...num, fontWeight: 700, color: trendColor(avgChange) }}>
-              {signed(avgChange)}
-            </span>
+          <div key={sec} style={{ background: "#f0f4f9", border: `1px solid ${C.brassDim}66`, borderRadius: 4, padding: "6px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: SECTOR_COLOR[sec], flexShrink: 0 }} />
+            <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.inkSoft }}>{SECTOR_LABEL[sec]}</span>
+            <span style={{ ...num, fontWeight: 700, color: trendColor(avgChange) }}>{signed(avgChange)}</span>
           </div>
         );
       })}
@@ -741,129 +684,129 @@ function SectorSummary({ stocks }: { stocks: Stock[] }) {
   );
 }
 
+// ── Sorterbar kolumnrubrik ──────────────────────────────────────────────
+
+type SortKey = "namn" | "kurs" | "dag" | "manad" | "pe" | "agande" | "innehav";
+
+function Th({ label, k, sort, setSort, align = "right" }: { label: string; k?: SortKey; sort: { key: SortKey; dir: 1 | -1 }; setSort: (s: { key: SortKey; dir: 1 | -1 }) => void; align?: "left" | "right" }) {
+  const active = k && sort.key === k;
+  return (
+    <th
+      onClick={k ? () => setSort({ key: k, dir: active && sort.dir === -1 ? 1 : -1 }) : undefined}
+      style={{
+        padding: "8px 10px", textAlign: align, cursor: k ? "pointer" : "default",
+        fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase", color: active ? BURGUNDY : C.inkSoft,
+        fontWeight: 700, userSelect: "none", whiteSpace: "nowrap",
+        borderBottom: `2px solid ${C.brassDim}66`,
+      }}
+    >
+      {label}{active ? (sort.dir === -1 ? " ▼" : " ▲") : ""}
+    </th>
+  );
+}
+
 // ── Huvud-export ───────────────────────────────────────────────────────
 
 export function StockExchange({ state, dispatch }: StockExchangeProps) {
   const [sectorFilter, setSectorFilter] = useState<Sector | "alla">("alla");
+  const [typeFilter, setTypeFilter] = useState<"alla" | "rival" | "ovriga" | "innehav">("alla");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "manad", dir: -1 });
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // ── Marknadsindex ──────────────────────────────────────────
   const index = Math.round(state.marketSentiment * 1000);
   const sh = state.sentimentHistory ?? [];
   const prevSent = sh.length >= 2 ? sh[sh.length - 2] : state.marketSentiment;
   const indexChange = prevSent ? state.marketSentiment / prevSent - 1 : 0;
 
-  // ── Innehavssammanställning ────────────────────────────────
   const holdingsValue = stockHoldingsValue(state);
   const costBasis = state.stocks.reduce((a, s) => a + s.owned * s.avgCost, 0);
   const unrealized = holdingsValue - costBasis;
   const unrealizedPct = costBasis > 0 ? unrealized / costBasis : 0;
 
-  // ── Filtrering ──────────────────────────────────────────────
-  const competitorStocks = state.stocks.filter(
-    (s) => s.competitorName && s.competitorName !== "__player__" && (sectorFilter === "alla" || s.sector === sectorFilter),
-  );
-  const otherStocks = state.stocks.filter(
-    (s) => !s.competitorName && (sectorFilter === "alla" || s.sector === sectorFilter),
-  );
+  const cyclePhase = state.marketCycle?.phase ?? "stable";
+  const cycleLabel = cyclePhase === "boom" ? "📈 Högkonjunktur" : cyclePhase === "bust" ? "📉 Lågkonjunktur" : "📊 Stabil konjunktur";
+
+  // Filtrering + sortering
+  const tradeStocks = state.stocks.filter((s) => s.id !== "FBAB");
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = tradeStocks.filter((s) => s.competitorName !== "__player__");
+    if (sectorFilter !== "alla") list = list.filter((s) => s.sector === sectorFilter);
+    if (typeFilter === "rival") list = list.filter((s) => !!s.competitorName);
+    else if (typeFilter === "ovriga") list = list.filter((s) => !s.competitorName);
+    else if (typeFilter === "innehav") list = list.filter((s) => s.owned > 0 || (s.shortQty ?? 0) > 0);
+    if (q) list = list.filter((s) => s.name.toLowerCase().includes(q));
+    const val = (s: Stock): number | string => {
+      switch (sort.key) {
+        case "namn": return s.name.toLowerCase();
+        case "kurs": return s.price;
+        case "dag": return s.prevPrice ? s.price / s.prevPrice - 1 : 0;
+        case "manad": return s.monthClose ? s.price / s.monthClose - 1 : 0;
+        case "pe": return s.eps && s.eps > 0 ? s.price / s.eps : Infinity;
+        case "agande": return s.sharesOutstanding > 0 ? s.owned / s.sharesOutstanding : 0;
+        case "innehav": return s.owned * s.price;
+      }
+    };
+    return [...list].sort((a, b) => {
+      const va = val(a), vb = val(b);
+      if (typeof va === "string" && typeof vb === "string") return va < vb ? -sort.dir : va > vb ? sort.dir : 0;
+      return ((va as number) - (vb as number)) * sort.dir;
+    });
+  }, [tradeStocks, sectorFilter, typeFilter, search, sort]);
 
   const openOrders = state.stockOrders ?? [];
-
   const sectors: Array<Sector | "alla"> = ["alla", "fastighet", "bank", "bygg", "handel", "industri"];
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+  const chip = (active: boolean): React.CSSProperties => ({
+    padding: "6px 12px", borderRadius: 4, border: `1px solid ${active ? C.brass : C.brassDim}`,
+    background: active ? BURGUNDY : "transparent", color: active ? C.brassBright : C.ink,
+    fontFamily: FONTS.body, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 0.4,
+  });
 
-      {/* ── Header / index ──────────────────────────────────── */}
-      <div style={{
-        background: THEME.woodBar,
-        border: `2px solid ${C.brass}`,
-        borderRadius: 6,
-        padding: "14px 18px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 16,
-        flexWrap: "wrap",
-        boxShadow: THEME.panelShadow,
-      }}>
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+      {/* Ticker-tape (feature 4) */}
+      <TickerTape stocks={tradeStocks} />
+
+      {/* Header / index + makro */}
+      <div style={{ background: THEME.woodBar, border: `2px solid ${C.brass}`, borderRadius: 6, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", boxShadow: THEME.panelShadow }}>
         <div>
-          <div style={{
-            fontFamily: FONTS.display,
-            fontSize: 26,
-            fontWeight: 900,
-            color: C.brassBright,
-            letterSpacing: 3,
-            textShadow: "0 1px 2px rgba(0,0,0,0.6)",
-          }}>
-            BÖRSEN
-          </div>
-          <div style={{ fontFamily: FONTS.heading, fontSize: 13, color: C.creamSoft }}>
-            Stockholms Fondbörs · {calYear(state.year)}
+          <div style={{ fontFamily: FONTS.display, fontSize: 26, fontWeight: 900, color: C.brassBright, letterSpacing: 3, textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>BÖRSEN</div>
+          <div style={{ fontFamily: FONTS.heading, fontSize: 13, color: C.creamSoft }}>Stockholms Fondbörs · {calYear(state.year)}</div>
+          <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, color: C.creamSoft }}>{cycleLabel}</span>
+            <span style={{ fontSize: 11, color: C.creamSoft }}>· Styrränta {state.interestRate.toFixed(2)} %</span>
           </div>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <Spark data={sh} width={120} height={34} color={C.brass} />
           <div style={{ textAlign: "right" }}>
             <div style={{ ...subLabel, color: C.brassDim }}>Marknadsindex</div>
-            <div style={{ fontFamily: FONTS.heading, fontSize: 28, fontWeight: 700, color: C.brassBright, lineHeight: 1.1 }}>
-              {index.toLocaleString("sv-SE")}
-            </div>
-            <div style={{ fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700, color: indexChange >= 0 ? C.positiveBright : C.negativeBright }}>
-              {signed(indexChange)} mot förra månaden
-            </div>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 28, fontWeight: 700, color: C.brassBright, lineHeight: 1.1 }}>{index.toLocaleString("sv-SE")}</div>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700, color: indexChange >= 0 ? C.positiveBright : C.negativeBright }}>{signed(indexChange)} mot förra månaden</div>
           </div>
         </div>
       </div>
 
-      {/* ── Branschindex ────────────────────────────────────── */}
-      <SectorSummary stocks={state.stocks} />
+      <SectorSummary stocks={tradeStocks} />
 
-      {/* ── Innehavssammanställning ─────────────────────────── */}
+      {/* Portföljsammanfattning */}
       <div style={card}>
         <h3 style={{ ...heading, fontSize: 18 }}>Din aktieportfölj</h3>
         <GoldRule />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14 }}>
-          <div>
-            <div style={subLabel}>Innehav (marknad)</div>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{msek(holdingsValue)}</div>
-            <div style={{ fontSize: 11, color: C.inkSoft }}>{kr(holdingsValue)}</div>
-          </div>
-          <div>
-            <div style={subLabel}>Anskaffningsvärde</div>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(costBasis)}</div>
-          </div>
-          <div>
-            <div style={subLabel}>Orealiserat resultat</div>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: trendColor(unrealized) }}>
-              {(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))}
-            </div>
-            <div style={{ ...num, fontSize: 12, fontWeight: 700, color: trendColor(unrealized) }}>
-              {signed(unrealizedPct)}
-            </div>
-          </div>
-          <div>
-            <div style={subLabel}>Utdelningar totalt</div>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.green }}>
-              {kr(state.dividendsReceived)}
-            </div>
-          </div>
-          <div>
-            <div style={subLabel}>Total avkastning</div>
-            <div style={{ ...num, fontSize: 20, fontWeight: 700, color: trendColor(unrealizedPct) }}>
-              {signed(unrealizedPct)}
-            </div>
-            {costBasis > 0 && (
-              <div style={{ fontSize: 11, color: C.inkSoft }}>på {kr(costBasis)} invest.</div>
-            )}
-          </div>
+          <div><div style={subLabel}>Innehav (marknad)</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{msek(holdingsValue)}</div><div style={{ fontSize: 11, color: C.inkSoft }}>{kr(holdingsValue)}</div></div>
+          <div><div style={subLabel}>Anskaffningsvärde</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(costBasis)}</div></div>
+          <div><div style={subLabel}>Orealiserat resultat</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: trendColor(unrealized) }}>{(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))}</div><div style={{ ...num, fontSize: 12, fontWeight: 700, color: trendColor(unrealized) }}>{signed(unrealizedPct)}</div></div>
+          <div><div style={subLabel}>Utdelningar totalt</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.green }}>{kr(state.dividendsReceived)}</div></div>
         </div>
       </div>
 
-      {/* ── Portföljhistorik ─────────────────────────────────── */}
       <PortfolioHistoryCard history={state.portfolioValueHistory ?? []} />
 
-      {/* ── Ditt börsnoterade bolag (FBAB) ─────────────────────── */}
+      {/* Ditt börsnoterade bolag (FBAB) */}
       {state.ipoActive && (() => {
         const fbab = state.stocks.find((s) => s.id === "FBAB");
         const pressure = state.takeoverPressure ?? 0;
@@ -872,19 +815,12 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           <div style={{ ...card, border: `2px solid ${C.brass}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
               <div>
-                <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 17, color: BURGUNDY }}>
-                  🏛 Fastighets AB (FBAB) — Ditt bolag
-                </div>
-                <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
-                  {(state.ipoShares?.total ?? 0).toLocaleString("sv-SE")} aktier ·{" "}
-                  {(state.ipoShares?.public ?? 0).toLocaleString("sv-SE")} i publik handel
-                </div>
+                <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 17, color: BURGUNDY }}>🏛 Fastighets AB (FBAB) — Ditt bolag</div>
+                <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>{(state.ipoShares?.total ?? 0).toLocaleString("sv-SE")} aktier · {(state.ipoShares?.public ?? 0).toLocaleString("sv-SE")} i publik handel</div>
               </div>
               {fbab && (
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ ...num, fontSize: 22, fontWeight: 700, color: C.ink }}>
-                    {kr(fbab.price)}
-                  </div>
+                  <div style={{ ...num, fontSize: 22, fontWeight: 700, color: C.ink }}>{kr(fbab.price)}</div>
                   <div style={{ fontSize: 11, color: C.inkSoft }}>
                     IPO-kurs: {state.ipoPrice ? kr(state.ipoPrice) : "—"}
                     {state.ipoPrice && fbab.price !== state.ipoPrice && (
@@ -900,84 +836,76 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
             <GoldRule />
             <div style={{ marginBottom: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: pressureColor }}>
-                  Uppköpstryck: {Math.round(pressure)} %
-                </span>
-                <span style={{ fontSize: 11, color: C.inkSoft }}>
-                  {pressure >= 75 ? "🚨 Kritiskt — aktivister samlar aktier!" : pressure >= 50 ? "⚠️ Förhöjt tryck" : "✅ Under kontroll"}
-                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: pressureColor }}>Uppköpstryck: {Math.round(pressure)} %</span>
+                <span style={{ fontSize: 11, color: C.inkSoft }}>{pressure >= 75 ? "🚨 Kritiskt — aktivister samlar aktier!" : pressure >= 50 ? "⚠️ Förhöjt tryck" : "✅ Under kontroll"}</span>
               </div>
               <div style={{ height: 8, background: "#2a1a0a", borderRadius: 4, overflow: "hidden" }}>
                 <div style={{ width: `${pressure}%`, height: "100%", background: pressureColor, borderRadius: 4, transition: "width 0.5s" }} />
               </div>
             </div>
-            <div style={{ fontSize: 11, color: C.inkSoft }}>
-              Trycket ökar varje månad. Håll reputation {">"}70 (−2/mån) och undvik börsnedgångar för att dämpa det.
-            </div>
+            <div style={{ fontSize: 11, color: C.inkSoft }}>Trycket ökar varje månad. Håll reputation {">"}70 (−2/mån) och undvik börsnedgångar för att dämpa det.</div>
           </div>
         );
       })()}
 
-      {/* ── Öppna limitorder ─────────────────────────────────── */}
       <LimitOrdersPanel orders={openOrders} state={state} dispatch={dispatch} />
 
-      {/* ── Branschfilter ────────────────────────────────────── */}
+      {/* Filter + sök */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          type="text"
+          placeholder="🔍 Sök bolag…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ ...qtyInput, width: 180, height: 34, textAlign: "left", padding: "0 10px", fontFamily: FONTS.body }}
+        />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {(["alla", "rival", "ovriga", "innehav"] as const).map((t) => (
+            <button key={t} style={chip(typeFilter === t)} onClick={() => setTypeFilter(t)}>
+              {t === "alla" ? "Alla" : t === "rival" ? "⚔ Konkurrenter" : t === "ovriga" ? "Övriga bolag" : "Mina innehav"}
+            </button>
+          ))}
+        </div>
+      </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {sectors.map((s) => (
-          <button
-            key={s}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 4,
-              border: `1px solid ${s === sectorFilter ? C.brass : C.brassDim}`,
-              background: s === sectorFilter ? BURGUNDY : "transparent",
-              color: s === sectorFilter ? C.brassBright : C.ink,
-              fontFamily: FONTS.body,
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: "pointer",
-              letterSpacing: 0.4,
-            }}
-            onClick={() => setSectorFilter(s)}
-          >
-            {s === "alla" ? "Alla" : SECTOR_LABEL[s]}
-          </button>
+          <button key={s} style={chip(s === sectorFilter)} onClick={() => setSectorFilter(s)}>{s === "alla" ? "Alla branscher" : SECTOR_LABEL[s]}</button>
         ))}
       </div>
 
-      {/* ── Konkurrenter ────────────────────────────────────── */}
-      {competitorStocks.length > 0 && (
-        <div>
-          <h3 style={{ ...heading, color: C.brassBright, fontSize: 18, marginBottom: 10 }}>
-            Konkurrenter
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {competitorStocks.map((s) => (
-              <StockRow key={s.id} stock={s} state={state} dispatch={dispatch} />
+      {/* Kurslista (sorterbar tabell, feature 1/2) */}
+      <div style={{ ...card, padding: 0, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+          <thead>
+            <tr>
+              <Th label="" sort={sort} setSort={setSort} align="left" />
+              <Th label="Bolag" k="namn" sort={sort} setSort={setSort} align="left" />
+              <Th label="Kurs" k="kurs" sort={sort} setSort={setSort} />
+              <Th label="Dag" k="dag" sort={sort} setSort={setSort} />
+              <Th label="Månad" k="manad" sort={sort} setSort={setSort} />
+              <Th label="Trend" sort={sort} setSort={setSort} align="left" />
+              <Th label="P/E" k="pe" sort={sort} setSort={setSort} />
+              <Th label="Andel" k="agande" sort={sort} setSort={setSort} />
+              <Th label="Innehav" k="innehav" sort={sort} setSort={setSort} />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((s) => (
+              <StockTableRow
+                key={s.id}
+                stock={s}
+                state={state}
+                dispatch={dispatch}
+                expanded={expandedId === s.id}
+                onToggle={() => setExpandedId((id) => (id === s.id ? null : s.id))}
+              />
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Övriga bolag ────────────────────────────────────── */}
-      {otherStocks.length > 0 && (
-        <div>
-          <h3 style={{ ...heading, color: C.brassBright, fontSize: 18, marginBottom: 10 }}>
-            Övriga bolag
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {otherStocks.map((s) => (
-              <StockRow key={s.id} stock={s} state={state} dispatch={dispatch} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {competitorStocks.length === 0 && otherStocks.length === 0 && (
-        <div style={{ ...card, textAlign: "center", color: C.inkSoft, fontSize: 14 }}>
-          Inga bolag matchar valt branschfilter.
-        </div>
-      )}
+          </tbody>
+        </table>
+        {rows.length === 0 && (
+          <div style={{ textAlign: "center", color: C.inkSoft, fontSize: 14, padding: 20 }}>Inga bolag matchar filtret.</div>
+        )}
+      </div>
     </div>
   );
 }
