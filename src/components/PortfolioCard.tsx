@@ -394,10 +394,17 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
           {(() => {
             const eff = effectiveAskRent(p, state);
             return (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 11.5, color: "#666", whiteSpace: "nowrap" }}>
-                  Utgångshyra{p.askRentPct === undefined ? " (policy)" : ""}
-                </span>
+              <div style={{ marginBottom: 6 }}>
+                {/* Etikett + värde på egen rad → slidern i full bredd under, så
+                    värdet aldrig trycks ut ur det smala kortet. */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
+                  <span style={{ fontSize: 11.5, color: "#666" }}>
+                    Utgångshyra{p.askRentPct === undefined ? " (policy)" : ""}
+                  </span>
+                  <strong style={{ fontSize: 12.5, whiteSpace: "nowrap", color: eff > 1.1 ? "#b5542a" : eff < 0.95 ? "#4d8b52" : "#333" }}>
+                    {Math.round(eff * 100)} % · {kr(Math.round(slotPotential * eff))}
+                  </strong>
+                </div>
                 <input
                   type="range"
                   min={80}
@@ -405,11 +412,8 @@ export function PortfolioCard({ p, state, dispatch }: Props) {
                   step={5}
                   value={Math.round(eff * 100)}
                   onChange={(e) => dispatch({ type: "SET_ASK_RENT", id: p.id, pct: +e.target.value / 100 })}
-                  style={{ flex: 1, accentColor: BURGUNDY }}
+                  style={{ width: "100%", accentColor: BURGUNDY }}
                 />
-                <strong style={{ fontSize: 12.5, minWidth: 88, color: eff > 1.1 ? "#b5542a" : eff < 0.95 ? "#4d8b52" : "#333" }}>
-                  {Math.round(eff * 100)} % · {kr(Math.round(slotPotential * eff))}
-                </strong>
               </div>
             );
           })()}

@@ -25,6 +25,7 @@ import { MarketPanel } from "./MarketPanel";
 import { LogPanel } from "./LogPanel";
 import { OffersModal } from "./OffersModal";
 import { PortfolioCard } from "./PortfolioCard";
+import { PortfolioTable } from "./PortfolioTable";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
 import { TitleScreen } from "./TitleScreen";
@@ -123,6 +124,11 @@ export default function FastighetsImperium() {
   const [showOffers, setShowOffers] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [showVictory, setShowVictory] = useState(false);
+  // Portföljvyn: kompakt lista (skannbar, för många fastigheter) eller
+  // detaljerade kort. Default styrs av antalet fastigheter.
+  const [portfolioView, setPortfolioView] = useState<"list" | "cards">(
+    () => (state.portfolio.length > 4 ? "list" : "cards"),
+  );
 
   const startNew = (scenarioId: ScenarioId, slot: number, companyName: string) => {
     setSlotFn(slot);
@@ -384,16 +390,48 @@ export default function FastighetsImperium() {
               case "policy": return <PolicyPanel state={state} dispatch={dispatch} />;
               case "portfolio":
                 return (
-                  <div style={S.grid}>
-                    {state.portfolio.length === 0 && (
+                  <div>
+                    {state.portfolio.length === 0 ? (
                       <div style={S.empty}>
                         Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
                         <strong>Bygg</strong> – eller klicka på ett objekt med gul ring på kartan.
                       </div>
+                    ) : (
+                      <>
+                        {/* Vyväxlare: kompakt lista (skannbar) eller detaljkort. */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                          <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.brassBright, fontSize: 15 }}>
+                            {state.portfolio.length} {state.portfolio.length === 1 ? "fastighet" : "fastigheter"}
+                          </span>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {(["list", "cards"] as const).map((v) => (
+                              <button
+                                key={v}
+                                onClick={() => setPortfolioView(v)}
+                                style={{
+                                  padding: "6px 14px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                                  fontFamily: FONTS.body, letterSpacing: 0.3,
+                                  border: `1px solid ${portfolioView === v ? C.brass : C.brassDim}`,
+                                  background: portfolioView === v ? BURGUNDY : "transparent",
+                                  color: portfolioView === v ? C.brassBright : C.creamSoft,
+                                }}
+                              >
+                                {v === "list" ? "☰ Lista" : "▦ Kort"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {portfolioView === "list" ? (
+                          <PortfolioTable state={state} dispatch={dispatch} />
+                        ) : (
+                          <div style={S.grid}>
+                            {state.portfolio.map((p) => (
+                              <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
-                    {state.portfolio.map((p) => (
-                      <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} />
-                    ))}
                   </div>
                 );
               case "market": return <MarketPanel state={state} dispatch={dispatch} />;
