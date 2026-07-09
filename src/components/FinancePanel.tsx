@@ -33,7 +33,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
   return (
     <div style={S.financeWrap}>
       <div style={S.financeCol}>
-        <h3 style={S.h3}>Balansräkning</h3>
+        <h3 style={S.h3OnLight}>Balansräkning</h3>
         <Line l="Kassa" v={kr(state.cash)} />
         <Line l="Fastighetsvärde" v={kr(totalValue)} />
         <Line l="Totala tillgångar" v={kr(state.cash + totalValue)} bold />
@@ -41,7 +41,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         <Line l="Eget kapital" v={kr(equity)} bold accent={BURGUNDY} />
         <Line l="Belåningsgrad (LTV)" v={pct(ltv)} />
 
-        <h3 style={{ ...S.h3, marginTop: 18 }}>Belåna portföljen</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Belåna portföljen</h3>
         <Line
           l="Låneutrymme kvar"
           v={kr(maxRefi)}
@@ -81,11 +81,11 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3}>Resultat (årstakt)</h3>
+        <h3 style={S.h3OnLight}>Resultat (årstakt)</h3>
         <Line l="Driftnetto" v={kr(totalNOI)} accent="#27660a" />
         <Line l="Räntekostnad" v={"−" + kr(annualInterest)} accent="#c0392b" />
         <Line l="Kassaflöde" v={kr(totalNOI - annualInterest)} bold />
-        <h3 style={{ ...S.h3, marginTop: 18 }}>
+        <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>
           Lånevillkor (reputation {Math.round(state.reputation)})
         </h3>
         <Line l="Räntepåslag" v={"+" + terms.spread + " %"} />
@@ -120,7 +120,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
             </div>
           );
         })()}
-        <h3 style={{ ...S.h3, marginTop: 18 }}>Skuldportfölj & amortering</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Skuldportfölj & amortering</h3>
         {(() => {
           const ai = amortInfoOf(state);
           const bondInterestMo = (state.bonds ?? []).reduce(
@@ -196,7 +196,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3}>Räntestrategi</h3>
+        <h3 style={S.h3OnLight}>Räntestrategi</h3>
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
             Nuvarande: <strong>{state.rateMode === "fixed" ? `Fast ${state.fixedRate?.toFixed(2)} %` : `Rörlig ${terms.rate.toFixed(2)} %`}</strong>
@@ -224,7 +224,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           )}
         </div>
 
-        <h3 style={{ ...S.h3, marginTop: 14 }}>Revolverande kredit</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Revolverande kredit</h3>
         {state.revolving ? (
           <>
             <Line l="Kreditgräns" v={kr(state.revolving.limit)} />
@@ -260,7 +260,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           </div>
         )}
 
-        <h3 style={{ ...S.h3, marginTop: 14 }}>Utdelning</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Utdelning</h3>
         <Line l="Totalt utdelat" v={kr(state.dividendsPaid ?? 0)} />
         <div style={S.amortRow}>
           <input type="range" min="0" max={Math.max(0, state.cash - 500000)}
@@ -278,7 +278,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Minst 500 000 kr i kassa behålls.</div>
 
         {/* Bonds */}
-        <h3 style={{ ...S.h3, marginTop: 14 }}>Obligationsemission</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Obligationsemission</h3>
         {state.reputation < 70 ? (
           <div style={{ fontSize: 12, color: "#888" }}>Kräver reputation ≥ 70 (nuvarande: {Math.round(state.reputation)}).</div>
         ) : (
@@ -322,7 +322,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3}>Skatteoptimering</h3>
+        <h3 style={S.h3OnLight}>Skatteoptimering</h3>
         {(() => {
           const netIncome = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0) / 12
             - (state.debt * ((state.rateMode === "fixed" && state.fixedRate != null ? state.fixedRate : loanTerms(state).rate) / 100)) / 12;
@@ -352,7 +352,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3}>Välj långivare</h3>
+        <h3 style={S.h3OnLight}>Välj långivare</h3>
         <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>
           Byt bank för att påverka ränta och belåningsgrad. Aktiv: <strong>{LENDERS.find(l => l.id === state.selectedLender)?.name ?? "Standard (ingen bank vald)"}</strong>
         </div>

@@ -15,12 +15,23 @@ export const S: Record<string, CSSProperties> = {
   },
 
   // ── Rubriker ─────────────────────────────────────────────────
+  // h3: ljus rubrik för MÖRK panelbakgrund.
   h3: {
     fontFamily: FONTS.heading,
     fontSize: 17,
     fontWeight: 700,
     margin: "0 0 12px",
     color: C.brassBright,
+    letterSpacing: 0.3,
+  },
+  // h3OnLight: samma rubrik men mörk accent – för LJUSA pergamentkort
+  // (annars blir den ljusa h3-texten nästan osynlig mot ljus bakgrund).
+  h3OnLight: {
+    fontFamily: FONTS.heading,
+    fontSize: 17,
+    fontWeight: 700,
+    margin: "0 0 12px",
+    color: BURGUNDY,
     letterSpacing: 0.3,
   },
 

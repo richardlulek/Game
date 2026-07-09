@@ -17,15 +17,18 @@ import { equityOf } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { salariesTotal } from "../engine/progression";
 import type { GameAction, GameState } from "../engine/types";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C } from "../styles/tokens";
 
 const P: Record<string, React.CSSProperties> = {
-  wrap: { display: "flex", flexDirection: "column", gap: 14, color: "#1a1a1a" },
+  // wrap ligger på den MÖRKA fönsterbakgrunden → ljus text; korten nedan
+  // sätter egen mörk text (color: C.ink) mot sin ljusa bakgrund.
+  wrap: { display: "flex", flexDirection: "column", gap: 14, color: C.creamText },
   head: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" },
   icon: { fontSize: 44, lineHeight: 1 },
-  name: { fontSize: 22, fontWeight: 800 },
-  tier: { fontSize: 13, color: "#4757c8", fontWeight: 700, letterSpacing: 0.5 },
+  name: { fontSize: 22, fontWeight: 800, color: C.brassBright },
+  tier: { fontSize: 13, color: BURGUNDY, fontWeight: 700, letterSpacing: 0.5 },
   card: {
+    color: C.ink,
     background: "#f7f9fb",
     border: "1px solid #dde4ec",
     borderRadius: 10,
