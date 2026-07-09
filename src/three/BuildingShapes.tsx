@@ -47,7 +47,8 @@ export function facadeBoxGeometry(w: number, h: number, d: number, glass = false
 
 export interface PointerHandlers {
   onClick?: (e: { stopPropagation: () => void }) => void;
-  onPointerOver?: (e: { stopPropagation: () => void }) => void;
+  // distance = kamera→träffpunkt (R3F-raycaster), används för avstånds-gate.
+  onPointerOver?: (e: { stopPropagation: () => void; distance?: number }) => void;
   onPointerOut?: () => void;
 }
 

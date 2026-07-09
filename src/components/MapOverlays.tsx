@@ -73,10 +73,7 @@ const M: Record<string, CSSProperties> = {
 export function MapLegend() {
   return (
     <div style={M.legend}>
-      <span style={{ color: "#b58a2a" }}>⬤</span> Till salu ·{" "}
-      <span style={{ color: BURGUNDY }}>⬤</span> Din ·{" "}
-      <span style={{ color: "#4d8b52" }}>⬤</span> Tomt ·{" "}
-      <span style={{ color: "#8a8f98" }}>⬤</span> Konkurrent
+      🔵 Din · 🟡 Till salu · 🟢 Tomt · 🔴 Konkurrent
     </div>
   );
 }

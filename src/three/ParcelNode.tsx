@@ -22,6 +22,24 @@ export type ParcelContent =
   | { kind: "lotOwned"; lot: Lot }
   | { kind: "rival"; prop: Property; owner: string; ownerIndex: number };
 
+/** Max kamera→träffpunkt-avstånd för att visa hover-etiketten. Längre bort
+    (utzoomat) blir etiketterna oläsbara och flimrar när pekaren glider över
+    täta hus – då stängs de av. */
+const HOVER_MAX_DIST = 480;
+
+/** Alltid-synlig färgbeacon ovanför huset som visar ägarkategori (matchar
+    kartlegenden): din, till salu, tomt, konkurrent. */
+function ownerBeacon(content: ParcelContent): string | null {
+  switch (content.kind) {
+    case "owned":
+    case "lotOwned": return "🔵";
+    case "listing": return "🟡";
+    case "lotForSale": return "🟢";
+    case "rival": return "🔴";
+    default: return null;
+  }
+}
+
 /** Billboard-ikon ovanför huset: bud, vakans, till salu. Klick är en
  *  genväg – budinkorgen, hyresgästerna eller portföljen öppnas direkt. */
 function StatusBadge({ emoji, y, order, onClick, title }: {
@@ -265,6 +283,8 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     },
     onPointerOver: (e) => {
       e.stopPropagation();
+      // Visa inte namnetiketten på långt håll (flimrar och är oläsbar).
+      if (typeof e.distance === "number" && e.distance > HOVER_MAX_DIST) return;
       setHovered(true);
     },
     onPointerOut: () => setHovered(false),
@@ -383,8 +403,18 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
           </GrowIn>
         )}
         {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
+        {/* Ägar-beacon: alltid synlig färgprick (ej ockluderad) så man ser
+            din/till salu/tomt/konkurrent även i trånga områden. */}
+        {(() => {
+          const be = ownerBeacon(content);
+          return be ? (
+            <sprite position={[0, Math.min(fullH, 150) + 3.5, 0]} scale={[4.6, 4.6, 1]} renderOrder={39}>
+              <spriteMaterial map={iconTexture(be)} transparent depthTest={false} />
+            </sprite>
+          ) : null;
+        })()}
         {badges.map((b, i) => (
-          <StatusBadge key={b.emoji} emoji={b.emoji} title={b.title} y={Math.min(fullH, 150) + 6} order={i} onClick={b.action} />
+          <StatusBadge key={b.emoji} emoji={b.emoji} title={b.title} y={Math.min(fullH, 150) + 11} order={i} onClick={b.action} />
         ))}
       </group>
       {hovered && (
