@@ -70,7 +70,7 @@ export const S: Record<string, CSSProperties> = {
     position: "relative",
     width: 90,
     height: 16,
-    background: "#d8c7a0",
+    background: C.parchmentDark,
     borderRadius: 3,
     overflow: "hidden",
     display: "inline-block",
@@ -115,7 +115,7 @@ export const S: Record<string, CSSProperties> = {
     fontSize: 13,
     cursor: "pointer",
   },
-  btnDisabled: { background: "#9a8f7a", color: "#e8e0d0", borderColor: "#8a7f6a", cursor: "default" },
+  btnDisabled: { background: C.brassDim, color: C.creamSoft, borderColor: C.brassDim, cursor: "default", opacity: 0.7 },
   smallBtn: {
     background: C.wood,
     border: `1px solid ${C.brass}`,
@@ -132,7 +132,7 @@ export const S: Record<string, CSSProperties> = {
     padding: "8px",
     borderRadius: 4,
     border: `1px solid ${C.brassDim}`,
-    background: "#fbf5e6",
+    background: C.cream,
     color: C.ink,
     fontSize: 13,
     fontFamily: FONTS.body,
@@ -168,7 +168,7 @@ export const S: Record<string, CSSProperties> = {
     maxHeight: 520,
     overflowY: "auto",
   },
-  logItem: { fontSize: 13, padding: "6px 0", borderBottom: "1px solid rgba(201,164,92,0.18)", color: C.creamText },
+  logItem: { fontSize: 13, padding: "6px 0", borderBottom: `1px solid ${C.brassDim}44`, color: C.creamText },
 
   // ── Finans ───────────────────────────────────────────────────
   financeWrap: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 },
@@ -278,7 +278,7 @@ export const S: Record<string, CSSProperties> = {
     flexDirection: "column",
     alignItems: "center",
     padding: "0 14px",
-    borderRight: "1px solid rgba(201,164,92,0.25)",
+    borderRight: `1px solid ${C.brassDim}55`,
   },
   statusLabel: {
     fontSize: 9,
@@ -318,7 +318,7 @@ export const S: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     padding: "7px 12px",
-    borderBottom: "1px solid rgba(201,164,92,0.18)",
+    borderBottom: `1px solid ${C.brassDim}44`,
     fontSize: 12,
     cursor: "pointer",
     gap: 4,

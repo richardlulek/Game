@@ -11,6 +11,7 @@ import type { GameAction, GameState, PropTypeKey } from "../engine/types";
 import { S } from "../styles/styles";
 import { C, FONTS } from "../styles/tokens";
 import { ListingCard } from "./ListingCard";
+import { EmptyState } from "./ui";
 import { propAnnualOpex, propPotentialRent } from "../engine/property";
 
 interface MarketPanelProps {
@@ -99,7 +100,7 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
         }}>
           {[
             { label: "Dina",          value: playerOwned, color: C.green },
-            { label: "Till salu",     value: onMarket,    color: "#9a6a10" },
+            { label: "Till salu",     value: onMarket,    color: C.gold },
             { label: "Konkurrenter",  value: rivalOwned,  color: C.burgundy },
             { label: "Off-market",    value: offMarket,   color: C.inkSoft },
           ].map((seg) => (
@@ -145,9 +146,10 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
           <button
             style={{
               ...S.smallBtn,
-              background: canBroker ? C.wood : "#9a8f7a",
-              color: canBroker ? C.brassBright : "#dfe6f0",
+              background: canBroker ? C.wood : C.brassDim,
+              color: canBroker ? C.brassBright : C.creamSoft,
               cursor: canBroker ? "pointer" : "default",
+              opacity: canBroker ? 1 : 0.7,
               fontSize: 12,
             }}
             disabled={!canBroker}
@@ -218,17 +220,17 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
 
       {/* ── Nyhetsflöde-tips ─────────────────────────────────── */}
       {state.listings.length === 0 && (
-        <div style={S.empty}>
+        <EmptyState icon="🏙️">
           Inga objekt på marknaden just nu — nya objekt trillar in varje månad, eller{" "}
           anlita en mäklare för att hitta off-market affärer.
-        </div>
+        </EmptyState>
       )}
 
       {/* ── Objektkort ───────────────────────────────────────── */}
       {filtered.length === 0 && state.listings.length > 0 && (
-        <div style={S.empty}>
+        <EmptyState icon="🔍">
           Inga objekt matchar ditt filter. Prova att ändra distrikt eller typ.
-        </div>
+        </EmptyState>
       )}
 
       <div style={S.grid}>
@@ -241,9 +243,9 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
       <div style={{
         marginTop: 16,
         padding: "10px 14px",
-        background: "#f3ead3",
+        background: C.cream,
         border: `1px solid ${C.brassDim}55`,
-        borderRadius: 5,
+        borderRadius: 6,
         fontSize: 11,
         color: C.inkSoft,
         lineHeight: 1.6,
