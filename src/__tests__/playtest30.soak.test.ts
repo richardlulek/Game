@@ -11,6 +11,9 @@ import { DISTRICTS, UPGRADES } from "../engine/data";
 import { RESEARCH } from "../engine/progression";
 import type { GameAction } from "../engine/types";
 
+// Typshim för Node-miljön (undviker beroende av @types/node bara för detta).
+declare const process: { env: Record<string, string | undefined> };
+
 // 30 års soak/integration – icke-deterministisk och ~3–5 s. Körs INTE i den
 // vanliga sviten (skulle ge flake/tid); kör med:  PLAYTEST=1 npx vitest run
 // src/__tests__/playtest30.soak.test.ts   – rapport skrivs till stdout.
@@ -187,12 +190,10 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
       expect(Number.isFinite(eq), `equity NaN vid m=${m}`).toBe(true);
       expect(s.month).toBeGreaterThanOrEqual(1);
       expect(s.month).toBeLessThanOrEqual(12);
-      const cb = s.centralBank;
-      if (cb) {
-        expect(cb.policyRate).toBeGreaterThanOrEqual(0);
-        expect(cb.policyRate).toBeLessThanOrEqual(9);
-        expect(Number.isFinite(cb.inflation)).toBe(true);
-      }
+      // Riksbanken (economyLife) styr marknadsräntan – ska hålla sig rimlig.
+      expect(Number.isFinite(s.interestRate)).toBe(true);
+      expect(s.interestRate).toBeGreaterThan(0);
+      expect(s.interestRate).toBeLessThan(20);
       const seen = new Set<string>();
       for (const p of s.portfolio) {
         const v = propMarketValue(p, s);
@@ -217,7 +218,7 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
         snapshots.push(
           `  År ${s.year} · EK ${(eq / 1e6).toFixed(0)} MSEK · kassa ${(s.cash / 1e6).toFixed(1)} · skuld ${(s.debt / 1e6).toFixed(0)} · ` +
           `hus ${s.portfolio.filter((p) => p.status === "klar").length} · ambient ${s.ambientGrown?.length ?? 0} · ` +
-          `ränta ${s.interestRate.toFixed(1)}% infl ${(cb?.inflation ?? 0).toFixed(1)}% · maxDev ${maxDev} · dev[${dev}]`,
+          `ränta ${s.interestRate.toFixed(1)}% · maxDev ${maxDev} · dev[${dev}]`,
         );
       }
     }
@@ -243,7 +244,7 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
       `  Distriktsstatus: ${Object.entries(tierDist).map(([k, v]) => `${k}×${v}`).join(", ")}`,
       "",
       "MAKRO:",
-      `  Riksbanken: slutränta ${s.interestRate.toFixed(2)}% · inflation ${(s.centralBank?.inflation ?? 0).toFixed(1)}%`,
+      `  Riksbanken: marknadsränta ${s.interestRate.toFixed(2)}%`,
       `  Konkurrenter: ${s.competitors.length} st, ${rivalUnits} hus totalt`,
       "",
       "HÄNDELSER UNDER 30 ÅR (räknade ur loggen):",
