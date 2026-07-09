@@ -241,6 +241,8 @@ export function advanceMonth(state: GameState): GameState {
             np.baseRent = Math.round(np.baseRent * 1.2);
             np.rentMult = 1;
             np.vacancyMult = Math.max(0.6, np.vacancyMult * 0.8);
+            // Nybygget reser sig högre än det gamla huset på kartan.
+            np.devLevel = (np.devLevel ?? 0) + 1;
             s.reputation = Math.min(100, s.reputation + 2);
             events.push({
               t: `🏙️ Nybyggnation klar: ${np.typeLabel} i ${np.districtName} ersatte det gamla huset – nollställd ålder, +15 % yta, +1 hyresplats, energiklass A.`,
@@ -252,6 +254,8 @@ export function advanceMonth(state: GameState): GameState {
             np.valueMult = +(np.valueMult * 1.2).toFixed(3);
             np.baseRent = Math.round(np.baseRent * 1.25);
             np.condition = Math.max(85, np.condition);
+            // Påbyggnad = fler våningar: huset växer synligt på kartan.
+            np.devLevel = (np.devLevel ?? 0) + 1;
             events.push({
               t: `🏗️ Påbyggnad klar: ${np.typeLabel} i ${np.districtName} – +25 % yta, +1 hyresplats, +20 % värde.`,
               kind: "income",

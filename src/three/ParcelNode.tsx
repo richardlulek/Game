@@ -322,7 +322,8 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       : baseColor;
     building = {
       type: p.type,
-      floors: districtFloors(parcel, hash, p.area),
+      // Utbyggnadsprojekt (påbyggnad/nybyggnation) reser huset synligt högre.
+      floors: districtFloors(parcel, hash, p.area) + (p.devLevel ?? 0) * 2,
       color,
       windows: !overlayActive,
     };

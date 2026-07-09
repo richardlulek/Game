@@ -324,6 +324,9 @@ export interface Property {
   wholeBlock?: boolean;
   /** Pågående utvecklingsprojekt (status "bygger" med befintligt hus). */
   renovation?: { kind: RenovationKind; targetCapacity?: number };
+  /** Antal genomförda utbyggnadsprojekt (påbyggnad/nybyggnation). Höjer
+   *  byggnaden synligt på 3D-kartan så stadens utveckling går att följa. */
+  devLevel?: number;
   /** Utgångshyra som andel av marknadshyran (0.8–1.3, standard 1.0).
    *  Styr hur många och hur bra ansökningar som kommer in. */
   askRentPct?: number;

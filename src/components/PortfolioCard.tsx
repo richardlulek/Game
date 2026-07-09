@@ -564,7 +564,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           )}
           <ActionBtn
             label={`✨ Totalrenovering · ${msek(Math.round(value * 0.18))}`}
-            sub="6 mån · skick 100, energiklass A, +15 % hyrespotential"
+            sub="6 mån · skick 100, energiklass A, +15 % hyra · nollställer byggnadsåldern"
             color="#7a5c2a"
             disabled={p.tenants.length > 0 || state.cash < value * 0.18 || state.gameOver}
             onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "totalrenovering" })}

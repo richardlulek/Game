@@ -5,6 +5,7 @@ import {
   nextBidRound,
   obsolescenceFactor,
 } from "../engine/lifecycle";
+import { advanceMonth } from "../engine/simulation";
 import { makeProperty, makeState } from "./factories";
 
 describe("Byggnadslivscykel", () => {
@@ -22,6 +23,39 @@ describe("Byggnadslivscykel", () => {
     const s = makeState({ year: 200 });
     const ancient = makeProperty({ builtYear: 1, condition: 20 });
     expect(obsolescenceFactor(ancient, s)).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("underhåll (gott skick) bromsar åldrandet – välskött slår oskött", () => {
+    const s = makeState({ year: 50 });
+    const wellKept = makeProperty({ builtYear: 1, condition: 100 });
+    const neglected = makeProperty({ builtYear: 1, condition: 30 });
+    expect(obsolescenceFactor(wellKept, s)).toBeGreaterThan(obsolescenceFactor(neglected, s));
+    // Ett välskött gammalt hus behöver inte rivas.
+    expect(isObsolete(wellKept, s)).toBe(false);
+    expect(isObsolete(neglected, s)).toBe(true);
+  });
+
+  it("totalrenovering (nollställd builtYear) återställer full faktor", () => {
+    const s = makeState({ year: 50 });
+    const renovated = makeProperty({ builtYear: 50, condition: 100 });
+    expect(obsolescenceFactor(renovated, s)).toBe(1);
+  });
+});
+
+describe("Utbyggnad syns på kartan (devLevel)", () => {
+  it("färdig påbyggnad höjer devLevel och ytan", () => {
+    const p = makeProperty({ status: "bygger", buildLeft: 1, renovation: { kind: "påbyggnad" }, area: 1000 });
+    const next = advanceMonth(makeState({ portfolio: [p], debt: 0 }));
+    const np = next.portfolio[0];
+    expect(np.status).toBe("klar");
+    expect(np.devLevel).toBe(1);
+    expect(np.area).toBeGreaterThan(1000);
+  });
+
+  it("färdig nybyggnation höjer devLevel", () => {
+    const p = makeProperty({ status: "bygger", buildLeft: 1, renovation: { kind: "nybyggnation" }, area: 1000 });
+    const next = advanceMonth(makeState({ portfolio: [p], debt: 0 }));
+    expect(next.portfolio[0].devLevel).toBe(1);
   });
 });
 
