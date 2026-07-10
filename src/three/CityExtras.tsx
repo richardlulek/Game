@@ -202,32 +202,68 @@ function Yacht() {
     g.position.y = Math.sin(t * 0.6 + 1.3) * 0.22;
     g.rotation.z = Math.sin(t * 0.45) * 0.015;
   });
+  const HULL = "#f4f7fa";
+  const GLASS = "#25506e";
+  const TEAK = "#b98a4e";
   return (
     <group ref={ref} position={[-60, 0, 340]}>
-      {/* Slank vit skrov med indigolinje */}
-      <mesh castShadow position={[0, 1.2, 0]}>
-        <boxGeometry args={[20, 2, 4.2]} />
-        <meshStandardMaterial color="#f4f7fa" roughness={0.25} metalness={0.1} />
+      {/* Skrov: mittsektion + avsmalnande för + akterspegel */}
+      <mesh castShadow position={[0, 1.25, 0]}>
+        <boxGeometry args={[15, 2, 4.4]} />
+        <meshStandardMaterial color={HULL} roughness={0.2} metalness={0.15} />
       </mesh>
-      <mesh position={[0, 0.55, 0]}>
-        <boxGeometry args={[20.1, 0.35, 4.3]} />
-        <meshStandardMaterial color="#4f63e4" />
+      {/* Avsmalnande bog (kon på sidan → spetsig för) */}
+      <mesh castShadow position={[9.4, 1.25, 0]} rotation-z={-Math.PI / 2}>
+        <cylinderGeometry args={[2.2, 0.2, 4.4, 4, 1, false, Math.PI / 4, Math.PI / 2]} />
+        <meshStandardMaterial color={HULL} roughness={0.2} metalness={0.15} />
       </mesh>
-      {/* Två däckshus i glas */}
-      <mesh castShadow position={[-2, 2.9, 0]}>
-        <boxGeometry args={[9, 1.6, 3.4]} />
-        <meshStandardMaterial color="#dfe8f0" roughness={0.2} metalness={0.3} />
+      {/* Vattenlinje/indigorand */}
+      <mesh position={[0, 0.5, 0]}><boxGeometry args={[24.4, 0.4, 4.5]} /><meshStandardMaterial color="#3a4bb8" /></mesh>
+      {/* Guldrand längs skrovet */}
+      <mesh position={[0, 1.9, 2.22]}><boxGeometry args={[22, 0.12, 0.05]} /><meshStandardMaterial color="#c9a13b" metalness={0.7} roughness={0.3} /></mesh>
+      <mesh position={[0, 1.9, -2.22]}><boxGeometry args={[22, 0.12, 0.05]} /><meshStandardMaterial color="#c9a13b" metalness={0.7} roughness={0.3} /></mesh>
+      {/* Teakdäck fram */}
+      <mesh position={[6, 2.28, 0]}><boxGeometry args={[9, 0.12, 4.0]} /><meshStandardMaterial color={TEAK} roughness={0.7} /></mesh>
+      {/* Badplattform i aktern */}
+      <mesh position={[-8.2, 1.0, 0]}><boxGeometry args={[2, 0.2, 4.0]} /><meshStandardMaterial color={TEAK} roughness={0.7} /></mesh>
+
+      {/* Överbyggnad – huvuddäck med panoramaglas */}
+      <mesh castShadow position={[-1.5, 3.15, 0]}>
+        <boxGeometry args={[12, 1.9, 3.9]} />
+        <meshStandardMaterial color={HULL} roughness={0.25} metalness={0.2} />
       </mesh>
-      <mesh castShadow position={[-3.5, 4.1, 0]}>
-        <boxGeometry args={[5, 1.1, 2.6]} />
-        <meshStandardMaterial color="#f4f7fa" roughness={0.25} />
+      {/* Fönsterband (tonat glas) */}
+      <mesh position={[-1.5, 3.25, 1.98]}><boxGeometry args={[11, 1.0, 0.06]} /><meshStandardMaterial color={GLASS} metalness={0.5} roughness={0.1} /></mesh>
+      <mesh position={[-1.5, 3.25, -1.98]}><boxGeometry args={[11, 1.0, 0.06]} /><meshStandardMaterial color={GLASS} metalness={0.5} roughness={0.1} /></mesh>
+      {/* Vindruta fram (lutande) */}
+      <mesh position={[4.3, 3.35, 0]} rotation-z={-0.5}><boxGeometry args={[1.4, 1.4, 3.7]} /><meshStandardMaterial color={GLASS} metalness={0.5} roughness={0.08} /></mesh>
+
+      {/* Flybridge – övre däck */}
+      <mesh castShadow position={[-2.6, 4.55, 0]}>
+        <boxGeometry args={[7, 1.0, 3.2]} />
+        <meshStandardMaterial color={HULL} roughness={0.25} />
       </mesh>
-      {/* Radarmast + ägarflagga i aktern */}
-      <mesh position={[-4.5, 5.4, 0]}>
-        <cylinderGeometry args={[0.08, 0.12, 1.8, 6]} />
-        <meshStandardMaterial color="#8a94a0" metalness={0.5} />
-      </mesh>
-      <Flag x={8.5} y={2.2} z={0} color="#4f63e4" />
+      {/* Solbädd på flybridge */}
+      <mesh position={[-1.0, 5.12, 0]}><boxGeometry args={[2.4, 0.25, 2.6]} /><meshStandardMaterial color="#e7ded0" /></mesh>
+      {/* Radar-/antennbåge i aktern */}
+      <mesh position={[-5.4, 5.3, 1.1]} rotation-z={0.15}><cylinderGeometry args={[0.12, 0.12, 2.0, 8]} /><meshStandardMaterial color="#c3ccd4" metalness={0.6} /></mesh>
+      <mesh position={[-5.4, 5.3, -1.1]} rotation-z={0.15}><cylinderGeometry args={[0.12, 0.12, 2.0, 8]} /><meshStandardMaterial color="#c3ccd4" metalness={0.6} /></mesh>
+      <mesh position={[-5.5, 6.25, 0]}><boxGeometry args={[0.6, 0.2, 2.6]} /><meshStandardMaterial color="#dfe8f0" /></mesh>
+      {/* Radarkupol */}
+      <mesh position={[-5.5, 6.6, 0]}><sphereGeometry args={[0.4, 12, 8]} /><meshStandardMaterial color="#f4f7fa" /></mesh>
+
+      {/* Räcken (relingar) längs fördäck */}
+      {([2.0, -2.0] as const).map((rz) => (
+        <mesh key={rz} position={[7, 2.7, rz]}><boxGeometry args={[8.5, 0.06, 0.06]} /><meshStandardMaterial color="#cfd6dd" metalness={0.6} /></mesh>
+      ))}
+      {([10.5, 8, 5.5, 3] as const).map((sx) => (
+        [2.0, -2.0].map((rz) => (
+          <mesh key={`${sx}-${rz}`} position={[sx, 2.5, rz]}><cylinderGeometry args={[0.04, 0.04, 0.5, 6]} /><meshStandardMaterial color="#cfd6dd" metalness={0.6} /></mesh>
+        ))
+      ))}
+
+      {/* Ägarflagga i aktern */}
+      <Flag x={-8.6} y={2.4} z={0} color="#3a4bb8" />
     </group>
   );
 }
