@@ -29,6 +29,7 @@ import { MarketPanel } from "./MarketPanel";
 import { LogPanel } from "./LogPanel";
 import { OffersModal } from "./OffersModal";
 import { PortfolioCard } from "./PortfolioCard";
+import { PortfolioSummaryCard } from "./PortfolioSummaryCard";
 import { PortfolioTable } from "./PortfolioTable";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
@@ -136,6 +137,8 @@ export default function FastighetsImperium() {
   );
   // Sortering i kort-vyn (listan har egen kolumnsortering).
   const [portfolioSort, setPortfolioSort] = useState<"value" | "yield" | "condition" | "noi" | "vacant">("value");
+  // Utfällt kort i kort-vyn (master-detail): null = alla visas kompakt.
+  const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
 
   const startNew = (scenarioId: ScenarioId, slot: number, companyName: string) => {
     setSlotFn(slot);
@@ -497,7 +500,7 @@ export default function FastighetsImperium() {
                         {portfolioView === "list" ? (
                           <PortfolioTable state={state} dispatch={dispatch} />
                         ) : (
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(460px, 1fr))", gap: 16, alignItems: "start" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, alignItems: "start" }}>
                             {[...state.portfolio]
                               .sort((a, b) => {
                                 switch (portfolioSort) {
@@ -509,9 +512,27 @@ export default function FastighetsImperium() {
                                   default: return 0;
                                 }
                               })
-                              .map((p) => (
-                                <PortfolioCard key={p.id} p={p} state={state} dispatch={dispatch} wide />
-                              ))}
+                              .map((p) => {
+                                const isOpen = expandedCardId === p.id;
+                                // Utfällt kort spänner över hela rutnätsbredden så
+                                // det fullständiga förvaltningskortet får plats.
+                                return isOpen ? (
+                                  <div key={p.id} style={{ gridColumn: "1 / -1" }}>
+                                    <PortfolioSummaryCard p={p} state={state} open onToggle={() => setExpandedCardId(null)} />
+                                    <div style={{ marginTop: 12 }}>
+                                      <PortfolioCard p={p} state={state} dispatch={dispatch} wide />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <PortfolioSummaryCard
+                                    key={p.id}
+                                    p={p}
+                                    state={state}
+                                    open={false}
+                                    onToggle={() => setExpandedCardId(p.id)}
+                                  />
+                                );
+                              })}
                           </div>
                         )}
                       </>

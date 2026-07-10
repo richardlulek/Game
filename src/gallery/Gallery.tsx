@@ -14,6 +14,7 @@ import { galleryState } from "./galleryState";
 import { MarketPanel } from "../components/MarketPanel";
 import { PortfolioTable } from "../components/PortfolioTable";
 import { PortfolioCard } from "../components/PortfolioCard";
+import { PortfolioSummaryCard } from "../components/PortfolioSummaryCard";
 import { ListingCard } from "../components/ListingCard";
 import { FinancePanel } from "../components/FinancePanel";
 import { CompanyPanel } from "../components/CompanyPanel";
@@ -75,9 +76,9 @@ export function Gallery() {
         <Section id="g-portfoliocard" title="Fastighetskort (uthyrt)" width={360}>{<PortfolioCard p={state.portfolio[0]} state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliocard-vac" title="Fastighetskort (vakant)" width={360}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliocard-wide" title="Fastighetskort – bred layout (utfälld i lista)" width={960}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} wide />}</Section>
-        <Section id="g-portfolio-cardsview" title="Kort-vy (breda kort i rutnät)" width={1040}>
-          {<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(460px, 1fr))", gap: 16, alignItems: "start" }}>
-            {state.portfolio.map((p) => <PortfolioCard key={p.id} p={p} state={state} dispatch={noop} wide />)}
+        <Section id="g-portfolio-cardsview" title="Kort-vy (kompakta, skannbara kort i rutnät)" width={1040}>
+          {<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, alignItems: "start" }}>
+            {state.portfolio.map((p) => <PortfolioSummaryCard key={p.id} p={p} state={state} open={false} onToggle={noop} />)}
           </div>}
         </Section>
         <Section id="g-listing" title="Objektkort (Marknad)" width={360}>{<ListingCard p={state.listings[0]} state={state} dispatch={noop} />}</Section>
