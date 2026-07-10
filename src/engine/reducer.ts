@@ -10,7 +10,7 @@ import { nextTier, qualifiesFor } from "./company";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
 import { fullyOwnedBlocks } from "./blocks";
 import { equityOf, loanTerms } from "./finance";
-import { ambientAsk, ambientProfile } from "./landDeals";
+import { ambientAsk, ambientProfile, ambientValue } from "./landDeals";
 import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
 import { kr, msek, pct } from "./format";
 import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, makeTenant } from "./generators";
@@ -1772,7 +1772,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         return log(state, `Ägaren begär ${msek(deal.ask)} — handpenning ${msek(down)} saknas.`, "warn");
       const loan = deal.ask - down;
       const d = DISTRICTS.find((x) => x.id === parcel.district)!;
-      const annualRent = deal.value * PROP_TYPES[prof.type].rentFactor * 12 * (0.7 + (prof.condition / 100) * 0.5);
+      // Hyran räknas på substansvärdet (utan områdespremie), likt marknadsobjekt.
+      const annualRent = ambientValue(parcel, state) * PROP_TYPES[prof.type].rentFactor * 12 * (0.7 + (prof.condition / 100) * 0.5);
       const capacity = calcCapacity(prof.area);
       const prop: Property = {
         id: newId(),

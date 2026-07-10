@@ -12,7 +12,7 @@
    Ren logik utan React-beroenden.
    ============================================================ */
 
-import { parcelById, parcelHash, type Parcel } from "./city";
+import { locationFactor, parcelById, parcelHash, type Parcel } from "./city";
 import { DISTRICTS, PROP_TYPES } from "./data";
 import type { GameState, PropTypeKey } from "./types";
 
@@ -55,7 +55,7 @@ export function ambientProfile(parcel: Parcel): AmbientProfile {
   };
 }
 
-/** Grundvärde för huset – samma formel som marknadsgeneratorn. */
+/** Substansvärde för huset – basen som hyran räknas på (utan områdespremie). */
 export function ambientValue(parcel: Parcel, state: GameState): number {
   const d = DISTRICTS.find((x) => x.id === parcel.district);
   if (!d) return 0;
@@ -63,6 +63,15 @@ export function ambientValue(parcel: Parcel, state: GameState): number {
   const condFactor = 0.6 + (prof.condition / 100) * 0.6;
   const dev = state.districtDev?.[parcel.district] ?? 1;
   return Math.round(prof.area * d.base * condFactor * state.marketMod * dev);
+}
+
+/** Fullt marknadsvärde för huset – speglar propMarketValue (inkl. distriktets
+ *  tillväxt och läget på kartan), så off market-premien blir en verklig
+ *  överkurs i ALLA distrikt och köpet aldrig bokför gratis eget kapital. */
+export function ambientMarketValue(parcel: Parcel, state: GameState): number {
+  const d = DISTRICTS.find((x) => x.id === parcel.district);
+  if (!d) return 0;
+  return Math.round(ambientValue(parcel, state) * d.growth * locationFactor(parcel.id));
 }
 
 /** Antal tomter i kvarteret som spelaren redan äger (ryktet sprids). */
@@ -85,7 +94,10 @@ export interface AmbientAsk {
  * du redan köpt i kvarteret, och nejsägare kräver 50 % extra.
  */
 export function ambientAsk(parcel: Parcel, state: GameState): AmbientAsk {
-  const value = ambientValue(parcel, state);
+  // Premien läggs på det fulla marknadsvärdet (inkl. tillväxt och läge), inte
+  // bara substansvärdet – annars kunde köp i högtillväxtdistrikt (t.ex. Hamnen)
+  // ändå ge ~14 % gratis övervärde direkt.
+  const value = ambientMarketValue(parcel, state);
   const prof = ambientProfile(parcel);
   const neighbors = ownedInBlock(state, parcel.blockId);
   let premium = 1.18 + neighbors * 0.06;
