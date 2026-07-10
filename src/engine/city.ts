@@ -73,20 +73,22 @@ interface ZoneDef {
 }
 
 const ZONES: ZoneDef[] = [
-  // Centrum: 9 slutna kvarter à 3×2 tomter som delar väggar = 54 fastigheter
-  { district: "centrum", cx: 0, cz: 10, blockCols: 3, blockRows: 3, parcelCols: 3, parcelRows: 2, parcelW: 24, parcelD: 24, innerGap: 0, street: 16 },
-  // Finansdistriktet: utökat österut = 24 skyskrapetomter, sydost mot vattnet
-  { district: "finans", cx: 240, cz: 120, blockCols: 6, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 26, parcelD: 26, innerGap: 0, street: 12 },
-  // Innerstaden: 15 kvarter à 2×2 tomter norr om centrum = 60 fastigheter
-  { district: "innerstad", cx: -10, cz: -185, blockCols: 5, blockRows: 3, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, innerGap: 0, street: 15 },
-  // Hamnen: kajnära rad längs vattnet – utökad österut till 24 tomter
-  { district: "hamnen", cx: 0, cz: 262, blockCols: 12, blockRows: 2, parcelCols: 1, parcelRows: 1, parcelW: 24, parcelD: 24, innerGap: 0, street: 10 },
-  // Industriområdet: utökat norrut = 25 stora tomter i nordost
-  { district: "industri", cx: 320, cz: -150, blockCols: 5, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, innerGap: 0, street: 12 },
-  // Förorten: 16 storkvarter i väst – varje tomt är ETT helt kvarter
-  { district: "förort", cx: -295, cz: 55, blockCols: 4, blockRows: 4, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, innerGap: 0, street: 13 },
-  // Villakullen: utökad i nordvästra hörnet = 35 villatomter
-  { district: "kulle", cx: -330, cz: -210, blockCols: 7, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 22, parcelD: 22, innerGap: 0, street: 11 },
+  // ~490 tomter totalt: samma fotavtryck och byggt/obyggt-förhållande som förr,
+  // men tätare rutnät (mindre tomter + smalare gator) så staden rymmer fler.
+  // Centrum: slutna kvarter à 3×2 tomter som delar väggar
+  { district: "centrum", cx: 0, cz: 10, blockCols: 4, blockRows: 4, parcelCols: 3, parcelRows: 2, parcelW: 17, parcelD: 17, innerGap: 0, street: 12 },
+  // Finansdistriktet: skyskrapetomter i tätt rutnät, sydost mot vattnet
+  { district: "finans", cx: 240, cz: 120, blockCols: 8, blockRows: 6, parcelCols: 1, parcelRows: 1, parcelW: 19, parcelD: 19, innerGap: 0, street: 9 },
+  // Innerstaden: kvarter à 2×2 tomter norr om centrum
+  { district: "innerstad", cx: -10, cz: -185, blockCols: 7, blockRows: 4, parcelCols: 2, parcelRows: 2, parcelW: 17, parcelD: 17, innerGap: 0, street: 11 },
+  // Hamnen: kajnära rad längs vattnet (förskjuten öster om HK)
+  { district: "hamnen", cx: 40, cz: 262, blockCols: 19, blockRows: 3, parcelCols: 1, parcelRows: 1, parcelW: 17, parcelD: 17, innerGap: 0, street: 7 },
+  // Industriområdet: stora fristående tomter i nordost
+  { district: "industri", cx: 320, cz: -150, blockCols: 9, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 27, parcelD: 27, innerGap: 0, street: 9 },
+  // Förorten: storkvarter i väst – varje tomt är ETT helt kvarter
+  { district: "förort", cx: -295, cz: 55, blockCols: 6, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 37, parcelD: 37, innerGap: 0, street: 9 },
+  // Villakullen: villatomter i nordvästra hörnet
+  { district: "kulle", cx: -330, cz: -210, blockCols: 11, blockRows: 9, parcelCols: 1, parcelRows: 1, parcelW: 16, parcelD: 16, innerGap: 0, street: 8 },
 ];
 
 export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
@@ -120,13 +122,13 @@ const EXPANSIONS: ExpansionDef[] = [
   { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "kommunal" },
   { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "kommunal" },
   // Planområden: privat råmark i stadens utkanter.
-  { blockId: "kulle-plan0", district: "kulle", cx: -472, cz: -120, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 22, kind: "plan" },
-  { blockId: "förort-plan0", district: "förort", cx: -447, cz: 90, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "plan" },
+  { blockId: "kulle-plan0", district: "kulle", cx: -420, cz: -80, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 22, kind: "plan" },
+  { blockId: "förort-plan0", district: "förort", cx: -462, cz: 90, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "plan" },
   { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "plan" },
   { blockId: "finans-plan0", district: "finans", cx: 405, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
-  { blockId: "industri-plan0", district: "industri", cx: 480, cz: -40, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
-  { blockId: "industri-plan1", district: "industri", cx: 480, cz: -220, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
-  { blockId: "hamnen-plan0", district: "hamnen", cx: 260, cz: 265, parcelCols: 2, parcelRows: 1, parcelW: 24, parcelD: 24, kind: "plan", waterfront: true },
+  { blockId: "industri-plan0", district: "industri", cx: 510, cz: -40, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
+  { blockId: "industri-plan1", district: "industri", cx: 510, cz: -220, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
+  { blockId: "hamnen-plan0", district: "hamnen", cx: 300, cz: 265, parcelCols: 2, parcelRows: 1, parcelW: 24, parcelD: 24, kind: "plan", waterfront: true },
 ];
 
 /** Auktionsordningen för de KOMMUNALA expansionskvarteren. */

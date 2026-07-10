@@ -56,8 +56,8 @@ describe("stadskartan 3.0", () => {
 
   it("kvartersgator genereras mellan kvarteren", () => {
     expect(ZONE_STREETS.length).toBeGreaterThan(20);
-    // Centrum med 3×3 kvarter har 2+2 gator
-    expect(ZONE_STREETS.filter((s) => s.district === "centrum")).toHaveLength(4);
+    // Centrum med 4×4 kvarter har 3+3 gator
+    expect(ZONE_STREETS.filter((s) => s.district === "centrum")).toHaveLength(6);
   });
 
   it("tomterna överlappar inte varandra", () => {
