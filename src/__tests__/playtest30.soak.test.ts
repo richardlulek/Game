@@ -265,5 +265,5 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
     expect(ev["rival-nybygge"] ?? 0).toBeGreaterThan(0);              // rivalbyggen
     expect(bidsSeen).toBeGreaterThan(0);                               // budkrig
     expect((ev["infra-byggstart"] ?? 0) + (ev["infra-invigt"] ?? 0)).toBeGreaterThan(0); // infrastruktur
-  });
+  }, 30_000); // 30 s timeout – hela 30-årsloopen tar några sekunder.
 });
