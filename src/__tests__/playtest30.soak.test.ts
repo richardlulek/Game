@@ -208,6 +208,11 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
       }
       // Fas 2 syns även på rivalernas hus – spåra högsta devLevel i hela staden.
       for (const c of s.competitors) for (const p of c.portfolio ?? []) maxDev = Math.max(maxDev, p.devLevel ?? 0);
+      // INVARIANT: allt ägande ligger på kartan – inga spökhus utanför tomtpoolen.
+      const offMap =
+        s.portfolio.filter((p) => !p.parcelId).length +
+        s.competitors.reduce((a, c) => a + (c.portfolio ?? []).filter((p) => !p.parcelId).length, 0);
+      expect(offMap, `off-map-ägande m=${m}`).toBe(0);
       peakEquity = Math.max(peakEquity, eq);
       worstCash = Math.min(worstCash, s.cash);
       peakHouses = Math.max(peakHouses, s.portfolio.filter((p) => p.status === "klar").length);

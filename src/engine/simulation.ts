@@ -883,12 +883,14 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── Rival merger (~2 % chans/mån) ──────────────────────────────
-  if (s.competitors.length >= 2 && Math.random() < 0.02) {
-    const idxA = Math.floor(Math.random() * s.competitors.length);
-    let idxB = Math.floor(Math.random() * (s.competitors.length - 1));
-    if (idxB >= idxA) idxB++;
-    const ca = s.competitors[idxA];
-    const cb = s.competitors[idxB];
+  // Fusioner är numera sällsynta (0,4 %/mån) och sker bara medan det finns gott
+  // om aktörer (≥4) – då köper den STARKASTE upp den svagaste. Det håller
+  // marknaden mångfaldig i stället för att kollapsa till en enda jätte.
+  if (s.competitors.length >= 4 && Math.random() < 0.004) {
+    const ranked = s.competitors.map((c, i) => ({ c, i })).sort((a, b) => a.c.equity - b.c.equity);
+    const weakest = ranked[0];       // köps upp
+    const buyer = ranked[ranked.length - 1]; // köper
+    const ca = buyer.c, cb = weakest.c;
     const merged = {
       ...ca,
       cash: ca.cash + cb.cash,
@@ -897,9 +899,9 @@ export function advanceMonth(state: GameState): GameState {
       equity: ca.equity + cb.equity,
       monthlyNOI: (ca.monthlyNOI ?? 0) + (cb.monthlyNOI ?? 0),
     };
-    s.competitors = s.competitors.filter((_, i) => i !== idxA && i !== idxB);
+    s.competitors = s.competitors.filter((_, i) => i !== buyer.i && i !== weakest.i);
     s.competitors = [...s.competitors, merged];
-    events.push({ t: `🤝 FUSION: ${ca.name} och ${cb.name} slås ihop till en starkare aktör!`, kind: "warn" });
+    events.push({ t: `🤝 FÖRVÄRV: ${ca.name} köper upp krisande ${cb.name}.`, kind: "warn" });
   }
 
   // ── Lokala distriktshändelser (~8 % chans/distrikt/mån) ─────────
@@ -1125,6 +1127,10 @@ export function advanceMonth(state: GameState): GameState {
   // andas därmed med konjunktur, distriktutveckling och marknadsläge.
   const cyclePhase = s.marketCycle?.phase ?? "stable";
   const spaceDistricts = districtsWithSpace(s);
+  // Markbudget för HELA månaden: allt nytt (rivalbyggen, avslöjade annonser,
+  // nya tomter) måste rymmas i den realistiska tomtpoolen – inget ägande får
+  // hamna utanför kartan. Räknas ned för varje objekt som tar en ledig ruta.
+  let landBudget = emptyParcels(s).length;
   const cycleNOI = cyclePhase === "boom" ? 1.10 : cyclePhase === "bust" ? 0.88 : 1.0;
   s.competitors = s.competitors.map((c) => {
     const nc = { ...c, portfolio: [...(c.portfolio ?? [])] };
@@ -1146,7 +1152,9 @@ export function advanceMonth(state: GameState): GameState {
     // Nybyggnation: kapitalstarka bolag bygger i sina distrikt när det
     // inte är lågkonjunktur – staden växer även utan spelaren.
     const buildChance = nc.strategy === "tillväxt" ? 0.05 : 0.02;
-    if (cyclePhase !== "bust" && nc.cash > 8_000_000 && Math.random() < buildChance * rateAppetite(s.interestRate)) {
+    // Bygg BARA om det finns en ledig tomtruta kvar i budgeten – annars skulle
+    // huset hamna utanför kartan (spökägande). Full stad = ingen nyproduktion.
+    if (landBudget > 0 && spaceDistricts.size > 0 && cyclePhase !== "bust" && nc.cash > 8_000_000 && Math.random() < buildChance * rateAppetite(s.interestRate)) {
       // Bygg bara där det finns obebyggd mark – inga hus trängs undan.
       const build = genWorldProperty(s, spaceDistricts);
       const district =
@@ -1167,6 +1175,7 @@ export function advanceMonth(state: GameState): GameState {
           parcelId: undefined,
           purchasePrice: cost,
         });
+        landBudget -= 1; // rutan är nu ianspråktagen
         events.push({ t: `🏗️ ${nc.name} bygger nytt: ${build.typeLabel} i ${dObj?.name ?? build.districtName} (${msek(cost)}).`, kind: "event" });
       }
     }
@@ -1782,8 +1791,12 @@ export function advanceMonth(state: GameState): GameState {
   const MAX_LISTINGS = 12;
   const MAX_FREE_LOTS = 6;
   const pool = s.worldPool ?? [];
-  if (s.listings.length < MAX_LISTINGS && pool.length > 0) {
-    const reveal = 1 + Math.floor(Math.random() * Math.min(3, pool.length));
+  // Avslöja aldrig fler annonser än det finns ledig mark – annars hamnar de
+  // utanför kartan och kan köpas till spökägande. Utgångna annonser ovan har
+  // redan frigjort sina rutor, så räkna om den lediga poolen här.
+  const freeLandNow = Math.max(0, Math.min(landBudget, emptyParcels(s).length));
+  if (s.listings.length < MAX_LISTINGS && pool.length > 0 && freeLandNow > 0) {
+    const reveal = Math.min(1 + Math.floor(Math.random() * Math.min(3, pool.length)), freeLandNow);
     const toReveal = pool.slice(0, reveal);
     const born = nowAbs2;
     s.listings = [
@@ -1800,17 +1813,20 @@ export function advanceMonth(state: GameState): GameState {
       })),
     ].slice(0, MAX_LISTINGS);
     s.worldPool = pool.slice(reveal);
+    landBudget -= toReveal.length;
   }
-  // Om världspoolen tar slut: generera nybyggnation (expansionen av
-  // världen) – enbart i distrikt med obebyggd mark kvar.
-  if ((s.worldPool ?? []).length === 0 && s.listings.length < MAX_LISTINGS) {
+  // Om världspoolen tar slut: generera nybyggnation (expansionen av världen) –
+  // enbart om det finns ledig mark kvar (annars ingen tomtruta åt den).
+  if ((s.worldPool ?? []).length === 0 && s.listings.length < MAX_LISTINGS && landBudget > 0) {
     const newProp = genListing(s, districtsWithSpace(s));
     s.listings = [...s.listings, newProp];
     s.worldTotal = (s.worldTotal ?? 0) + 1;
+    landBudget -= 1;
     events.push({ t: `🏗️ Nyproduktion utökar marknaden: ${newProp.typeLabel} i ${newProp.districtName}.`, kind: "info" });
   }
-  if (Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS) {
+  if (landBudget > 0 && Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS) {
     s.lots = [...s.lots, genLot(s, districtsWithSpace(s))];
+    landBudget -= 1;
   }
 
   // Lånelöptid: refinansiering var 48–72 månad
