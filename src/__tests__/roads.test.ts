@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DISTRICT_ZONES, PARCELS } from "../engine/city";
+import { DISTRICT_ZONES, PARCELS, ZONE_STREETS } from "../engine/city";
 import { ROADS } from "../three/roadNet";
 
 /* Vägnätsvakt: huvudlederna binder ihop distrikten. När stadslayouten
@@ -61,6 +61,21 @@ describe("VÄGNÄT: alla distrikt kopplade, ingen led i vatten eller på HK", ()
     for (const [i, r] of rBoxes.entries())
       for (const [name, eb] of expByBlock)
         expect(intersects(r.box, eb, 1), `väg${i} korsar expansionsmark ${name}`).toBe(false);
+  });
+
+  it("ansluter till gatunätet: varje led möter en kvartersgata i de distrikt den går in i", () => {
+    // För varje huvudled: i varje distrikt den tränger in i ska minst en av
+    // distriktets kvartersgator (ZONE_STREETS) fysiskt överlappa leden – annars
+    // kör leden in i en husfasad i stället för in i gatunätet.
+    for (const [i, r] of rBoxes.entries()) {
+      for (const d of dBoxes) {
+        if (!intersects(r.box, d.box, 2)) continue; // leden går inte in här
+        const streetHit = ZONE_STREETS.filter((s) => s.district === d.name).some((s) =>
+          intersects(r.box, { x0: s.x - s.w / 2, x1: s.x + s.w / 2, z0: s.z - s.d / 2, z1: s.z + s.d / 2 }),
+        );
+        expect(streetHit, `väg${i} möter ingen kvartersgata i ${d.name}`).toBe(true);
+      }
+    }
   });
 
   it("når alla sju distrikt från Centrum genom vägnätet", () => {
