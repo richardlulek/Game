@@ -18,7 +18,7 @@ import {
   PlaneGeometry,
   SphereGeometry,
 } from "three";
-import { ZONE_STREETS } from "../engine/city";
+import { DISTRICT_ZONES, ZONE_STREETS } from "../engine/city";
 import { ROADS, type RoadSeg } from "./roadNet";
 import { CAR_COLORS, ROAD, ROAD_DASH } from "./colors";
 
@@ -191,12 +191,63 @@ function StreetLamps() {
   );
 }
 
+/** Infartsstumpar: låga betongkantstenar som ramar in den smala kvarters-
+ *  gatans mynning där en bred huvudled möter en distriktskant. Förankras på
+ *  den verkliga kvartersgatan (ZONE_STREETS), så övergången bred led →
+ *  smal lokalgata blir tydlig. Härleds ur väg- och gatudatan. */
+function JunctionKerbs() {
+  const mesh = useMemo(() => {
+    const box = (o: { x: number; z: number; w: number; d: number }) => ({
+      x0: o.x - o.w / 2, x1: o.x + o.w / 2, z0: o.z - o.d / 2, z1: o.z + o.d / 2,
+    });
+    const inter = (a: ReturnType<typeof box>, b: ReturnType<typeof box>, m = 2) =>
+      a.x0 < b.x1 - m && a.x1 > b.x0 + m && a.z0 < b.z1 - m && a.z1 > b.z0 + m;
+    const L = 15, CW = 1.6, H = 0.5;
+    const items: Inst[] = [];
+    for (const r of ROADS) {
+      const vert = r.d > r.w;
+      const rb = box(r);
+      for (const z of DISTRICT_ZONES) {
+        const zb = box(z);
+        if (!inter(rb, zb)) continue;
+        // Distriktets kvartersgata med samma riktning som leden, närmast leden.
+        const streets = ZONE_STREETS.filter(
+          (s) => s.district === z.district && (s.d > s.w) === vert,
+        );
+        if (!streets.length) continue;
+        const coord = vert ? r.x : r.z;
+        const s = streets.reduce((a, b) =>
+          Math.abs((vert ? b.x : b.z) - coord) < Math.abs((vert ? a.x : a.z) - coord) ? b : a,
+        );
+        if (vert) {
+          const edgeZ = r.z < z.z ? zb.z0 : zb.z1;
+          for (const side of [-1, 1] as const)
+            items.push({ x: s.x + side * (s.w / 2 + CW / 2), y: H / 2, z: edgeZ, sx: CW, sy: H, sz: L });
+        } else {
+          const edgeX = r.x < z.x ? zb.x0 : zb.x1;
+          for (const side of [-1, 1] as const)
+            items.push({ x: edgeX, y: H / 2, z: s.z + side * (s.d / 2 + CW / 2), sx: L, sy: H, sz: CW });
+        }
+      }
+    }
+    return buildStatic(
+      new BoxGeometry(1, 1, 1),
+      new MeshStandardMaterial({ color: "#c9c4b6", roughness: 0.9 }),
+      items,
+      { cast: false, receive: true },
+    );
+  }, []);
+  useDispose(mesh);
+  return <primitive object={mesh} />;
+}
+
 /** Huvudlederna mellan distrikten + kvartersgator, allt statiskt. */
 export function Roads() {
   return (
     <>
       <RoadSurfaces />
       <RoadMarkings />
+      <JunctionKerbs />
       <StreetLamps />
     </>
   );
