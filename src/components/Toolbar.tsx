@@ -31,6 +31,10 @@ export function Toolbar({
   const next = (a: GameAction) => { playClick(); dispatch(a); };
   const blocked = state.gameOver || !!state.pendingDecision;
 
+  // Alltid synlig husräkning – hela beståndet, oavsett förvaltning.
+  const ownedHouses = state.portfolio.filter((p) => p.status === "klar").length;
+  const buildingHouses = state.portfolio.length - ownedHouses;
+
   return (
     <div style={S.toolbar}>
       <div style={S.toolbarLogo}>
@@ -65,6 +69,14 @@ export function Toolbar({
         ×12
       </button>
       <div style={{ flex: 1 }} />
+      {state.portfolio.length > 0 && (
+        <div
+          style={{ ...S.toolbarMiniBtn, cursor: "default", color: "#ffd080" }}
+          title="Antal fastigheter du äger"
+        >
+          🏠 {ownedHouses}{buildingHouses > 0 ? ` (+${buildingHouses})` : ""}
+        </div>
+      )}
       {offersCount > 0 && (
         <button
           style={{ ...S.toolbarMiniBtn, borderColor: BURGUNDY, color: "#ffd080" }}

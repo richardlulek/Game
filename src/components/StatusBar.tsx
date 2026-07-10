@@ -55,10 +55,20 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
   const ltvColor = ltv > 0.85 ? "#f87a7a" : ltv > 0.75 ? "#f5c842" : ltv > 0.60 ? "#e0c050" : undefined;
   const nowAbs = state.year * 12 + state.month;
   const monthsToMaturity = state.debtMatureAbs ? state.debtMatureAbs - nowAbs : null;
+  // Tydlig, alltid korrekt husräkning – till skillnad från "Organisation" som
+  // faller mot 0 så fort fastigheterna får förvaltare. Här räknas hela beståndet.
+  const ownedHouses = state.portfolio.filter((p) => p.status === "klar").length;
+  const buildingHouses = state.portfolio.length - ownedHouses;
 
   return (
     <div style={S.statusBar}>
       <NumChip label="Kassa" value={state.cash} format={msek} valueColor={state.cash < -200_000 ? "#f87a7a" : state.cash < 0 ? "#f5c842" : "#80e080"} />
+      {state.portfolio.length > 0 && (
+        <Chip
+          label="Fastigheter"
+          value={buildingHouses > 0 ? `${ownedHouses} 🏠 (+${buildingHouses} 🏗️)` : `${ownedHouses} 🏠`}
+        />
+      )}
       <NumChip label="Eget kapital" value={equity} format={msek} />
       <NumChip label="Skuld" value={state.debt} format={msek} />
       <Chip label="LTV" value={pct(ltv)} valueColor={ltvColor} />
@@ -74,8 +84,8 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
         const load = orgLoadOf(state);
         return (
           <Chip
-            label="Organisation"
-            value={`${load.selfManaged}/${load.cap} hus`}
+            label="Förvaltning"
+            value={`${load.selfManaged}/${load.cap}`}
             valueColor={load.over > 0 ? "#f87a7a" : undefined}
           />
         );
