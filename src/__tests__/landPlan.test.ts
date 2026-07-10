@@ -91,7 +91,7 @@ describe("råmark & detaljplan", () => {
   it("kartan har planområden som är låst expansionsmark", () => {
     expect(PLAN_AREAS.length).toBeGreaterThanOrEqual(6);
     const parcels = PARCELS.filter((p) => p.blockId === PLAN_ID);
-    expect(parcels).toHaveLength(4);
+    expect(parcels).toHaveLength(8); // dubblad planmark (2×4)
     expect(parcels.every((p) => p.expansion)).toBe(true);
     expect(expansionByBlock(PLAN_ID)?.kind).toBe("plan");
     // Kommunala auktioner rör aldrig planområden.
@@ -132,7 +132,7 @@ describe("råmark & detaljplan", () => {
     expect(s.unlockedBlocks).toContain(PLAN_ID);
     expect(s.ownedPlanAreas).toHaveLength(0);
     const mina = s.lots.filter((l) => l.owned && l.parcelId?.startsWith(PLAN_ID));
-    expect(mina).toHaveLength(4);
+    expect(mina).toHaveLength(8); // dubblad planmark ger fler byggklara tomter
     expect(s.log.some((l) => l.t.includes("LAGA KRAFT"))).toBe(true);
   });
 });

@@ -118,22 +118,24 @@ export interface ExpansionDef {
   waterfront?: boolean;
 }
 
+// Dubbelt så många tomter i varje expansionskvarter (kommunal + planmark):
+// finare uppdelning med OFÖRÄNDRAT fotavtryck, så geometrivakten håller.
 const EXPANSIONS: ExpansionDef[] = [
-  { blockId: "innerstad-exp0", district: "innerstad", cx: -73, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "kommunal" },
-  { blockId: "industri-exp0", district: "industri", cx: 270, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "kommunal" },
-  { blockId: "innerstad-exp1", district: "innerstad", cx: 53, cz: -311, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "kommunal" },
-  { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "kommunal" },
-  { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "kommunal" },
+  { blockId: "innerstad-exp0", district: "innerstad", cx: -73, cz: -311, parcelCols: 2, parcelRows: 4, parcelW: 24, parcelD: 12, kind: "kommunal" },
+  { blockId: "industri-exp0", district: "industri", cx: 270, cz: 0, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "kommunal" },
+  { blockId: "innerstad-exp1", district: "innerstad", cx: 53, cz: -311, parcelCols: 2, parcelRows: 4, parcelW: 24, parcelD: 12, kind: "kommunal" },
+  { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 2, parcelRows: 1, parcelW: 26, parcelD: 52, kind: "kommunal" },
+  { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "kommunal" },
   // Planområden: privat råmark i stadens utkanter.
-  // Planmark i luckan mellan Villakullen och Förorten – lägre (pd 22→16) och
-  // centrerad i gapet så att den inte längre skär in i något av distrikten.
-  { blockId: "kulle-plan0", district: "kulle", cx: -420, cz: -79, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 16, kind: "plan" },
-  { blockId: "förort-plan0", district: "förort", cx: -462, cz: 90, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "plan" },
-  { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "plan" },
-  { blockId: "finans-plan0", district: "finans", cx: 445, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
-  { blockId: "industri-plan0", district: "industri", cx: 510, cz: -40, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
-  { blockId: "industri-plan1", district: "industri", cx: 510, cz: -220, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
-  { blockId: "hamnen-plan0", district: "hamnen", cx: 300, cz: 265, parcelCols: 2, parcelRows: 1, parcelW: 24, parcelD: 24, kind: "plan", waterfront: true },
+  // Planmark i luckan mellan Villakullen och Förorten – låg och centrerad i
+  // gapet så att den inte skär in i något av distrikten.
+  { blockId: "kulle-plan0", district: "kulle", cx: -420, cz: -79, parcelCols: 2, parcelRows: 4, parcelW: 22, parcelD: 8, kind: "plan" },
+  { blockId: "förort-plan0", district: "förort", cx: -462, cz: 90, parcelCols: 2, parcelRows: 1, parcelW: 26, parcelD: 52, kind: "plan" },
+  { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 4, parcelW: 24, parcelD: 12, kind: "plan" },
+  { blockId: "finans-plan0", district: "finans", cx: 445, cz: 120, parcelCols: 2, parcelRows: 4, parcelW: 26, parcelD: 13, kind: "plan" },
+  { blockId: "industri-plan0", district: "industri", cx: 510, cz: -40, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "plan" },
+  { blockId: "industri-plan1", district: "industri", cx: 510, cz: -220, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "plan" },
+  { blockId: "hamnen-plan0", district: "hamnen", cx: 300, cz: 265, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 12, kind: "plan", waterfront: true },
 ];
 
 /** Auktionsordningen för de KOMMUNALA expansionskvarteren. */

@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import type { Group, Mesh, MeshStandardMaterial } from "three";
 import { useGameStore } from "../store/gameStore";
+import { LANDMARKS } from "./landmarks";
 
 /** En rökpuff som stiger, växer och tonar ut i loop. */
 function Puff({ x, y, z, phase, drift }: { x: number; y: number; z: number; phase: number; drift: number }) {
@@ -255,65 +256,286 @@ export function Harbor() {
   );
 }
 
-/** Landmärken som ger distrikten identitet. */
+/** Stadshusets klocktorn. */
+function LmStadshus({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh castShadow receiveShadow position={[0, 1, 0]}>
+        <boxGeometry args={[16, 2, 16]} />
+        <meshStandardMaterial color={CONCRETE} />
+      </mesh>
+      <mesh castShadow position={[0, 13, 0]}>
+        <boxGeometry args={[7, 24, 7]} />
+        <meshStandardMaterial color="#c9b896" />
+      </mesh>
+      <mesh position={[0, 22, 3.6]}>
+        <cylinderGeometry args={[1.6, 1.6, 0.2, 16]} />
+        <meshStandardMaterial color="#f3ead3" />
+      </mesh>
+      <mesh castShadow position={[0, 27.2, 0]} rotation-y={Math.PI / 4}>
+        <coneGeometry args={[5.4, 4.5, 4]} />
+        <meshStandardMaterial color="#4a6a55" />
+      </mesh>
+      <Flag x={0} y={29.5} z={0} color="#4f63e4" />
+    </group>
+  );
+}
+
+/** Vattentorn på ben. */
+function LmVattentorn({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      {[0, 1, 2, 3].map((i) => (
+        <mesh
+          key={i}
+          castShadow
+          position={[Math.cos((i * Math.PI) / 2) * 3.2, 6, Math.sin((i * Math.PI) / 2) * 3.2]}
+        >
+          <cylinderGeometry args={[0.35, 0.45, 12, 6]} />
+          <meshStandardMaterial color="#8a8f8a" />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0, 14, 0]}>
+        <cylinderGeometry args={[5.5, 4.5, 5, 12]} />
+        <meshStandardMaterial color="#aab4ac" />
+      </mesh>
+      <mesh castShadow position={[0, 17.6, 0]}>
+        <coneGeometry args={[5.6, 2.4, 12]} />
+        <meshStandardMaterial color="#7d8a7a" />
+      </mesh>
+    </group>
+  );
+}
+
+/** Enskild fabriksskorsten med rök. */
+function LmSkorsten({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh castShadow position={[0, 9, 0]}>
+        <cylinderGeometry args={[1.4, 1.9, 18, 10]} />
+        <meshStandardMaterial color="#9c5a4a" />
+      </mesh>
+      <mesh position={[0, 17.6, 0]}>
+        <cylinderGeometry args={[1.45, 1.45, 1.2, 10]} />
+        <meshStandardMaterial color="#e8e4da" />
+      </mesh>
+      <Smoke x={0} y={18.5} z={0} />
+    </group>
+  );
+}
+
+/** Litet träd (stam + krona). */
+function Tree({ x, z, s = 1 }: { x: number; z: number; s?: number }) {
+  return (
+    <group position={[x, 0, z]} scale={s}>
+      <mesh castShadow position={[0, 2, 0]}>
+        <cylinderGeometry args={[0.5, 0.7, 4, 6]} />
+        <meshStandardMaterial color="#6b4a2f" />
+      </mesh>
+      <mesh castShadow position={[0, 5.4, 0]}>
+        <sphereGeometry args={[3, 8, 7]} />
+        <meshStandardMaterial color="#3f7a44" flatShading />
+      </mesh>
+    </group>
+  );
+}
+
+/** Stadspark: gräsyta, korsande grusgångar, fontän och träd. */
+function LmStadspark({ x, z }: { x: number; z: number }) {
+  const trees = useMemo(
+    () =>
+      [[-24, -18], [-14, 12], [18, -14], [26, 16], [-28, 15], [10, 20], [22, -22], [-6, -20]].map(
+        ([tx, tz], i) => ({ tx, tz, s: 0.8 + ((i * 7) % 5) * 0.12 }),
+      ),
+    [],
+  );
+  return (
+    <group position={[x, 0, z]}>
+      <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, 0.12, 0]}>
+        <planeGeometry args={[66, 56]} />
+        <meshStandardMaterial color="#3c7a41" />
+      </mesh>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.16, 0]}>
+        <planeGeometry args={[66, 6]} />
+        <meshStandardMaterial color="#c8bfa6" />
+      </mesh>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.16, 0]}>
+        <planeGeometry args={[6, 56]} />
+        <meshStandardMaterial color="#c8bfa6" />
+      </mesh>
+      {/* Fontän: två skålar med vatten och en pelare */}
+      <mesh castShadow position={[0, 0.6, 0]}>
+        <cylinderGeometry args={[5, 5.4, 1.2, 20]} />
+        <meshStandardMaterial color={CONCRETE} />
+      </mesh>
+      <mesh position={[0, 1, 0]}>
+        <cylinderGeometry args={[4.4, 4.4, 0.4, 20]} />
+        <meshStandardMaterial color="#4a86c4" transparent opacity={0.85} />
+      </mesh>
+      <mesh position={[0, 1.9, 0]}>
+        <cylinderGeometry args={[0.5, 0.7, 2, 8]} />
+        <meshStandardMaterial color={CONCRETE} />
+      </mesh>
+      <mesh position={[0, 3, 0]}>
+        <cylinderGeometry args={[1.6, 1.6, 0.3, 16]} />
+        <meshStandardMaterial color="#4a86c4" transparent opacity={0.85} />
+      </mesh>
+      {trees.map((t, i) => (
+        <Tree key={i} x={t.tx} z={t.tz} s={t.s} />
+      ))}
+    </group>
+  );
+}
+
+/** Kyrka med långhus, sadeltak och torn med spira. */
+function LmKyrka({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh castShadow receiveShadow position={[0, 5, -2]}>
+        <boxGeometry args={[12, 10, 20]} />
+        <meshStandardMaterial color="#e6e0d4" />
+      </mesh>
+      {/* Sadeltak: två lutande takfall */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} castShadow position={[s * 3, 11.4, -2]} rotation-z={s * 0.86}>
+          <boxGeometry args={[8, 0.6, 20]} />
+          <meshStandardMaterial color="#7a4a38" />
+        </mesh>
+      ))}
+      {/* Torn längst fram */}
+      <mesh castShadow position={[0, 11, 10]}>
+        <boxGeometry args={[7, 22, 7]} />
+        <meshStandardMaterial color="#ded7c8" />
+      </mesh>
+      <mesh castShadow position={[0, 25, 10]} rotation-y={Math.PI / 4}>
+        <coneGeometry args={[4.6, 9, 4]} />
+        <meshStandardMaterial color="#5a6b62" />
+      </mesh>
+      {/* Kors */}
+      <mesh position={[0, 31, 10]}>
+        <boxGeometry args={[0.4, 3, 0.4]} />
+        <meshStandardMaterial color="#c9a13b" />
+      </mesh>
+      <mesh position={[0, 31.5, 10]}>
+        <boxGeometry args={[1.6, 0.4, 0.4]} />
+        <meshStandardMaterial color="#c9a13b" />
+      </mesh>
+    </group>
+  );
+}
+
+/** Idrottsarena: elliptisk läktarring, grön plan och strålkastarmaster. */
+function LmArena({ x, z }: { x: number; z: number }) {
+  const N = 28;
+  const stands = useMemo(
+    () =>
+      Array.from({ length: N }, (_, i) => {
+        const a = (i / N) * Math.PI * 2;
+        return { px: Math.cos(a) * 22, pz: Math.sin(a) * 15, a, alt: i % 2 === 0 };
+      }),
+    [],
+  );
+  return (
+    <group position={[x, 0, z]}>
+      <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, 0.15, 0]}>
+        <planeGeometry args={[34, 22]} />
+        <meshStandardMaterial color="#3f7a44" />
+      </mesh>
+      {stands.map((s, i) => (
+        <mesh key={i} castShadow position={[s.px, 3, s.pz]} rotation-y={-s.a}>
+          <boxGeometry args={[3.2, 6, 5]} />
+          <meshStandardMaterial color={s.alt ? "#c9c3b6" : "#b3ada0"} />
+        </mesh>
+      ))}
+      {([[-20, -13], [20, -13], [-20, 13], [20, 13]] as const).map(([px, pz], i) => (
+        <group key={i} position={[px, 0, pz]}>
+          <mesh castShadow position={[0, 9, 0]}>
+            <cylinderGeometry args={[0.4, 0.5, 18, 6]} />
+            <meshStandardMaterial color="#6b7075" />
+          </mesh>
+          <mesh position={[0, 18, 0]}>
+            <boxGeometry args={[4, 1.4, 1]} />
+            <meshStandardMaterial color="#fff6d8" emissive="#ffe9a8" emissiveIntensity={0.6} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+const GONDOLA_COLORS = ["#c94f4f", "#3c6ca8", "#c9a13b", "#4d8b52", "#7a5c8f", "#d98536"];
+
+/** Pariserhjul som snurrar långsamt – liv vid kajen. */
+function LmPariserhjul({ x, z }: { x: number; z: number }) {
+  const wheel = useRef<Group>(null);
+  useFrame((state) => {
+    if (wheel.current) wheel.current.rotation.z = state.clock.elapsedTime * 0.22;
+  });
+  const R = 14;
+  const N = 8;
+  const spokes = useMemo(
+    () => Array.from({ length: N }, (_, i) => (i / N) * Math.PI * 2),
+    [],
+  );
+  return (
+    <group position={[x, 0, z]}>
+      {/* Stödben (A-ram) på båda sidor om hjulet */}
+      {[-3.5, 3.5].map((zz, i) => (
+        <group key={i} position={[0, 0, zz]}>
+          {[-1, 1].map((s) => (
+            <mesh key={s} castShadow position={[s * 5, 8, 0]} rotation-z={s * 0.55}>
+              <boxGeometry args={[0.8, 20, 0.8]} />
+              <meshStandardMaterial color="#9aa4ad" metalness={0.4} roughness={0.5} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {/* Nav + roterande hjul (fälg i XY-planet, axel längs Z) */}
+      <group ref={wheel} position={[0, R + 2, 0]}>
+        <mesh rotation-x={Math.PI / 2}>
+          <cylinderGeometry args={[1, 1, 8, 12]} />
+          <meshStandardMaterial color="#8a94a0" metalness={0.5} />
+        </mesh>
+        <mesh>
+          <torusGeometry args={[R, 0.5, 8, 28]} />
+          <meshStandardMaterial color="#c94f4f" metalness={0.3} roughness={0.5} />
+        </mesh>
+        {spokes.map((a, i) => {
+          const gx = Math.cos(a) * R;
+          const gy = Math.sin(a) * R;
+          return (
+            <group key={i}>
+              <mesh position={[gx / 2, gy / 2, 0]} rotation-z={a}>
+                <boxGeometry args={[R, 0.2, 0.2]} />
+                <meshStandardMaterial color="#d9d4c8" />
+              </mesh>
+              <mesh castShadow position={[gx, gy, 0]}>
+                <boxGeometry args={[2.4, 2.2, 2.6]} />
+                <meshStandardMaterial color={GONDOLA_COLORS[i % GONDOLA_COLORS.length]} />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
+    </group>
+  );
+}
+
+/** Landmärken som ger distrikten identitet – renderas ur LANDMARKS-datan. */
 export function Landmarks() {
   return (
     <>
-      {/* Stadshusets klocktorn – i parkstråket öster om Centrum */}
-      <group position={[168, 0, -80]}>
-        <mesh castShadow receiveShadow position={[0, 1, 0]}>
-          <boxGeometry args={[16, 2, 16]} />
-          <meshStandardMaterial color={CONCRETE} />
-        </mesh>
-        <mesh castShadow position={[0, 13, 0]}>
-          <boxGeometry args={[7, 24, 7]} />
-          <meshStandardMaterial color="#c9b896" />
-        </mesh>
-        <mesh position={[0, 22, 3.6]}>
-          <cylinderGeometry args={[1.6, 1.6, 0.2, 16]} />
-          <meshStandardMaterial color="#f3ead3" />
-        </mesh>
-        <mesh castShadow position={[0, 27.2, 0]} rotation-y={Math.PI / 4}>
-          <coneGeometry args={[5.4, 4.5, 4]} />
-          <meshStandardMaterial color="#4a6a55" />
-        </mesh>
-        <Flag x={0} y={29.5} z={0} color="#4f63e4" />
-      </group>
-      {/* Vattentorn – norr om Villakullen */}
-      <group position={[-310, 0, -290]}>
-        {[0, 1, 2, 3].map((i) => (
-          <mesh
-            key={i}
-            castShadow
-            position={[Math.cos((i * Math.PI) / 2) * 3.2, 6, Math.sin((i * Math.PI) / 2) * 3.2]}
-          >
-            <cylinderGeometry args={[0.35, 0.45, 12, 6]} />
-            <meshStandardMaterial color="#8a8f8a" />
-          </mesh>
-        ))}
-        <mesh castShadow position={[0, 14, 0]}>
-          <cylinderGeometry args={[5.5, 4.5, 5, 12]} />
-          <meshStandardMaterial color="#aab4ac" />
-        </mesh>
-        <mesh castShadow position={[0, 17.6, 0]}>
-          <coneGeometry args={[5.6, 2.4, 12]} />
-          <meshStandardMaterial color="#7d8a7a" />
-        </mesh>
-      </group>
-      {/* Fabriksskorstenar öster om Industriområdet */}
-      {[-48, 4].map((dz, i) => (
-        <group key={i} position={[465, 0, -110 + dz]}>
-          <mesh castShadow position={[0, 9, 0]}>
-            <cylinderGeometry args={[1.4, 1.9, 18, 10]} />
-            <meshStandardMaterial color="#9c5a4a" />
-          </mesh>
-          <mesh position={[0, 17.6, 0]}>
-            <cylinderGeometry args={[1.45, 1.45, 1.2, 10]} />
-            <meshStandardMaterial color="#e8e4da" />
-          </mesh>
-          <Smoke x={0} y={18.5} z={0} />
-        </group>
-      ))}
+      {LANDMARKS.map((l) => {
+        switch (l.type) {
+          case "stadshus":    return <LmStadshus key={l.id} x={l.x} z={l.z} />;
+          case "vattentorn":  return <LmVattentorn key={l.id} x={l.x} z={l.z} />;
+          case "skorsten":    return <LmSkorsten key={l.id} x={l.x} z={l.z} />;
+          case "stadspark":   return <LmStadspark key={l.id} x={l.x} z={l.z} />;
+          case "kyrka":       return <LmKyrka key={l.id} x={l.x} z={l.z} />;
+          case "arena":       return <LmArena key={l.id} x={l.x} z={l.z} />;
+          case "pariserhjul": return <LmPariserhjul key={l.id} x={l.x} z={l.z} />;
+        }
+      })}
     </>
   );
 }
