@@ -290,6 +290,8 @@ export const S: Record<string, CSSProperties> = {
     alignItems: "center",
     padding: "0 14px",
     borderRight: `1px solid ${C.brassDim}55`,
+    flexShrink: 0,          // krymp inte – låt raden scrolla i stället för att bryta
+    whiteSpace: "nowrap",
   },
   statusLabel: {
     fontSize: 9,
@@ -297,8 +299,16 @@ export const S: Record<string, CSSProperties> = {
     textTransform: "uppercase",
     letterSpacing: 0.8,
     fontWeight: 600,
+    whiteSpace: "nowrap",
   },
-  statusValue: { fontSize: 13, fontWeight: 700, color: C.creamText, fontFamily: FONTS.heading },
+  statusValue: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: C.creamText,
+    fontFamily: FONTS.heading,
+    whiteSpace: "nowrap",
+    fontVariantNumeric: "tabular-nums",
+  },
 
   // ── Layout ───────────────────────────────────────────────────
   appLayout: {
