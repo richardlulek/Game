@@ -86,10 +86,12 @@ const ZONES: ZoneDef[] = [
   { district: "hamnen", cx: 40, cz: 262, blockCols: 19, blockRows: 3, parcelCols: 1, parcelRows: 1, parcelW: 17, parcelD: 17, innerGap: 0, street: 7 },
   // Industriområdet: stora fristående tomter i nordost
   { district: "industri", cx: 320, cz: -150, blockCols: 9, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 27, parcelD: 27, innerGap: 0, street: 9 },
-  // Förorten: storkvarter i väst – varje tomt är ETT helt kvarter
-  { district: "förort", cx: -295, cz: 55, blockCols: 6, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 37, parcelD: 37, innerGap: 0, street: 9 },
-  // Villakullen: villatomter i nordvästra hörnet
-  { district: "kulle", cx: -330, cz: -210, blockCols: 11, blockRows: 9, parcelCols: 1, parcelRows: 1, parcelW: 16, parcelD: 16, innerGap: 0, street: 8 },
+  // Förorten: storkvarter i väst – varje tomt är ETT helt kvarter.
+  // Dubbelt så många kvarter (30→63) med samma fotavtryck (tätare, mindre).
+  { district: "förort", cx: -295, cz: 55, blockCols: 9, blockRows: 7, parcelCols: 1, parcelRows: 1, parcelW: 22, parcelD: 24, innerGap: 0, street: 8 },
+  // Villakullen: villatomter i nordvästra hörnet.
+  // Dubbelt så många villatomter (99→192) med samma fotavtryck.
+  { district: "kulle", cx: -330, cz: -210, blockCols: 16, blockRows: 12, parcelCols: 1, parcelRows: 1, parcelW: 10, parcelD: 12, innerGap: 0, street: 6 },
 ];
 
 export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
@@ -123,7 +125,9 @@ const EXPANSIONS: ExpansionDef[] = [
   { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "kommunal" },
   { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "kommunal" },
   // Planområden: privat råmark i stadens utkanter.
-  { blockId: "kulle-plan0", district: "kulle", cx: -420, cz: -80, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 22, kind: "plan" },
+  // Planmark i luckan mellan Villakullen och Förorten – lägre (pd 22→16) och
+  // centrerad i gapet så att den inte längre skär in i något av distrikten.
+  { blockId: "kulle-plan0", district: "kulle", cx: -420, cz: -79, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 16, kind: "plan" },
   { blockId: "förort-plan0", district: "förort", cx: -462, cz: 90, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "plan" },
   { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "plan" },
   { blockId: "finans-plan0", district: "finans", cx: 445, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
