@@ -1,4 +1,4 @@
-import { playClick } from "../audio/sound";
+import { getVolume, playClick, setVolume } from "../audio/sound";
 import { formatGameDate } from "../engine/date";
 import { BURGUNDY } from "../styles/tokens";
 import { S } from "../styles/styles";
@@ -81,6 +81,7 @@ export function Toolbar({
       >
         {soundOn ? "🔊" : "🔇"}
       </button>
+      {soundOn && <VolumeSlider />}
       <button style={S.toolbarMiniBtn} onClick={onSave}>
         {saved ? "✓ Sparat" : "Spara"}
       </button>
@@ -93,5 +94,20 @@ export function Toolbar({
         </div>
       )}
     </div>
+  );
+}
+
+function VolumeSlider() {
+  return (
+    <input
+      type="range"
+      min={0}
+      max={1}
+      step={0.05}
+      defaultValue={getVolume()}
+      onChange={(e) => setVolume(parseFloat(e.target.value))}
+      title="Volym"
+      style={{ width: 64, accentColor: BURGUNDY, cursor: "pointer" }}
+    />
   );
 }

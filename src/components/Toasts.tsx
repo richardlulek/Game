@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { playIncome, playWarn } from "../audio/sound";
+import { playBuy, playIncome, playWarn } from "../audio/sound";
 import type { LogEntry, LogKind } from "../engine/types";
 import { C, THEME } from "../styles/tokens";
 
@@ -23,6 +23,7 @@ const STYLE_BY_KIND: Record<string, { border: string; icon: string }> = {
 function soundFor(kind: LogKind) {
   if (kind === "income" || kind === "sell") playIncome();
   else if (kind === "warn" || kind === "expense") playWarn();
+  else if (kind === "buy") playBuy();
 }
 
 /**

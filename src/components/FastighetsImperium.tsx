@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { isSoundEnabled, setSoundEnabled } from "../audio/sound";
+import {
+  isSoundEnabled, setSoundEnabled,
+  startMusic, stopMusic, setMusicMood, setMusicTempo,
+  playLevelUp, playMilestone, playBell, playAlert, playBuild,
+} from "../audio/sound";
 import { canUpgrade, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { formatGameDate } from "../engine/date";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
@@ -124,6 +128,7 @@ export default function FastighetsImperium() {
   const [showOffers, setShowOffers] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [showVictory, setShowVictory] = useState(false);
+  const clockSpeed = useGameStore((s) => s.clock.speed);
   // Portföljvyn: kompakt lista (skannbar, för många fastigheter) eller
   // detaljerade kort. Default styrs av antalet fastigheter.
   const [portfolioView, setPortfolioView] = useState<"list" | "cards">(
@@ -202,6 +207,49 @@ export default function FastighetsImperium() {
     if (state.gameWon && !prevWon.current) { setShowVictory(true); }
     prevWon.current = !!state.gameWon;
   }, [state.gameWon]);
+
+  // ── Ambient-musik: startar när spelet är igång och ljud på ──────────────
+  useEffect(() => {
+    if (started && soundOn) startMusic();
+    else stopMusic();
+  }, [started, soundOn]);
+  // Humöret följer konjunkturen, tempot klockan.
+  useEffect(() => {
+    setMusicMood(state.marketCycle?.phase ?? "stable");
+  }, [state.marketCycle?.phase]);
+  useEffect(() => {
+    setMusicTempo(clockSpeed || 1);
+  }, [clockSpeed]);
+
+  // ── Händelse-SFX: bevakar nyckeltillstånd och spelar en signatur vid övergång.
+  const sfxPrev = useRef({ level: state.companyLevel ?? 1, ms: 0, ipo: false, bid: false, logTop: "" });
+  useEffect(() => {
+    const level = state.companyLevel ?? 1;
+    if (!soundOn || !started) {
+      sfxPrev.current = {
+        level,
+        ms: state.milestones?.length ?? 0,
+        ipo: !!state.ipoActive,
+        bid: !!state.competingBid,
+        logTop: state.log[0]?.t ?? "",
+      };
+      return;
+    }
+    const p = sfxPrev.current;
+    if (level > p.level) playLevelUp();
+    const ms = state.milestones?.length ?? 0;
+    if (ms > p.ms) playMilestone();
+    const ipo = !!state.ipoActive;
+    if (ipo && !p.ipo) playBell();
+    const bid = !!state.competingBid;
+    if (bid && !p.bid) playAlert();
+    const logTop = state.log[0]?.t ?? "";
+    if (logTop && logTop !== p.logTop &&
+        /Påbörjade nyproduktion|Utvecklingsprojekt startat|Rivning & nybyggnation startad/.test(logTop)) {
+      playBuild();
+    }
+    sfxPrev.current = { level, ms, ipo, bid, logTop };
+  }, [state, soundOn, started]);
 
   const doSave = () => { save(); setSaved(true); setTimeout(() => setSaved(false), 1500); };
   const toggleSound = () => { const v = !soundOn; setSoundEnabled(v); setSoundOn(v); };
