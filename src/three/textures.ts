@@ -409,21 +409,22 @@ function drawGroundTile(): HTMLCanvasElement {
  * Statusikon för kartan: emoji på en läsbar vit bricka, som CanvasTexture
  * för billboard-sprites ovanför husen (bud, vakans, till salu). Cachas.
  */
-export function iconTexture(emoji: string): CanvasTexture {
-  const key = `icon:${emoji}`;
+export function iconTexture(emoji: string, bg = "rgba(255,252,244,0.95)"): CanvasTexture {
+  const key = `icon:${emoji}:${bg}`;
   const hit = textureCache.get(key);
   if (hit) return hit;
   const c = document.createElement("canvas");
   c.width = 128;
   c.height = 128;
   const g = c.getContext("2d")!;
-  // Vit rund bricka med tunn mörk kant → läsbar mot alla fasader.
+  // Rund bricka med tunn mörk kant → läsbar mot alla fasader. Bakgrundsfärgen
+  // kan sättas (t.ex. guld för "till salu") så ikonen sticker ut på kartan.
   g.beginPath();
   g.arc(64, 64, 58, 0, Math.PI * 2);
-  g.fillStyle = "rgba(255,252,244,0.95)";
+  g.fillStyle = bg;
   g.fill();
-  g.lineWidth = 5;
-  g.strokeStyle = "rgba(60,50,40,0.8)";
+  g.lineWidth = 6;
+  g.strokeStyle = "rgba(50,40,30,0.85)";
   g.stroke();
   g.font = "68px sans-serif";
   g.textAlign = "center";

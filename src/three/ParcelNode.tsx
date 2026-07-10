@@ -28,14 +28,17 @@ export type ParcelContent =
 const HOVER_MAX_DIST = 480;
 
 /** Alltid-synlig färgbeacon ovanför huset som visar ägarkategori (matchar
-    kartlegenden): din, till salu, tomt, konkurrent. */
-function ownerBeacon(content: ParcelContent): string | null {
+    kartlegenden): din, till salu, tomt, konkurrent. "Till salu" är en stor
+    guldbricka med prislapp så köpobjekt syns tydligt (en liten gul prick var
+    svår att upptäcka); övriga behåller sin lilla färgprick. */
+const WHITE_BG = "rgba(255,252,244,0.95)";
+function ownerBeacon(content: ParcelContent): { emoji: string; bg: string; scale: number } | null {
   switch (content.kind) {
     case "owned":
-    case "lotOwned": return "🔵";
-    case "listing": return "🟡";
-    case "lotForSale": return "🟢";
-    case "rival": return "🔴";
+    case "lotOwned": return { emoji: "🔵", bg: WHITE_BG, scale: 4.6 };
+    case "listing": return { emoji: "🏷️", bg: "#ffce3a", scale: 7.4 };
+    case "lotForSale": return { emoji: "🟢", bg: WHITE_BG, scale: 5 };
+    case "rival": return { emoji: "🔴", bg: WHITE_BG, scale: 4.6 };
     default: return null;
   }
 }
@@ -409,8 +412,8 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
         {(() => {
           const be = ownerBeacon(content);
           return be ? (
-            <sprite position={[0, Math.min(fullH, 150) + 3.5, 0]} scale={[4.6, 4.6, 1]} renderOrder={39}>
-              <spriteMaterial map={iconTexture(be)} transparent depthTest={false} />
+            <sprite position={[0, Math.min(fullH, 150) + 3.5, 0]} scale={[be.scale, be.scale, 1]} renderOrder={39}>
+              <spriteMaterial map={iconTexture(be.emoji, be.bg)} transparent depthTest={false} />
             </sprite>
           ) : null;
         })()}
