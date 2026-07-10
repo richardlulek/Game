@@ -32,7 +32,7 @@ export interface LandmarkAnchor {
 export const LANDMARKS: LandmarkAnchor[] = [
   // Omflyttade
   { id: "stadshus",    type: "stadshus",    x: 146,  z: 18,   w: 18, d: 18 }, // civic torn i avenylucka C–Finans
-  { id: "vattentorn",  type: "vattentorn",  x: -330, z: -345, w: 14, d: 14 }, // norr om Villakullen (öppen mark)
+  { id: "vattentorn",  type: "vattentorn",  x: -390, z: -345, w: 14, d: 14 }, // nordväst om Villakullen (utkanten, glesa sidan)
   { id: "skorsten-v",  type: "skorsten",    x: 300,  z: -262, w: 6,  d: 6 },  // norr om Industriområdet
   { id: "skorsten-o",  type: "skorsten",    x: 350,  z: -262, w: 6,  d: 6 },
   // Nya

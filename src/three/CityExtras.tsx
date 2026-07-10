@@ -363,22 +363,24 @@ function LmStadspark({ x, z }: { x: number; z: number }) {
         <planeGeometry args={[6, 56]} />
         <meshStandardMaterial color="#c8bfa6" />
       </mesh>
-      {/* Fontän: två skålar med vatten och en pelare */}
+      {/* Fontän: två skålar med vatten och en pelare. Vattnet är ogenomskinligt
+          och ligger en bit under skålkanten – transparent, kantlinjerat vatten
+          z-fightade mot skålen och blinkade. */}
       <mesh castShadow position={[0, 0.6, 0]}>
         <cylinderGeometry args={[5, 5.4, 1.2, 20]} />
         <meshStandardMaterial color={CONCRETE} />
       </mesh>
-      <mesh position={[0, 1, 0]}>
-        <cylinderGeometry args={[4.4, 4.4, 0.4, 20]} />
-        <meshStandardMaterial color="#4a86c4" transparent opacity={0.85} />
+      <mesh position={[0, 0.85, 0]}>
+        <cylinderGeometry args={[4.4, 4.4, 0.3, 20]} />
+        <meshStandardMaterial color="#3f7fb8" roughness={0.3} metalness={0.1} />
       </mesh>
       <mesh position={[0, 1.9, 0]}>
         <cylinderGeometry args={[0.5, 0.7, 2, 8]} />
         <meshStandardMaterial color={CONCRETE} />
       </mesh>
-      <mesh position={[0, 3, 0]}>
-        <cylinderGeometry args={[1.6, 1.6, 0.3, 16]} />
-        <meshStandardMaterial color="#4a86c4" transparent opacity={0.85} />
+      <mesh position={[0, 2.95, 0]}>
+        <cylinderGeometry args={[1.6, 1.6, 0.25, 16]} />
+        <meshStandardMaterial color="#3f7fb8" roughness={0.3} metalness={0.1} />
       </mesh>
       {trees.map((t, i) => (
         <Tree key={i} x={t.tx} z={t.tz} s={t.s} />
@@ -397,7 +399,7 @@ function LmKyrka({ x, z }: { x: number; z: number }) {
       </mesh>
       {/* Sadeltak: två lutande takfall */}
       {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[s * 3, 11.4, -2]} rotation-z={s * 0.86}>
+        <mesh key={s} castShadow position={[s * 3.1, 11.2, -2]} rotation-z={s * -0.86}>
           <boxGeometry args={[8, 0.6, 20]} />
           <meshStandardMaterial color="#7a4a38" />
         </mesh>
@@ -465,7 +467,35 @@ function LmArena({ x, z }: { x: number; z: number }) {
 
 const GONDOLA_COLORS = ["#c94f4f", "#3c6ca8", "#c9a13b", "#4d8b52", "#7a5c8f", "#d98536"];
 
-/** Pariserhjul som snurrar långsamt – liv vid kajen. */
+/** Liten förtöjd segeljolle som guppar stilla vid bryggan. */
+function Dinghy({ x, z, phase, color }: { x: number; z: number; phase: number; color: string }) {
+  const ref = useRef<Group>(null);
+  useFrame((state) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    g.position.y = 0.3 + Math.sin(t * 0.9 + phase) * 0.12;
+    g.rotation.z = Math.sin(t * 0.7 + phase) * 0.05;
+  });
+  return (
+    <group ref={ref} position={[x, 0.3, z]}>
+      <mesh castShadow position={[0, 0.35, 0]}>
+        <boxGeometry args={[2.4, 0.7, 5]} />
+        <meshStandardMaterial color={color} />
+      </mesh>
+      <mesh position={[0, 0.62, 0]}>
+        <boxGeometry args={[1.5, 0.3, 3.4]} />
+        <meshStandardMaterial color="#e8e0d0" />
+      </mesh>
+      <mesh position={[0, 1.6, -0.6]}>
+        <cylinderGeometry args={[0.06, 0.06, 3, 6]} />
+        <meshStandardMaterial color="#cfcabd" />
+      </mesh>
+    </group>
+  );
+}
+
+/** Pariserhjul som snurrar långsamt, med pir och småbåtshamn – liv vid kajen. */
 function LmPariserhjul({ x, z }: { x: number; z: number }) {
   const wheel = useRef<Group>(null);
   useFrame((state) => {
@@ -517,6 +547,32 @@ function LmPariserhjul({ x, z }: { x: number; z: number }) {
           );
         })}
       </group>
+
+      {/* ── Pir + småbåtshamn söderut mot vattnet ─────────────────────── */}
+      {/* Bryggdäck på pålar */}
+      <mesh castShadow receiveShadow position={[0, 1.3, 24]}>
+        <boxGeometry args={[6, 0.5, 36]} />
+        <meshStandardMaterial color="#8a6b4a" roughness={0.85} />
+      </mesh>
+      {[8, 16, 24, 32, 40].flatMap((pz) =>
+        [-2.6, 2.6].map((px) => (
+          <mesh key={`pil-${pz}-${px}`} position={[px, 0, pz]}>
+            <cylinderGeometry args={[0.35, 0.35, 4, 6]} />
+            <meshStandardMaterial color="#5a4636" />
+          </mesh>
+        )),
+      )}
+      {/* Förtöjningspollare längs bryggan */}
+      {([[3.4, 12], [-3.4, 28], [3.4, 40]] as const).map(([px, pz], i) => (
+        <mesh key={`poll-${i}`} castShadow position={[px, 1.9, pz]}>
+          <cylinderGeometry args={[0.4, 0.5, 1.3, 8]} />
+          <meshStandardMaterial color="#3f3f3f" />
+        </mesh>
+      ))}
+      {/* Förtöjda småbåtar */}
+      <Dinghy x={-5} z={14} phase={0.3} color="#38556a" />
+      <Dinghy x={5} z={22} phase={1.9} color="#6a4a38" />
+      <Dinghy x={-5} z={34} phase={3.4} color="#4a5e46" />
     </group>
   );
 }

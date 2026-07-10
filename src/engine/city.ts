@@ -301,7 +301,7 @@ const CORE_BIAS: Record<string, [number, number]> = {
   hamnen:    [0.35, -1.0],
   industri:  [-0.85, 0.55],
   förort:    [0.64, -0.77],
-  kulle:     [0.77, 0.63],
+  kulle:     [0.80, 0.60], // mot Innerstaden/Centrum (sydost), bort från vattentornet (norr)
 };
 
 /** Bär tomten ett dekorhus? Deterministiskt ur tomt-hashen, plus de hus som
@@ -319,7 +319,8 @@ export function hasAmbientBuilding(p: Parcel, grown?: ReadonlySet<string>): bool
     const [bx, bz] = CORE_BIAS[p.district] ?? [0, 0];
     const dir = nx * bx + nz * bz;                 // + mot kärnan, − mot ytterkanten
     const edge = Math.max(Math.abs(nx), Math.abs(nz));
-    chance *= Math.max(0.1, Math.min(1.05, 1 - 0.5 * edge + 0.5 * dir));
+    // Starkare riktningsvikt → tydligare lutning inåt, glesare ytterkant.
+    chance *= Math.max(0.08, Math.min(1.05, 1 - 0.5 * edge + 0.7 * dir));
   }
   return parcelHash(p.id) % 100 < chance;
 }
