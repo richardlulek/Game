@@ -745,9 +745,11 @@ export function advanceMonth(state: GameState): GameState {
   {
     const netIncome = monthlyNOI - interest;
     if (netIncome > 0) {
+      // Avskrivning 1,3 %/år (var 2 %): 2 %-skölden åt upp nästan hela det
+      // skattepliktiga nettot, så effektiv fastighetsskatt låg nära noll.
       const monthlyDepreciation = s.portfolio.reduce((sum, p) => {
         if (p.status !== "klar") return sum;
-        return sum + ((p.purchasePrice ?? p.askPrice) * 0.02) / 12;
+        return sum + ((p.purchasePrice ?? p.askPrice) * 0.013) / 12;
       }, 0);
       const taxableIncome = Math.max(0, netIncome - monthlyDepreciation);
       const energyACount = s.portfolio.filter(p => p.energyClass === "A" && p.status === "klar").length;

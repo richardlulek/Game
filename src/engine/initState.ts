@@ -5,7 +5,7 @@
 
 import { DEFAULT_COMPANY_NAME } from "./company";
 import { AI_NAMES, DISTRICTS } from "./data";
-import { genLot, genWorldProperty } from "./generators";
+import { calcCapacity, genLot, genWorldProperty, makeTenant } from "./generators";
 import { rnd } from "./random";
 import { initStocks } from "./stocks";
 import { makeIndustryAssetFromTemplate } from "./industries";
@@ -94,19 +94,37 @@ export function initState(): GameState {
   base.competitors = competitors;
 
   // ── 10 fastigheter till salu (listings) ─────────────────────────
-  // Garantera instegsobjekt: minst 3 ska gå att köpa med startkassan
-  // (handpenning ~30–45 % ⇒ utpris under ~9 MSEK).
+  // Garantera instegsobjekt: de tre billigaste skalas ned till en handpenning
+  // startkassan klarar. Skalning bevarar direktavkastningen (yta, pris och hyra
+  // skalas ihop) och är robust även när prisnivån lyfter hela golvet – en
+  // ren generate-och-hoppas-loop kunde annars misslyckas och lämna spelaren
+  // utan något köpbart objekt.
   const listingProps = allProps.slice(propIdx, propIdx + 10);
   propIdx += 10;
   const AFFORDABLE = 9_000_000;
-  let guard = 0;
-  while (listingProps.filter((p) => p.askPrice <= AFFORDABLE).length < 3 && guard < 80) {
-    const candidate = genWorldProperty(base);
-    if (candidate.askPrice <= AFFORDABLE) {
-      const worst = listingProps.reduce((bi, p, i, arr) => (p.askPrice > arr[bi].askPrice ? i : bi), 0);
-      listingProps[worst] = candidate;
-    }
-    guard += 1;
+  const scaleToPrice = (p: Property, target: number): Property => {
+    if (p.askPrice <= target) return p;
+    const f = target / p.askPrice;
+    const area = Math.max(120, Math.round(p.area * f));
+    return {
+      ...p,
+      area,
+      askPrice: Math.round(p.askPrice * f),
+      baseRent: Math.round(p.baseRent * f),
+      capacity: calcCapacity(area, p.wholeBlock),
+    };
+  };
+  const cheapest = [...listingProps].sort((a, b) => a.askPrice - b.askPrice).slice(0, 3);
+  for (const p of cheapest) {
+    const idx = listingProps.indexOf(p);
+    const scaled = scaleToPrice(p, AFFORDABLE);
+    // Instegsobjekten är nyckelfärdiga: fullt uthyrda så det första förvärvet
+    // ger stabilt kassaflöde direkt i stället för ett vakant småobjekt som
+    // bara blöder tills det råkar hyras ut.
+    const tenants = Array.from({ length: scaled.capacity }, () =>
+      makeTenant(scaled.baseRent / scaled.capacity, base.demandMod, scaled.condition),
+    );
+    listingProps[idx] = { ...scaled, tenants };
   }
   base.listings = listingProps.map((p) => toListingProp(p, base));
 

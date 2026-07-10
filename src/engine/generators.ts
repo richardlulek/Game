@@ -4,6 +4,7 @@
    ============================================================ */
 
 import { DISTRICTS, DISTRICT_GEN, PROP_TYPES, TENANT_NAMES, TENANT_PROFILES } from "./data";
+import { rateValueFactor } from "./economyLife";
 import { newId, pick, rnd } from "./random";
 import type { District, GameState, Lot, Property, PropTypeKey, Tenant } from "./types";
 
@@ -102,7 +103,13 @@ function genProperty(
   const area = Math.round(rnd(prof?.areaMin ?? 400, prof?.areaMax ?? 4500));
   const condition = Math.round(rnd(condMin, 95));
   const condFactor = 0.6 + (condition / 100) * 0.6;
-  const value = area * d.base * condFactor * state.marketMod * rnd(priceJitter[0], priceJitter[1]);
+  // Priset speglar det marknadsvärde säljaren skulle sätta: samma publika,
+  // deterministiska faktorer som propMarketValue väger in – distriktets tillväxt
+  // och ränteläget. Tidigare saknades de i priset men fanns i värderingen, så
+  // varje köp bokförde ~+23 % "gratis" eget kapital (och köp-och-flippa lönade
+  // sig). Beläggnings-/hyrespremien lämnas kvar som spelaren själv förtjänar.
+  const priceFactor = d.growth * rateValueFactor(state.interestRate);
+  const value = area * d.base * condFactor * state.marketMod * priceFactor * rnd(priceJitter[0], priceJitter[1]);
   const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
 
   const p: Property = {

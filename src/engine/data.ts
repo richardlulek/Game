@@ -64,7 +64,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   },
   kontor: {
     label: "Kontor",
-    rentFactor: 0.0055,   // was 0.0062 → balanced down
+    rentFactor: 0.0060,   // 0.0055→0.0060: högre vakans (10 %) ska ge högre yield
     opexFactor: 0.26,     // was 0.32  → −19 %
     vacancyBase: 0.10,    // oförändrad (kontorsmarknaden rörlig)
     buildCostM2: 22000,   // was 28000
@@ -72,7 +72,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   },
   butik: {
     label: "Butik",
-    rentFactor: 0.0060,   // was 0.0070 → balanced down
+    rentFactor: 0.0068,   // 0.0060→0.0068: högst vakans (13 %) ⇒ högst yield/risk
     opexFactor: 0.23,     // was 0.30  → −23 %
     vacancyBase: 0.13,    // was 0.12  (lite svårare att fylla)
     buildCostM2: 20000,   // was 26000
@@ -80,7 +80,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   },
   industri: {
     label: "Industri/Lager",
-    rentFactor: 0.0050,   // was 0.0038 → +32 %
+    rentFactor: 0.0052,   // 0.0050→0.0052: medelrisk ⇒ yield mellan bostad och kontor
     opexFactor: 0.17,     // was 0.22  → −23 % (enkla lokaler)
     vacancyBase: 0.07,    // was 0.08
     buildCostM2: 10000,   // was 14000 → lönsamt att bygga

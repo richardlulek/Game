@@ -30,11 +30,11 @@ describe("advanceMonth – kassaflöde", () => {
 
     // monthlyNOI = 10000 − 2300 = 7700
     // ränta = 1 200 000 × 5.65% / 12 = 5650
-    // avskrivning = 1000000 × 2% / 12 = 1667
-    // skattebar inkomst = max(0, 2050 − 1667) = 383
-    // skatt = round(383 × 22%) = 84
-    // kassa = 100000 + 7700 − 5650 − 84 = 101966
-    expect(next.cash).toBeCloseTo(101_966, 2);
+    // avskrivning = 1000000 × 1,3% / 12 = 1083
+    // skattebar inkomst = max(0, 2050 − 1083) = 967
+    // skatt = round(967 × 22%) = 213
+    // kassa = 100000 + 7700 − 5650 − 213 = 101837
+    expect(next.cash).toBeCloseTo(101_837, 2);
     expect(next.month).toBe(7);
     expect(next.gameOver).toBe(false);
   });
