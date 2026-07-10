@@ -414,24 +414,32 @@ export function iconTexture(emoji: string, bg = "rgba(255,252,244,0.95)"): Canva
   const hit = textureCache.get(key);
   if (hit) return hit;
   const c = document.createElement("canvas");
-  c.width = 128;
-  c.height = 128;
+  c.width = 160;
+  c.height = 160;
   const g = c.getContext("2d")!;
-  // Rund bricka med tunn mörk kant → läsbar mot alla fasader. Bakgrundsfärgen
-  // kan sättas (t.ex. guld för "till salu") så ikonen sticker ut på kartan.
+  const cx = 80;
+  // Färgad ytterring (kategorifärg) + mörk kant …
   g.beginPath();
-  g.arc(64, 64, 58, 0, Math.PI * 2);
+  g.arc(cx, cx, 74, 0, Math.PI * 2);
   g.fillStyle = bg;
   g.fill();
-  g.lineWidth = 6;
-  g.strokeStyle = "rgba(50,40,30,0.85)";
+  g.lineWidth = 7;
+  g.strokeStyle = "rgba(45,35,25,0.9)";
   g.stroke();
-  g.font = "68px sans-serif";
+  // … med en vit innerskiva så själva ikonen ALLTID har kontrast (t.ex. en
+  // gul prislapp mot en guldbricka blev annars oläslig).
+  g.beginPath();
+  g.arc(cx, cx, 55, 0, Math.PI * 2);
+  g.fillStyle = "rgba(255,253,247,0.98)";
+  g.fill();
+  // Stor ikon som fyller innerskivan.
+  g.font = "88px sans-serif";
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.fillText(emoji, 64, 70);
+  g.fillText(emoji, cx, cx + 7);
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 4;
   textureCache.set(key, tex);
   return tex;
 }
