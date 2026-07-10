@@ -284,19 +284,42 @@ export function ambientChanceFor(district: string): number {
   return 38;
 }
 
+/** Riktning (i zonens normerade koordinater) mot vilken varje distrikt är
+ *  TÄTAST bebyggt vid start: mot stadskärnan och de grannar/vägar distriktet
+ *  ansluter till. Motsatt ytterkant lämnas glesare så staden har mark att
+ *  växa UTÅT i – staden ser ut att ha vuxit inifrån kärnan och utåt.
+ *    Villakullen  → mot Innerstaden & Förorten (sydöst)
+ *    Förorten     → mot Centrum & Villakullen (nordöst)
+ *    Hamnen       → mot Centrum & Finans (norr/nordöst)
+ *    Industri     → mot Finans & Innerstaden (sydväst)
+ *    Finans       → mot Centrum/Innerstaden (nordväst)
+ *    Innerstaden  → mot Centrum (söder) */
+const CORE_BIAS: Record<string, [number, number]> = {
+  centrum:   [0, 0],
+  finans:    [-0.9, -0.4],
+  innerstad: [0.1, 1.0],
+  hamnen:    [0.35, -1.0],
+  industri:  [-0.85, 0.55],
+  förort:    [0.64, -0.77],
+  kulle:     [0.77, 0.63],
+};
+
 /** Bär tomten ett dekorhus? Deterministiskt ur tomt-hashen, plus de hus som
- *  vuxit fram organiskt under spelets gång (ambientGrown). Tätheten avtar mot
- *  distriktets kanter så att kärnorna är byggda medan utkanterna är tomma –
- *  det ger fronten mark att breda ut sig UTÅT i. */
+ *  vuxit fram organiskt under spelets gång (ambientGrown). Tätheten är högst i
+ *  kärnan och på den sida som vetter mot stadens mitt/grannar, och avtar mot
+ *  ytterkanten – så staden lutar inåt och har mark att breda ut sig UTÅT i. */
 export function hasAmbientBuilding(p: Parcel, grown?: ReadonlySet<string>): boolean {
   if (p.expansion) return false;
   if (grown?.has(p.id)) return true;
   const zone = ZONE_BY_DISTRICT.get(p.district);
   let chance = ambientChanceFor(p.district);
   if (zone) {
-    const ex = Math.min(1, Math.abs(p.x - zone.x) / Math.max(1, zone.w / 2));
-    const ez = Math.min(1, Math.abs(p.z - zone.z) / Math.max(1, zone.d / 2));
-    chance *= 1 - 0.55 * Math.max(ex, ez); // upp till 55 % glesare vid kanterna
+    const nx = (p.x - zone.x) / Math.max(1, zone.w / 2);
+    const nz = (p.z - zone.z) / Math.max(1, zone.d / 2);
+    const [bx, bz] = CORE_BIAS[p.district] ?? [0, 0];
+    const dir = nx * bx + nz * bz;                 // + mot kärnan, − mot ytterkanten
+    const edge = Math.max(Math.abs(nx), Math.abs(nz));
+    chance *= Math.max(0.1, Math.min(1.05, 1 - 0.5 * edge + 0.5 * dir));
   }
   return parcelHash(p.id) % 100 < chance;
 }
