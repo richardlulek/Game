@@ -77,8 +77,9 @@ const ZONES: ZoneDef[] = [
   // men tätare rutnät (mindre tomter + smalare gator) så staden rymmer fler.
   // Centrum: slutna kvarter à 3×2 tomter som delar väggar
   { district: "centrum", cx: 0, cz: 10, blockCols: 4, blockRows: 4, parcelCols: 3, parcelRows: 2, parcelW: 17, parcelD: 17, innerGap: 0, street: 12 },
-  // Finansdistriktet: skyskrapetomter i tätt rutnät, sydost mot vattnet
-  { district: "finans", cx: 240, cz: 120, blockCols: 8, blockRows: 6, parcelCols: 1, parcelRows: 1, parcelW: 19, parcelD: 19, innerGap: 0, street: 9 },
+  // Finansdistriktet: skyskrapetomter i tätt rutnät, sydost mot vattnet.
+  // Skjutet österut så det syns en tydlig aveny mellan Centrum och Finans.
+  { district: "finans", cx: 280, cz: 120, blockCols: 8, blockRows: 6, parcelCols: 1, parcelRows: 1, parcelW: 19, parcelD: 19, innerGap: 0, street: 9 },
   // Innerstaden: kvarter à 2×2 tomter norr om centrum
   { district: "innerstad", cx: -10, cz: -185, blockCols: 7, blockRows: 4, parcelCols: 2, parcelRows: 2, parcelW: 17, parcelD: 17, innerGap: 0, street: 11 },
   // Hamnen: kajnära rad längs vattnet (förskjuten öster om HK)
@@ -125,7 +126,7 @@ const EXPANSIONS: ExpansionDef[] = [
   { blockId: "kulle-plan0", district: "kulle", cx: -420, cz: -80, parcelCols: 2, parcelRows: 2, parcelW: 22, parcelD: 22, kind: "plan" },
   { blockId: "förort-plan0", district: "förort", cx: -462, cz: 90, parcelCols: 1, parcelRows: 1, parcelW: 52, parcelD: 52, kind: "plan" },
   { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 24, kind: "plan" },
-  { blockId: "finans-plan0", district: "finans", cx: 405, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
+  { blockId: "finans-plan0", district: "finans", cx: 445, cz: 120, parcelCols: 2, parcelRows: 2, parcelW: 26, parcelD: 26, kind: "plan" },
   { blockId: "industri-plan0", district: "industri", cx: 510, cz: -40, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
   { blockId: "industri-plan1", district: "industri", cx: 510, cz: -220, parcelCols: 1, parcelRows: 1, parcelW: 38, parcelD: 38, kind: "plan" },
   { blockId: "hamnen-plan0", district: "hamnen", cx: 300, cz: 265, parcelCols: 2, parcelRows: 1, parcelW: 24, parcelD: 24, kind: "plan", waterfront: true },

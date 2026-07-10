@@ -25,9 +25,9 @@ export const ROADS: RoadSeg[] = [
   { x: 0, z: -88, w: 14, d: 44 },     // Centrum ↑ Innerstaden
   { x: 10, z: 163, w: 16, d: 150 },   // Esplanaden: Centrum ↓ Hamnen
   // Österut mot Finans och Industriområdet
-  { x: 126, z: 68, w: 44, d: 12 },    // Avenyn: Centrum → Finans
-  { x: 255, z: -12, w: 14, d: 126 },  // Finans ↑ Industriområdet
-  { x: 214, z: 215, w: 12, d: 44 },   // Finans ↓ Hamnen
+  { x: 146, z: 68, w: 70, d: 12 },    // Avenyn: Centrum → Finans (bred lucka)
+  { x: 210, z: -12, w: 14, d: 126 },  // Finans ↑ Industri (väster om kommunal mark)
+  { x: 220, z: 215, w: 12, d: 44 },   // Finans ↓ Hamnen
   // Västerut mot Förorten och Villakullen
   { x: -141, z: 30, w: 56, d: 12 },   // Centrum ← Förorten
   { x: -182, z: -190, w: 54, d: 12 }, // Innerstaden ← Villakullen

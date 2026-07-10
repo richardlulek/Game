@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DISTRICT_ZONES } from "../engine/city";
+import { DISTRICT_ZONES, PARCELS } from "../engine/city";
 import { ROADS } from "../three/roadNet";
 
 /* Vägnätsvakt: huvudlederna binder ihop distrikten. När stadslayouten
@@ -45,6 +45,22 @@ describe("VÄGNÄT: alla distrikt kopplade, ingen led i vatten eller på HK", ()
       const touchesRoad = rBoxes.some((o, j) => j !== i && intersects(r.box, o.box, 2));
       expect(touchesDistrict || touchesRoad, `väg${i} svävar fritt`).toBe(true);
     }
+  });
+
+  it("drar ingen led genom expansionsmark (kommunal eller planmark)", () => {
+    // Expansionskvarterens bboxar härleds ur expansionstomterna (som geometry.test).
+    const expByBlock = new Map<string, Box>();
+    for (const p of PARCELS) {
+      if (!p.expansion) continue;
+      const b = expByBlock.get(p.blockId) ??
+        { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
+      b.x0 = Math.min(b.x0, p.x - p.w / 2); b.x1 = Math.max(b.x1, p.x + p.w / 2);
+      b.z0 = Math.min(b.z0, p.z - p.d / 2); b.z1 = Math.max(b.z1, p.z + p.d / 2);
+      expByBlock.set(p.blockId, b);
+    }
+    for (const [i, r] of rBoxes.entries())
+      for (const [name, eb] of expByBlock)
+        expect(intersects(r.box, eb, 1), `väg${i} korsar expansionsmark ${name}`).toBe(false);
   });
 
   it("når alla sju distrikt från Centrum genom vägnätet", () => {
