@@ -37,6 +37,7 @@ import {
   TREE_TRUNK,
 } from "./colors";
 import { ambientColorFor, districtFloors } from "./districtBuildings";
+import { ambientProfile } from "../engine/landDeals";
 import { facadeTexture, glassTexture, type FacadeKind } from "./textures";
 
 interface CityProps {
@@ -199,6 +200,11 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
   const seed = hash >> 3;
   const floors = districtFloors(p, hash);
   const color = new Color(ambientColorFor(p.district, hash >> 2));
+  // Väder fasaden efter tomtens dekorskick (samma skala som spelhusens
+  // facadeColor). Skicket är detsamma som BUY_AMBIENT använder (ambientProfile),
+  // så nedgångna hus syns gråare på kartan och man kan spana efter förvärvs-
+  // och renoveringslägen – kartan och affären är överens.
+  color.lerp(new Color("#6f6a61"), ((100 - ambientProfile(p).condition) / 100) * 0.55);
   const dim = new Color().copy(color);
   const h = floors * FLOOR_HEIGHT;
 

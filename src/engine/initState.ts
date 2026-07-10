@@ -5,7 +5,7 @@
 
 import { DEFAULT_COMPANY_NAME } from "./company";
 import { AI_NAMES, DISTRICTS } from "./data";
-import { calcCapacity, genLot, genWorldProperty, makeTenant } from "./generators";
+import { builtYearFor, calcCapacity, energyClassFor, genLot, genWorldProperty, makeTenant } from "./generators";
 import { rnd } from "./random";
 import { initStocks } from "./stocks";
 import { makeIndustryAssetFromTemplate } from "./industries";
@@ -114,18 +114,42 @@ export function initState(): GameState {
       capacity: calcCapacity(area, p.wholeBlock),
     };
   };
-  const cheapest = [...listingProps].sort((a, b) => a.askPrice - b.askPrice).slice(0, 3);
-  for (const p of cheapest) {
-    const idx = listingProps.indexOf(p);
-    const scaled = scaleToPrice(p, AFFORDABLE);
-    // Instegsobjekten är nyckelfärdiga: fullt uthyrda så det första förvärvet
-    // ger stabilt kassaflöde direkt i stället för ett vakant småobjekt som
-    // bara blöder tills det råkar hyras ut.
-    const tenants = Array.from({ length: scaled.capacity }, () =>
-      makeTenant(scaled.baseRent / scaled.capacity, base.demandMod, scaled.condition),
+  // Tre distinkta instegsobjekt så det första valet blir en strategifråga –
+  // inte tre likadana nyckelfärdiga hus:
+  //  · Kassaflöde: nyskick, fullt uthyrt → stabil intäkt direkt, liten uppsida.
+  //  · Nedgånget: eftersatt skick, tomt → billigt renoveringsobjekt (blöder
+  //    tills det rustas och hyrs ut, men stor värdeuppsida).
+  //  · Mix: halvbra skick, uthyrt → lite av båda (intäkt nu + renoveringspotential).
+  const cf = (cond: number) => 0.6 + (cond / 100) * 0.6;
+  const applyArchetype = (p: Property, cond: number, tenantCount: (cap: number) => number): Property => {
+    // Prisa om efter det nya skicket (condFactor) så värderingen förblir rättvis
+    // – ett nedgånget hus SKA vara billigare, inte gratis eget kapital.
+    const ratio = cf(cond) / cf(p.condition);
+    let sp: Property = {
+      ...p,
+      condition: cond,
+      askPrice: Math.round(p.askPrice * ratio),
+      baseRent: Math.round(p.baseRent * ratio),
+      energyClass: energyClassFor(cond),
+      builtYear: builtYearFor(cond, base.year),
+    };
+    sp = scaleToPrice(sp, AFFORDABLE);
+    const n = Math.min(sp.capacity, tenantCount(sp.capacity));
+    const tenants = Array.from({ length: n }, () =>
+      makeTenant(sp.baseRent / sp.capacity, base.demandMod, cond),
     );
-    listingProps[idx] = { ...scaled, tenants };
-  }
+    return { ...sp, tenants };
+  };
+  const cheapest = [...listingProps].sort((a, b) => a.askPrice - b.askPrice).slice(0, 3);
+  const specs: [number, (cap: number) => number][] = [
+    [84, (cap) => cap],                            // kassaflöde: fullt uthyrt
+    [26, () => 0],                                 // nedgånget: tomt
+    [58, (cap) => Math.max(1, Math.round(cap / 2))], // mix: delvis uthyrt
+  ];
+  cheapest.forEach((p, i) => {
+    const [cond, fill] = specs[i] ?? specs[0];
+    listingProps[listingProps.indexOf(p)] = applyArchetype(p, cond, fill);
+  });
   base.listings = listingProps.map((p) => toListingProp(p, base));
 
   // ── Resten går till off-market poolen ────────────────────────────

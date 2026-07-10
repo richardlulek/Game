@@ -112,10 +112,13 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
       // billiga objekt som täcker räntan, med kassa > 4 MSEK och LTV < 45 %.
       if (m % 2 === 0 && s.cash > 4_000_000 && ltvOf(s) < 0.45 && s.portfolio.filter((p) => p.status === "klar").length < 20) {
         const terms = loanTerms(s);
-        const buy = s.listings
+        const affordable = s.listings
           .filter((p) => p.status === "klar" && canSpend(p.askPrice * (1 - terms.maxLtv)))
-          .filter((p) => propPotentialRent(p, s) - propAnnualOpex(p, s) > p.askPrice * terms.maxLtv * (terms.rate / 100))
-          .sort((a, b) => a.askPrice - b.askPrice)[0];
+          .filter((p) => propPotentialRent(p, s) - propAnnualOpex(p, s) > p.askPrice * terms.maxLtv * (terms.rate / 100));
+        // Försiktig investerare: föredra objekt med sittande hyresgäster (kassaflöde
+        // nu) framför tomma renoveringsobjekt som blöder tills de rustas.
+        const buy = affordable.filter((p) => p.tenants.length > 0).sort((a, b) => a.askPrice - b.askPrice)[0]
+          ?? affordable.sort((a, b) => a.askPrice - b.askPrice)[0];
         if (buy) R({ type: "BUY", id: buy.id });
       }
 
