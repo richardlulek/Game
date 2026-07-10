@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   isSoundEnabled, setSoundEnabled,
   startMusic, stopMusic, setMusicMood, setMusicTempo,
-  playLevelUp, playMilestone, playBell, playAlert, playBuild,
+  playLevelUp, playMilestone, playBell, playAlert, playBuild, playTick,
 } from "../audio/sound";
 import { canUpgrade, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { formatGameDate } from "../engine/date";
@@ -198,8 +198,9 @@ export default function FastighetsImperium() {
     if (absMonth !== prevMonth.current) {
       prevMonth.current = absMonth;
       setPulseKey((k) => k + 1);
+      if (soundOn && started) playTick();
     }
-  }, [absMonth]);
+  }, [absMonth, soundOn, started]);
 
   // Victory detection
   const prevWon = useRef(false);

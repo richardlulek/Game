@@ -29,6 +29,20 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let sfxBus: GainNode | null = null;
 let musicBus: GainNode | null = null;
+let musicFilter: BiquadFilterNode | null = null;
+
+/** Syntetiskt impulssvar för en mjuk hall (exponentiellt avklingande brus). */
+function makeReverbIR(c: AudioContext, seconds: number, decay: number): AudioBuffer {
+  const len = Math.max(1, Math.floor(c.sampleRate * seconds));
+  const buf = c.createBuffer(2, len, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+  }
+  return buf;
+}
 
 function audio(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -47,9 +61,37 @@ function audio(): AudioContext | null {
     sfxBus = ctx.createGain();
     sfxBus.gain.value = 0.9;
     sfxBus.connect(master);
+
+    // ── Musikkedja: bus → sakta svept lågpass → torr + hall → master ──────────
     musicBus = ctx.createGain();
     musicBus.gain.value = 0.0; // tonas upp när musiken startar
-    musicBus.connect(master);
+    musicFilter = ctx.createBiquadFilter();
+    musicFilter.type = "lowpass";
+    musicFilter.frequency.value = 1000; // basvärde; humör flyttar det
+    musicFilter.Q.value = 0.5;
+    musicBus.connect(musicFilter);
+    // Mycket långsam LFO som andas liv i klangfärgen.
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.05; // ~20 s per andetag
+    lfoGain.gain.value = 320;
+    lfo.connect(lfoGain);
+    lfoGain.connect(musicFilter.frequency);
+    lfo.start();
+    // Torr väg.
+    const dry = ctx.createGain();
+    dry.gain.value = 0.82;
+    musicFilter.connect(dry);
+    dry.connect(master);
+    // Hall-send: ger djup och gör att ackorden smälter in i varandra.
+    const reverb = ctx.createConvolver();
+    reverb.buffer = makeReverbIR(ctx, 2.8, 2.6);
+    const wet = ctx.createGain();
+    wet.gain.value = 0.4;
+    musicFilter.connect(reverb);
+    reverb.connect(wet);
+    wet.connect(master);
   }
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
@@ -225,10 +267,26 @@ export function playDenied(): void {
   tone(150, 0.09, 0.1, "square", 0.04);
 }
 
-/** Månadstick – nästan omärkbar mjuk puls. */
+/** Månadstick – mjuk träklubba med litet tonhöjdsfall + gles överton. */
 export function playTick(): void {
   if (!enabled) return;
-  tone(440, 0, 0.04, "sine", 0.018);
+  const c = audio();
+  if (!c || !sfxBus) return;
+  const t0 = c.currentTime;
+  const osc = c.createOscillator();
+  const g = c.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(330, t0);
+  osc.frequency.exponentialRampToValueAtTime(188, t0 + 0.05);
+  osc.connect(g);
+  g.connect(sfxBus);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(0.05, t0 + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.13);
+  osc.start(t0);
+  osc.stop(t0 + 0.16);
+  // Liten ljus överton ger klubban lite "trä".
+  tone(1180, 0, 0.05, "sine", 0.01);
 }
 
 // ── Reaktiv ambient-musik ─────────────────────────────────────────────────────
@@ -287,43 +345,41 @@ function scheduleChord() {
   chordIx++;
   const chordDur = (mood === "boom" ? 5 : mood === "bust" ? 8 : 6.5) / Math.max(1, tempo * 0.6 + 0.4);
   const t0 = c.currentTime + 0.05;
-  const bright = mood === "boom" ? 1600 : mood === "bust" ? 620 : 1000;
 
-  // Pad: varje ackordton som en mjuk, lätt detunad röst genom lågpass.
+  // Pad: varje ackordton som ett par lätt detunade trianglar. Triangelns
+  // övertoner ger det sakta svepande lågpasset (musicFilter + LFO) nåt att
+  // forma – det är där ambientens "andning" hörs. Lång release → ackorden
+  // överlappar sömlöst utan hörbar loop.
   for (const n of chord) {
-    for (const det of [-3, 3]) {
+    for (const det of [-4, 4]) {
       const osc = c.createOscillator();
       const g = c.createGain();
-      const filt = c.createBiquadFilter();
-      filt.type = "lowpass";
-      filt.frequency.value = bright;
-      osc.type = "sine";
+      osc.type = "triangle";
       osc.frequency.value = semi(n) * Math.pow(2, det / 1200);
-      osc.connect(filt);
-      filt.connect(g);
+      osc.connect(g);
       g.connect(musicBus);
-      const peak = 0.045 / chord.length;
+      const peak = 0.05 / chord.length;
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.linearRampToValueAtTime(peak, t0 + chordDur * 0.35);
-      g.gain.linearRampToValueAtTime(peak * 0.8, t0 + chordDur * 0.7);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + chordDur + 0.4);
+      g.gain.linearRampToValueAtTime(peak, t0 + chordDur * 0.4);
+      g.gain.linearRampToValueAtTime(peak * 0.75, t0 + chordDur * 0.72);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + chordDur + 0.9);
       osc.start(t0);
-      osc.stop(t0 + chordDur + 0.5);
+      osc.stop(t0 + chordDur + 1.0);
     }
   }
-  // Bas: grundtonen en oktav ned.
-  {
+  // Bas: grundtonen en oktav ned + en tyst sinus-sub för värme.
+  for (const [type, oct, gain] of [["triangle", -12, 0.05], ["sine", -24, 0.03]] as const) {
     const osc = c.createOscillator();
     const g = c.createGain();
-    osc.type = "triangle";
-    osc.frequency.value = semi(chord[0] - 12);
+    osc.type = type;
+    osc.frequency.value = semi(chord[0] + oct);
     osc.connect(g);
     g.connect(musicBus);
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.linearRampToValueAtTime(0.05, t0 + 0.5);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + chordDur + 0.3);
+    g.gain.linearRampToValueAtTime(gain, t0 + 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + chordDur + 0.5);
     osc.start(t0);
-    osc.stop(t0 + chordDur + 0.4);
+    osc.stop(t0 + chordDur + 0.6);
   }
   // Gles arp: ett par mjuka bjällror på ackordtoner (mer i boom).
   const arps = mood === "boom" ? 3 : mood === "bust" ? 1 : 2;
@@ -367,9 +423,16 @@ export function stopMusic(): void {
   fadeMusic(false);
 }
 
-/** Sätter musikhumör efter konjunkturfas (boom/stable/bust). */
+/** Sätter musikhumör efter konjunkturfas (boom/stable/bust). Humöret byter
+    ackordföljd (dur/moll) och flyttar lågpassets grundklang – ljust i boom,
+    dovt i bust. LFO:n andas fortfarande runt det värdet. */
 export function setMusicMood(phase: Mood): void {
   mood = phase;
+  const c = audio();
+  if (c && musicFilter) {
+    const base = phase === "boom" ? 1750 : phase === "bust" ? 640 : 1050;
+    musicFilter.frequency.setTargetAtTime(base, c.currentTime, 2.5);
+  }
 }
 
 /** Tempo följer klockan (1×/2×/4×) – snabbare progression vid högre fart. */
