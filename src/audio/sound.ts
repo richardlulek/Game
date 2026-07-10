@@ -1,9 +1,15 @@
 /* ============================================================
-   Ljud – helt syntetiserat via Web Audio, inga ljudfiler/beroenden.
-   Två bussar under en master: SFX och reaktiv ambient-musik.
+   Ljud via Web Audio. Musiken är helt syntetiserad (reaktiv ambient);
+   ett par nyckel-SFX spelas som CC0-samples (Kenney) med syntes som
+   fallback tills de laddats. Två bussar under en master: SFX + musik.
    Allt no-op om ljud är avstängt eller Web Audio saknas.
    På/av + volym sparas i localStorage.
    ============================================================ */
+
+import coinsUrl from "./samples/coins.ogg";
+import chipsUrl from "./samples/chips.ogg";
+import clickUrl from "./samples/click.ogg";
+import buildUrl from "./samples/build.ogg";
 
 const KEY = "fastighetsimperium:sound";
 const VOL_KEY = "fastighetsimperium:volume";
@@ -92,6 +98,8 @@ function audio(): AudioContext | null {
     musicFilter.connect(reverb);
     reverb.connect(wet);
     wet.connect(master);
+
+    loadSamples(ctx); // börja avkoda CC0-samples i bakgrunden
   }
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
@@ -138,6 +146,48 @@ function noise(start: number, dur: number, gain = 0.05, lp = 1800) {
   src.start(c.currentTime + start);
 }
 
+// ── CC0-samples (Kenney) med syntes som fallback ─────────────────────────────
+// Laddas lazyt när AudioContext finns (efter första användargesten). Innan de
+// hunnit avkodas faller varje SFX tillbaka på sin syntesvariant, så det aldrig
+// blir tyst. I testmiljö (ingen AudioContext) laddas inget.
+
+const SAMPLE_URLS: Record<string, string> = {
+  coins: coinsUrl,
+  chips: chipsUrl,
+  click: clickUrl,
+  build: buildUrl,
+};
+const buffers: Record<string, AudioBuffer | undefined> = {};
+let samplesRequested = false;
+
+function loadSamples(c: AudioContext) {
+  if (samplesRequested) return;
+  samplesRequested = true;
+  for (const [k, url] of Object.entries(SAMPLE_URLS)) {
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((b) => c.decodeAudioData(b))
+      .then((buf) => { buffers[k] = buf; })
+      .catch(() => { /* faller tillbaka på syntes */ });
+  }
+}
+
+/** Spelar ett laddat sample genom SFX-bussen. Returnerar false om det inte
+    finns ännu (då spelar anroparen sin syntes-fallback i stället). */
+function playSample(key: string, gain = 0.6): boolean {
+  const c = audio();
+  const buf = buffers[key];
+  if (!c || !buf || !sfxBus) return false;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const g = c.createGain();
+  g.gain.value = gain;
+  src.connect(g);
+  g.connect(sfxBus);
+  src.start(c.currentTime);
+  return true;
+}
+
 // ── Inställningar ────────────────────────────────────────────────────────────
 
 export function isSoundEnabled(): boolean {
@@ -176,9 +226,10 @@ export function setVolume(v: number): void {
 
 // ── SFX-palett ───────────────────────────────────────────────────────────────
 
-/** Kassaklirr – två stigande toner. */
+/** Kassaklirr – CC0-mynt (Kenney), annars två stigande toner. */
 export function playIncome(): void {
   if (!enabled) return;
+  if (playSample("coins", 0.5)) return;
   tone(660, 0, 0.12, "sine", 0.06);
   tone(880, 0.09, 0.16, "sine", 0.06);
 }
@@ -190,9 +241,10 @@ export function playWarn(): void {
   tone(210, 0.12, 0.22, "sawtooth", 0.05);
 }
 
-/** Kort klick vid knapptryck. */
+/** Kort klick vid knapptryck – CC0-klick (Kenney), annars kort ton. */
 export function playClick(): void {
   if (!enabled) return;
+  if (playSample("click", 0.45)) return;
   tone(520, 0, 0.05, "square", 0.03);
 }
 
@@ -204,16 +256,21 @@ export function playSuccess(): void {
   tone(784, 0.16, 0.2, "sine", 0.06);
 }
 
-/** Köp – varm bekräftande dubbelton. */
+/** Köp – CC0-marker/chips (Kenney), annars varm dubbelton. */
 export function playBuy(): void {
   if (!enabled) return;
+  if (playSample("chips", 0.55)) return;
   tone(392, 0, 0.12, "triangle", 0.06);
   tone(587, 0.07, 0.18, "triangle", 0.06);
 }
 
-/** Byggstart – hammarslag (brus) + låg ton. */
+/** Byggstart – CC0-slag (Kenney) + låg ton, annars brus + låg ton. */
 export function playBuild(): void {
   if (!enabled) return;
+  if (playSample("build", 0.6)) {
+    tone(120, 0, 0.22, "sine", 0.045); // låg botten under slaget
+    return;
+  }
   noise(0, 0.09, 0.06, 1400);
   noise(0.14, 0.09, 0.05, 1400);
   tone(140, 0, 0.22, "sine", 0.05);
