@@ -19,31 +19,8 @@ import {
   SphereGeometry,
 } from "three";
 import { ZONE_STREETS } from "../engine/city";
+import { ROADS, type RoadSeg } from "./roadNet";
 import { CAR_COLORS, ROAD, ROAD_DASH } from "./colors";
-
-/**
- * Huvudleder som binder ihop de sju distrikten. Handritade rektanglar
- * i världskoordinater, avstämda mot zonerna i engine/city.ts.
- */
-interface RoadSeg {
-  x: number;
-  z: number;
-  w: number;
-  d: number;
-}
-
-const ROADS: RoadSeg[] = [
-  { x: 0, z: 165, w: 16, d: 140 }, // Esplanaden: Centrum ↓ Hamnen
-  { x: 0, z: -88, w: 14, d: 26 }, // Centrum ↑ Innerstaden
-  { x: 130, z: 56, w: 12, d: 268 }, // Östra avenyn: Centrum → Finans
-  { x: 168, z: -40, w: 80, d: 12 }, // Mot Industriområdet
-  { x: 214, z: 211, w: 12, d: 46 }, // Finans ↓ Hamnen
-  { x: -148, z: 30, w: 50, d: 12 }, // Centrum ← Förorten
-  { x: -186, z: -190, w: 54, d: 12 }, // Innerstaden ← Villakullen
-  { x: -300, z: -101, w: 12, d: 70 }, // Villakullen ↓ Förorten
-  { x: -295, z: 222, w: 12, d: 90 }, // Förorten ↓ mot kajen
-  { x: -230, z: 262, w: 132, d: 12 }, // Västra kajvägen
-];
 
 interface Inst {
   x: number; y: number; z: number;
