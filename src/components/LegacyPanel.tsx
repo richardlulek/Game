@@ -2,11 +2,15 @@
    ägarens privata förmögenhet (byggd av utdelningar) med lyxköp och
    donationer, samt megaprojekt på helägda kvarter. */
 
+import { useState } from "react";
 import { fullyOwnedBlocks } from "../engine/blocks";
 import { kr, msek } from "../engine/format";
 import { LUXURIES, MEGA_PROJECTS, dynastyScore } from "../engine/lateGame";
 import type { GameAction, GameState } from "../engine/types";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C } from "../styles/tokens";
+
+/** Minsta kassa som alltid behålls i bolaget vid utdelning. */
+const DIVIDEND_CASH_FLOOR = 500_000;
 
 const P: Record<string, React.CSSProperties> = {
   wrap: { display: "flex", flexDirection: "column", gap: 14, color: "#1a1a1a" },
@@ -24,6 +28,11 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
   const owned = new Set(state.ownerLuxuries ?? []);
   const blocks = fullyOwnedBlocks(state);
   const freeBlocks = blocks.filter((b) => !(state.megaActive ?? []).some((m) => m.blockId === b));
+
+  // Utdelning: flytta pengar från bolagets kassa till ägarens privata förmögenhet.
+  const divCap = Math.max(0, state.cash - DIVIDEND_CASH_FLOOR);
+  const [divAmt, setDivAmt] = useState(0);
+  const div = Math.min(divAmt, divCap);
 
   return (
     <div style={P.wrap}>
@@ -49,8 +58,47 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
       <div style={P.card}>
         <div style={P.title}>💼 Ägarens förmögenhet: {msek(wealth)}</div>
         <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 10 }}>
-          Utdelningar (Finans → Utdelning) hamnar här — bolagets kassa kan inte röra dem.
+          Betala utdelning från bolaget så blir pengarna dina privat — bolagets kassa
+          kan inte röra dem. Använd dem till lyx och donationer nedan.
         </div>
+
+        {/* Utdelningskontroll – flyttad hit från Finans så allt ägar-relaterat samlas. */}
+        <div style={{
+          border: "1px solid #dde4ec", borderRadius: 8, padding: "10px 12px",
+          background: "#fbfdff", marginBottom: 12,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 6 }}>
+            <span style={{ color: "#5d6b7c" }}>Totalt utdelat</span>
+            <strong>{kr(state.dividendsPaid ?? 0)}</strong>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <input
+              type="range" min={0} max={Math.max(0, divCap)} step={100_000}
+              value={div}
+              onChange={(e) => setDivAmt(+e.target.value)}
+              disabled={divCap <= 0}
+              style={{ flex: 1, accentColor: C.gold }}
+            />
+            <span style={{ minWidth: 92, textAlign: "right", fontWeight: 700 }}>{msek(div)}</span>
+          </div>
+          <button
+            style={{
+              width: "100%", marginTop: 8, padding: "8px", borderRadius: 6,
+              border: "none", fontWeight: 700, fontSize: 12.5,
+              cursor: div > 0 ? "pointer" : "default",
+              background: div > 0 ? "#3d54d8" : "#dde4ec",
+              color: div > 0 ? "#fff" : "#8291a3",
+            }}
+            disabled={div <= 0}
+            onClick={() => { dispatch({ type: "PAY_DIVIDEND", amount: div }); setDivAmt(0); }}
+          >
+            Betala utdelning{state.ipoActive ? " (lindrar uppköpstryck)" : ""}
+          </button>
+          <div style={{ fontSize: 11, color: "#8291a3", marginTop: 4 }}>
+            Minst {kr(DIVIDEND_CASH_FLOOR)} behålls i bolagets kassa.
+          </div>
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 8 }}>
           {LUXURIES.map((l) => {
             const has = owned.has(l.id);

@@ -320,7 +320,7 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
             <Row label="Status" value="Börsnoterat ✓" accent={BURGUNDY} bold />
             <Row label="Totalt utdelat" value={kr(state.dividendsPaid ?? 0)} />
             <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 8 }}>
-              Bolaget är börsnoterat. Utdelningar kan betalas via Finanspanelen.
+              Bolaget är börsnoterat. Utdelningar betalas under Bolag → Arv.
             </div>
           </>
         ) : (

@@ -21,7 +21,6 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
   const [refiAmt, setRefiAmt] = useState(1000000);
   const [drawAmt, setDrawAmt] = useState(500000);
   const [repayAmt, setRepayAmt] = useState(500000);
-  const [divAmt, setDivAmt] = useState(1000000);
   const [bondAmt, setBondAmt] = useState(5000000);
   const [bondYears, setBondYears] = useState(5);
 
@@ -262,20 +261,10 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
 
         <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Utdelning</h3>
         <Line l="Totalt utdelat" v={kr(state.dividendsPaid ?? 0)} />
-        <div style={S.amortRow}>
-          <input type="range" min="0" max={Math.max(0, state.cash - 500000)}
-            step="100000" value={Math.min(divAmt, Math.max(0, state.cash - 500000))}
-            onChange={(e) => setDivAmt(+e.target.value)} style={{ flex: 1, accentColor: C.gold }} />
-          <span style={{ minWidth: 90, textAlign: "right" }}>{msek(divAmt)}</span>
+        <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
+          Utdelningen betalas numera under <strong>Bolag → Arv</strong>, där den bygger
+          ägarens privata förmögenhet.
         </div>
-        <button
-          style={{ ...S.amortBtn, background: "#3d54d8" }}
-          onClick={() => dispatch({ type: "PAY_DIVIDEND", amount: divAmt })}
-          disabled={state.cash < 600000}
-        >
-          Betala utdelning
-        </button>
-        <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Minst 500 000 kr i kassa behålls.</div>
 
         {/* Bonds */}
         <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Obligationsemission</h3>
