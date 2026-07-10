@@ -33,7 +33,7 @@ export const LANDMARKS: LandmarkAnchor[] = [
   // w/d = fotavtryck INKL. omgivning (torg, gård, kompound), så vakten ser
   // till att inget växer in i ett distrikt. Anchorn (x,z) är renderingspunkten.
   // Omflyttade
-  { id: "stadshus",    type: "stadshus",    x: 146,  z: 18,   w: 18, d: 18 }, // civic torn i avenylucka C–Finans
+  { id: "stadshus",    type: "stadshus",    x: 146,  z: 18,   w: 36, d: 34 }, // stadshus m. klocktorn i avenylucka C–Finans
   { id: "vattentorn",  type: "vattentorn",  x: -390, z: -345, w: 44, d: 42 }, // inhägnad kompound i NV-utkanten
   { id: "skorsten-v",  type: "skorsten",    x: 300,  z: -262, w: 26, d: 26 }, // industriplan norr om Industriområdet
   { id: "skorsten-o",  type: "skorsten",    x: 350,  z: -262, w: 26, d: 26 },

@@ -423,23 +423,68 @@ export function Harbor() {
 function LmStadshus({ x, z }: { x: number; z: number }) {
   return (
     <group position={[x, 0, z]}>
-      <mesh castShadow receiveShadow position={[0, 1, 0]}>
-        <boxGeometry args={[16, 2, 16]} />
+      {/* Torg framför stadshuset */}
+      <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, 0.05, 4]}>
+        <planeGeometry args={[34, 28]} />
+        <meshStandardMaterial color="#bcb4a3" roughness={0.95} />
+      </mesh>
+      {/* Huvudbyggnad (sandsten, tre våningar) med taklist och ändpaviljonger */}
+      <mesh castShadow receiveShadow position={[0, 5.5, -2]}>
+        <boxGeometry args={[30, 11, 15]} />
+        <meshStandardMaterial color="#cbbd9a" />
+      </mesh>
+      <mesh position={[0, 11.3, -2]}>
+        <boxGeometry args={[31, 0.9, 16]} />
+        <meshStandardMaterial color="#b7a988" />
+      </mesh>
+      {[-13, 13].map((px) => (
+        <mesh key={px} castShadow position={[px, 6.5, -1]}>
+          <boxGeometry args={[6, 13, 17]} />
+          <meshStandardMaterial color="#c4b48f" />
+        </mesh>
+      ))}
+      {/* Fönsterrader */}
+      {[-10, -5, 5, 10].flatMap((px) =>
+        [3, 7.5].map((py) => (
+          <mesh key={`${px}-${py}`} position={[px, py, 5.6]}>
+            <boxGeometry args={[2, 3, 0.3]} />
+            <meshStandardMaterial color="#5a6b74" />
+          </mesh>
+        )),
+      )}
+      {/* Entré: trappa + portik med pelare + entablement */}
+      <mesh receiveShadow position={[0, 0.4, 7.4]}>
+        <boxGeometry args={[13, 0.8, 3]} />
         <meshStandardMaterial color={CONCRETE} />
       </mesh>
-      <mesh castShadow position={[0, 13, 0]}>
-        <boxGeometry args={[7, 24, 7]} />
+      <mesh receiveShadow position={[0, 0.9, 6.4]}>
+        <boxGeometry args={[11, 0.8, 2]} />
+        <meshStandardMaterial color={CONCRETE} />
+      </mesh>
+      {[-4, -1.3, 1.3, 4].map((px) => (
+        <mesh key={px} castShadow position={[px, 4.4, 6.6]}>
+          <cylinderGeometry args={[0.6, 0.6, 7, 10]} />
+          <meshStandardMaterial color="#e0d6bf" />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0, 8.4, 6.6]}>
+        <boxGeometry args={[11, 1.6, 2.6]} />
+        <meshStandardMaterial color="#d8ccae" />
+      </mesh>
+      {/* Klocktorn reser sig ur fasaden */}
+      <mesh castShadow position={[0, 19, 2]}>
+        <boxGeometry args={[7, 22, 7]} />
         <meshStandardMaterial color="#c9b896" />
       </mesh>
-      <mesh position={[0, 22, 3.6]}>
-        <cylinderGeometry args={[1.6, 1.6, 0.2, 16]} />
-        <meshStandardMaterial color="#f3ead3" />
+      <mesh position={[0, 25, 5.6]} rotation-x={Math.PI / 2}>
+        <cylinderGeometry args={[1.7, 1.7, 0.3, 16]} />
+        <meshStandardMaterial color="#f3ead3" emissive="#3a3a30" emissiveIntensity={0.3} />
       </mesh>
-      <mesh castShadow position={[0, 27.2, 0]} rotation-y={Math.PI / 4}>
-        <coneGeometry args={[5.4, 4.5, 4]} />
+      <mesh castShadow position={[0, 31.4, 2]} rotation-y={Math.PI / 4}>
+        <coneGeometry args={[5.6, 5, 4]} />
         <meshStandardMaterial color="#4a6a55" />
       </mesh>
-      <Flag x={0} y={29.5} z={0} color="#4f63e4" />
+      <Flag x={0} y={34} z={2} color="#4f63e4" />
     </group>
   );
 }
