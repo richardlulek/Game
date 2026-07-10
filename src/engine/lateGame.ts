@@ -164,11 +164,12 @@ export interface Luxury {
 }
 
 export const LUXURIES: Luxury[] = [
-  { id: "sportbil", name: "Italiensk sportbil", icon: "🏎️", cost: 3_000_000, dynasty: 15, desc: "Syns köra längs Esplanaden om söndagarna." },
-  { id: "villa", name: "Sommarvilla i skärgården", icon: "🏖️", cost: 8_000_000, dynasty: 30, desc: "Familjen samlas – och affärskontakterna bjuds ut." },
+  { id: "sportbil", name: "Italiensk sportbil", icon: "🏎️", cost: 3_000_000, dynasty: 15, desc: "Kryssar utanför huvudkontoret – syns på kartan." },
+  { id: "villa", name: "Sommarvilla i skärgården", icon: "🏖️", cost: 8_000_000, dynasty: 30, desc: "Faluröd på en skärgårdsö – syns på kartan." },
   { id: "konst", name: "Konstsamling", icon: "🖼️", cost: 12_000_000, dynasty: 45, reputation: 1, desc: "Nordisk modernism. Lånas ut till stadens museum." },
   { id: "vingard", name: "Vingård i Toscana", icon: "🍇", cost: 20_000_000, dynasty: 60, desc: "Årgångarna etiketteras med bolagets vapen." },
   { id: "yacht", name: "M/Y Imperium", icon: "🛥️", cost: 30_000_000, dynasty: 100, reputation: 2, desc: "Ligger förtöjd i Hamnen – syns på kartan." },
+  { id: "helikopter", name: "Privat helikopter", icon: "🚁", cost: 45_000_000, dynasty: 150, reputation: 3, desc: "Står på kontorets helipad – syns på kartan." },
   { id: "flygel", name: "Donation: universitetsflygel", icon: "🏛️", cost: 50_000_000, dynasty: 200, reputation: 5, desc: "Ditt namn över entrén, för alltid." },
   { id: "stiftelse", name: "Välgörenhetsstiftelse", icon: "💛", cost: 100_000_000, dynasty: 400, reputation: 8, desc: "Stipendier, bostäder och forskning i familjens namn." },
 ];
