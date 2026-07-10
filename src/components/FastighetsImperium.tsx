@@ -426,7 +426,11 @@ export default function FastighetsImperium() {
 
       {/* ── Kartan (grundvyn) + flytande fönster ─────────────── */}
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
-        <div style={{ position: "absolute", inset: 0 }}>
+        {/* Egen stackningskontext (isolation) så att 3D-vyns HTML-etiketter
+            (distriktsnamn, statusikoner via drei <Html>) hålls som ETT lager
+            längst ned – de kan annars lyfta sitt z-index förbi kartans HUD,
+            kort och öppna fönster/flikar och "lysa igenom" dem. */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, isolation: "isolate" }}>
           <CityCanvas />
         </div>
         <MapLegend />
