@@ -158,6 +158,35 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
             <div style={{ fontFamily: FONTS.heading, fontSize: 22, fontWeight: 700, color: C.brassBright, marginBottom: 16 }}>
               Välj spelläge (Slot {selectedSlot})
             </div>
+            {/* Berättelseläget – framhävt kort ovanför scenarierna. */}
+            {(() => {
+              const story = SCENARIOS.find((sc) => sc.id === "arvet")!;
+              const sel = selectedId === "arvet";
+              return (
+                <div
+                  onClick={() => setSelectedId("arvet")}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 14, textAlign: "left",
+                    maxWidth: 700, width: "100%", marginBottom: 12, padding: "13px 16px",
+                    borderRadius: 6, cursor: "pointer",
+                    border: sel ? `2px solid ${C.brass}` : `1px solid ${C.brassDim}`,
+                    background: sel ? "rgba(201,161,59,0.14)" : "rgba(201,161,59,0.06)",
+                    boxShadow: sel ? "0 0 18px rgba(201,161,59,0.25)" : undefined,
+                  }}
+                >
+                  <div style={{ fontSize: 34 }}>{story.icon}</div>
+                  <div>
+                    <div style={{ fontFamily: FONTS.heading, fontSize: 17, fontWeight: 800, color: C.brassBright }}>
+                      {story.title}
+                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: C.feltDark, background: C.brass, borderRadius: 3, padding: "2px 7px", marginLeft: 10, verticalAlign: "middle" }}>
+                        REKOMMENDERAS FÖRSTA GÅNGEN
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.creamSoft, marginTop: 3 }}>{story.desc}</div>
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -166,7 +195,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
               maxWidth: 700,
               width: "100%",
             }}>
-              {SCENARIOS.map((sc) => (
+              {SCENARIOS.filter((sc) => sc.id !== "arvet").map((sc) => (
                 <div
                   key={sc.id}
                   onClick={() => setSelectedId(sc.id)}
@@ -186,8 +215,9 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                 </div>
               ))}
             </div>
-            {/* Grunda bolaget: eget namn ger ägarkänsla från första minuten. */}
-            <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            {/* Grunda bolaget: eget namn ger ägarkänsla från första minuten.
+                I berättelseläget ärver du namnet – bolagsdöpandet är ett skämt i kapitel 6. */}
+            <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, visibility: selectedId === "arvet" ? "hidden" : "visible" }}>
               <label style={{ fontSize: 12, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>
                 DITT BOLAGS NAMN
               </label>
@@ -219,7 +249,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                 style={newBtn}
                 onClick={() => onNew(selectedId, selectedSlot, companyName.trim() || DEFAULT_COMPANY_NAME)}
               >
-                Grunda bolaget
+                {selectedId === "arvet" ? "📜 Öppna testamentet" : "Grunda bolaget"}
               </button>
             </div>
           </>

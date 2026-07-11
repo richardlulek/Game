@@ -27,6 +27,7 @@ import {
 } from "./leasing";
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
+import { advanceStory } from "./story";
 import { makeDecision } from "./decisions";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
@@ -1723,7 +1724,8 @@ export function advanceMonth(state: GameState): GameState {
   s.buildCostMod = +(((s.buildCostMod ?? 1) * 0.85 + 0.15)).toFixed(3);
 
   // ── Beslutshändelse (~6 %) ──────────────────────────────────────
-  if (Math.random() < 0.06) {
+  // Under berättelseläget står kampanjen för besluten – slumpen väntar.
+  if ((!s.story || s.story.done) && Math.random() < 0.06) {
     const decision = makeDecision(s);
     s.pendingDecision = decision;
     events.push({ t: `🤔 Beslut krävs: ${decision.title}`, kind: "event" });
@@ -1938,5 +1940,6 @@ export function advanceMonth(state: GameState): GameState {
     s.gameOver = true;
     s.log = [{ t: "💥 KONKURS! Kassan under −1 000 000 kr. Spelet är slut.", kind: "warn" }, ...s.log];
   }
-  return s;
+  // Berättelseläget: injects, brev och kapitelavancemang efter månadens händelser.
+  return advanceStory(s);
 }

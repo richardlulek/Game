@@ -172,6 +172,8 @@ export const LUXURIES: Luxury[] = [
   { id: "helikopter", name: "Privat helikopter", icon: "🚁", cost: 45_000_000, dynasty: 150, reputation: 3, desc: "Står på kontorets helipad – syns på kartan." },
   { id: "flygel", name: "Donation: universitetsflygel", icon: "🏛️", cost: 50_000_000, dynasty: 200, reputation: 5, desc: "Ditt namn över entrén, för alltid." },
   { id: "stiftelse", name: "Välgörenhetsstiftelse", icon: "💛", cost: 100_000_000, dynasty: 400, reputation: 8, desc: "Stipendier, bostäder och forskning i familjens namn." },
+  // Kan inte köpas – delas ut när berättelseläget "Arvet efter morfar" fullbordas.
+  { id: "morfarsklocka", name: "Morfars klocka", icon: "⌚", cost: 0, dynasty: 25, desc: "Har gått fel sedan 1979, men den går. Arvet fullbordat." },
 ];
 
 /* ── C7: Dynastipoäng ──────────────────────────────────────────────── */

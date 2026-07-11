@@ -7,7 +7,7 @@ export type PropTypeKey = "bostad" | "kontor" | "butik" | "industri";
 
 export type ScenarioId =
   | "equity50" | "equity200" | "districts3" | "units25" | "sandbox"
-  | "diversified" | "energyBaron" | "hotelKing";
+  | "diversified" | "energyBaron" | "hotelKing" | "arvet";
 
 // ── Industrisektorer ────────────────────────────────────────────────────────
 
@@ -235,8 +235,24 @@ export interface DecisionEffect {
   gameOver?: boolean;
   /** Justering av en pågående detaljplansprocess (t.ex. förlikning). */
   planSettle?: { blockId: string; monthsDelta: number };
+  /** Kedjning: id på nästa skriptade beslut (slås upp i story-tabellen). */
+  nextDecisionId?: string;
+  /** Story-flagga som sätts när alternativet väljs. */
+  storyFlag?: string;
   log: string;
   logKind: LogKind;
+}
+
+/** Berättelseläget "Arvet efter morfar" – ren, sparbar data. */
+export interface StoryState {
+  /** Aktiv beat (id i STORY_BEATS). */
+  beat: string;
+  /** Satta flaggor (val spelaren gjort, utförda injects m.m.). */
+  flags: string[];
+  /** Fryspåse-säkerhetsnätet får bara användas en gång. */
+  bailoutUsed?: boolean;
+  /** Kampanjen avklarad – spelet fortsätter fritt. */
+  done?: boolean;
 }
 
 /** En pågående egen detaljplansprocess på köpt råmark. */
@@ -336,6 +352,8 @@ export interface Property {
   regulated?: boolean;
   /** Mäklaruppdrag (U8): månadsarvode vid vakans, garanterat kvalificerat flöde. */
   brokerMandate?: boolean;
+  /** Berättelseläget: "arvet" = morfars hus, "revansch" = grannhuset i kap 7. */
+  storyTag?: string;
 }
 
 /** Utvecklingsprojekt: totalrenovering, påbyggnad, lokalanpassning
@@ -696,6 +714,8 @@ export interface GameState {
   industryListings?: IndustryAsset[];
   energyOwnedMW?: number;
   hotelHighOccConsecutiveMonths?: number;
+  /** Berättelseläget "Arvet efter morfar" (null/undefined = vanligt spel). */
+  story?: StoryState | null;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -801,4 +821,4 @@ export type GameAction =
   | { type: "SET_POLICY"; policy: Partial<CompanyPolicy> }
   | { type: "AUCTION_BID" }
   | { type: "AUCTION_PASS" }
-  | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string };
+  | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string; mode?: "story" };

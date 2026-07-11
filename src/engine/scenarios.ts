@@ -1,5 +1,6 @@
 import { equityOf } from "./finance";
 import { msek } from "./format";
+import { STORY_BEATS } from "./story";
 import type { Competitor, GameState, ScenarioId } from "./types";
 
 export interface Scenario {
@@ -25,6 +26,19 @@ function dominatedDistricts(s: GameState): number {
 }
 
 export const SCENARIOS: Scenario[] = [
+  {
+    id: "arvet",
+    title: "Arvet efter morfar",
+    subtitle: "Berättelseläge · 9 kapitel",
+    desc: "Du ärver ett slitet hus i Villakullen och 850 000 kr ur morfars frys. Kampanjen lär ut allt – med Gösta, Ulla på banken och Rogge Flyt.",
+    icon: "📜",
+    check: (s) => !!s.story?.done,
+    progress: (s) => {
+      const idx = s.story ? Math.max(0, STORY_BEATS.findIndex((b) => b.id === s.story!.beat)) : 0;
+      const value = s.story?.done ? STORY_BEATS.length : idx;
+      return { value, max: STORY_BEATS.length, label: s.story?.done ? "Fullbordat" : `Kapitel ${idx} av ${STORY_BEATS.length - 1}` };
+    },
+  },
   {
     id: "equity50",
     title: "Snabbstarten",

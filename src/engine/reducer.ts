@@ -38,6 +38,7 @@ import {
 import { newId } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
+import { applyStoryFlag, markNegotiated, seedStory, storyDecisionById } from "./story";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
 import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
 
@@ -256,6 +257,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Fullt pris kräver annonsering (LIST_FOR_SALE) och en riktig köpare.
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p) return state;
+      // Villkor 7b i morfars testamente: huset får inte säljas under kampanjen.
+      if (p.storyTag === "arvet" && state.story && !state.story.done)
+        return log(state, "Villkor 7b: morfars hus får inte säljas. Ekelöf fakturerar 900 kr för påminnelsen. (ingick)", "warn");
       const value = propMarketValue(p, state);
       const salePrice = Math.round(value * QUICK_SALE_FACTOR);
       const payoff = Math.min(state.debt, (p.purchasePrice || salePrice) * 0.6);
@@ -301,6 +305,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "LIST_FOR_SALE": {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status !== "klar" || p.forSale) return state;
+      if (p.storyTag === "arvet" && state.story && !state.story.done)
+        return log(state, "Villkor 7b: morfars hus får inte annonseras ut. Morfar förutsåg det här. Han förutsåg allt.", "warn");
       const ask = Math.max(10_000, Math.round(action.ask));
       return {
         ...state,
@@ -533,7 +539,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const newRent = Math.max(tenant.rent, marketRent);
       const renewed = { ...tenant, rent: newRent, monthsLeft: tenant.termTotal };
       return {
-        ...state,
+        ...markNegotiated(state),
         reputation: Math.min(100, state.reputation + 1),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id
@@ -802,7 +808,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const acceptProb = Math.min(0.98, baseProb * satMult);
       if (Math.random() < acceptProb) {
         return {
-          ...state,
+          ...markNegotiated(state),
           portfolio: state.portfolio.map((x) =>
             x.id === p.id
               ? { ...x, tenants: x.tenants.map((t) => (t.id === action.tenantId ? { ...t, rent: newRent } : t)) }
@@ -818,7 +824,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         };
       }
       return {
-        ...state,
+        ...markNegotiated(state),
         reputation: Math.max(0, state.reputation - 1),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
@@ -839,7 +845,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!tenant) return state;
       const newRent = Math.round(tenant.rent * (1 - action.decreasePercent / 100));
       return {
-        ...state,
+        ...markNegotiated(state),
         reputation: Math.min(100, state.reputation + 0.5),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id
@@ -957,6 +963,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
         );
       }
       if (e.gameOver) s.gameOver = true;
+      // Berättelseläget: flaggor med sidoeffekter + kedjade brev.
+      if (e.storyFlag) s = applyStoryFlag(s, e.storyFlag);
+      if (e.nextDecisionId) {
+        const next = storyDecisionById(e.nextDecisionId, s);
+        if (next) s = { ...s, pendingDecision: next };
+      }
       return { ...s, log: [{ t: e.log, kind: e.logKind }, ...s.log] };
     }
     case "ACCEPT_OFFER": {
@@ -1471,6 +1483,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "SNOOZE_DECISION": {
       if (!state.pendingDecision) return state;
+      // Story-brev kan inte snoozas – morfar väntar tills du läst klart.
+      if (state.pendingDecision.id.startsWith("story:")) return state;
       return {
         ...state,
         pendingDecision: null,
@@ -2376,6 +2390,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return action.state;
     case "RESET": {
       const fresh = initState();
+      // Berättelseläget: morfars hus + fryspåsen i stället för startkapitalet.
+      if (action.mode === "story") return seedStory(fresh);
       return {
         ...fresh,
         ...(action.scenarioId ? { scenarioId: action.scenarioId } : {}),

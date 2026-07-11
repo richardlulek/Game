@@ -102,6 +102,8 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 8 }}>
           {LUXURIES.map((l) => {
             const has = owned.has(l.id);
+            // Morfars klocka kan inte köpas – den ärvs i berättelseläget.
+            if (l.id === "morfarsklocka" && !has) return null;
             const affordable = wealth >= l.cost;
             return (
               <div key={l.id} style={{

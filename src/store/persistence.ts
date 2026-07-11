@@ -58,7 +58,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 22;
+export const SAVE_VERSION = 23;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -253,6 +253,12 @@ const migrations: Record<number, (state: GameState) => GameState> = {
   21: (s) => ({
     ...s,
     day: (s as { day?: number }).day ?? 1,
+  }),
+  // v22 → v23: berättelseläget "Arvet efter morfar". Gamla sparfiler har
+  // inget story-tillstånd – de fortsätter som vanligt spel (story = null).
+  22: (s) => ({
+    ...s,
+    story: (s as GameState).story ?? null,
   }),
 };
 

@@ -33,6 +33,7 @@ import { PortfolioSummaryCard } from "./PortfolioSummaryCard";
 import { PortfolioTable } from "./PortfolioTable";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
+import { StoryHud } from "./StoryHud";
 import { TitleScreen } from "./TitleScreen";
 import { Toasts } from "./Toasts";
 import { Toolbar } from "./Toolbar";
@@ -142,7 +143,8 @@ export default function FastighetsImperium() {
 
   const startNew = (scenarioId: ScenarioId, slot: number, companyName: string) => {
     setSlotFn(slot);
-    dispatch({ type: "RESET", scenarioId, companyName });
+    // "arvet" = berättelseläget: eget startläge (morfars hus + fryspåsen).
+    dispatch({ type: "RESET", scenarioId, companyName, ...(scenarioId === "arvet" ? { mode: "story" as const } : {}) });
     setStarted(true);
   };
   const startContinue = (slot: number) => {
@@ -439,6 +441,7 @@ export default function FastighetsImperium() {
         <MapLegend />
         <OverlayToggle />
         <TodoHud openWindow={(id) => unlocked.has(id) && openWindow(id)} />
+        <StoryHud />
         <MapSelectionCard openWindow={(id) => unlocked.has(id) && openWindow(id)} />
         {wins.map((id, i) => {
           if (minimized.includes(id)) return null;

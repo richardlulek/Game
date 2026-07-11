@@ -6,6 +6,7 @@
 import { create } from "zustand";
 import { initState, reducer } from "../engine";
 import { placeCity } from "../engine/city";
+import { advanceStory } from "../engine/story";
 import type { GameAction, GameState } from "../engine/types";
 import { getActiveSlot, hasSave, loadGame, saveGame, setActiveSlot } from "./persistence";
 
@@ -36,7 +37,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clock: { running: false, speed: 1 },
   setRunning: (running) => set((s) => ({ clock: { ...s.clock, running } })),
   setSpeed: (speed) => set((s) => ({ clock: { ...s.clock, speed } })),
-  dispatch: (action) => set((s) => ({ state: placeCity(reducer(s.state, action)) })),
+  // advanceStory efter varje action gör att kampanjmål bockas av direkt
+  // (inte först vid nästa månadstick) – brev kan dyka upp mitt i en handling.
+  dispatch: (action) => set((s) => ({ state: placeCity(advanceStory(reducer(s.state, action))) })),
   save: () => saveGame(get().state, get().activeSlot),
   load: (slot?: number) => {
     const s = slot ?? get().activeSlot;
