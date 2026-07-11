@@ -38,7 +38,7 @@ import {
 import { newId } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
-import { MEMORY_NOTES, applyStoryFlag, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById } from "./story";
+import { MEMORY_NOTES, applyStoryFlag, districtLocked, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById } from "./story";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
 import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
 
@@ -172,6 +172,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "BUY": {
       const p = state.listings.find((x) => x.id === action.id);
       if (!p) return state;
+      if (districtLocked(state, p.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
       const { maxLtv } = loanTerms(state);
       const down = p.askPrice * (1 - maxLtv);
       // Konkurrensverket: dominans i distriktet → förvärvsprövning med avgift.
@@ -206,6 +207,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "PLACE_BID": {
       const p = state.listings.find((x) => x.id === action.id);
       if (!p) return state;
+      if (districtLocked(state, p.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
       const { maxLtv } = loanTerms(state);
       const bid = Math.max(0, Math.round(action.amount));
       const down = bid * (1 - maxLtv);
@@ -674,6 +676,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "BUY_LOT": {
       const lot = state.lots.find((x) => x.id === action.id);
       if (!lot) return state;
+      if (districtLocked(state, lot.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
       if (state.cash < lot.price) return log(state, "För lite kontanter för tomten.", "warn");
       return {
         ...state,
@@ -1396,6 +1399,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "BID_OFFMARKET": {
       const prop = (state.worldPool ?? []).find((p) => p.id === action.propertyId);
       if (!prop) return state;
+      if (districtLocked(state, prop.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
       const ref = prop.askPrice;
       const { maxLtv } = loanTerms(state);
       const down = action.amount * (1 - maxLtv);
@@ -1799,6 +1803,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // inga hus ersätts. Ägaren säljer mot premie (se landDeals.ts).
       const parcel = parcelById(action.parcelId);
       if (!parcel) return state;
+      if (districtLocked(state, parcel.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
       const grown = new Set(state.ambientGrown ?? []);
       if (!hasAmbientBuilding(parcel, grown))
         return log(state, "Tomten bär inget privatägt hus.", "warn");

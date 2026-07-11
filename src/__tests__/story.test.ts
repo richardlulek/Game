@@ -12,8 +12,10 @@ import {
   advanceStory,
   applyStoryFlag,
   beatById,
+  districtLocked,
   heirloomOf,
   storyDecisionById,
+  unlockedDistrictsFor,
 } from "../engine/story";
 import type { GameState } from "../engine/types";
 import { makeProperty, makeState } from "./factories";
@@ -279,6 +281,70 @@ describe("morfars minneslappar", () => {
         expect(Math.abs(n.z)).toBeLessThanOrEqual(520);
       }
     }
+  });
+});
+
+describe("distriktsupplåsning", () => {
+  it("prologen öppnar bara Villakullen; staden växer kapitel för kapitel", () => {
+    let s = storyStart();
+    expect([...unlockedDistrictsFor(s)!]).toEqual(["kulle"]);
+    expect(districtLocked(s, "kulle")).toBe(false);
+    expect(districtLocked(s, "finans")).toBe(true);
+
+    s = { ...s, story: { ...s.story!, beat: "forhandlingen" } };
+    expect([...unlockedDistrictsFor(s)!].sort()).toEqual(["förort", "kulle"]);
+
+    s = { ...s, story: { ...s.story!, beat: "banken" } };
+    expect(unlockedDistrictsFor(s)!.has("innerstad")).toBe(true);
+    expect(districtLocked(s, "centrum")).toBe(true);
+
+    // Sista kapitlet: alla sju distrikt öppna.
+    s = { ...s, story: { ...s.story!, beat: "dynastin" } };
+    expect([...unlockedDistrictsFor(s)!].sort()).toEqual(
+      ["centrum", "finans", "förort", "hamnen", "industri", "innerstad", "kulle"],
+    );
+  });
+
+  it("utan story eller efter epilogen är allt öppet (null)", () => {
+    expect(unlockedDistrictsFor(makeState())).toBeNull();
+    let s = storyStart();
+    s = { ...s, story: { ...s.story!, done: true } };
+    expect(unlockedDistrictsFor(s)).toBeNull();
+    expect(districtLocked(s, "finans")).toBe(false);
+  });
+
+  it("seedStory begränsar utbudet till Villakullen (resten väntar i poolen)", () => {
+    const s = storyStart();
+    expect(s.listings.every((p) => p.district === "kulle")).toBe(true);
+    expect(s.lots.every((l) => l.district === "kulle")).toBe(true);
+  });
+
+  it("köp i låst distrikt blockeras med 🔒-logg", () => {
+    let s = storyStart();
+    s = readLetters(s);
+    const listing = makeProperty({
+      id: 777, owned: false, district: "finans", districtName: "Finansdistriktet", askPrice: 20_000_000,
+    });
+    s = { ...s, listings: [...s.listings, listing], cash: 50_000_000 };
+
+    const afterBuy = reducer(s, { type: "BUY", id: 777 });
+    expect(afterBuy.portfolio.some((p) => p.id === 777)).toBe(false);
+    expect(afterBuy.log[0].t).toContain("🔒 Området är låst");
+
+    const afterBid = reducer(s, { type: "PLACE_BID", id: 777, amount: 19_000_000 });
+    expect(afterBid.portfolio.some((p) => p.id === 777)).toBe(false);
+    expect(afterBid.log[0].t).toContain("🔒 Området är låst");
+  });
+
+  it("köp i upplåst distrikt går igenom som vanligt", () => {
+    let s = storyStart();
+    s = readLetters(s);
+    const listing = makeProperty({
+      id: 778, owned: false, district: "kulle", districtName: "Villakullen", askPrice: 2_000_000,
+    });
+    s = { ...s, listings: [...s.listings, listing], cash: 10_000_000 };
+    const after = reducer(s, { type: "BUY", id: 778 });
+    expect(after.portfolio.some((p) => p.id === 778)).toBe(true);
   });
 });
 

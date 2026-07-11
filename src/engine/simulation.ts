@@ -27,7 +27,7 @@ import {
 } from "./leasing";
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
-import { advanceStory } from "./story";
+import { advanceStory, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
@@ -1800,9 +1800,15 @@ export function advanceMonth(state: GameState): GameState {
   // utanför kartan och kan köpas till spökägande. Utgångna annonser ovan har
   // redan frigjort sina rutor, så räkna om den lediga poolen här.
   const freeLandNow = Math.max(0, Math.min(landBudget, emptyParcels(s).length));
+  // Berättelseläget: bara objekt i upplåsta distrikt når marknaden.
+  const storyUnlocked = unlockedDistrictsFor(s);
   if (s.listings.length < MAX_LISTINGS && pool.length > 0 && freeLandNow > 0) {
-    const reveal = Math.min(1 + Math.floor(Math.random() * Math.min(3, pool.length)), freeLandNow);
-    const toReveal = pool.slice(0, reveal);
+    const want = Math.min(1 + Math.floor(Math.random() * Math.min(3, pool.length)), freeLandNow);
+    const revealIdx: number[] = [];
+    for (let i = 0; i < pool.length && revealIdx.length < want; i++) {
+      if (!storyUnlocked || storyUnlocked.has(pool[i].district)) revealIdx.push(i);
+    }
+    const toReveal = revealIdx.map((i) => pool[i]);
     const born = nowAbs2;
     s.listings = [
       ...s.listings,
@@ -1817,20 +1823,25 @@ export function advanceMonth(state: GameState): GameState {
         expiresMonth: born + 3 + Math.floor(Math.random() * 2),
       })),
     ].slice(0, MAX_LISTINGS);
-    s.worldPool = pool.slice(reveal);
+    s.worldPool = pool.filter((_, i) => !revealIdx.includes(i));
     landBudget -= toReveal.length;
   }
   // Om världspoolen tar slut: generera nybyggnation (expansionen av världen) –
   // enbart om det finns ledig mark kvar (annars ingen tomtruta åt den).
-  if ((s.worldPool ?? []).length === 0 && s.listings.length < MAX_LISTINGS && landBudget > 0) {
-    const newProp = genListing(s, districtsWithSpace(s));
+  const allowedNow = (() => {
+    const space = districtsWithSpace(s);
+    if (!storyUnlocked) return space;
+    return new Set([...space].filter((d) => storyUnlocked.has(d)));
+  })();
+  if ((s.worldPool ?? []).length === 0 && s.listings.length < MAX_LISTINGS && landBudget > 0 && allowedNow.size > 0) {
+    const newProp = genListing(s, allowedNow);
     s.listings = [...s.listings, newProp];
     s.worldTotal = (s.worldTotal ?? 0) + 1;
     landBudget -= 1;
     events.push({ t: `🏗️ Nyproduktion utökar marknaden: ${newProp.typeLabel} i ${newProp.districtName}.`, kind: "info" });
   }
-  if (landBudget > 0 && Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS) {
-    s.lots = [...s.lots, genLot(s, districtsWithSpace(s))];
+  if (landBudget > 0 && Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS && allowedNow.size > 0) {
+    s.lots = [...s.lots, genLot(s, allowedNow)];
     landBudget -= 1;
   }
 

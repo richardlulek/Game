@@ -527,12 +527,21 @@ export function makeInheritedHouse(fresh: GameState): Property {
 export function seedStory(fresh: GameState): GameState {
   const house = makeInheritedHouse(fresh);
   const story: StoryState = { beat: "prolog", flags: ["inject:prolog"] };
+  // Bara Villakullen är öppet i kapitel 0: marknadsobjekt och tomter i låsta
+  // distrikt flyttar tillbaka till världspoolen tills områdena låses upp.
+  const lockedListings = fresh.listings.filter((p) => p.district !== "kulle");
   return {
     ...fresh,
     cash: 850_000,
     scenarioId: "arvet",
     companyName: STORY_COMPANY_NAME,
     portfolio: [house],
+    listings: fresh.listings.filter((p) => p.district === "kulle"),
+    worldPool: [
+      ...fresh.worldPool,
+      ...lockedListings.map((p) => ({ ...p, listedMonth: undefined, expiresMonth: undefined })),
+    ],
+    lots: fresh.lots.filter((l) => l.district === "kulle"),
     story,
     tutorialDismissed: true,
     pendingDecision: STORY_DECISIONS.brev_ekelof(fresh),
@@ -756,6 +765,8 @@ export function advanceStory(state: GameState): GameState {
         return s;
       }
       s = { ...s, story: { ...s.story!, beat: nextBeat.id } };
+      const unlockMsg = unlockLogFor(nextBeat.id);
+      if (unlockMsg) s = { ...s, log: [{ t: unlockMsg, kind: "event" as const }, ...s.log] };
       continue; // kör nästa beats inject/brev direkt
     }
 
@@ -889,3 +900,51 @@ export const noteFlag = (id: string) => `lapp:${id}`;
 
 export const foundNotes = (s: GameState): number =>
   MEMORY_NOTES.filter((n) => hasFlag(s, noteFlag(n.id))).length;
+
+/* ── Distriktsupplåsning (A): staden öppnas kapitel för kapitel ────── */
+
+/** Distrikt som ÖPPNAS när respektive beat börjar (kumulativt). */
+const DISTRICT_UNLOCK_AT: Record<string, string[]> = {
+  prolog: ["kulle"],
+  forhandlingen: ["förort"],
+  banken: ["innerstad"],
+  konjunkturen: ["centrum"],
+  bolaget: ["hamnen"],
+  revanschen: ["industri"],
+  dynastin: ["finans"],
+};
+
+/** Namn för upplåsningsloggen. */
+const DISTRICT_NAMES: Record<string, string> = {
+  kulle: "Villakullen", förort: "Förorten", innerstad: "Innerstaden",
+  centrum: "Centrum", hamnen: "Hamnen", industri: "Industriområdet", finans: "Finansdistriktet",
+};
+
+/**
+ * Upplåsta distrikt i berättelseläget, eller null när allt är öppet
+ * (vanligt spel, eller kampanjen fullbordad).
+ */
+export function unlockedDistrictsFor(s: GameState): ReadonlySet<string> | null {
+  if (!s.story || s.story.done) return null;
+  const idx = beatIndex(s.story.beat);
+  if (idx < 0) return null;
+  const set = new Set<string>();
+  for (let i = 0; i <= idx; i++) {
+    for (const d of DISTRICT_UNLOCK_AT[STORY_BEATS[i].id] ?? []) set.add(d);
+  }
+  return set;
+}
+
+/** Är distriktet låst för spelaren just nu? */
+export function districtLocked(s: GameState, district: string): boolean {
+  const u = unlockedDistrictsFor(s);
+  return u !== null && !u.has(district);
+}
+
+/** Loggrad när ett beat öppnar nya områden. */
+export function unlockLogFor(beatId: string): string | null {
+  const opened = DISTRICT_UNLOCK_AT[beatId] ?? [];
+  if (opened.length === 0 || beatId === "prolog") return null;
+  const names = opened.map((d) => DISTRICT_NAMES[d] ?? d).join(", ");
+  return `🔓 NYTT OMRÅDE: ${names} är nu öppet för affärer – staden växer med dig.`;
+}

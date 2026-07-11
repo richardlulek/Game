@@ -532,3 +532,94 @@ export function ambientColorFor(district: string, hash: number): string {
       return pick(["#c8b090", "#b89878", "#d4c0a0", "#a08868", "#c0a888"]);
   }
 }
+
+/* ── Morfars hus (berättelseläget "Arvet efter morfar") ─────────────── */
+
+/**
+ * Unik modell för det ärvda huset: en villa byggd i omgångar (tillbyggt
+ * 1971, 1978 och 1983 – bygglovet "under handläggning" sedan 1987).
+ * Vid lågt skick ligger en presenning över taknocken och flaggstången
+ * står sne; när huset rustats (skick ≥ 60) är presenningen borta,
+ * stången rak och morfars vimpel hissad.
+ */
+export function HeirloomHouse({
+  parcel, type, color, windows, selected, handlers, condition,
+}: DistrictBuildingProps & { condition: number }) {
+  const mat = useFacade(color, windows, selected, false, type, condition < 40 ? "sliten" : "normal");
+  const w = parcel.w * 0.5;
+  const d = parcel.d * 0.52;
+  const h = FLOOR_HEIGHT * 2;
+  const renovated = condition >= 60;
+  const annexColor = new Color(color).multiplyScalar(0.88).getStyle();
+  return (
+    <group {...handlers}>
+      {/* Huvudkropp (1962) */}
+      <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, 0]} dispose={null} />
+      {/* Sadeltak */}
+      <mesh castShadow position={[0, h + 1.3, 0]} rotation-y={Math.PI / 4}>
+        <coneGeometry args={[w * 0.82, 2.6, 4]} />
+        <meshStandardMaterial color={ROOF_DARK} />
+      </mesh>
+      {/* Skorsten */}
+      <mesh castShadow position={[w * 0.22, h + 2.1, -d * 0.12]}>
+        <boxGeometry args={[0.8, 1.8, 0.8]} />
+        <meshStandardMaterial color="#6f5648" />
+      </mesh>
+      {/* Tillbyggnad 1971: envånings flygel åt öster */}
+      <mesh castShadow receiveShadow position={[w * 0.78, FLOOR_HEIGHT / 2, d * 0.1]}>
+        <boxGeometry args={[w * 0.62, FLOOR_HEIGHT, d * 0.7]} />
+        <meshStandardMaterial color={annexColor} />
+      </mesh>
+      <mesh castShadow position={[w * 0.78, FLOOR_HEIGHT + 0.5, d * 0.1]} rotation-y={Math.PI / 4}>
+        <coneGeometry args={[w * 0.46, 1.1, 4]} />
+        <meshStandardMaterial color={ROOF_RED} />
+      </mesh>
+      {/* Tillbyggnad 1978: låg förstukvist mot gatan */}
+      <mesh castShadow receiveShadow position={[-w * 0.2, 1.3, d * 0.72]}>
+        <boxGeometry args={[w * 0.5, 2.6, d * 0.5]} />
+        <meshStandardMaterial color={annexColor} />
+      </mesh>
+      {/* Tillbyggnad 1983: snickarboden på baksidan */}
+      <mesh castShadow receiveShadow position={[-w * 0.66, 1.1, -d * 0.62]}>
+        <boxGeometry args={[3.4, 2.2, 2.6]} />
+        <meshStandardMaterial color="#7d6a52" />
+      </mesh>
+      {/* Presenning över taknocken tills huset rustats */}
+      {!renovated && (
+        <group position={[-w * 0.16, h + 1.85, 0]} rotation-z={0.12}>
+          <mesh castShadow rotation-y={Math.PI / 4}>
+            <coneGeometry args={[w * 0.5, 1.4, 4]} />
+            <meshStandardMaterial color="#3d6da8" roughness={0.6} />
+          </mesh>
+          {/* Brädan som håller presenningen */}
+          <mesh position={[0, 0.75, 0]} rotation-z={0.5}>
+            <boxGeometry args={[2.6, 0.16, 0.24]} />
+            <meshStandardMaterial color="#8a7454" />
+          </mesh>
+        </group>
+      )}
+      {/* Flaggstången: sne tills renoveringen är klar, sedan rak med vimpel */}
+      <group position={[w * 0.95, 0, d * 0.85]} rotation-z={renovated ? 0 : 0.16}>
+        <mesh castShadow position={[0, 4.2, 0]}>
+          <cylinderGeometry args={[0.09, 0.13, 8.4, 6]} />
+          <meshStandardMaterial color="#e6e0d0" />
+        </mesh>
+        <mesh position={[0, 8.55, 0]}>
+          <sphereGeometry args={[0.18, 8, 6]} />
+          <meshStandardMaterial color="#c9a13b" metalness={0.6} roughness={0.3} />
+        </mesh>
+        {renovated && (
+          <mesh position={[0.62, 7.9, 0]}>
+            <planeGeometry args={[1.2, 0.55]} />
+            <meshStandardMaterial color="#3a66b0" side={2} />
+          </mesh>
+        )}
+      </group>
+      {/* Morfars bänk på gaveln */}
+      <mesh castShadow position={[-w * 0.78, 0.55, d * 0.3]}>
+        <boxGeometry args={[1.8, 0.18, 0.6]} />
+        <meshStandardMaterial color="#7d6a52" />
+      </mesh>
+    </group>
+  );
+}

@@ -20,6 +20,7 @@ import { CameraRig } from "./CameraRig";
 import { Birds, Clouds, Harbor, Landmarks } from "./CityExtras";
 import { Headquarters } from "./Headquarters";
 import { MemoryNotes, RoggeCar } from "./StoryProps";
+import { unlockedDistrictsFor } from "../engine/story";
 import { OwnerLuxuries } from "./OwnerLuxuries";
 import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
 import { groundTexture } from "./textures";
@@ -41,21 +42,41 @@ const LABEL_STYLE: React.CSSProperties = {
 };
 
 function DistrictPlates() {
+  // Berättelseläget: låsta distrikt dimmas och märks med 🔒 tills
+  // kampanjen öppnar dem kapitel för kapitel.
+  const story = useGameStore((st) => st.state.story);
+  const beat = story?.beat; // prenumerera på kapitelbyten
+  const unlocked = useMemo(
+    () => unlockedDistrictsFor(useGameStore.getState().state),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [story, beat],
+  );
   return (
     <>
-      {DISTRICT_ZONES.map((z) => (
-        <group key={z.district} position={[z.x, 0, z.z]}>
-          <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} receiveShadow>
-            <planeGeometry args={[z.w + 16, z.d + 16]} />
-            <meshStandardMaterial color={DISTRICT_TINTS[z.district] ?? "#bcbcb0"} />
-          </mesh>
-          <Html position={[0, 1, -(z.d / 2 + 16)]} center zIndexRange={[20, 0]}>
-            <div style={LABEL_STYLE}>
-              {DISTRICTS.find((d) => d.id === z.district)?.name ?? z.district}
-            </div>
-          </Html>
-        </group>
-      ))}
+      {DISTRICT_ZONES.map((z) => {
+        const locked = unlocked !== null && !unlocked.has(z.district);
+        return (
+          <group key={z.district} position={[z.x, 0, z.z]}>
+            <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} receiveShadow>
+              <planeGeometry args={[z.w + 16, z.d + 16]} />
+              <meshStandardMaterial color={DISTRICT_TINTS[z.district] ?? "#bcbcb0"} />
+            </mesh>
+            {locked && (
+              /* Skymningsslöja över låsta områden – husen skymtar, affärer väntar. */
+              <mesh rotation-x={-Math.PI / 2} position={[0, 14, 0]}>
+                <planeGeometry args={[z.w + 16, z.d + 16]} />
+                <meshStandardMaterial color="#2c3438" transparent opacity={0.38} depthWrite={false} />
+              </mesh>
+            )}
+            <Html position={[0, 1, -(z.d / 2 + 16)]} center zIndexRange={[20, 0]}>
+              <div style={{ ...LABEL_STYLE, ...(locked ? { color: "#8a938f", opacity: 0.85 } : {}) }}>
+                {locked ? "🔒 " : ""}
+                {DISTRICTS.find((d) => d.id === z.district)?.name ?? z.district}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
     </>
   );
 }

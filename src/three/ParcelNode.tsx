@@ -11,7 +11,7 @@ import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
 import { CONSTRUCTION, PLOT_COLORS, PLOT_FALLBACK, RING_COLORS, RIVAL_COLORS, TYPE_COLORS } from "./colors";
 import { ConstructionShell, FLOOR_HEIGHT, GrowIn, type PointerHandlers } from "./BuildingShapes";
-import { DistrictBuilding, districtFloors } from "./districtBuildings";
+import { DistrictBuilding, HeirloomHouse, districtFloors } from "./districtBuildings";
 import { iconTexture, type FacadeVariant } from "./textures";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
@@ -426,18 +426,34 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
         )}
         {building && !underConstruction && (
           <GrowIn handlers={{}}>
-            <DistrictBuilding
-              parcel={parcel}
-              type={building.type}
-              floors={building.floors}
-              color={building.color}
-              windows={building.windows}
-              selected={selected}
-              handlers={handlers}
-              seed={hash >> 3}
-              variant={variant}
-              solar={solar}
-            />
+            {"prop" in content && content.prop.storyTag === "arvet" ? (
+              /* Morfars hus: unik modell med tillbyggnader, presenning och flaggstång. */
+              <HeirloomHouse
+                parcel={parcel}
+                type={building.type}
+                floors={building.floors}
+                color={building.color}
+                windows={building.windows}
+                selected={selected}
+                handlers={handlers}
+                seed={hash >> 3}
+                variant={variant}
+                condition={content.prop.condition}
+              />
+            ) : (
+              <DistrictBuilding
+                parcel={parcel}
+                type={building.type}
+                floors={building.floors}
+                color={building.color}
+                windows={building.windows}
+                selected={selected}
+                handlers={handlers}
+                seed={hash >> 3}
+                variant={variant}
+                solar={solar}
+              />
+            )}
           </GrowIn>
         )}
         {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
