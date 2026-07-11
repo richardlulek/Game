@@ -948,3 +948,40 @@ export function unlockLogFor(beatId: string): string | null {
   const names = opened.map((d) => DISTRICT_NAMES[d] ?? d).join(", ");
   return `🔓 NYTT OMRÅDE: ${names} är nu öppet för affärer – staden växer med dig.`;
 }
+
+/* ── Berättelseregi: pauser mellan breven ──────────────────────────── */
+
+/** Regi för ett brev: kameran visar scenen INNAN modalen öppnas. */
+export interface StoryCinematic {
+  /** storyTag på fastigheten kameran ska glida till. */
+  focusTag: "arvet" | "dödsbo" | "revansch";
+  /** Kameraavstånd för närbilden. */
+  zoom: number;
+  /** Paus i millisekunder innan brevet öppnas (klick hoppar över). */
+  holdMs: number;
+  /** Rogges bil glider in under pausen. */
+  car?: boolean;
+  /** Text i pauschippen längst ner. */
+  hint: string;
+}
+
+/**
+ * Brev som föregås av en scen, nycklade på pendingDecision-id.
+ * Prologen: arvet tas emot → man landar framför huset → morfars brev;
+ * brevet läst → Rogges bil glider in → hans lowball-bud; budet avfärdat →
+ * blicken tillbaka på allt som behöver göras → renoveringsbrevet.
+ */
+export const STORY_CINEMATICS: Record<string, StoryCinematic> = {
+  "story:brev_morfar_1": {
+    focusTag: "arvet", zoom: 62, holdMs: 3400,
+    hint: "Villakullen. Morfars hus. Ditt hus.",
+  },
+  "story:rogge_lowball": {
+    focusTag: "arvet", zoom: 62, holdMs: 4200, car: true,
+    hint: "En vit, nyputsad sedan glider in vid tomtgränsen …",
+  },
+  "story:brev_kap1": {
+    focusTag: "arvet", zoom: 70, holdMs: 3200,
+    hint: "Presenningen. Flaggstången. Listan skriver sig själv.",
+  },
+};

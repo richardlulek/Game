@@ -8,18 +8,38 @@
      och räknas som hittad (FOUND_NOTE i reducern).                 */
 
 import { Html } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { useRef } from "react";
+import type { Group } from "three";
 import { parcelById } from "../engine/city";
 import { MEMORY_NOTES, hasFlag, heirloomOf, noteFlag } from "../engine/story";
 import { useGameStore } from "../store/gameStore";
+import type { Cinematic } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
 
 /* ── Rogges bil ────────────────────────────────────────────────────── */
 
-/** Vit blank sedan med svarta rutor – "privatleasad, men säg inget". */
-function WhiteSedan({ x, z, ry = 0.4 }: { x: number; z: number; ry?: number }) {
+/** Vit blank sedan med svarta rutor – "privatleasad, men säg inget".
+ *  Med `arrive` satt glider den in längs gatan till parkeringen. */
+function WhiteSedan({ x, z, ry = 0.4, arrive }: {
+  x: number; z: number; ry?: number; arrive?: Cinematic | null;
+}) {
   const WHITE = "#f2f3f5";
+  const g = useRef<Group>(null);
+  useFrame(() => {
+    if (!g.current) return;
+    if (!arrive) {
+      g.current.position.set(x, 0, z);
+      return;
+    }
+    // Ease-out från 38 enheter bort längs gatan; klar strax före pausslutet.
+    const dur = Math.min(2800, Math.max(600, arrive.until - arrive.start - 800));
+    const t = Math.min(1, (Date.now() - arrive.start) / dur);
+    const e = 1 - Math.pow(1 - t, 3);
+    g.current.position.set(x + (1 - e) * 38, 0, z);
+  });
   return (
-    <group position={[x, 0, z]} rotation-y={ry}>
+    <group ref={g} position={[x, 0, z]} rotation-y={ry}>
       {/* Underrede */}
       <mesh position={[0, 0.45, 0]}>
         <boxGeometry args={[5.6, 0.5, 2.1]} />
@@ -65,13 +85,17 @@ function WhiteSedan({ x, z, ry = 0.4 }: { x: number; z: number; ry?: number }) {
 export function RoggeCar() {
   const story = useGameStore((s) => s.state.story);
   const state = useGameStore((s) => s.state);
+  const cinematic = useUiStore((s) => s.cinematic);
   if (!story || story.done) return null;
 
   let parcelId: string | undefined;
   if (story.beat === "prolog" || story.beat === "renoveringen") {
-    // Rogge hänger kvar utanför morfars hus genom renoveringen –
-    // han hoppas fortfarande att taket ska ge vika före plånboken.
-    parcelId = heirloomOf(state)?.parcelId;
+    // Bilen dyker upp först när Rogge knackar på (regipausen före hans
+    // lowball-bud) och hänger sedan kvar genom renoveringen – han hoppas
+    // fortfarande att taket ska ge vika före plånboken.
+    const roggeHere =
+      state.pendingDecision?.id === "story:rogge_lowball" || hasFlag(state, "prolog_läst");
+    if (roggeHere) parcelId = heirloomOf(state)?.parcelId;
   } else if (story.beat === "revanschen") {
     // Bilen står kvar utanför grannhuset tills spelaren vunnit budkriget.
     parcelId = state.listings.find((p) => p.storyTag === "revansch")?.parcelId;
@@ -80,7 +104,14 @@ export function RoggeCar() {
   if (!parcel) return null;
 
   // Parkera snett vid tomtens gathörn (utanför husets fotavtryck).
-  return <WhiteSedan x={parcel.x + parcel.w / 2 + 3.5} z={parcel.z + parcel.d / 2 + 2.5} />;
+  const arrive = cinematic?.car ? cinematic : null;
+  return (
+    <WhiteSedan
+      x={parcel.x + parcel.w / 2 + 3.5}
+      z={parcel.z + parcel.d / 2 + 2.5}
+      arrive={arrive}
+    />
+  );
 }
 
 /* ── Morfars minneslappar ──────────────────────────────────────────── */

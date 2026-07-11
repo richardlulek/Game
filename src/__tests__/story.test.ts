@@ -8,6 +8,7 @@ import {
   GOSTA_NAME,
   MEMORY_NOTES,
   STORY_BEATS,
+  STORY_CINEMATICS,
   STORY_COMPANY_NAME,
   advanceStory,
   applyStoryFlag,
@@ -345,6 +346,27 @@ describe("distriktsupplåsning", () => {
     s = { ...s, listings: [...s.listings, listing], cash: 10_000_000 };
     const after = reducer(s, { type: "BUY", id: 778 });
     expect(after.portfolio.some((p) => p.id === 778)).toBe(true);
+  });
+});
+
+describe("berättelseregi (pauser före breven)", () => {
+  it("varje regirad pekar på ett riktigt story-brev och har rimlig paus", () => {
+    const s = storyStart();
+    for (const [id, cine] of Object.entries(STORY_CINEMATICS)) {
+      expect(id.startsWith("story:"), id).toBe(true);
+      expect(storyDecisionById(id.slice("story:".length), s), id).not.toBeNull();
+      expect(cine.holdMs).toBeGreaterThanOrEqual(1000);
+      expect(cine.holdMs).toBeLessThanOrEqual(8000);
+      expect(cine.zoom).toBeGreaterThan(18); // aldrig under MapControls minDistance
+      expect(cine.hint.length).toBeGreaterThan(5);
+    }
+    // Prologens tre scener finns: morfars brev, Rogges besök (med bil), kapitel 1.
+    expect(STORY_CINEMATICS["story:brev_morfar_1"]).toBeDefined();
+    expect(STORY_CINEMATICS["story:rogge_lowball"]?.car).toBe(true);
+    expect(STORY_CINEMATICS["story:brev_kap1"]).toBeDefined();
+    // Alla fokus-taggar är kända.
+    for (const cine of Object.values(STORY_CINEMATICS))
+      expect(["arvet", "dödsbo", "revansch"]).toContain(cine.focusTag);
   });
 });
 
