@@ -95,6 +95,7 @@ export const UPGRADES: Upgrade[] = [
     cost: 0.12,
     rentBoost: 0.18,
     condBoost: 35,
+    months: 2,
     desc: "Höjer hyra och skick.",
   },
   {
@@ -103,6 +104,7 @@ export const UPGRADES: Upgrade[] = [
     cost: 0.08,
     opexCut: 0.2,
     condBoost: 10,
+    months: 1,
     desc: "Sänker driftkostnad.",
   },
   {
@@ -111,9 +113,10 @@ export const UPGRADES: Upgrade[] = [
     cost: 0.22,
     valueBoost: 0.25,
     rentBoost: 0.1,
+    months: 3,
     desc: "Ökar yta och värde.",
   },
-  { id: "smart", name: "Smart fastighet", cost: 0.06, vacancyCut: 0.3, desc: "Sänker vakans." },
+  { id: "smart", name: "Smart fastighet", cost: 0.06, vacancyCut: 0.3, months: 1, desc: "Sänker vakans." },
 ];
 
 // Hyresgästprofiler (kvalitet påverkar hyra, kontraktslängd, risk)

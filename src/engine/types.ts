@@ -136,6 +136,21 @@ export interface Upgrade {
   condBoost?: number;
   valueBoost?: number;
   vacancyCut?: number;
+  /** Byggtid i månader – effekten landar först när tiden gått. */
+  months?: number;
+}
+
+/** Beställt arbete på en fastighet: betalt vid beställning, effekten
+ *  landar vid månadsskiftet när monthsLeft når noll. Hyresgästerna bor
+ *  kvar och betalar hyra under tiden (ingen "bygger"-status). */
+export type PendingWorkKind = "underhåll" | "energi" | "uppgradering" | "kampanj" | "ändrad_användning";
+export interface PendingWork {
+  kind: PendingWorkKind;
+  monthsLeft: number;
+  /** Vilken uppgradering (kind === "uppgradering"). */
+  upgradeId?: string;
+  /** Ny fastighetstyp (kind === "ändrad_användning"). */
+  targetType?: PropTypeKey;
 }
 
 /** Profil för en typ av hyresgäst. */
@@ -383,6 +398,9 @@ export interface Property {
   brokerMandate?: boolean;
   /** Berättelseläget: "arvet" = morfars hus, "revansch" = grannhuset i kap 7. */
   storyTag?: string;
+  /** Beställda arbeten (underhåll, uppgraderingar, kampanjer …) som får
+   *  effekt först vid kommande månadsskiften. */
+  pendingWorks?: PendingWork[];
 }
 
 /** Utvecklingsprojekt: totalrenovering, påbyggnad, lokalanpassning

@@ -25,7 +25,7 @@ import {
   satisfactionTarget,
   signContract,
 } from "./leasing";
-import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS } from "./data";
+import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, UPGRADES } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
@@ -209,6 +209,71 @@ export function advanceMonth(state: GameState): GameState {
 
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
+
+    // Beställda arbeten tickar (även under bygge): betalda vid beställning,
+    // effekten landar här när tiden gått. Hyresgästerna har bott kvar och
+    // betalat hyra hela vägen – inget av detta rör status/vakans.
+    if ((np.pendingWorks ?? []).length > 0) {
+      const stillRunning: typeof np.pendingWorks = [];
+      for (const w of np.pendingWorks!) {
+        const left = w.monthsLeft - 1;
+        if (left > 0) {
+          stillRunning!.push({ ...w, monthsLeft: left });
+          continue;
+        }
+        switch (w.kind) {
+          case "underhåll":
+            np.condition = Math.min(100, np.condition + 15);
+            events.push({ t: `🔧 Underhåll klart: ${np.typeLabel} i ${np.districtName} (+15 skick).`, kind: "upg" });
+            break;
+          case "energi": {
+            const CLASSES = ["F", "E", "D", "C", "B", "A"] as const;
+            const idx = CLASSES.indexOf((np.energyClass ?? "D") as (typeof CLASSES)[number]);
+            if (idx < 5) np.energyClass = CLASSES[idx + 1];
+            np.condition = Math.min(100, np.condition + 5);
+            np.rentMult = +(np.rentMult * 1.03).toFixed(3);
+            events.push({ t: `⚡ Energiuppgradering klar: ${np.typeLabel} i ${np.districtName} → klass ${np.energyClass} (+3 % hyra, +5 skick).`, kind: "upg" });
+            break;
+          }
+          case "uppgradering": {
+            const u = UPGRADES.find((x) => x.id === w.upgradeId);
+            if (u && !np.upgrades.includes(u.id)) {
+              np.upgrades = [...np.upgrades, u.id];
+              if (u.rentBoost) np.rentMult *= 1 + u.rentBoost;
+              if (u.opexCut) np.opexMult *= 1 - u.opexCut;
+              if (u.vacancyCut) np.vacancyMult *= 1 - u.vacancyCut;
+              if (u.valueBoost) np.valueMult *= 1 + u.valueBoost;
+              if (u.condBoost) np.condition = Math.min(100, np.condition + u.condBoost);
+              events.push({ t: `🛠️ ${u.name} klar: ${np.typeLabel} i ${np.districtName}.`, kind: "upg" });
+            }
+            break;
+          }
+          case "kampanj": {
+            if (np.status === "klar") {
+              const slotRent = propPotentialRent(np, s) / Math.max(1, np.capacity) / 12;
+              const apps = [0, 1, 2].map(() => makeApplication(np, s, nowAbs, slotRent));
+              np.applications = [...(np.applications ?? []), ...apps];
+              events.push({ t: `📣 Annonskampanjen gav resultat: 3 nya ansökningar till ${np.typeLabel} i ${np.districtName}.`, kind: "upg" });
+            }
+            break;
+          }
+          case "ändrad_användning": {
+            const t = w.targetType ? PROP_TYPES[w.targetType] : undefined;
+            if (t && w.targetType) {
+              const value = propMarketValue(np, s); // före typbytet
+              np.type = w.targetType;
+              np.typeLabel = t.label;
+              np.baseRent = Math.round(value * t.rentFactor * 12);
+              np.condition = Math.max(60, np.condition - 10);
+              events.push({ t: `🏗️ Ombyggnad klar i ${np.districtName}: nu ${t.label}.`, kind: "upg" });
+            }
+            break;
+          }
+        }
+      }
+      np.pendingWorks = stillRunning;
+    }
+
     // Bygge fortskrider
     if (np.status === "bygger") {
       np.buildLeft -= 1;

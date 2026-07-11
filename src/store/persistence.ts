@@ -58,7 +58,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 24;
+export const SAVE_VERSION = 25;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -263,6 +263,14 @@ const migrations: Record<number, (state: GameState) => GameState> = {
   // v23 → v24: svårighet + Friläge-anpassningar. Gamla sparfiler saknar
   // inställningar och spelar vidare på grundbalansen (settings = undefined).
   23: (s) => s,
+  // v24 → v25: beställda arbeten (pendingWorks) – gamla sparfiler har inga.
+  24: (s) => ({
+    ...s,
+    portfolio: ((s as GameState).portfolio ?? []).map((p) => ({
+      ...p,
+      pendingWorks: p.pendingWorks ?? [],
+    })),
+  }),
 };
 
 /** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */

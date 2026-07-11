@@ -4,7 +4,7 @@ import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
-import { propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propYieldOnCost } from "../engine/property";
+import { pendingWork, propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propYieldOnCost } from "../engine/property";
 import { buildingAge, isObsolete, obsolescenceFactor } from "../engine/lifecycle";
 import { districtTier, maxDevLevel } from "../engine/districtTiers";
 import { buildCostMult } from "../engine/progression";
@@ -72,7 +72,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
   const terms        = loanTerms(state);
   const district     = DISTRICTS.find((d) => d.id === p.district);
   const maintainCost = Math.round(value * 0.02);
-  const canMaintain  = state.cash >= maintainCost && !state.gameOver && p.status !== "bygger";
+  const maintPending = !!pendingWork(p, "underhåll");
+  const canMaintain  = state.cash >= maintainCost && !state.gameOver && p.status !== "bygger" && !maintPending;
 
   // Yield on cost: driftnetto genom investerat kapital (inköp + förbättringar
   // och omkostnader) – avkastningen på pengarna du faktiskt lagt in.
@@ -486,18 +487,24 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             ))
           )}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-            <button
-              onClick={() => dispatch({ type: "MARKET_BOOST", id: p.id })}
-              disabled={state.cash < 25000 || state.gameOver}
-              style={{
-                padding: "6px 10px", borderRadius: 8, border: "1px solid #5a4aaa44",
-                background: state.cash >= 25000 ? "#5a4aaa18" : "#f5f5f5",
-                color: state.cash >= 25000 ? "#5a4aaa" : "#aaa",
-                fontSize: 12, fontWeight: 700, cursor: state.cash >= 25000 ? "pointer" : "default",
-              }}
-            >
-              📣 Annonskampanj 25 k (+3 ansökningar)
-            </button>
+            {(() => {
+              const campaignOn = !!pendingWork(p, "kampanj");
+              const canBoost = !campaignOn && state.cash >= 25000 && !state.gameOver;
+              return (
+                <button
+                  onClick={() => dispatch({ type: "MARKET_BOOST", id: p.id })}
+                  disabled={!canBoost}
+                  style={{
+                    padding: "6px 10px", borderRadius: 8, border: "1px solid #5a4aaa44",
+                    background: canBoost ? "#5a4aaa18" : "#f5f5f5",
+                    color: canBoost ? "#5a4aaa" : "#aaa",
+                    fontSize: 12, fontWeight: 700, cursor: canBoost ? "pointer" : "default",
+                  }}
+                >
+                  {campaignOn ? "⏳ Kampanj pågår – svar vid månadsskiftet" : "📣 Annonskampanj 25 k (3 ansökningar nästa månad)"}
+                </button>
+              );
+            })()}
             <button
               onClick={() => dispatch({ type: "TOGGLE_BROKER", id: p.id })}
               style={{
@@ -530,22 +537,23 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       <div style={sectionLabel}>Investeringar</div>
 
       <ActionBtn
-        label={`🔧 Underhåll · ${msek(maintainCost)}`}
-        sub="+15 skick · minskar vakans och hyrestapp"
+        label={maintPending ? "⏳ Underhåll pågår" : `🔧 Underhåll · ${msek(maintainCost)}`}
+        sub={maintPending ? "+15 skick vid månadsskiftet – hyran flyter under tiden" : "+15 skick · minskar vakans och hyrestapp"}
         color={canMaintain ? "#2a6a1a" : undefined}
         disabled={!canMaintain}
         onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
       />
 
       {UPGRADES.map((u) => {
-        const done  = p.upgrades.includes(u.id);
-        const cost  = Math.round(value * u.cost);
-        const canDo = !done && state.cash >= cost && !state.gameOver;
+        const done    = p.upgrades.includes(u.id);
+        const pending = pendingWork(p, "uppgradering", u.id);
+        const cost    = Math.round(value * u.cost);
+        const canDo   = !done && !pending && state.cash >= cost && !state.gameOver;
         return (
           <ActionBtn
             key={u.id}
-            label={done ? `✓ ${u.name}` : `${u.name} · ${msek(cost)}`}
-            sub={UPG_EFFECT[u.id] ?? u.desc}
+            label={done ? `✓ ${u.name}` : pending ? `⏳ ${u.name} pågår (${pending.monthsLeft} mån kvar)` : `${u.name} · ${msek(cost)}`}
+            sub={pending ? "Hyresgästerna bor kvar och betalar hyra under arbetet" : UPG_EFFECT[u.id] ?? u.desc}
             color={done ? "#27660a" : canDo ? "#5a2a3a" : undefined}
             done={done}
             disabled={done || !canDo}
@@ -801,13 +809,15 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             </div>
             <button
               style={{
-                padding: "5px 12px", borderRadius: 4, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                padding: "5px 12px", borderRadius: 4, fontSize: 12, fontWeight: 700,
                 border: `1px solid ${C.brass}`, background: "transparent", color: C.brass,
+                cursor: pendingWork(p, "energi") ? "default" : "pointer",
+                opacity: pendingWork(p, "energi") ? 0.6 : 1,
               }}
-              disabled={state.gameOver || state.cash < cost}
+              disabled={state.gameOver || state.cash < cost || !!pendingWork(p, "energi")}
               onClick={() => dispatch({ type: "IMPROVE_ENERGY", id: p.id })}
             >
-              {kr(cost)}
+              {pendingWork(p, "energi") ? "⏳ pågår" : kr(cost)}
             </button>
           </div>
         );

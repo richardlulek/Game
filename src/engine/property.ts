@@ -16,11 +16,23 @@ import {
 } from "./leasing";
 import { opexMult, vacancyMult } from "./progression";
 import { energySynergyMult } from "./industries";
-import type { GameState, Property } from "./types";
+import type { GameState, PendingWork, PendingWorkKind, Property } from "./types";
 
 /** Områdesutvecklingsfaktor – stiger när distriktet bebyggs (1.0 = neutral). */
 export function districtDevOf(state: GameState, district: string): number {
   return state.districtDev?.[district] ?? 1;
+}
+
+/** Pågående beställt arbete av en viss sort (ev. specifik uppgradering).
+ *  Används som en-i-taget-guard i reducern och för ⏳-lägen i UI:t. */
+export function pendingWork(
+  p: Property,
+  kind: PendingWorkKind,
+  upgradeId?: string,
+): PendingWork | undefined {
+  return (p.pendingWorks ?? []).find(
+    (w) => w.kind === kind && (!upgradeId || w.upgradeId === upgradeId),
+  );
 }
 
 /** Marknadsvärde för en fastighet givet nuvarande tillstånd.

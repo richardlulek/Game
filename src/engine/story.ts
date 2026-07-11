@@ -90,7 +90,7 @@ export const STORY_BEATS: StoryBeat[] = [
         check: (s) => (heirloomOf(s)?.condition ?? 0) >= 60,
       },
     ],
-    hint: "Klicka på huset på kartan → Underhåll (eller Investeringar → Renovering).",
+    hint: "Klicka på huset → Underhåll. Hantverkarna behöver en månad per omgång – tre omgångar räcker. Låt tiden gå emellan.",
   },
   {
     id: "hyresgasten",

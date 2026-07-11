@@ -73,11 +73,16 @@ describe("U1: ansökningsflödet", () => {
     expect(s2.portfolio[0].tenants).toHaveLength(0);
   });
 
-  it("MARKET_BOOST ger tre ansökningar direkt", () => {
+  it("MARKET_BOOST: annonserna verkar en månad – tre ansökningar vid ticken", () => {
     const p = makeProperty({ id: 1, tenants: [], applications: [] });
     const s1 = reducer(makeState({ cash: 1_000_000, portfolio: [p] }), { type: "MARKET_BOOST", id: 1 });
-    expect(s1.portfolio[0].applications).toHaveLength(3);
     expect(s1.cash).toBe(975_000);
+    expect(s1.portfolio[0].applications ?? []).toHaveLength(0); // inget direkt
+    const s2 = advanceMonth(s1);
+    expect((s2.portfolio[0].applications ?? []).length).toBeGreaterThanOrEqual(3);
+    // Dubbelkampanj blockeras medan den första pågår.
+    const dbl = reducer(s1, { type: "MARKET_BOOST", id: 1 });
+    expect(dbl.cash).toBe(s1.cash);
   });
 });
 

@@ -45,11 +45,15 @@ describe("anställda (reducer)", () => {
 });
 
 describe("ändra användning (reducer)", () => {
-  it("byter typ och räknar om baseRent på en vakant fastighet", () => {
+  it("byter typ och räknar om baseRent – ombyggnaden tar tre månader", () => {
     const s = makeState({ cash: 50e6, portfolio: [makeProperty({ id: 1, type: "bostad", tenants: [] })] });
-    const next = reducer(s, { type: "CHANGE_USE", id: 1, propType: "kontor" });
+    let next = reducer(s, { type: "CHANGE_USE", id: 1, propType: "kontor" });
+    expect(next.portfolio[0].type).toBe("bostad"); // inget direkt – hantverkarna jobbar
+    expect(next.portfolio[0].pendingWorks).toHaveLength(1);
+    for (let i = 0; i < 3; i++) next = advanceMonth(next);
     expect(next.portfolio[0].type).toBe("kontor");
     expect(next.portfolio[0].typeLabel).toBe("Kontor");
+    expect(next.portfolio[0].pendingWorks).toHaveLength(0);
   });
 
   it("blockeras om fastigheten har hyresgäster", () => {

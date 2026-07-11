@@ -19,14 +19,13 @@ import {
   BROKER_FEE,
   CONTRACTS,
   bestApplication,
-  makeApplication,
   maxCapacityFor,
   signContract,
 } from "./leasing";
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { nextBidRound } from "./lifecycle";
-import { propMarketValue, propPotentialRent } from "./property";
+import { pendingWork, propMarketValue, propPotentialRent } from "./property";
 import {
   RESEARCH,
   STAFF_ROLES,
@@ -369,20 +368,23 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === action.id);
       const u = UPGRADES.find((x) => x.id === action.upg);
       if (!p || !u || p.status === "bygger") return state;
+      if (p.upgrades.includes(u.id) || pendingWork(p, "uppgradering", u.id)) return state;
       const cost = propMarketValue(p, state) * u.cost;
       if (state.cash < cost) return log(state, "För lite kontanter för åtgärden.", "warn");
-      const np: Property = { ...p, upgrades: [...p.upgrades, u.id], capexTotal: (p.capexTotal ?? 0) + Math.round(cost) };
-      if (u.rentBoost) np.rentMult *= 1 + u.rentBoost;
-      if (u.opexCut) np.opexMult *= 1 - u.opexCut;
-      if (u.vacancyCut) np.vacancyMult *= 1 - u.vacancyCut;
-      if (u.valueBoost) np.valueMult *= 1 + u.valueBoost;
-      if (u.condBoost) np.condition = Math.min(100, np.condition + u.condBoost);
+      // Betala nu – hantverkarna behöver tid. Effekten landar via
+      // pendingWorks vid månadsskiftet; hyresgästerna bor kvar under tiden.
+      const months = u.months ?? 1;
+      const np: Property = {
+        ...p,
+        capexTotal: (p.capexTotal ?? 0) + Math.round(cost),
+        pendingWorks: [...(p.pendingWorks ?? []), { kind: "uppgradering", upgradeId: u.id, monthsLeft: months }],
+      };
       return {
         ...state,
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) => (x.id === p.id ? np : x)),
         log: [
-          { t: `${u.name} på ${p.typeLabel} i ${p.districtName} (${msek(cost)}).`, kind: "upg" },
+          { t: `${u.name} beställd på ${p.typeLabel} i ${p.districtName} (${msek(cost)}) – klar om ${months} mån.`, kind: "upg" },
           ...state.log,
         ],
       };
@@ -392,6 +394,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // ansökningar händer inget – vakanser fylls via ansökningsflödet.
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.tenants.length >= p.capacity || p.status === "bygger") return state;
+      if (pendingWork(p, "ändrad_användning"))
+        return log(state, "Ombyggnad till ny användning pågår – inga nya kontrakt förrän den är klar.", "warn");
       const app = bestApplication(p);
       if (!app)
         return log(state, `Inga ansökningar till ${p.typeLabel} i ${p.districtName} ännu – justera utgångshyran eller anlita mäklare.`, "info");
@@ -416,6 +420,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // U1/U2: acceptera en specifik sökande med valt kontraktspaket.
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status === "bygger") return state;
+      if (pendingWork(p, "ändrad_användning"))
+        return log(state, "Ombyggnad till ny användning pågår – inga nya kontrakt förrän den är klar.", "warn");
       if (p.tenants.length >= p.capacity)
         return log(state, "Fastigheten är fullbelagd – bygg om för fler lokaler.", "warn");
       const app = (p.applications ?? []).find((a) => a.id === action.applicationId);
@@ -561,17 +567,26 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "MAINTAIN": {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status === "bygger") return state;
+      if (pendingWork(p, "underhåll"))
+        return log(state, `Underhåll pågår redan på ${p.typeLabel} i ${p.districtName} – klart vid månadsskiftet.`, "info");
       const cost = Math.round(propMarketValue(p, state) * 0.02);
       if (state.cash < cost) return log(state, "För lite kontanter för underhåll.", "warn");
+      // Betalas nu, +15 skick när månaden gått – hyran flyter under tiden.
       return {
         ...state,
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) =>
-          x.id === p.id ? { ...x, condition: Math.min(100, x.condition + 15), capexTotal: (x.capexTotal ?? 0) + cost } : x,
+          x.id === p.id
+            ? {
+                ...x,
+                capexTotal: (x.capexTotal ?? 0) + cost,
+                pendingWorks: [...(x.pendingWorks ?? []), { kind: "underhåll" as const, monthsLeft: 1 }],
+              }
+            : x,
         ),
         log: [
           {
-            t: `Underhåll på ${p.typeLabel} i ${p.districtName}: +15 skick (${msek(cost)}).`,
+            t: `🔧 Underhåll beställt på ${p.typeLabel} i ${p.districtName} (${msek(cost)}) – +15 skick vid månadsskiftet.`,
             kind: "upg",
           },
           ...state.log,
@@ -584,6 +599,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       let signed = 0;
       const portfolio = state.portfolio.map((p) => {
         if (p.status === "bygger" || p.shortTerm || p.tenants.length >= p.capacity) return p;
+        if (pendingWork(p, "ändrad_användning")) return p;
         let np = p;
         while (np.tenants.length < np.capacity) {
           const app = bestApplication(np);
@@ -612,18 +628,23 @@ export function reducer(state: GameState, action: GameAction): GameState {
       let totalCost = 0;
       const portfolio = state.portfolio.map((p) => {
         if (p.status === "bygger" || p.condition >= action.threshold) return p;
+        if (pendingWork(p, "underhåll")) return p; // rond dubbelköar inte
         const cost = Math.round(propMarketValue(p, state) * 0.02);
         if (cash < cost) return p;
         cash -= cost;
         totalCost += cost;
         fixed += 1;
-        return { ...p, condition: Math.min(100, p.condition + 15), capexTotal: (p.capexTotal ?? 0) + cost };
+        return {
+          ...p,
+          capexTotal: (p.capexTotal ?? 0) + cost,
+          pendingWorks: [...(p.pendingWorks ?? []), { kind: "underhåll" as const, monthsLeft: 1 }],
+        };
       });
       if (fixed === 0)
         return log(state, `Inget att underhålla under skick ${action.threshold} (eller kassan räcker inte).`, "info");
       return log(
         { ...state, cash, portfolio },
-        `🔧 Underhållsrond: ${fixed} fastigheter åtgärdade (+15 skick) för ${msek(totalCost)}.`,
+        `🔧 Underhållsrond: ${fixed} jobb beställda (${msek(totalCost)}) – +15 skick vid månadsskiftet.`,
         "upg",
       );
     }
@@ -783,6 +804,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "LEASE_TENANT": {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.tenants.length >= p.capacity || p.status === "bygger") return state;
+      if (pendingWork(p, "ändrad_användning")) return state;
       return {
         ...state,
         portfolio: state.portfolio.map((x) =>
@@ -883,22 +905,24 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "MARKET_BOOST": {
-      // Annonskampanj: genererar direkt tre nya ansökningar (U1).
+      // Annonskampanj: annonserna behöver en månad att verka –
+      // tre nya ansökningar kommer in vid månadsskiftet (U1).
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status !== "klar") return state;
+      if (pendingWork(p, "kampanj"))
+        return log(state, `En annonskampanj pågår redan för ${p.typeLabel} i ${p.districtName}.`, "info");
       if (state.cash < 25000) return log(state, "För lite kontanter för annonskampanj.", "warn");
-      const nowAbs = state.year * 12 + state.month;
-      const slotRent = propPotentialRent(p, state) / p.capacity / 12;
-      const apps = [0, 1, 2].map(() => makeApplication(p, state, nowAbs, slotRent));
       return {
         ...state,
         cash: state.cash - 25000,
         portfolio: state.portfolio.map((x) =>
-          x.id === p.id ? { ...x, applications: [...(x.applications ?? []), ...apps] } : x,
+          x.id === p.id
+            ? { ...x, pendingWorks: [...(x.pendingWorks ?? []), { kind: "kampanj" as const, monthsLeft: 1 }] }
+            : x,
         ),
         log: [
           {
-            t: `📣 Annonskampanj för ${p.typeLabel} i ${p.districtName} (25 000 kr) – 3 nya ansökningar inkom.`,
+            t: `📣 Annonskampanj startad för ${p.typeLabel} i ${p.districtName} (25 000 kr) – ansökningar väntas vid månadsskiftet.`,
             kind: "upg",
           },
           ...state.log,
@@ -1223,21 +1247,31 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (p.type === action.propType) return state;
       if (p.tenants.length > 0)
         return log(state, "Fastigheten måste vara vakant för att ändra användning.", "warn");
+      if (pendingWork(p, "ändrad_användning"))
+        return log(state, "En ombyggnad till ny användning pågår redan.", "warn");
       const value = propMarketValue(p, state);
       const cost = Math.round(value * 0.15);
       if (state.cash < cost)
         return log(state, `Ändrad användning kostar ${msek(cost)} (ombyggnad).`, "warn");
-      const newBaseRent = Math.round(value * t.rentFactor * 12);
+      // Ombyggnaden tar tre månader; typ/hyra/skick ändras när den är klar.
       return {
         ...state,
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) =>
           x.id === p.id
-            ? { ...x, type: action.propType, typeLabel: t.label, baseRent: newBaseRent, condition: Math.max(60, x.condition - 10) }
+            ? {
+                ...x,
+                capexTotal: (x.capexTotal ?? 0) + cost,
+                applications: [],
+                pendingWorks: [
+                  ...(x.pendingWorks ?? []),
+                  { kind: "ändrad_användning" as const, targetType: action.propType, monthsLeft: 3 },
+                ],
+              }
             : x,
         ),
         log: [
-          { t: `Ändrade användning i ${p.districtName}: ${p.typeLabel} → ${t.label} (${msek(cost)}).`, kind: "upg" },
+          { t: `Ombyggnad beställd i ${p.districtName}: ${p.typeLabel} → ${t.label} (${msek(cost)}) – klar om 3 mån.`, kind: "upg" },
           ...state.log,
         ],
       };
@@ -1638,6 +1672,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const curClass = (p.energyClass ?? "D") as (typeof CLASSES)[number];
       const curIdx = CLASSES.indexOf(curClass);
       if (curIdx >= 5) return log(state, "Fastigheten har redan energiklass A — maximalt möjlig.", "warn");
+      if (pendingWork(p, "energi")) return state;
       const COSTS: Record<string, number> = { F: 80_000, E: 120_000, D: 180_000, C: 250_000, B: 350_000 };
       const cost = COSTS[curClass] ?? 150_000;
       if (state.cash < cost)
@@ -1648,10 +1683,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) =>
           x.id === action.id
-            ? { ...x, energyClass: nextClass as Property["energyClass"], condition: Math.min(100, x.condition + 5), rentMult: +(x.rentMult * 1.03).toFixed(3), capexTotal: (x.capexTotal ?? 0) + cost }
+            ? {
+                ...x,
+                capexTotal: (x.capexTotal ?? 0) + cost,
+                pendingWorks: [...(x.pendingWorks ?? []), { kind: "energi" as const, monthsLeft: 1 }],
+              }
             : x,
         ),
-        log: [{ t: `⚡ Energiuppgradering: ${p.typeLabel} i ${p.districtName} → klass ${nextClass} (−${kr(cost)}, +3 % hyra, +5 skick).`, kind: "upg" }, ...state.log],
+        log: [{ t: `⚡ Energiuppgradering beställd: ${p.typeLabel} i ${p.districtName} → klass ${nextClass} (−${kr(cost)}) – klar vid månadsskiftet.`, kind: "upg" }, ...state.log],
       };
     }
     case "NEGOTIATE_RENEWAL": {

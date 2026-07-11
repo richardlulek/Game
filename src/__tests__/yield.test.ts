@@ -50,8 +50,11 @@ describe("capexTotal ackumuleras vid åtgärder", () => {
   it("energiuppgradering bokförs (klass D → C kostar 180 000)", () => {
     const p = makeProperty({ id: 1, energyClass: "D", purchasePrice: 1_000_000 });
     const s1 = reducer(makeState({ portfolio: [p] }), { type: "IMPROVE_ENERGY", id: 1 });
-    expect(s1.portfolio[0].energyClass).toBe("C");
+    // Kostnaden bokförs direkt; klassbytet sker när arbetet är klart.
     expect(s1.portfolio[0].capexTotal).toBe(180_000);
+    expect(s1.portfolio[0].energyClass ?? "D").toBe("D");
+    const s2 = advanceMonth(s1);
+    expect(s2.portfolio[0].energyClass).toBe("C");
   });
 
   it("utvecklingsprojekt bokförs vid start", () => {

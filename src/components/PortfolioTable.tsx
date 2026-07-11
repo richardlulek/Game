@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import { msek, kr, pct } from "../engine/format";
-import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
+import { pendingWork, propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { interestLabel, packageStats } from "../engine/selling";
 import type { GameAction, GameState, GlobalManagerSettings } from "../engine/types";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
@@ -108,7 +108,9 @@ export function PortfolioTable({ state, dispatch }: Props) {
     return sortAsc ? " ↑" : " ↓";
   }
 
-  const lowCond = state.portfolio.filter((p) => p.condition < 50 && p.status === "klar");
+  const lowCond = state.portfolio.filter(
+    (p) => p.condition < 50 && p.status === "klar" && !pendingWork(p, "underhåll"),
+  );
 
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
@@ -420,20 +422,24 @@ export function PortfolioTable({ state, dispatch }: Props) {
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>
                       {p.condition < 50 && p.status === "klar" && (
-                        <button
-                          onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
-                          style={{
-                            background: C.burgundy,
-                            color: C.parchment,
-                            border: "none",
-                            borderRadius: 4,
-                            padding: "4px 10px",
-                            fontSize: 11,
-                            cursor: "pointer",
-                          }}
-                        >
-                          Underhåll
-                        </button>
+                        pendingWork(p, "underhåll") ? (
+                          <span style={{ fontSize: 11, color: C.brass }}>⏳ pågår</span>
+                        ) : (
+                          <button
+                            onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
+                            style={{
+                              background: C.burgundy,
+                              color: C.parchment,
+                              border: "none",
+                              borderRadius: 4,
+                              padding: "4px 10px",
+                              fontSize: 11,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Underhåll
+                          </button>
+                        )
                       )}
                     </td>
                   </tr>

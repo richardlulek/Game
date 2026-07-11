@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reducer } from "../engine/reducer";
+import { advanceMonth } from "../engine/simulation";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 
 beforeEach(() => {
@@ -42,16 +43,21 @@ describe("LEASE_ALL", () => {
 });
 
 describe("MAINTAIN_ALL", () => {
-  it("underhåller fastigheter under tröskeln så långt kassan räcker", () => {
+  it("beställer jobb under tröskeln – +15 skick vid månadsskiftet", () => {
     const bad = makeProperty({ id: 1, condition: 30 });
     const ok = makeProperty({ id: 2, condition: 80 });
     const s = reducer(makeState({ cash: 100_000_000, portfolio: [bad, ok] }), {
       type: "MAINTAIN_ALL",
       threshold: 45,
     });
-    expect(s.portfolio[0].condition).toBe(45); // 30 + 15
-    expect(s.portfolio[1].condition).toBe(80); // över tröskeln – orörd
+    // Betalt direkt, men skicket stiger först när månaden gått.
+    expect(s.portfolio[0].condition).toBe(30);
+    expect(s.portfolio[0].pendingWorks).toHaveLength(1);
+    expect(s.portfolio[1].pendingWorks ?? []).toHaveLength(0); // över tröskeln – orörd
     expect(s.cash).toBeLessThan(100_000_000);
+    const after = advanceMonth(s);
+    expect(after.portfolio[0].condition).toBeGreaterThanOrEqual(44); // 30 + 15 − slitage
+    expect(after.portfolio[0].pendingWorks).toHaveLength(0);
   });
 
   it("hoppar över det kassan inte räcker till", () => {

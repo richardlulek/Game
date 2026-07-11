@@ -6,7 +6,7 @@ import { canUpgrade, orgLoadOf, tierForLevel, unlockLevelFor, unlockedWindows } 
 import { loanTerms } from "../engine/finance";
 import { msek } from "../engine/format";
 import { ambientAsk, ambientProfile } from "../engine/landDeals";
-import { propMarketValue } from "../engine/property";
+import { pendingWork, propMarketValue } from "../engine/property";
 import type { GameState, Lot, PlanProcess, Property } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import type { OverlayMode } from "../store/uiStore";
@@ -537,19 +537,23 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
   );
   const POOR = 45;
   const GOOD = 70;
-  const poor = klar.filter((p) => p.condition < POOR);
+  // Hus med beställt underhåll räknas inte in – jobbet är redan betalt
+  // och HUD-knappen ska inte kunna dubbelköa.
+  const maintainable = klar.filter((p) => !pendingWork(p, "underhåll"));
+  const pendingJobs = klar.reduce((a, p) => a + (p.pendingWorks?.length ?? 0), 0);
+  const poor = maintainable.filter((p) => p.condition < POOR);
   const poorCost = poor.reduce((a, p) => a + Math.round(propMarketValue(p, state) * 0.02), 0);
   // Underhållsskuld: uppskattad totalkostnad för att lyfta alla hus under
   // "gott skick" (70) dit – varje underhållsrunda ger +15 skick och
   // kostar 2 % av marknadsvärdet.
-  const maintDebt = klar.reduce((a, p) => {
+  const maintDebt = maintainable.reduce((a, p) => {
     if (p.condition >= GOOD) return a;
     const rounds = Math.ceil((GOOD - p.condition) / 15);
     return a + rounds * Math.round(propMarketValue(p, state) * 0.02);
   }, 0);
-  const belowGood = klar.filter((p) => p.condition < GOOD).length;
+  const belowGood = maintainable.filter((p) => p.condition < GOOD).length;
   // En underhållsrunda (+15 skick) för alla hus under gott skick.
-  const goodRoundCost = klar
+  const goodRoundCost = maintainable
     .filter((p) => p.condition < GOOD)
     .reduce((a, p) => a + Math.round(propMarketValue(p, state) * 0.02), 0);
   const offersCount = (state.offers ?? []).length;
@@ -612,6 +616,11 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
           <button style={T.hudBtn} onClick={() => dispatch({ type: "RENEW_ALL", monthsLeft: 3 })}>
             Förnya alla
           </button>
+        </div>
+      )}
+      {pendingJobs > 0 && (
+        <div style={{ ...T.hudRow, color: "#7a5c2a" }}>
+          <span>⏳ {pendingJobs} beställda jobb klara vid kommande månadsskiften</span>
         </div>
       )}
       {maintDebt > 0 && (
