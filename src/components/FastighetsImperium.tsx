@@ -10,7 +10,7 @@ import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
-import { CHAPTER_FRONTS, STORY_CINEMATICS, type StoryFront } from "../engine/story";
+import { CHAPTER_FRONTS, STORY_CINEMATICS, cinematicPointFor, type StoryFront } from "../engine/story";
 import type { InitOptions, ScenarioId } from "../engine/types";
 import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
@@ -225,27 +225,56 @@ export default function FastighetsImperium() {
     if (target?.parcelId) useUiStore.getState().requestFocus(target.parcelId);
   }, [started, storyBeat, storyDone]);
 
+  // STADSBLADETs förstasida när ett kapitel klaras: beatet man LÄMNAR firas.
+  // Tidningen (zIndex 2600) lägger sig över nästa kapitels brev (2000), så
+  // sekvensen blir naturlig: löpsedel → stäng → regipaus → morfars nästa brev.
+  const [storyFront, setStoryFront] = useState<StoryFront | null>(null);
+  const prevBeat = useRef<string | undefined>(storyBeat);
+  useEffect(() => {
+    const left = prevBeat.current;
+    prevBeat.current = storyBeat;
+    if (!started || !left || left === storyBeat) return;
+    const front = CHAPTER_FRONTS[left];
+    if (front && !suppressNews.current) setStoryFront(front);
+  }, [started, storyBeat]);
+
   // Berättelseregi: vissa brev föregås av en scen. Modalen hålls dold av
   // DecisionModal så länge cinematic-pausen pågår; kameran glider under
-  // tiden in i närbild (och Rogges bil rullar in när regin säger det).
-  // Klick eller tangent hoppar över pausen. Klockan står stilla ändå,
-  // eftersom pendingDecision redan pausar simuleringen.
+  // tiden in i närbild eller sveper till kapitlets plats (och Rogges bil
+  // rullar in när regin säger det). Klick eller tangent hoppar över pausen.
+  // Klockan står stilla ändå, eftersom pendingDecision pausar simuleringen.
+  // Ligger en STADSBLADET-förstasida överst hålls scenen tills den stängts,
+  // så ordningen blir löpsedel → regipaus → brev.
   const cinematic = useUiStore((s) => s.cinematic);
   const pendingId = state.pendingDecision?.id;
+  const frontOpen = storyFront !== null;
   useEffect(() => {
     if (!started || !pendingId) return;
     const cine = STORY_CINEMATICS[pendingId];
     if (!cine) return;
-    const st = useGameStore.getState().state;
-    const target =
-      st.portfolio.find((p) => p.storyTag === cine.focusTag) ??
-      st.listings.find((p) => p.storyTag === cine.focusTag);
-    if (target?.parcelId) useUiStore.getState().requestFocus(target.parcelId, cine.zoom);
+    const done = () => useUiStore.getState().setCinematic(null);
+    if (frontOpen) {
+      // Vänta bakom tidningen: håll brevet dolt men rör inte kameran än.
+      const now = Date.now();
+      useUiStore.getState().setCinematic({
+        id: pendingId, start: now, until: now + 10 * 60_000, hint: cine.hint,
+      });
+      return done;
+    }
+    if (cine.focusDistrict) {
+      const pt = cinematicPointFor(cine.focusDistrict);
+      useUiStore.getState().requestFocusPoint(pt.x, pt.z, cine.zoom);
+    } else if (cine.focusTag) {
+      const st = useGameStore.getState().state;
+      const target =
+        st.portfolio.find((p) => p.storyTag === cine.focusTag) ??
+        st.listings.find((p) => p.storyTag === cine.focusTag);
+      if (target?.parcelId) useUiStore.getState().requestFocus(target.parcelId, cine.zoom);
+    }
     const now = Date.now();
     useUiStore.getState().setCinematic({
       id: pendingId, start: now, until: now + cine.holdMs, car: cine.car, hint: cine.hint,
     });
-    const done = () => useUiStore.getState().setCinematic(null);
     const t = window.setTimeout(done, cine.holdMs);
     const skip = () => { window.clearTimeout(t); done(); };
     window.addEventListener("pointerdown", skip);
@@ -256,20 +285,7 @@ export default function FastighetsImperium() {
       window.removeEventListener("keydown", skip);
       done();
     };
-  }, [started, pendingId]);
-
-  // STADSBLADETs förstasida när ett kapitel klaras: beatet man LÄMNAR firas.
-  // Tidningen (zIndex 2600) lägger sig över nästa kapitels brev (2000), så
-  // sekvensen blir naturlig: löpsedel → stäng → morfars nästa brev.
-  const [storyFront, setStoryFront] = useState<StoryFront | null>(null);
-  const prevBeat = useRef<string | undefined>(storyBeat);
-  useEffect(() => {
-    const left = prevBeat.current;
-    prevBeat.current = storyBeat;
-    if (!started || !left || left === storyBeat) return;
-    const front = CHAPTER_FRONTS[left];
-    if (front && !suppressNews.current) setStoryFront(front);
-  }, [started, storyBeat]);
+  }, [started, pendingId, frontOpen]);
 
   // Månadspuls – ett kort svep när månaden växlar.
   const [pulseKey, setPulseKey] = useState(0);

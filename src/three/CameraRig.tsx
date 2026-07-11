@@ -16,16 +16,17 @@ export function CameraRig() {
   const handledSeq = useRef(0);
 
   useFrame((rootState, delta) => {
-    const { focusParcelId, focusZoom, focusSeq } = useUiStore.getState();
-    if (focusSeq === handledSeq.current || !focusParcelId) return;
-    const parcel = parcelById(focusParcelId);
+    const { focusParcelId, focusPoint, focusZoom, focusSeq } = useUiStore.getState();
+    if (focusSeq === handledSeq.current || (!focusParcelId && !focusPoint)) return;
+    const parcel = focusParcelId ? parcelById(focusParcelId) : null;
+    const goal = focusPoint ?? (parcel ? { x: parcel.x, z: parcel.z } : null);
     const controls = rootState.controls as unknown as ControlsLike | null;
-    if (!parcel || !controls) {
+    if (!goal || !controls) {
       handledSeq.current = focusSeq;
       return;
     }
-    const dx = parcel.x - controls.target.x;
-    const dz = parcel.z - controls.target.z;
+    const dx = goal.x - controls.target.x;
+    const dz = goal.z - controls.target.z;
     const dist = Math.hypot(dx, dz);
     const f = Math.min(1, delta * 4);
 

@@ -29,9 +29,12 @@ interface UiStore {
   /** Kamerafokus – seq ökas per begäran så samma ruta kan fokuseras igen.
    *  zoom anger önskat kameraavstånd (närbild); utelämnad = behåll höjd. */
   focusParcelId: string | null;
+  /** Alternativ till parcell: en fri punkt på kartan (distriktssvep, HK …). */
+  focusPoint: { x: number; z: number } | null;
   focusZoom: number | null;
   focusSeq: number;
   requestFocus: (parcelId: string, zoom?: number) => void;
+  requestFocusPoint: (x: number, z: number, zoom?: number) => void;
   cinematic: Cinematic | null;
   setCinematic: (c: Cinematic | null) => void;
   /** Öppna-begäran från 3D-vyn (t.ex. klick på statusikon): "offers"
@@ -51,10 +54,13 @@ export const useUiStore = create<UiStore>((set) => ({
   selectedParcelId: null,
   select: (selectedParcelId) => set({ selectedParcelId }),
   focusParcelId: null,
+  focusPoint: null,
   focusZoom: null,
   focusSeq: 0,
   requestFocus: (parcelId, zoom) =>
-    set((s) => ({ focusParcelId: parcelId, focusZoom: zoom ?? null, focusSeq: s.focusSeq + 1 })),
+    set((s) => ({ focusParcelId: parcelId, focusPoint: null, focusZoom: zoom ?? null, focusSeq: s.focusSeq + 1 })),
+  requestFocusPoint: (x, z, zoom) =>
+    set((s) => ({ focusParcelId: null, focusPoint: { x, z }, focusZoom: zoom ?? null, focusSeq: s.focusSeq + 1 })),
   cinematic: null,
   setCinematic: (cinematic) => set({ cinematic }),
   pendingOpen: null,

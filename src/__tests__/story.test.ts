@@ -10,6 +10,7 @@ import {
   STORY_BEATS,
   STORY_CINEMATICS,
   STORY_COMPANY_NAME,
+  cinematicPointFor,
   advanceStory,
   applyStoryFlag,
   beatById,
@@ -19,6 +20,7 @@ import {
   unlockedDistrictsFor,
 } from "../engine/story";
 import type { GameState } from "../engine/types";
+import { LANDMARKS } from "../three/landmarks";
 import { makeProperty, makeState } from "./factories";
 
 afterEach(() => vi.restoreAllMocks());
@@ -270,6 +272,19 @@ describe("morfars minneslappar", () => {
     expect(s.log[0].t).toContain("fotoalbumet");
   });
 
+  it("lapparna sitter vid sina landmärken (inte gamla positioner)", () => {
+    const near = (id: string, x: number, z: number, tol = 40) => {
+      const n = MEMORY_NOTES.find((m) => m.id === id)!;
+      expect(Math.hypot((n.x ?? 0) - x, (n.z ?? 0) - z), id).toBeLessThanOrEqual(tol);
+    };
+    const lm = (id: string) => LANDMARKS.find((l) => l.id === id)!;
+    near("vattentornet", lm("vattentorn").x, lm("vattentorn").z);
+    near("klocktornet", lm("stadshus").x, lm("stadshus").z);
+    near("skorstenarna", (lm("skorsten-v").x + lm("skorsten-o").x) / 2, lm("skorsten-v").z);
+    near("hamnkajen", 20, 312, 45); // kajkanten
+    near("angen", -225, 215, 30); // HK-gården ("bygg något fint här" – och det gjorde du)
+  });
+
   it("lappdata: unika id och positioner inom kartan (eller null = morfars hus)", () => {
     const ids = new Set(MEMORY_NOTES.map((n) => n.id));
     expect(ids.size).toBe(MEMORY_NOTES.length);
@@ -364,9 +379,28 @@ describe("berättelseregi (pauser före breven)", () => {
     expect(STORY_CINEMATICS["story:brev_morfar_1"]).toBeDefined();
     expect(STORY_CINEMATICS["story:rogge_lowball"]?.car).toBe(true);
     expect(STORY_CINEMATICS["story:brev_kap1"]).toBeDefined();
-    // Alla fokus-taggar är kända.
-    for (const cine of Object.values(STORY_CINEMATICS))
-      expect(["arvet", "dödsbo", "revansch"]).toContain(cine.focusTag);
+    // Kap 2–8: huset, distriktspremiärerna, dödsboet, HK, bilen och epilogen.
+    expect(STORY_CINEMATICS["story:gosta_dilemma"]?.focusTag).toBe("arvet");
+    expect(STORY_CINEMATICS["story:brev_kap3"]?.focusDistrict).toBe("förort");
+    expect(STORY_CINEMATICS["story:brev_kap4"]?.focusTag).toBe("dödsbo");
+    expect(STORY_CINEMATICS["story:brev_kap5"]?.focusDistrict).toBe("centrum");
+    expect(STORY_CINEMATICS["story:brev_kap6"]?.focusDistrict).toBe("hk");
+    expect(STORY_CINEMATICS["story:brev_kap7"]?.car).toBe(true);
+    expect(STORY_CINEMATICS["story:brev_kap7"]?.focusTag).toBe("revansch");
+    expect(STORY_CINEMATICS["story:rogge_surbrev"]?.focusDistrict).toBe("finans");
+    expect(STORY_CINEMATICS["story:brev_epilog"]?.focusDistrict).toBe("staden");
+    // Exakt ETT fokus per scen, och alla mål går att slå upp.
+    for (const cine of Object.values(STORY_CINEMATICS)) {
+      expect(!!cine.focusTag !== !!cine.focusDistrict).toBe(true);
+      if (cine.focusTag) expect(["arvet", "dödsbo", "revansch"]).toContain(cine.focusTag);
+      if (cine.focusDistrict) {
+        const pt = cinematicPointFor(cine.focusDistrict);
+        expect(Math.abs(pt.x)).toBeLessThanOrEqual(520);
+        expect(Math.abs(pt.z)).toBeLessThanOrEqual(520);
+        if (!["hk", "staden"].includes(cine.focusDistrict))
+          expect(pt.x !== 0 || pt.z !== 0).toBe(true); // riktigt distrikt hittades
+      }
+    }
   });
 });
 

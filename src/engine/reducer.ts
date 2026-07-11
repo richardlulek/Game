@@ -2123,6 +2123,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "BUY_INDUSTRY": {
       const asset = (state.industryListings ?? []).find((a) => a.id === action.id);
       if (!asset) return state;
+      if (districtLocked(state, asset.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
       if (state.cash < asset.purchasePrice) return log(state, "❌ Otillräckliga medel.", "warn");
       const bought: IndustryAsset = { ...asset, txHistory: [{ type: "köp", price: asset.purchasePrice, month: state.month, year: state.year, party: "Spelare" }, ...(asset.txHistory ?? [])] };
       return {

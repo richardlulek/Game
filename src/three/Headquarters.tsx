@@ -186,7 +186,9 @@ export function Headquarters() {
       <group ref={ref}>
         <HqBuilding level={level} />
       </group>
-      <Html position={[0, signHeight, 0]} center zIndexRange={[30, 0]}>
+      {/* distanceFactor: skylten krymper med avståndet i stället för att
+          täcka halva kvarteret i utzoomad vy. */}
+      <Html position={[0, signHeight + 2, 0]} center zIndexRange={[30, 0]} distanceFactor={220}>
         <div style={SIGN_STYLE}>★ {name}</div>
       </Html>
     </group>

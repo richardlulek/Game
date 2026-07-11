@@ -24,7 +24,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { ThreeEvent } from "@react-three/fiber";
-import { PARCELS, hasAmbientBuilding, parcelAt, parcelHash, type Parcel } from "../engine/city";
+import { PARCELS, ZONE_DEFS, hasAmbientBuilding, parcelAt, parcelHash, type Parcel } from "../engine/city";
 import { type Inst, buildInstances, useDisposable, withColor } from "./meshHelpers";
 import { useUiStore } from "../store/uiStore";
 import { FLOOR_HEIGHT } from "./BuildingShapes";
@@ -56,13 +56,21 @@ const isLocked = (p: Parcel, locked: Set<string>) => !!p.expansion && locked.has
 function Sidewalks({ lockedBlocks }: { lockedBlocks: Set<string> }) {
   const mesh = useMemo(() => {
     const items: Inst[] = [];
+    // Trottoarbredd per distrikt: max 19 % av gatubredden per sida, så att
+    // körbanan (62 % av gatan) alltid syns. Med fast bredd 3 svalde
+    // trottoarerna hela gatunätet i Villakullen (gator på bara 6 enheter).
+    const sw = (district: string) => {
+      const street = ZONE_DEFS.find((z) => z.district === district)?.street ?? 10;
+      return Math.min(3, Math.max(1, street * 0.19));
+    };
     for (const p of PARCELS) {
       if (isLocked(p, lockedBlocks)) continue;
       const e = p.edges;
-      if (e.n) items.push({ x: p.x, y: 0.1, z: p.z - p.d / 2 - 1.5, sx: p.w + 3, sy: 0.2, sz: 3 });
-      if (e.s) items.push({ x: p.x, y: 0.1, z: p.z + p.d / 2 + 1.5, sx: p.w + 3, sy: 0.2, sz: 3 });
-      if (e.w) items.push({ x: p.x - p.w / 2 - 1.5, y: 0.1, z: p.z, sx: 3, sy: 0.2, sz: p.d + 3 });
-      if (e.e) items.push({ x: p.x + p.w / 2 + 1.5, y: 0.1, z: p.z, sx: 3, sy: 0.2, sz: p.d + 3 });
+      const w = sw(p.district);
+      if (e.n) items.push({ x: p.x, y: 0.1, z: p.z - p.d / 2 - w / 2, sx: p.w + w, sy: 0.2, sz: w });
+      if (e.s) items.push({ x: p.x, y: 0.1, z: p.z + p.d / 2 + w / 2, sx: p.w + w, sy: 0.2, sz: w });
+      if (e.w) items.push({ x: p.x - p.w / 2 - w / 2, y: 0.1, z: p.z, sx: w, sy: 0.2, sz: p.d + w });
+      if (e.e) items.push({ x: p.x + p.w / 2 + w / 2, y: 0.1, z: p.z, sx: w, sy: 0.2, sz: p.d + w });
     }
     return buildInstances(
       new BoxGeometry(1, 1, 1),

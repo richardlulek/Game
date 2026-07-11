@@ -27,7 +27,7 @@ import {
 } from "./leasing";
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, UPGRADES } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
-import { advanceStory, unlockedDistrictsFor } from "./story";
+import { advanceStory, districtLocked, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
@@ -1306,7 +1306,7 @@ export function advanceMonth(state: GameState): GameState {
   // Konkurrent köper från marknaden med strategi-filtrering – även
   // objekt som andra rivaler just annonserat (rival-till-rival-affärer).
   // Köpaptiten följer räntan: billiga pengar → fler affärer.
-  if (s.listings.length > 1 && Math.random() < (rivalIsClose ? 0.55 : 0.25) * rateAppetite(s.interestRate)) {
+  if (s.competitors.length > 0 && s.listings.length > 1 && Math.random() < (rivalIsClose ? 0.55 : 0.25) * rateAppetite(s.interestRate)) {
     const buyer = pick(s.competitors);
     const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
     const buyable = s.listings.filter((p) => {
@@ -1735,7 +1735,10 @@ export function advanceMonth(state: GameState): GameState {
   {
     const absM = s.year * 12 + s.month;
     const unlocked = new Set(s.unlockedBlocks ?? []);
-    const nextBlock = EXPANSION_BLOCKS.find((b) => !unlocked.has(b.blockId));
+    // Berättelseläget: kommunen planlägger inte i låsta distrikt.
+    const nextBlock = EXPANSION_BLOCKS.find(
+      (b) => !unlocked.has(b.blockId) && !districtLocked(s, b.district),
+    );
     const scheduled = absM % 30 === 0;
     const shortage =
       emptyParcels(s).length < 5 && absM - (s.lastAuctionAbs ?? -99) >= 12;

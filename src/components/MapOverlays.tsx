@@ -3,7 +3,9 @@ import type { Parcel } from "../engine/city";
 import { expansionByBlock, hasAmbientBuilding, locationFactor, parcelById } from "../engine/city";
 import { planFee, planMonths, rawLandPrice } from "../engine/cityPlan";
 import { canUpgrade, orgLoadOf, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
+import { DISTRICTS } from "../engine/data";
 import { loanTerms } from "../engine/finance";
+import { districtLocked } from "../engine/story";
 import { msek } from "../engine/format";
 import { ambientAsk, ambientProfile } from "../engine/landDeals";
 import { pendingWork, propMarketValue } from "../engine/property";
@@ -172,6 +174,22 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
   const level = state.companyLevel ?? 1;
   const sel = resolveSelection(state, selectedId);
   if (!sel) return null;
+
+  // Berättelseläget: låsta distrikt går inte att handla i alls – kortet
+  // visar låset i stället för köpknappar (egna hus visas som vanligt).
+  const selDistrict =
+    "prop" in sel ? sel.prop.district : "lot" in sel ? sel.lot.district : sel.parcel.district;
+  if (sel.kind !== "owned" && districtLocked(state, selDistrict)) {
+    return (
+      <div style={M.panel}>
+        <div style={M.title}>🔒 Området är låst</div>
+        <div style={M.sub}>{DISTRICTS.find((d) => d.id === selDistrict)?.name ?? selDistrict}</div>
+        <div style={{ ...M.row, color: "#777" }}>
+          <span>Berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas området för affärer.</span>
+        </div>
+      </div>
+    );
+  }
 
   // Mark & privatägda hus – markstrategin direkt i kartan.
   if (sel.kind === "kommunal") {

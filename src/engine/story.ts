@@ -17,7 +17,7 @@
    kedjas via DecisionEffect.nextDecisionId. Ren logik, ingen React.
    ============================================================ */
 
-import { emptyParcels } from "./city";
+import { DISTRICT_ZONES, emptyParcels } from "./city";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { absMonth, builtYearFor, energyClassFor, genListing } from "./generators";
@@ -847,7 +847,7 @@ export interface MemoryNote {
 export const MEMORY_NOTES: MemoryNote[] = [
   {
     id: "vattentornet",
-    x: -310, z: -290,
+    x: -382, z: -338,
     title: "Vattentornet",
     text:
       "”Här friade jag till mormor, juni 1961. Hon sa ja för att det blåste och hon ville gå ner. " +
@@ -855,7 +855,7 @@ export const MEMORY_NOTES: MemoryNote[] = [
   },
   {
     id: "klocktornet",
-    x: 168, z: -80,
+    x: 152, z: 30,
     title: "Klocktornet vid bygglovskontoret",
     text:
       "”Bygglovskontoret. Mitt tillbyggnadsärende är 'under handläggning' sedan 1987. " +
@@ -863,7 +863,7 @@ export const MEMORY_NOTES: MemoryNote[] = [
   },
   {
     id: "skorstenarna",
-    x: 465, z: -134,
+    x: 325, z: -256,
     title: "Fabriksskorstenarna",
     text:
       "”Min första lön, 1953. Förmannen sa att jag var för klen för tegelbärning. " +
@@ -871,7 +871,7 @@ export const MEMORY_NOTES: MemoryNote[] = [
   },
   {
     id: "hamnkajen",
-    x: 70, z: 312,
+    x: 40, z: 308,
     title: "Hamnkajen",
     text:
       "”Härifrån skulle jag emigrera till Amerika, våren 1958. Båten gick utan mig – " +
@@ -879,7 +879,7 @@ export const MEMORY_NOTES: MemoryNote[] = [
   },
   {
     id: "angen",
-    x: -225, z: 215,
+    x: -242, z: 230,
     title: "Ängen",
     text:
       "”På den här ängen lärde jag din mamma cykla, sommaren 1974. Hon körde rakt in i en ko. " +
@@ -951,10 +951,15 @@ export function unlockLogFor(beatId: string): string | null {
 
 /* ── Berättelseregi: pauser mellan breven ──────────────────────────── */
 
-/** Regi för ett brev: kameran visar scenen INNAN modalen öppnas. */
+/** Regi för ett brev: kameran visar scenen INNAN modalen öppnas.
+ *  Antingen fokus på en story-fastighet (focusTag) eller en fast punkt
+ *  på kartan (focusDistrict = svep över ett distrikt, HK, hela staden). */
 export interface StoryCinematic {
   /** storyTag på fastigheten kameran ska glida till. */
-  focusTag: "arvet" | "dödsbo" | "revansch";
+  focusTag?: "arvet" | "dödsbo" | "revansch";
+  /** Distrikt vars mitt kameran ska svepa till ("hk" = huvudkontoret,
+   *  "staden" = utzoomad vy över hela kartan). */
+  focusDistrict?: string;
   /** Kameraavstånd för närbilden. */
   zoom: number;
   /** Paus i millisekunder innan brevet öppnas (klick hoppar över). */
@@ -970,6 +975,8 @@ export interface StoryCinematic {
  * Prologen: arvet tas emot → man landar framför huset → morfars brev;
  * brevet läst → Rogges bil glider in → hans lowball-bud; budet avfärdat →
  * blicken tillbaka på allt som behöver göras → renoveringsbrevet.
+ * Kap 2–8: ansökningarna vid huset, distriktspremiärerna, dödsboet,
+ * huvudkontoret, Rogges bil vid grannhuset och epilogens stadsvy.
  */
 export const STORY_CINEMATICS: Record<string, StoryCinematic> = {
   "story:brev_morfar_1": {
@@ -984,4 +991,52 @@ export const STORY_CINEMATICS: Record<string, StoryCinematic> = {
     focusTag: "arvet", zoom: 70, holdMs: 3200,
     hint: "Presenningen. Flaggstången. Listan skriver sig själv.",
   },
+  // Kap 2: taket är lagat – och ryktet har gått. Folk står vid grinden.
+  "story:gosta_dilemma": {
+    focusTag: "arvet", zoom: 62, holdMs: 3200,
+    hint: "Det luktar nybryggt kaffe från källaren. Och … rökmaskin?",
+  },
+  // Kap 3: staden öppnar sig – Förorten är inte längre bara en skylt.
+  "story:brev_kap3": {
+    focusDistrict: "förort", zoom: 240, holdMs: 3600,
+    hint: "🔓 Förorten. Morfar kallade den 'framtiden, fast med sämre bussförbindelse'.",
+  },
+  // Kap 4: dödsboet har lagts ut – kameran hittar objektet före brevet.
+  "story:brev_kap4": {
+    focusTag: "dödsbo", zoom: 80, holdMs: 3400,
+    hint: "Ett dödsbo till salu. Arvingarna i Spanien har is i magen – men inte oändligt mycket.",
+  },
+  // Kap 5: Centrum öppnar – och Riksbanken höjer tonläget.
+  "story:brev_kap5": {
+    focusDistrict: "centrum", zoom: 260, holdMs: 3600,
+    hint: "🔓 Centrum. Här mäts kvadratmeter i prestige – och räntan i sömnlösa nätter.",
+  },
+  // Kap 6: blicken hem till huvudkontoret – dags att bli ett riktigt bolag.
+  "story:brev_kap6": {
+    focusDistrict: "hk", zoom: 90, holdMs: 3400,
+    hint: "Huvudkontoret. Morfar hade kallat det 'onödigt flott'. Han hade menat det som beröm.",
+  },
+  // Kap 7: den vita sedanen glider in vid grannhuset. Rogge är tillbaka.
+  "story:brev_kap7": {
+    focusTag: "revansch", zoom: 62, holdMs: 4200, car: true,
+    hint: "En välbekant vit sedan parkerar vid grannhuset …",
+  },
+  // Kap 8: sista distriktet öppnar – och Rogge fattar pennan i vredesmod.
+  "story:rogge_surbrev": {
+    focusDistrict: "finans", zoom: 260, holdMs: 3600,
+    hint: "🔓 Finansdistriktet. Glasfasader, hörnkontor och priser med många nollor.",
+  },
+  // Epilogen: staden från ovan – allt du byggt, i en enda vy.
+  "story:brev_epilog": {
+    focusDistrict: "staden", zoom: 620, holdMs: 4600,
+    hint: "Staden. Din stad. Morfar hade nickat långsamt och bjudit på termoskaffe.",
+  },
 };
+
+/** Kamerans målpunkt för focusDistrict ("hk" och "staden" är specialfall). */
+export function cinematicPointFor(district: string): { x: number; z: number } {
+  if (district === "hk") return { x: -225, z: 215 };
+  if (district === "staden") return { x: 0, z: 20 };
+  const z = DISTRICT_ZONES.find((d) => d.district === district);
+  return z ? { x: z.x, z: z.z } : { x: 0, z: 0 };
+}
