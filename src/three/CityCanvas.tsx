@@ -230,13 +230,17 @@ export function CityCanvas() {
         shadow-camera-far={1400}
       />
       <directionalLight position={[-200, 140, -180]} color="#b9cce0" intensity={0.5} />
+      {/* Nära zoom (18) låter spelaren gå ner på gatunivå och se detaljer –
+          entréer, Rogges bil, minneslappar. zoomToCursor gör att man zoomar
+          MOT huset man pekar på i stället för mot skärmens mitt. */}
       <MapControls
         makeDefault
         enableDamping
         dampingFactor={0.08}
         maxPolarAngle={Math.PI / 2.25}
-        minDistance={60}
+        minDistance={18}
         maxDistance={1000}
+        zoomToCursor
       />
       <mesh rotation-x={-Math.PI / 2} position={[0, -0.05, 0]} receiveShadow>
         <planeGeometry args={[2600, 2600]} />

@@ -1,7 +1,7 @@
 import { Html, useCursor } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef, useState } from "react";
-import { Color, type Group } from "three";
+import { Color, Vector3, type Group, type Sprite, type SpriteMaterial } from "three";
 import type { Parcel } from "../engine/city";
 import { expansionByBlock, parcelHash } from "../engine/city";
 import { PROP_TYPES } from "../engine/data";
@@ -43,6 +43,39 @@ function ownerBeacon(content: ParcelContent): { emoji: string; bg: string; scale
   }
 }
 
+/** Delad scratch-vektor för avståndsmätning (undviker alloc per frame). */
+const V3 = new Vector3();
+
+/** Kartikonerna har fast världsstorlek och blir enorma när kameran går ner
+ *  på gatunivå (min-zoom 18). Hooken krymper och tonar ut spriten på nära
+ *  håll så husdetaljerna syns i stället för en jätteikon. */
+function useNearFade(baseScale: number, boost = 1) {
+  const ref = useRef<Sprite>(null);
+  useFrame(({ camera }) => {
+    const sp = ref.current;
+    if (!sp) return;
+    const d = camera.position.distanceTo(sp.getWorldPosition(V3));
+    const NEAR = 130; // full storlek bortom detta
+    const GONE = 26;  // helt borta närmare än detta
+    const k = Math.max(0, Math.min(1, (d - GONE) / (NEAR - GONE)));
+    const sc = baseScale * (0.35 + 0.65 * k) * boost;
+    sp.scale.set(sc, sc, 1);
+    (sp.material as SpriteMaterial).opacity = k;
+    sp.visible = k > 0.02;
+  });
+  return ref;
+}
+
+/** Ägar-beaconen som sprite med närtoning. */
+function BeaconSprite({ y, be }: { y: number; be: { emoji: string; bg: string; scale: number } }) {
+  const ref = useNearFade(be.scale);
+  return (
+    <sprite ref={ref} position={[0, y, 0]} renderOrder={39}>
+      <spriteMaterial map={iconTexture(be.emoji, be.bg)} transparent depthTest={false} />
+    </sprite>
+  );
+}
+
 /** Billboard-ikon ovanför huset: bud, vakans, till salu. Klick är en
  *  genväg – budinkorgen, hyresgästerna eller portföljen öppnas direkt. */
 function StatusBadge({ emoji, y, order, onClick, title }: {
@@ -50,10 +83,11 @@ function StatusBadge({ emoji, y, order, onClick, title }: {
 }) {
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
+  const ref = useNearFade(6, hovered ? 1.2 : 1);
   return (
     <sprite
+      ref={ref}
       position={[0, y + order * 7, 0]}
-      scale={hovered ? [7.2, 7.2, 1] : [6, 6, 1]}
       renderOrder={40 + order}
       onClick={(e) => {
         e.stopPropagation();
@@ -411,11 +445,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
             din/till salu/tomt/konkurrent även i trånga områden. */}
         {(() => {
           const be = ownerBeacon(content);
-          return be ? (
-            <sprite position={[0, Math.min(fullH, 150) + 3.5, 0]} scale={[be.scale, be.scale, 1]} renderOrder={39}>
-              <spriteMaterial map={iconTexture(be.emoji, be.bg)} transparent depthTest={false} />
-            </sprite>
-          ) : null;
+          return be ? <BeaconSprite y={Math.min(fullH, 150) + 3.5} be={be} /> : null;
         })()}
         {badges.map((b, i) => (
           <StatusBadge key={b.emoji} emoji={b.emoji} title={b.title} y={Math.min(fullH, 150) + 11} order={i} onClick={b.action} />
