@@ -590,6 +590,7 @@ function makeAffordableListing(s: GameState): Property {
   p.baseRent = Math.round(p.baseRent * f);
   p.area = Math.max(80, Math.round(p.area * f));
   p.expiresMonth = absMonth(s) + 6; // arvingarna i Spanien har ändå is i magen
+  p.storyTag = "dödsbo"; // kameran hittar objektet + StoryHud kan peka på det
   return p;
 }
 

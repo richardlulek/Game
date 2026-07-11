@@ -1,25 +1,75 @@
 import { useState } from "react";
 import { DEFAULT_COMPANY_NAME } from "../engine/company";
+import { AI_NAMES } from "../engine/data";
 import { calYear, formatMonthYear } from "../engine/date";
+import { DIFFICULTIES, difficultyById } from "../engine/difficulty";
 import { SCENARIOS } from "../engine/scenarios";
-import type { ScenarioId } from "../engine/types";
+import type { DifficultyId, InitOptions, ScenarioId } from "../engine/types";
 import { msek } from "../engine/format";
 import type { SlotInfo } from "../store/persistence";
 import { C, FONTS, THEME } from "../styles/tokens";
 
 interface Props {
   slots: SlotInfo[];
-  onNew: (scenarioId: ScenarioId, slot: number, companyName: string) => void;
+  onNew: (scenarioId: ScenarioId, slot: number, companyName: string, options?: InitOptions) => void;
   onContinue: (slot: number) => void;
+}
+
+/** Friläge-anpassningar (null = följ vald svårighet orörd). */
+interface CustomOpts {
+  cash: number;
+  rate: number;
+  rivals: number;
+  strength: number;
+  calm: boolean;
+  immortal: boolean;
 }
 
 /** Art-deco titelskärm – "spelets entré". */
 export function TitleScreen({ slots, onNew, onContinue }: Props) {
   const [phase, setPhase] = useState<"start" | "slots-continue" | "slots-new" | "scenario">("start");
-  const [selectedId, setSelectedId] = useState<ScenarioId>("equity50");
+  const [selectedId, setSelectedId] = useState<ScenarioId>("arvet");
   const [selectedSlot, setSelectedSlot] = useState(1);
   const [companyName, setCompanyName] = useState("");
+  // Lägesväljaren: toppvyn (3 val) eller scenariomappen.
+  const [pickerView, setPickerView] = useState<"modes" | "folder">("modes");
+  const [difficulty, setDifficulty] = useState<Exclude<DifficultyId, "custom">>("normal");
+  const [showCustom, setShowCustom] = useState(false);
+  const [custom, setCustom] = useState<CustomOpts | null>(null);
   const anySave = slots.some((s) => s.exists);
+
+  const isChallenge = (id: ScenarioId) => id !== "arvet" && id !== "sandbox";
+  const preset = difficultyById(difficulty).options;
+  /** Effektiva Friläge-värden: anpassningar ovanpå vald svårighet. */
+  const eff: CustomOpts = custom ?? {
+    cash: preset.cash ?? 5_000_000,
+    rate: preset.interestRate ?? 2.5,
+    rivals: AI_NAMES.length,
+    strength: preset.rivalStrength ?? 1,
+    calm: false,
+    immortal: false,
+  };
+  const editCustom = (patch: Partial<CustomOpts>) => setCustom({ ...eff, ...patch });
+  const pickDifficulty = (d: Exclude<DifficultyId, "custom">) => {
+    setDifficulty(d);
+    setCustom(null); // ny svårighet nollställer anpassningarna
+  };
+  /** Startalternativ som skickas med RESET (arvet: inga – egen balans). */
+  const buildOptions = (): InitOptions | undefined => {
+    if (selectedId === "arvet") return undefined;
+    if (selectedId === "sandbox" && custom) {
+      return {
+        cash: eff.cash,
+        interestRate: eff.rate,
+        rivalCount: eff.rivals,
+        rivalStrength: eff.strength,
+        ...(eff.calm ? { calmMode: true } : {}),
+        ...(eff.immortal ? { noBankruptcy: true } : {}),
+        difficulty: "custom",
+      };
+    }
+    return { ...preset };
+  };
 
   return (
     <div style={wrap}>
@@ -153,40 +203,179 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
           </>
         )}
 
-        {phase === "scenario" && (
+        {phase === "scenario" && pickerView === "modes" && (
           <>
             <div style={{ fontFamily: FONTS.heading, fontSize: 22, fontWeight: 700, color: C.brassBright, marginBottom: 16 }}>
               Välj spelläge (Slot {selectedSlot})
             </div>
-            {/* Berättelseläget – framhävt kort ovanför scenarierna. */}
-            {(() => {
-              const story = SCENARIOS.find((sc) => sc.id === "arvet")!;
-              const sel = selectedId === "arvet";
-              return (
-                <div
-                  onClick={() => setSelectedId("arvet")}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 14, textAlign: "left",
-                    maxWidth: 700, width: "100%", marginBottom: 12, padding: "13px 16px",
-                    borderRadius: 6, cursor: "pointer",
-                    border: sel ? `2px solid ${C.brass}` : `1px solid ${C.brassDim}`,
-                    background: sel ? "rgba(201,161,59,0.14)" : "rgba(201,161,59,0.06)",
-                    boxShadow: sel ? "0 0 18px rgba(201,161,59,0.25)" : undefined,
-                  }}
-                >
-                  <div style={{ fontSize: 34 }}>{story.icon}</div>
-                  <div>
-                    <div style={{ fontFamily: FONTS.heading, fontSize: 17, fontWeight: 800, color: C.brassBright }}>
-                      {story.title}
-                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: C.feltDark, background: C.brass, borderRadius: 3, padding: "2px 7px", marginLeft: 10, verticalAlign: "middle" }}>
-                        REKOMMENDERAS FÖRSTA GÅNGEN
-                      </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640, width: "100%", marginBottom: 14 }}>
+              {/* 1. Berättelseläget */}
+              {(() => {
+                const sc = SCENARIOS.find((x) => x.id === "arvet")!;
+                const sel = selectedId === "arvet";
+                return (
+                  <div onClick={() => setSelectedId("arvet")} style={modeCard(sel)}>
+                    <div style={{ fontSize: 32 }}>{sc.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={modeTitle}>
+                        {sc.title}
+                        <span style={badge}>REKOMMENDERAS FÖRSTA GÅNGEN</span>
+                      </div>
+                      <div style={modeDesc}>{sc.desc}</div>
                     </div>
-                    <div style={{ fontSize: 12, color: C.creamSoft, marginTop: 3 }}>{story.desc}</div>
+                  </div>
+                );
+              })()}
+
+              {/* 2. Friläge med anpassningar */}
+              {(() => {
+                const sel = selectedId === "sandbox";
+                return (
+                  <div onClick={() => setSelectedId("sandbox")} style={modeCard(sel)}>
+                    <div style={{ fontSize: 32 }}>∞</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={modeTitle}>Friläge</div>
+                      <div style={modeDesc}>
+                        Inget vinstmål – bygg fritt i din egen takt.
+                        {custom && <strong style={{ color: C.brassBright }}> · Anpassad</strong>}
+                      </div>
+                      {sel && (
+                        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8 }}>
+                          <button
+                            style={{ ...customToggle, color: showCustom ? C.brassBright : C.creamSoft }}
+                            onClick={() => setShowCustom((v) => !v)}
+                          >
+                            {showCustom ? "▲ Dölj anpassningar" : "⚙ Anpassa friläget"}
+                          </button>
+                          {showCustom && (
+                            <div style={customPanel}>
+                              <label style={customLabel}>
+                                Startkapital: <strong style={{ color: C.brassBright }}>{msek(eff.cash)}</strong>
+                                <input
+                                  type="range" min={1_000_000} max={20_000_000} step={500_000}
+                                  value={eff.cash}
+                                  onChange={(e) => editCustom({ cash: +e.target.value })}
+                                  style={slider}
+                                />
+                              </label>
+                              <label style={customLabel}>
+                                Ränteläge:
+                                <span style={pillRow}>
+                                  {([["Lågt", 1.5], ["Normalt", 2.5], ["Högt", 4.5]] as const).map(([lbl, r]) => (
+                                    <button key={lbl} style={pill(eff.rate === r)} onClick={() => editCustom({ rate: r })}>
+                                      {lbl} {r.toFixed(1).replace(".", ",")} %
+                                    </button>
+                                  ))}
+                                </span>
+                              </label>
+                              <label style={customLabel}>
+                                Rivaler: <strong style={{ color: C.brassBright }}>{eff.rivals} st</strong>
+                                <input
+                                  type="range" min={0} max={AI_NAMES.length} step={1}
+                                  value={eff.rivals}
+                                  onChange={(e) => editCustom({ rivals: +e.target.value })}
+                                  style={slider}
+                                />
+                              </label>
+                              <label style={customLabel}>
+                                Rivalernas styrka:
+                                <span style={pillRow}>
+                                  {([["Snälla", 0.7], ["Normala", 1], ["Hungriga", 1.4]] as const).map(([lbl, v]) => (
+                                    <button key={lbl} style={pill(eff.strength === v)} onClick={() => editCustom({ strength: v })}>
+                                      {lbl}
+                                    </button>
+                                  ))}
+                                </span>
+                              </label>
+                              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                                <label style={{ ...customLabel, flexDirection: "row", alignItems: "center", gap: 7, cursor: "pointer" }}>
+                                  <input type="checkbox" checked={eff.calm} onChange={(e) => editCustom({ calm: e.target.checked })} style={{ accentColor: C.brass }} />
+                                  Lugnt läge (händelser & kriser av)
+                                </label>
+                                <label style={{ ...customLabel, flexDirection: "row", alignItems: "center", gap: 7, cursor: "pointer" }}>
+                                  <input type="checkbox" checked={eff.immortal} onChange={(e) => editCustom({ immortal: e.target.checked })} style={{ accentColor: C.brass }} />
+                                  Konkurs av
+                                </label>
+                              </div>
+                              {custom && (
+                                <button style={{ ...customToggle, alignSelf: "flex-start" }} onClick={() => setCustom(null)}>
+                                  ↺ Återställ till {difficultyById(difficulty).label.toLowerCase()}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 3. Scenariomappen */}
+              <div onClick={() => setPickerView("folder")} style={modeCard(isChallenge(selectedId))}>
+                <div style={{ fontSize: 32 }}>🗂️</div>
+                <div style={{ flex: 1 }}>
+                  <div style={modeTitle}>Scenarier & utmaningar</div>
+                  <div style={modeDesc}>
+                    {isChallenge(selectedId)
+                      ? <>Valt: <strong style={{ color: C.brassBright }}>{SCENARIOS.find((x) => x.id === selectedId)?.title}</strong> – klicka för att byta</>
+                      : `${SCENARIOS.filter((x) => isChallenge(x.id)).length} utmaningar med vinstmål – från Snabbstarten till Hotellkungen`}
                   </div>
                 </div>
-              );
-            })()}
+                <div style={{ color: C.brassDim, fontSize: 20 }}>›</div>
+              </div>
+            </div>
+
+            {/* Svårighet (gäller Friläge & scenarier – Arvet har egen balans) */}
+            {selectedId !== "arvet" && (
+              <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <label style={{ fontSize: 11, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>SVÅRIGHET</label>
+                <div style={pillRow}>
+                  {DIFFICULTIES.map((d) => (
+                    <button key={d.id} style={pill(difficulty === d.id && !custom)} onClick={() => pickDifficulty(d.id)} title={d.desc}>
+                      {d.icon} {d.label}
+                    </button>
+                  ))}
+                  {custom && <span style={{ ...pill(true), cursor: "default" }}>⚙ Anpassad</span>}
+                </div>
+                <div style={{ fontSize: 11, color: C.creamSoft }}>{custom ? "Egna inställningar för friläget." : difficultyById(difficulty).desc}</div>
+              </div>
+            )}
+
+            {/* Bolagsnamn (arvet: namnet ärvs – byts i kapitel 6) */}
+            <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, visibility: selectedId === "arvet" ? "hidden" : "visible" }}>
+              <label style={{ fontSize: 12, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>
+                DITT BOLAGS NAMN
+              </label>
+              <input
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value.slice(0, 32))}
+                placeholder={DEFAULT_COMPANY_NAME}
+                style={nameInput}
+              />
+            </div>
+            <div style={btnRow}>
+              <button style={contBtn} onClick={() => setPhase("slots-new")}>
+                ← Tillbaka
+              </button>
+              <button
+                style={newBtn}
+                onClick={() => onNew(selectedId, selectedSlot, companyName.trim() || DEFAULT_COMPANY_NAME, buildOptions())}
+              >
+                {selectedId === "arvet" ? "📜 Öppna testamentet" : "Grunda bolaget"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {phase === "scenario" && pickerView === "folder" && (
+          <>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 22, fontWeight: 700, color: C.brassBright, marginBottom: 6 }}>
+              🗂️ Scenarier & utmaningar
+            </div>
+            <div style={{ fontSize: 12, color: C.creamSoft, marginBottom: 14 }}>
+              Spellägen med vinstmål – rivalerna tävlar mot samma mål. Välj ett för att gå tillbaka.
+            </div>
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -195,10 +384,13 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
               maxWidth: 700,
               width: "100%",
             }}>
-              {SCENARIOS.filter((sc) => sc.id !== "arvet").map((sc) => (
+              {SCENARIOS.filter((sc) => isChallenge(sc.id)).map((sc) => (
                 <div
                   key={sc.id}
-                  onClick={() => setSelectedId(sc.id)}
+                  onClick={() => {
+                    setSelectedId(sc.id);
+                    setPickerView("modes");
+                  }}
                   style={{
                     padding: 12,
                     borderRadius: 5,
@@ -215,41 +407,9 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                 </div>
               ))}
             </div>
-            {/* Grunda bolaget: eget namn ger ägarkänsla från första minuten.
-                I berättelseläget ärver du namnet – bolagsdöpandet är ett skämt i kapitel 6. */}
-            <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, visibility: selectedId === "arvet" ? "hidden" : "visible" }}>
-              <label style={{ fontSize: 12, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>
-                DITT BOLAGS NAMN
-              </label>
-              <input
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value.slice(0, 32))}
-                placeholder={DEFAULT_COMPANY_NAME}
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  border: `1px solid ${C.brass}`,
-                  borderRadius: 4,
-                  color: C.brassBright,
-                  fontFamily: FONTS.heading,
-                  fontSize: 17,
-                  fontWeight: 700,
-                  textAlign: "center",
-                  padding: "9px 14px",
-                  width: 300,
-                  maxWidth: "80vw",
-                  outline: "none",
-                }}
-              />
-            </div>
             <div style={btnRow}>
-              <button style={contBtn} onClick={() => setPhase("slots-new")}>
-                ← Tillbaka
-              </button>
-              <button
-                style={newBtn}
-                onClick={() => onNew(selectedId, selectedSlot, companyName.trim() || DEFAULT_COMPANY_NAME)}
-              >
-                {selectedId === "arvet" ? "📜 Öppna testamentet" : "Grunda bolaget"}
+              <button style={contBtn} onClick={() => setPickerView("modes")}>
+                ← Tillbaka till lägen
               </button>
             </div>
           </>
@@ -301,6 +461,56 @@ const subtitle: React.CSSProperties = {
   color: C.creamText, marginBottom: 30,
 };
 const btnRow: React.CSSProperties = { display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" };
+const modeCard = (sel: boolean): React.CSSProperties => ({
+  display: "flex", alignItems: "flex-start", gap: 14, textAlign: "left",
+  padding: "13px 16px", borderRadius: 6, cursor: "pointer",
+  border: sel ? `2px solid ${C.brass}` : `1px solid ${C.brassDim}`,
+  background: sel ? "rgba(201,161,59,0.14)" : "rgba(255,255,255,0.06)",
+  boxShadow: sel ? "0 0 18px rgba(201,161,59,0.25)" : undefined,
+});
+const modeTitle: React.CSSProperties = {
+  fontFamily: FONTS.heading, fontSize: 17, fontWeight: 800, color: C.brassBright,
+};
+const modeDesc: React.CSSProperties = { fontSize: 12, color: C.creamSoft, marginTop: 3 };
+const badge: React.CSSProperties = {
+  fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: C.feltDark,
+  background: C.brass, borderRadius: 3, padding: "2px 7px", marginLeft: 10, verticalAlign: "middle",
+};
+const pillRow: React.CSSProperties = { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 };
+const pill = (sel: boolean): React.CSSProperties => ({
+  padding: "5px 13px", borderRadius: 14, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+  fontFamily: FONTS.body,
+  border: sel ? `1px solid ${C.brass}` : `1px solid ${C.brassDim}`,
+  background: sel ? C.burgundy : "transparent",
+  color: sel ? C.brassBright : C.creamSoft,
+});
+const customToggle: React.CSSProperties = {
+  background: "none", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer",
+  color: C.creamSoft, padding: 0, fontFamily: FONTS.body, textDecoration: "underline",
+};
+const customPanel: React.CSSProperties = {
+  display: "flex", flexDirection: "column", gap: 10, marginTop: 10,
+  padding: "12px 14px", borderRadius: 6,
+  border: `1px solid ${C.brassDim}`, background: "rgba(0,0,0,0.25)",
+};
+const customLabel: React.CSSProperties = {
+  display: "flex", flexDirection: "column", gap: 3, fontSize: 12, color: C.creamSoft, fontWeight: 600,
+};
+const slider: React.CSSProperties = { width: "100%", accentColor: C.brass, cursor: "pointer" };
+const nameInput: React.CSSProperties = {
+  background: "rgba(255,255,255,0.08)",
+  border: `1px solid ${C.brass}`,
+  borderRadius: 4,
+  color: C.brassBright,
+  fontFamily: FONTS.heading,
+  fontSize: 17,
+  fontWeight: 700,
+  textAlign: "center",
+  padding: "9px 14px",
+  width: 300,
+  maxWidth: "80vw",
+  outline: "none",
+};
 const newBtn: React.CSSProperties = {
   background: C.burgundy, color: C.brassBright,
   border: `1px solid ${C.brass}`, padding: "13px 32px", borderRadius: 4,

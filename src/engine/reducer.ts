@@ -2389,9 +2389,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "LOAD":
       return action.state;
     case "RESET": {
-      const fresh = initState();
-      // Berättelseläget: morfars hus + fryspåsen i stället för startkapitalet.
-      if (action.mode === "story") return seedStory(fresh);
+      // Berättelseläget: morfars hus + fryspåsen – egen balans, inga options.
+      if (action.mode === "story") return seedStory(initState());
+      const fresh = initState(action.options);
       return {
         ...fresh,
         ...(action.scenarioId ? { scenarioId: action.scenarioId } : {}),

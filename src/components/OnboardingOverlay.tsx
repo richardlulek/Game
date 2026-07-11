@@ -1,3 +1,4 @@
+import { msek } from "../engine/format";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";
 import { BURGUNDY } from "../styles/tokens";
@@ -18,7 +19,8 @@ function deriveTutorialStep(state: GameState): number {
 const STEPS = [
   {
     title: "Välkommen till Fastighetsimperium!",
-    body: "Du startar med 5 MSEK i kassan. Gå till Marknad-fliken och köp din första fastighet — välj ett objekt som passar din budget och klicka Köp.",
+    // Startkapitalet varierar med svårighet/anpassningar – fyll i vid render.
+    body: "Du startar med {CASH} i kassan. Gå till Marknad-fliken och köp din första fastighet — välj ett objekt som passar din budget och klicka Köp.",
     icon: "🏠",
   },
   {
@@ -65,7 +67,7 @@ export function OnboardingOverlay({ state, dispatch }: Props) {
         </button>
       </div>
       <div style={{ fontSize: 13, color: "#3a2a0a", lineHeight: 1.6, marginBottom: 10 }}>
-        {s.body}
+        {s.body.replace("{CASH}", msek(state.cash))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 11, color: "#888" }}>

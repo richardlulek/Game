@@ -10,7 +10,7 @@ import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
-import type { ScenarioId } from "../engine/types";
+import type { InitOptions, ScenarioId } from "../engine/types";
 import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
@@ -141,10 +141,16 @@ export default function FastighetsImperium() {
   // Utfällt kort i kort-vyn (master-detail): null = alla visas kompakt.
   const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
 
-  const startNew = (scenarioId: ScenarioId, slot: number, companyName: string) => {
+  const startNew = (scenarioId: ScenarioId, slot: number, companyName: string, options?: InitOptions) => {
     setSlotFn(slot);
     // "arvet" = berättelseläget: eget startläge (morfars hus + fryspåsen).
-    dispatch({ type: "RESET", scenarioId, companyName, ...(scenarioId === "arvet" ? { mode: "story" as const } : {}) });
+    dispatch({
+      type: "RESET",
+      scenarioId,
+      companyName,
+      ...(scenarioId === "arvet" ? { mode: "story" as const } : {}),
+      ...(options ? { options } : {}),
+    });
     setStarted(true);
   };
   const startContinue = (slot: number) => {
@@ -194,6 +200,28 @@ export default function FastighetsImperium() {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, []);
+
+  // Berättelseläget levande: kameran glider till kapitlets plats – morfars hus
+  // vid arvet, dödsboet i bankkapitlet, grannhuset i revanschen. Glidningen
+  // sker medan brevet läses, så man landar mitt i scenen när modalen stängs.
+  const storyBeat = state.story?.beat;
+  const storyDone = state.story?.done;
+  useEffect(() => {
+    if (!started || !storyBeat || storyDone) return;
+    const TARGET_TAG: Record<string, string> = {
+      prolog: "arvet", renoveringen: "arvet", hyresgasten: "arvet",
+      forhandlingen: "arvet", banken: "dödsbo", konjunkturen: "arvet",
+      bolaget: "arvet", revanschen: "revansch", dynastin: "arvet",
+    };
+    const tag = TARGET_TAG[storyBeat];
+    if (!tag) return;
+    const st = useGameStore.getState().state;
+    const target =
+      st.portfolio.find((p) => p.storyTag === tag) ??
+      st.listings.find((p) => p.storyTag === tag) ??
+      st.portfolio.find((p) => p.storyTag === "arvet");
+    if (target?.parcelId) useUiStore.getState().requestFocus(target.parcelId);
+  }, [started, storyBeat, storyDone]);
 
   // Månadspuls – ett kort svep när månaden växlar.
   const [pulseKey, setPulseKey] = useState(0);

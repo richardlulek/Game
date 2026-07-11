@@ -118,7 +118,8 @@ export function advanceMonth(state: GameState): GameState {
       s.demandMod = +(s.demandMod * 0.96).toFixed(3);
       events.push({ t: `📉 KONJUNKTURNEDGÅNG! Marknaden sviktar (${dur} mån kvar).`, kind: "warn" });
       // Bubbla som spricker: nedgång i ett uppblåst läge → fullskalig kris.
-      if (!s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, Math.random())) {
+      // (Lugnt läge: kriser avstängda.)
+      if (!s.settings?.calmMode && !s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, Math.random())) {
         s.crisisMonthsLeft = CRISIS_MONTHS;
         events.push({
           t: `🚨 FASTIGHETSKRIS! Bubblan spricker: värden faller, kreditmarknaden stänger och covenants skärps. Den som har kassa köper billigt — den som är belånad kämpar för livet.`,
@@ -803,14 +804,14 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
-  // Makrohändelse
-  if (Math.random() < 0.35) {
+  // Makrohändelse (lugnt läge: avstängt)
+  if (!s.settings?.calmMode && Math.random() < 0.35) {
     const ev = pick(EVENTS);
     s = ev.apply(s);
     events.push({ t: `📰 ${ev.text}`, kind: "event" });
   }
-  // Sällsynt chockhändelse (~3 % per månad)
-  if (Math.random() < 0.03) {
+  // Sällsynt chockhändelse (~3 % per månad; lågkonjunkturer startar här)
+  if (!s.settings?.calmMode && Math.random() < 0.03) {
     const ev = pick(RARE_EVENTS);
     s = ev.apply(s);
     events.push({ t: `🚨 ${ev.text}`, kind: "warn" });
@@ -908,7 +909,7 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── Lokala distriktshändelser (~8 % chans/distrikt/mån) ─────────
-  if (Math.random() < 0.08) {
+  if (!s.settings?.calmMode && Math.random() < 0.08) {
     const ev = DISTRICT_EVENTS[Math.floor(Math.random() * DISTRICT_EVENTS.length)];
     s = ev.apply(s);
     events.push({ t: `🏘️ Lokalt: ${ev.text}`, kind: "event" });
@@ -1937,8 +1938,13 @@ export function advanceMonth(state: GameState): GameState {
     s.log = [{ t: `🚨 KASSAVARNING: Kassan ${kr(s.cash)}. Konkurs vid −1 000 000 kr!`, kind: "warn" }, ...s.log];
   }
   if (s.cash < -1_000_000) {
-    s.gameOver = true;
-    s.log = [{ t: "💥 KONKURS! Kassan under −1 000 000 kr. Spelet är slut.", kind: "warn" }, ...s.log];
+    if (s.settings?.noBankruptcy) {
+      if (s.cash > -1_100_000)
+        s.log = [{ t: "💥 Kassan under −1 000 000 kr – konkurs är avstängd, men banken himlar med ögonen.", kind: "warn" }, ...s.log];
+    } else {
+      s.gameOver = true;
+      s.log = [{ t: "💥 KONKURS! Kassan under −1 000 000 kr. Spelet är slut.", kind: "warn" }, ...s.log];
+    }
   }
   // Berättelseläget: injects, brev och kapitelavancemang efter månadens händelser.
   return advanceStory(s);

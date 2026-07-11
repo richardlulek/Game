@@ -10,19 +10,24 @@ import { rnd } from "./random";
 import { initStocks } from "./stocks";
 import { makeIndustryAssetFromTemplate } from "./industries";
 import { INDUSTRY_TEMPLATES } from "./industryData";
-import type { Competitor, CompetitorAgenda, CompetitorStrategy, GameState, IndustryAsset, Property } from "./types";
+import type { Competitor, CompetitorAgenda, CompetitorStrategy, GameState, InitOptions, IndustryAsset, Property } from "./types";
 
 const WORLD_SIZE = 190;
 
-/** Skapar ett nytt speltillstånd med en ändlig fastighetsmarknad. */
-export function initState(): GameState {
+/** Skapar ett nytt speltillstånd med en ändlig fastighetsmarknad.
+ *  `opts` (svårighet/Friläge-anpassningar) styr startkapital, ränta
+ *  och rivalernas antal/styrka – utelämnat = spelets grundbalans. */
+export function initState(opts?: InitOptions): GameState {
+  const startCash = opts?.cash ?? 5_000_000;
+  const startRate = opts?.interestRate ?? 2.5;
+  const rivalStrength = opts?.rivalStrength ?? 1;
   const base: GameState = {
     day: 1, // 1 januari (spelår 1 = kalenderår 2000, se engine/date.ts)
     month: 1,
     year: 1,
-    cash: 5_000_000,
+    cash: startCash,
     debt: 0,
-    interestRate: 2.5,
+    interestRate: startRate,
     marketMod: 1.0,
     demandMod: 1.0,
     taxMod: 1.0,
@@ -31,8 +36,15 @@ export function initState(): GameState {
     listings: [],
     lots: [],
     competitors: [],
-    log: [{ t: "Du startar med 5 MSEK eget kapital. Lycka till!", kind: "info" }],
-    history: [{ month: 0, equity: 5_000_000 }],
+    log: [
+      {
+        t: `Du startar med ${(startCash / 1e6).toLocaleString("sv-SE")} MSEK eget kapital${
+          opts?.difficulty && opts.difficulty !== "normal" ? ` (svårighet: ${opts.difficulty})` : ""
+        }. Lycka till!`,
+        kind: "info",
+      },
+    ],
+    history: [{ month: 0, equity: startCash }],
     gameOver: false,
     offers: [],
     pendingDecision: null,
@@ -63,15 +75,17 @@ export function initState(): GameState {
   for (let i = 0; i < WORLD_SIZE; i++) allProps.push(genWorldProperty(base));
 
   // ── Skapa konkurrenter ──────────────────────────────────────────
-  // Varje konkurrent får ~10 fastigheter från världspoolen.
-  const compPortfolioSize = 10;
+  // Varje konkurrent får ~10 fastigheter från världspoolen; svårigheten
+  // skalar både antal (rivalCount) och styrka (kassa + portföljstorlek).
+  const rivalNames = AI_NAMES.slice(0, Math.max(0, Math.min(AI_NAMES.length, opts?.rivalCount ?? AI_NAMES.length)));
+  const compPortfolioSize = Math.max(3, Math.round(10 * rivalStrength));
   const STRATEGIES: CompetitorStrategy[] = ["tillväxt", "utdelning", "värde", "distrikt"];
-  const competitors: Competitor[] = AI_NAMES.map((n, i) => {
+  const competitors: Competitor[] = rivalNames.map((n, i) => {
     const strategy = STRATEGIES[i % STRATEGIES.length];
     const preferredDistrict = strategy === "distrikt" ? DISTRICTS[i % DISTRICTS.length].id : undefined;
     return {
       name: n,
-      cash: rnd(2, 6) * 1e6,
+      cash: rnd(2, 6) * 1e6 * rivalStrength,
       units: 0,
       equity: 0,
       portfolio: [],
@@ -169,6 +183,15 @@ export function initState(): GameState {
     industryListings.push(makeIndustryAssetFromTemplate(tmpl, indId++, base));
   }
   base.industryListings = industryListings;
+
+  // ── Inställningar som simuleringen läser varje månad ─────────────
+  if (opts && (opts.difficulty || opts.calmMode || opts.noBankruptcy)) {
+    base.settings = {
+      difficulty: opts.difficulty ?? "custom",
+      ...(opts.calmMode ? { calmMode: true } : {}),
+      ...(opts.noBankruptcy ? { noBankruptcy: true } : {}),
+    };
+  }
 
   return base;
 }

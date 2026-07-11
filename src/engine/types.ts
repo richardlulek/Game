@@ -243,6 +243,35 @@ export interface DecisionEffect {
   logKind: LogKind;
 }
 
+/** Svårighetsgrad – påverkar startvillkor i Friläge och scenarier
+ *  (berättelseläget har sin egen balans och undantas). */
+export type DifficultyId = "lätt" | "normal" | "svår" | "custom";
+
+/** Startalternativ för ett nytt spel (Friläge-anpassning + svårighet).
+ *  Ren data – följer med RESET-actionen och är sparbar. */
+export interface InitOptions {
+  /** Startkapital i kronor. */
+  cash?: number;
+  /** Startränta i procent. */
+  interestRate?: number;
+  /** Antal rivaler (0 till alla i AI_NAMES). */
+  rivalCount?: number;
+  /** Rivalernas styrka: ×kassa och ×portföljstorlek (0.7 / 1 / 1.4). */
+  rivalStrength?: number;
+  /** Lugnt läge: inga slumphändelser, lågkonjunkturer eller kriser. */
+  calmMode?: boolean;
+  /** Konkurs avstängd – kassan kan gå hur djupt som helst. */
+  noBankruptcy?: boolean;
+  difficulty?: DifficultyId;
+}
+
+/** Spelinställningar som måste följa med sparfilen (simuleringen läser dem). */
+export interface GameSettings {
+  difficulty: DifficultyId;
+  calmMode?: boolean;
+  noBankruptcy?: boolean;
+}
+
 /** Berättelseläget "Arvet efter morfar" – ren, sparbar data. */
 export interface StoryState {
   /** Aktiv beat (id i STORY_BEATS). */
@@ -716,6 +745,8 @@ export interface GameState {
   hotelHighOccConsecutiveMonths?: number;
   /** Berättelseläget "Arvet efter morfar" (null/undefined = vanligt spel). */
   story?: StoryState | null;
+  /** Svårighet + Friläge-anpassningar (undefined = normal utan anpassningar). */
+  settings?: GameSettings;
 }
 
 /** Alla actions som reducern hanterar. */
@@ -821,4 +852,4 @@ export type GameAction =
   | { type: "SET_POLICY"; policy: Partial<CompanyPolicy> }
   | { type: "AUCTION_BID" }
   | { type: "AUCTION_PASS" }
-  | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string; mode?: "story" };
+  | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string; mode?: "story"; options?: InitOptions };
