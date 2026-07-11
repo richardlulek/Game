@@ -68,7 +68,9 @@ export function RoggeCar() {
   if (!story || story.done) return null;
 
   let parcelId: string | undefined;
-  if (story.beat === "prolog") {
+  if (story.beat === "prolog" || story.beat === "renoveringen") {
+    // Rogge hänger kvar utanför morfars hus genom renoveringen –
+    // han hoppas fortfarande att taket ska ge vika före plånboken.
     parcelId = heirloomOf(state)?.parcelId;
   } else if (story.beat === "revanschen") {
     // Bilen står kvar utanför grannhuset tills spelaren vunnit budkriget.

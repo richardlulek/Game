@@ -478,7 +478,7 @@ export default function FastighetsImperium() {
             (distriktsnamn, statusikoner via drei <Html>) hålls som ETT lager
             längst ned – de kan annars lyfta sitt z-index förbi kartans HUD,
             kort och öppna fönster/flikar och "lysa igenom" dem. */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 0, isolation: "isolate" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, isolation: "isolate", overflow: "hidden" }}>
           <CityCanvas />
         </div>
         <MapLegend />
