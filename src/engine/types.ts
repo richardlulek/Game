@@ -852,4 +852,5 @@ export type GameAction =
   | { type: "SET_POLICY"; policy: Partial<CompanyPolicy> }
   | { type: "AUCTION_BID" }
   | { type: "AUCTION_PASS" }
-  | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string; mode?: "story"; options?: InitOptions };
+  | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string; mode?: "story"; options?: InitOptions }
+  | { type: "FOUND_NOTE"; id: string };

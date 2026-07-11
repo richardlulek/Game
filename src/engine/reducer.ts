@@ -38,7 +38,7 @@ import {
 import { newId } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
-import { applyStoryFlag, markNegotiated, seedStory, storyDecisionById } from "./story";
+import { MEMORY_NOTES, applyStoryFlag, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById } from "./story";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
 import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
 
@@ -1438,6 +1438,32 @@ export function reducer(state: GameState, action: GameAction): GameState {
           p.id === action.id ? { ...p, managerSettings: action.settings } : p,
         ),
       };
+    }
+    case "FOUND_NOTE": {
+      // Morfars minneslapp hittad (berättelseläget). Idempotent: en belöning per lapp.
+      if (!state.story) return state;
+      const note = MEMORY_NOTES.find((n) => n.id === action.id);
+      if (!note || hasFlag(state, noteFlag(note.id))) return state;
+      let s: GameState = {
+        ...state,
+        reputation: Math.min(100, state.reputation + 1),
+        story: { ...state.story, flags: [...state.story.flags, noteFlag(note.id)] },
+        log: [
+          { t: `📌 Hittade morfars minneslapp: ${note.title} (reputation +1).`, kind: "event" as const },
+          ...state.log,
+        ],
+      };
+      if (foundNotes(s) === MEMORY_NOTES.length) {
+        s = {
+          ...s,
+          reputation: Math.min(100, s.reputation + 3),
+          log: [
+            { t: "📔 Alla morfars minneslappar hittade – fotoalbumet är komplett (reputation +3). Han hade gillat att du letade.", kind: "income" as const },
+            ...s.log,
+          ],
+        };
+      }
+      return s;
     }
     case "SET_GLOBAL_MANAGER": {
       return { ...state, globalManager: action.settings };

@@ -10,6 +10,7 @@ import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { msek } from "../engine/format";
 import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { SCENARIOS, rivalScenarioProgress } from "../engine/scenarios";
+import { CHAPTER_FRONTS, type StoryFront } from "../engine/story";
 import type { InitOptions, ScenarioId } from "../engine/types";
 import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
@@ -33,6 +34,7 @@ import { PortfolioSummaryCard } from "./PortfolioSummaryCard";
 import { PortfolioTable } from "./PortfolioTable";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
+import { MemoryNoteCard } from "./MemoryNoteCard";
 import { StoryHud } from "./StoryHud";
 import { TitleScreen } from "./TitleScreen";
 import { Toasts } from "./Toasts";
@@ -222,6 +224,19 @@ export default function FastighetsImperium() {
       st.portfolio.find((p) => p.storyTag === "arvet");
     if (target?.parcelId) useUiStore.getState().requestFocus(target.parcelId);
   }, [started, storyBeat, storyDone]);
+
+  // STADSBLADETs förstasida när ett kapitel klaras: beatet man LÄMNAR firas.
+  // Tidningen (zIndex 2600) lägger sig över nästa kapitels brev (2000), så
+  // sekvensen blir naturlig: löpsedel → stäng → morfars nästa brev.
+  const [storyFront, setStoryFront] = useState<StoryFront | null>(null);
+  const prevBeat = useRef<string | undefined>(storyBeat);
+  useEffect(() => {
+    const left = prevBeat.current;
+    prevBeat.current = storyBeat;
+    if (!started || !left || left === storyBeat) return;
+    const front = CHAPTER_FRONTS[left];
+    if (front && !suppressNews.current) setStoryFront(front);
+  }, [started, storyBeat]);
 
   // Månadspuls – ett kort svep när månaden växlar.
   const [pulseKey, setPulseKey] = useState(0);
@@ -471,6 +486,7 @@ export default function FastighetsImperium() {
         <TodoHud openWindow={(id) => unlocked.has(id) && openWindow(id)} />
         <StoryHud />
         <MapSelectionCard openWindow={(id) => unlocked.has(id) && openWindow(id)} />
+        <MemoryNoteCard />
         {wins.map((id, i) => {
           if (minimized.includes(id)) return null;
           const windowContent = (): React.ReactNode => {
@@ -727,6 +743,9 @@ export default function FastighetsImperium() {
       <Toasts log={state.log} />
       {showOffers && (
         <OffersModal state={state} dispatch={dispatch} onClose={() => setShowOffers(false)} />
+      )}
+      {storyFront && (
+        <NewspaperModal state={state} front={storyFront} onClose={() => setStoryFront(null)} />
       )}
       {newsLevel !== null && (
         <NewspaperModal state={state} level={newsLevel} onClose={() => setNewsLevel(null)} />

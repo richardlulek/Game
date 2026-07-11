@@ -5,6 +5,7 @@ import { tierForLevel } from "../engine/company";
 import { formatMonthYear } from "../engine/date";
 import { msek } from "../engine/format";
 import { equityOf } from "../engine/finance";
+import type { StoryFront } from "../engine/story";
 import type { GameState } from "../engine/types";
 
 const N: Record<string, React.CSSProperties> = {
@@ -80,15 +81,22 @@ const N: Record<string, React.CSSProperties> = {
 export function NewspaperModal({
   state,
   level,
+  front,
   onClose,
 }: {
   state: GameState;
-  level: number;
+  /** Bolagsnivå (nivå-tidningen). Ignoreras när `front` anges. */
+  level?: number;
+  /** Story-förstasida (kapitelslut i berättelseläget). */
+  front?: StoryFront;
   onClose: () => void;
 }) {
-  const tier = tierForLevel(level);
+  const tier = tierForLevel(level ?? state.companyLevel ?? 1);
   const name = state.companyName ?? "Bolaget";
-  const headline = tier.headline.replace("{n}", name);
+  const headline = front?.headline ?? tier.headline.replace("{n}", name);
+  const sub = front?.sub ?? tier.desc;
+  const icon = front?.icon ?? tier.icon;
+  const caption = front?.caption ?? "Bolagets nya huvudkontor.";
   const units = state.portfolio.filter((p) => p.status === "klar").length;
 
   return (
@@ -103,27 +111,28 @@ export function NewspaperModal({
           <span>Pris 2 kr</span>
         </div>
         <div style={N.headline}>{headline}</div>
-        <div style={N.sub}>{tier.desc}</div>
+        <div style={N.sub}>{sub}</div>
         <div style={N.photoRow}>
           <div style={N.photo}>
-            {tier.icon}
-            <div style={N.photoCaption}>Bolagets nya huvudkontor.</div>
+            {icon}
+            <div style={N.photoCaption}>{caption}</div>
           </div>
           <div style={{ ...N.columns, columnCount: 1, flex: 1 }}>
-            Med ett eget kapital om {msek(equityOf(state))} och {units} fastigheter i
-            beståndet tar {name} nu steget till att bli {tier.name.toLowerCase()}.
-            Grannar och konkurrenter höjer på ögonbrynen när bolagets skylt
-            monteras på det nya huvudkontoret.
+            {front
+              ? front.body
+              : `Med ett eget kapital om ${msek(equityOf(state))} och ${units} fastigheter i beståndet tar ${name} nu steget till att bli ${tier.name.toLowerCase()}. Grannar och konkurrenter höjer på ögonbrynen när bolagets skylt monteras på det nya huvudkontoret.`}
           </div>
         </div>
-        <div style={N.columns}>
-          "Vi har bara börjat", säger bolagets grundare i en kommentar och pekar
-          mot stadskärnan. Analytiker noterar att bolaget vuxit metodiskt genom
-          uthyrning, förvärv och underhåll — och att organisationen nu rustas för
-          nästa steg. Stadsbladet har sökt konkurrenterna, som avböjer att
-          kommentera uppstickarens frammarsch. Hyresgästföreningen välkomnar
-          beskedet men påminner om ansvaret som följer med ett växande bestånd.
-        </div>
+        {!front && (
+          <div style={N.columns}>
+            "Vi har bara börjat", säger bolagets grundare i en kommentar och pekar
+            mot stadskärnan. Analytiker noterar att bolaget vuxit metodiskt genom
+            uthyrning, förvärv och underhåll — och att organisationen nu rustas för
+            nästa steg. Stadsbladet har sökt konkurrenterna, som avböjer att
+            kommentera uppstickarens frammarsch. Hyresgästföreningen välkomnar
+            beskedet men påminner om ansvaret som följer med ett växande bestånd.
+          </div>
+        )}
         <div style={N.btnRow}>
           <button style={N.btn} onClick={onClose}>
             FORTSÄTT ▸

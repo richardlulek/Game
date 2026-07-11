@@ -3,7 +3,7 @@
    när kampanjen är fullbordad (spelet fortsätter fritt). */
 
 import { useState } from "react";
-import { STORY_BEATS, beatById, beatIndex } from "../engine/story";
+import { MEMORY_NOTES, STORY_BEATS, beatById, beatIndex, foundNotes } from "../engine/story";
 import { useGameStore } from "../store/gameStore";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
@@ -38,6 +38,11 @@ export function StoryHud() {
             );
           })}
           {beat.hint && <div style={hint}>💡 {beat.hint}</div>}
+          {foundNotes(state) > 0 && (
+            <div style={{ ...hint, fontStyle: "normal" }}>
+              📌 Morfars lappar: {foundNotes(state)}/{MEMORY_NOTES.length}
+            </div>
+          )}
           {/* Kapitelprogress som tunn mässingslinje */}
           <div style={barOuter}>
             <div style={{ ...barFill, width: `${(idx / (STORY_BEATS.length - 1)) * 100}%` }} />

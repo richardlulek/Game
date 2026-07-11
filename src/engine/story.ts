@@ -763,3 +763,129 @@ export function advanceStory(state: GameState): GameState {
   }
   return s;
 }
+
+/* ── Tidnings-förstasidor vid kapitelslut (E) ──────────────────────── */
+
+/** Innehåll till STADSBLADETs förstasida när ett kapitel klaras. */
+export interface StoryFront {
+  headline: string;
+  sub: string;
+  body: string;
+  icon: string;
+  caption: string;
+}
+
+/** Förstasidor för de kapitel som förtjänar en löpsedel (nivå-tidningen
+ *  täcker redan Bolaget/Dynastin). Nyckel = beat-id som just KLARATS. */
+export const CHAPTER_FRONTS: Record<string, StoryFront> = {
+  renoveringen: {
+    headline: "KÅKEN PÅ KULLEN HAR FÅTT NYTT TAK",
+    sub: "Grannarna: ”Äntligen.” Gösta: ”Det knastrar mindre i köket nu. Misstänkt.”",
+    body:
+      "Villakullens mest omtalade fastighet – i folkmun 'Gunnars kåk' – har rustats upp av arvtagaren. " +
+      "Hantverkare bekräftar att taket numera läcker 'åt rätt håll, alltså inte alls'. " +
+      "Kommunens bygglovskontor uppger att man 'ser över ärendet från 1987 med förnyad energi'.",
+    icon: "🔨",
+    caption: "Huset på kullen, nu med tak.",
+  },
+  hyresgasten: {
+    headline: "NYA HYRESGÄSTER PÅ KULLEN",
+    sub: "Grannsämjan beskrivs som ”förvånansvärt god, med vissa förbehåll kring ljudnivån torsdagar”.",
+    body:
+      "Det nyrenoverade huset på Villakullen har fått hyresgäster. Grannskapet rapporterar om " +
+      "omväxlande orgelmusik, kattspring och enstaka rökmaskinstest. Hyresvärden kommenterar: " +
+      "'Alla betalar i pengar. Det var det viktigaste kravet.' Stadsbladet har sökt bandet Likbål, " +
+      "som svarar med en riffsignatur.",
+    icon: "🎸",
+    caption: "Inflyttning pågår.",
+  },
+  banken: {
+    headline: "ARVTAGAREN EXPANDERAR",
+    sub: "Sparbanken Eken: ”Kalkylen håller. Vi har räknat två gånger. Ulla tre.”",
+    body:
+      "Med lånelöfte från Sparbanken Eken har arvtagaren förvärvat sin andra fastighet – dödsboet " +
+      "vars arvingar enligt uppgift redan hunnit tillbaka till Marbella. Banken beskriver kunden som " +
+      "'påfallande lik sin morfar, fast med pengarna på banken i stället för i frysen'.",
+    icon: "🏦",
+    caption: "Fastighet nummer två.",
+  },
+  revanschen: {
+    headline: "FLYT FASTIGHETER PIVOTERAR TILL PADEL",
+    sub: "Roger Flyt: ”Helt frivilligt. Fastigheter var ändå mest en grej för folk som gillar hus.”",
+    body:
+      "Budkriget om grannhuset på Villakullen är över: arvtagaren vann. Flyt Fastigheter meddelar " +
+      "samma dag en 'strategisk pivot till racketsport-vertikalen'. Branschanalytiker noterar att " +
+      "bolagets vita BMW setts lämna kullen 'i god fart, dock privatleasad'. Morfars kommentar, " +
+      "förmedlad via advokat: ”Ha.”",
+    icon: "🎾",
+    caption: "R. Flyt lämnar kullen.",
+  },
+};
+
+/* ── Morfars minneslappar (F) ──────────────────────────────────────── */
+
+export interface MemoryNote {
+  id: string;
+  /** Kartposition; null = placeras vid morfars hus-parcell. */
+  x: number | null;
+  z: number | null;
+  title: string;
+  text: string;
+}
+
+export const MEMORY_NOTES: MemoryNote[] = [
+  {
+    id: "vattentornet",
+    x: -310, z: -290,
+    title: "Vattentornet",
+    text:
+      "”Här friade jag till mormor, juni 1961. Hon sa ja för att det blåste och hon ville gå ner. " +
+      "Vi var gifta i 52 år. Ibland räcker det med bra timing.” — Morfar",
+  },
+  {
+    id: "klocktornet",
+    x: 168, z: -80,
+    title: "Klocktornet vid bygglovskontoret",
+    text:
+      "”Bygglovskontoret. Mitt tillbyggnadsärende är 'under handläggning' sedan 1987. " +
+      "Jag vattnar deras pelargoner varje fredag i väntan. Man ska vårda sina relationer.” — Morfar",
+  },
+  {
+    id: "skorstenarna",
+    x: 465, z: -134,
+    title: "Fabriksskorstenarna",
+    text:
+      "”Min första lön, 1953. Förmannen sa att jag var för klen för tegelbärning. " +
+      "Huset hans barnbarn hyr idag råkar jag känna ägaren till. Bär du tegel, pojk – men äg huset.” — Morfar",
+  },
+  {
+    id: "hamnkajen",
+    x: 70, z: 312,
+    title: "Hamnkajen",
+    text:
+      "”Härifrån skulle jag emigrera till Amerika, våren 1958. Båten gick utan mig – " +
+      "jag hade hittat en tomt på vägen till kajen. Amerika klarade sig. Det gjorde jag med.” — Morfar",
+  },
+  {
+    id: "angen",
+    x: -225, z: 215,
+    title: "Ängen",
+    text:
+      "”På den här ängen lärde jag din mamma cykla, sommaren 1974. Hon körde rakt in i en ko. " +
+      "Kon klarade sig. Bygg något fint här en dag – marken är bättre än den ser ut.” — Morfar",
+  },
+  {
+    id: "appeltradet",
+    x: null, z: null,
+    title: "Grannens äppelträd",
+    text:
+      "”Grannens äppelträd. Grenarna som hänger över staketet är juridiskt sett dina – " +
+      "jag har kollat med Ekelöf (faktura 900 kr, värt det). Skörda med gott samvete.” — Morfar",
+  },
+];
+
+/** Flagg-id för en hittad lapp. */
+export const noteFlag = (id: string) => `lapp:${id}`;
+
+export const foundNotes = (s: GameState): number =>
+  MEMORY_NOTES.filter((n) => hasFlag(s, noteFlag(n.id))).length;

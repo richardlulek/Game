@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { equityOf } from "../engine/finance";
 import { reducer } from "../engine/reducer";
 import {
+  CHAPTER_FRONTS,
   GOSTA_NAME,
+  MEMORY_NOTES,
   STORY_BEATS,
   STORY_COMPANY_NAME,
   advanceStory,
@@ -234,5 +236,65 @@ describe("integrationsdetaljer", () => {
     const s2 = reducer(makeState(), { type: "RESET" });
     expect(s2.story ?? null).toBeNull();
     expect(s2.cash).toBeGreaterThan(4_000_000); // vanliga startkapitalet
+  });
+});
+
+describe("morfars minneslappar", () => {
+  it("FOUND_NOTE sätter flagga, ger +1 reputation och är idempotent", () => {
+    let s = storyStart();
+    s = readLetters(s);
+    const repBefore = s.reputation;
+    s = reducer(s, { type: "FOUND_NOTE", id: "vattentornet" });
+    expect(s.story?.flags).toContain("lapp:vattentornet");
+    expect(s.reputation).toBe(repBefore + 1);
+    expect(s.log[0].t).toContain("Vattentornet");
+    // Samma lapp igen: ingenting händer.
+    const again = reducer(s, { type: "FOUND_NOTE", id: "vattentornet" });
+    expect(again).toBe(s);
+    // Okänd lapp eller utanför story-läget: no-op.
+    expect(reducer(s, { type: "FOUND_NOTE", id: "finnsinte" })).toBe(s);
+    const vanlig = makeState();
+    expect(reducer(vanlig, { type: "FOUND_NOTE", id: "vattentornet" })).toBe(vanlig);
+  });
+
+  it("alla sex lappar ger fotoalbums-bonusen (+3 extra)", () => {
+    let s = storyStart();
+    s = readLetters(s);
+    const repBefore = s.reputation;
+    for (const n of MEMORY_NOTES) s = reducer(s, { type: "FOUND_NOTE", id: n.id });
+    // 6 × (+1) + bonus +3
+    expect(s.reputation).toBe(Math.min(100, repBefore + MEMORY_NOTES.length + 3));
+    expect(s.log[0].t).toContain("fotoalbumet");
+  });
+
+  it("lappdata: unika id och positioner inom kartan (eller null = morfars hus)", () => {
+    const ids = new Set(MEMORY_NOTES.map((n) => n.id));
+    expect(ids.size).toBe(MEMORY_NOTES.length);
+    for (const n of MEMORY_NOTES) {
+      if (n.x === null || n.z === null) {
+        expect(n.x).toBeNull();
+        expect(n.z).toBeNull();
+      } else {
+        expect(Math.abs(n.x)).toBeLessThanOrEqual(520);
+        expect(Math.abs(n.z)).toBeLessThanOrEqual(520);
+      }
+    }
+  });
+});
+
+describe("kapitel-förstasidor", () => {
+  it("finns för exakt de fyra markanta kapitlen med komplett innehåll", () => {
+    expect(Object.keys(CHAPTER_FRONTS).sort()).toEqual(
+      ["banken", "hyresgasten", "renoveringen", "revanschen"],
+    );
+    for (const front of Object.values(CHAPTER_FRONTS)) {
+      expect(front.headline.length).toBeGreaterThan(5);
+      expect(front.sub.length).toBeGreaterThan(5);
+      expect(front.body.length).toBeGreaterThan(20);
+      expect(front.icon.length).toBeGreaterThan(0);
+      expect(front.caption.length).toBeGreaterThan(0);
+    }
+    // Alla nycklar är riktiga beat-id:n.
+    for (const key of Object.keys(CHAPTER_FRONTS)) expect(beatById(key)).toBeDefined();
   });
 });

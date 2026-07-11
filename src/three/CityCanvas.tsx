@@ -19,6 +19,7 @@ import { Backdrop } from "./Backdrop";
 import { CameraRig } from "./CameraRig";
 import { Birds, Clouds, Harbor, Landmarks } from "./CityExtras";
 import { Headquarters } from "./Headquarters";
+import { MemoryNotes, RoggeCar } from "./StoryProps";
 import { OwnerLuxuries } from "./OwnerLuxuries";
 import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
 import { groundTexture } from "./textures";
@@ -252,6 +253,8 @@ export function CityCanvas() {
       <Landmarks />
       <Headquarters />
       <OwnerLuxuries />
+      <RoggeCar />
+      <MemoryNotes />
       <Clouds />
       <Birds />
       <Traffic />

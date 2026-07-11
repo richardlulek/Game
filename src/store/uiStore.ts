@@ -24,6 +24,9 @@ interface UiStore {
   pendingOpen: string | null;
   requestOpen: (target: string) => void;
   clearOpen: () => void;
+  /** Öppen minneslapp (berättelseläget) – kortet renderas i DOM-lagret. */
+  openNoteId: string | null;
+  setOpenNote: (id: string | null) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -37,4 +40,6 @@ export const useUiStore = create<UiStore>((set) => ({
   pendingOpen: null,
   requestOpen: (pendingOpen) => set({ pendingOpen }),
   clearOpen: () => set({ pendingOpen: null }),
+  openNoteId: null,
+  setOpenNote: (openNoteId) => set({ openNoteId }),
 }));
