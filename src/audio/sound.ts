@@ -11,6 +11,8 @@ import chipsUrl from "./samples/chips.ogg";
 import clickUrl from "./samples/click.ogg";
 import buildUrl from "./samples/build.ogg";
 import warnUrl from "./samples/warn.ogg";
+import coffeeUrl from "./music/coffee-shop-jazz.mp3";
+import bigcityUrl from "./music/big-city-big-dreams.mp3";
 import deniedUrl from "./samples/denied.ogg";
 import levelupUrl from "./samples/levelup.ogg";
 import milestoneUrl from "./samples/milestone.ogg";
@@ -424,8 +426,8 @@ export function playTick(): void {
 // tempot klockan. Den gamla ambient-bädden finns kvar som alternativ stil.
 
 type Mood = "boom" | "stable" | "bust";
-type MusicStyle = "ragtime" | "ambient";
-const MUSIC_STYLE: MusicStyle = "ragtime";
+type MusicStyle = "track" | "ragtime" | "ambient";
+const MUSIC_STYLE: MusicStyle = "track";
 
 // Ackordföljder som halvtonssteg från grundtonen, per humör (moll/dur-känsla).
 const PROGRESSIONS: Record<Mood, number[][]> = {
@@ -632,6 +634,59 @@ function scheduleRagBar() {
   scheduler = setTimeout(scheduleRagBar, bar * 1000);
 }
 
+// ── Riktiga musikspår (Pixabay) ──────────────────────────────────────────────
+// Två loopade spår genom samma buskedja (lågpass + volymtoning): uppåt i
+// högkonjunktur, kafé-jazz annars – kristider dämpar filtret i stället för
+// att byta låt. Crossfade vid humörbyte. Ragtimen är kvar som fallback-stil.
+
+const TRACK_URLS: Record<string, string> = { lugn: coffeeUrl, fart: bigcityUrl };
+const trackBuf: Record<string, AudioBuffer | undefined> = {};
+let tracksRequested = false;
+let curTrack: { key: string; src: AudioBufferSourceNode; gain: GainNode } | null = null;
+
+const trackKeyFor = (m: Mood) => (m === "boom" ? "fart" : "lugn");
+
+function loadTracks(c: AudioContext) {
+  if (tracksRequested) return;
+  tracksRequested = true;
+  for (const [k, url] of Object.entries(TRACK_URLS)) {
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((b) => c.decodeAudioData(b))
+      .then((buf) => {
+        trackBuf[k] = buf;
+        // Startа direkt när rätt spår blivit klart och musiken väntar.
+        if (musicOn && !curTrack && k === trackKeyFor(mood)) startTrack(k);
+      })
+      .catch(() => { /* spåret uteblir – tystnad hellre än krasch */ });
+  }
+}
+
+/** Startar (eller crossfadar till) ett loopat spår genom musikbussen. */
+function startTrack(key: string) {
+  const c = ctx;
+  const buf = trackBuf[key];
+  if (!c || !musicBus || !buf) return;
+  if (curTrack?.key === key) return;
+  const old = curTrack;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, c.currentTime);
+  g.gain.linearRampToValueAtTime(1, c.currentTime + 2.5);
+  src.connect(g);
+  g.connect(musicBus);
+  src.start(c.currentTime);
+  curTrack = { key, src, gain: g };
+  if (old) {
+    old.gain.gain.cancelScheduledValues(c.currentTime);
+    old.gain.gain.setValueAtTime(old.gain.gain.value, c.currentTime);
+    old.gain.gain.linearRampToValueAtTime(0.0001, c.currentTime + 2.5);
+    old.src.stop(c.currentTime + 2.7);
+  }
+}
+
 /** Startar bakgrundsmusiken (kräver en användargest först – AudioContext). */
 export function startMusic(): void {
   if (musicOn) {
@@ -642,8 +697,14 @@ export function startMusic(): void {
   if (!c) return;
   musicOn = true;
   fadeMusic(true);
-  if (MUSIC_STYLE === "ragtime") scheduleRagBar();
-  else scheduleChord();
+  if (MUSIC_STYLE === "track") {
+    loadTracks(c);
+    if (trackBuf[trackKeyFor(mood)]) startTrack(trackKeyFor(mood));
+  } else if (MUSIC_STYLE === "ragtime") {
+    scheduleRagBar();
+  } else {
+    scheduleChord();
+  }
 }
 
 export function stopMusic(): void {
@@ -660,11 +721,15 @@ export function setMusicMood(phase: Mood): void {
   mood = phase;
   const c = audio();
   if (c && musicFilter) {
-    const base = MUSIC_STYLE === "ragtime"
-      ? (phase === "boom" ? 3200 : phase === "bust" ? 1300 : 2300)
-      : (phase === "boom" ? 1750 : phase === "bust" ? 640 : 1050);
+    const base = MUSIC_STYLE === "track"
+      ? (phase === "boom" ? 9000 : phase === "bust" ? 1500 : 6500)
+      : MUSIC_STYLE === "ragtime"
+        ? (phase === "boom" ? 3200 : phase === "bust" ? 1300 : 2300)
+        : (phase === "boom" ? 1750 : phase === "bust" ? 640 : 1050);
     musicFilter.frequency.setTargetAtTime(base, c.currentTime, 2.5);
   }
+  // Konjunkturen väljer spår: uppåt-låten i boom, kafé-jazzen annars.
+  if (MUSIC_STYLE === "track" && musicOn) startTrack(trackKeyFor(phase));
 }
 
 /** Tempo följer klockan (1×/2×/4×) – snabbare progression vid högre fart. */
