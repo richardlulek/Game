@@ -132,9 +132,15 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 21, fontWeight: 800, fontFamily: FONTS.heading }}>{msek(value)}</span>
           {!building && (
-            <span style={{ fontSize: 13, fontWeight: 700, color: yieldColor }}>
-              {yieldPct.toFixed(1)} % yield
-            </span>
+            p.tenants.length === 0 ? (
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.inkSoft }} title="Yield visas när första kontraktet är tecknat">
+                — vakant
+              </span>
+            ) : (
+              <span style={{ fontSize: 13, fontWeight: 700, color: yieldColor }}>
+                {yieldPct.toFixed(1)} % yield
+              </span>
+            )
           )}
         </div>
 

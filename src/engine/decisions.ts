@@ -12,7 +12,7 @@ type Template = (s: GameState) => PendingDecision;
 
 const TEMPLATES: Template[] = [
   // 1. Ankarhyresgäst
-  (s) => ({
+  (_s) => ({
     id: "ankar",
     title: "Ankarhyresgäst söker lokal",
     text: "En etablerad koncern vill teckna ett långt avtal i staden – men kräver 10 % rabatt på marknadshyran mot att de fyller flera lokaler.",
@@ -36,7 +36,7 @@ const TEMPLATES: Template[] = [
   }),
 
   // 2. Medial uppmärksamhet
-  (s) => ({
+  (_s) => ({
     id: "press",
     title: "Journalist vill göra reportage",
     text: "En affärsjournalist vill porträttera ditt växande fastighetsbolag. En PR-byrå kan vinkla storyn positivt – mot betalning.",
@@ -55,7 +55,7 @@ const TEMPLATES: Template[] = [
   }),
 
   // 3. Energipriskris
-  (s) => ({
+  (_s) => ({
     id: "energi",
     title: "Energipriserna rusar",
     text: "Vinterns elpriser slår nya rekord. Du kan investera i egen energiproduktion eller vältra över kostnaden på hyresgästerna.",
@@ -74,7 +74,7 @@ const TEMPLATES: Template[] = [
   }),
 
   // 4. Kommunal markanvisning
-  (s) => {
+  (_s) => {
     const cost = Math.round(rnd(0.6, 1.4) * 1e6);
     return {
       id: "markanvisning",
@@ -96,7 +96,7 @@ const TEMPLATES: Template[] = [
   },
 
   // 5. Vattenskada-tvist
-  (s) => ({
+  (_s) => ({
     id: "tvist",
     title: "Hyresgäst hotar med tvist",
     text: "En hyresgäst kräver ersättning för en vattenskada och hotar med rättslig process. Du kan förlika i godo eller bestrida kravet.",
@@ -119,7 +119,7 @@ const TEMPLATES: Template[] = [
 
 const INDUSTRY_TEMPLATES: Template[] = [
   // Hotell 1: Stjärnuppgradering
-  (s) => ({
+  (_s) => ({
     id: "stjarn_upg",
     title: "Hotellguide vill uppgradera er rating",
     text: "En ledande hotellguide erbjuder er att ansöka om en högre stjärnklassning – men kräver renovering och tjänsteförbättringar.",
@@ -138,7 +138,7 @@ const INDUSTRY_TEMPLATES: Template[] = [
   }),
 
   // Hotell 2: Kritisk recension
-  (s) => ({
+  (_s) => ({
     id: "kritisk_recension",
     title: "Kritisk recension på nätet",
     text: "En influencer publicerade en negativ recension av ett av era hotell. Ryktespoäng sjunker snabbt om ni inte agerar.",
@@ -157,7 +157,7 @@ const INDUSTRY_TEMPLATES: Template[] = [
   }),
 
   // Energi 1: Elmarknadsreform
-  (s) => ({
+  (_s) => ({
     id: "elreform",
     title: "Riksdagen ser över elcertifikaten",
     text: "En ny utredning föreslår sänkta elcertifikat. Ni kan lobbya för att bevara subventionen eller acceptera förändringen.",
@@ -176,7 +176,7 @@ const INDUSTRY_TEMPLATES: Template[] = [
   }),
 
   // Energi 2: Nätanslutningsinvestering
-  (s) => ({
+  (_s) => ({
     id: "nätanslutning",
     title: "Kraftnätet vill ansluta ny kapacitet",
     text: "Svenska Kraftnät erbjuder nätförstärkning för er park, men kräver medfinansiering.",
@@ -195,7 +195,7 @@ const INDUSTRY_TEMPLATES: Template[] = [
   }),
 
   // Logistik 1: Automationsupphandling
-  (s) => ({
+  (_s) => ({
     id: "automationsupphandling",
     title: "Robotleverantör med subventionerat erbjudande",
     text: "En ledande robotleverantör erbjuder komplett automationssystem till 30 % rabatt – men affären måste slutas nu.",
@@ -214,7 +214,7 @@ const INDUSTRY_TEMPLATES: Template[] = [
   }),
 
   // Logistik 2: Strejkhot
-  (s) => ({
+  (_s) => ({
     id: "strejkhot",
     title: "Lagerarbetare hotar med strejk",
     text: "Facket kräver löneförhöjning. Vägrar ni höja löner riskerar ni att kontrakt bryts och reputation skadas allvarligt.",

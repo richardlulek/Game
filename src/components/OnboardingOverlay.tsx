@@ -1,6 +1,6 @@
 import { msek } from "../engine/format";
 import type { GameAction, GameState } from "../engine/types";
-import { C, FONTS } from "../styles/tokens";
+import { FONTS } from "../styles/tokens";
 import { BURGUNDY } from "../styles/tokens";
 
 interface Props {
@@ -43,8 +43,9 @@ export function OnboardingOverlay({ state, dispatch }: Props) {
 
   return (
     <div style={{
-      position: "fixed", bottom: 100, right: 20, zIndex: 2000,
-      maxWidth: 360, width: "90%",
+      // Nere i mitten – händelse-toasts bor i nedre högra hörnet.
+      position: "fixed", bottom: 56, left: "50%", transform: "translateX(-50%)", zIndex: 2000,
+      maxWidth: 400, width: "90%",
       background: "linear-gradient(160deg, #eef2f7, #d6dfeb)",
       border: `2px solid ${BURGUNDY}`,
       borderRadius: 8, padding: "18px 20px",

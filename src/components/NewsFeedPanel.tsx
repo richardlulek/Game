@@ -1,6 +1,6 @@
 import { formatMonthYear } from "../engine/date";
 import type { GameState } from "../engine/types";
-import { C, FONTS } from "../styles/tokens";
+import { FONTS } from "../styles/tokens";
 import { logColor } from "./logColor";
 
 interface Props {

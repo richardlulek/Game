@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { DISTRICTS } from "../engine/data";
 import { districtTier, nextDistrictTier } from "../engine/districtTiers";
-import { kr, msek, pct } from "../engine/format";
+import { msek, pct } from "../engine/format";
 import { propMarketValue } from "../engine/property";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";

@@ -1,4 +1,5 @@
-import { playClick } from "../audio/sound";
+import { useEffect } from "react";
+import { playClick, playPaper } from "../audio/sound";
 import type { GameAction, GameState } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
@@ -13,9 +14,16 @@ interface Props {
 export function DecisionModal({ state, dispatch }: Props) {
   const cinematic = useUiStore((s) => s.cinematic);
   const d = state.pendingDecision;
-  if (!d) return null;
-  // Berättelseregi: scenen får spela klart innan brevet öppnas.
-  if (cinematic && cinematic.id === d.id) return null;
+  // Regipausen döljer brevet tills scenen spelat klart.
+  const hidden = !!d && !!cinematic && cinematic.id === d.id;
+  const visibleStoryId = d && !hidden && d.id.startsWith("story:") ? d.id : null;
+
+  // Pappersprassel när ett story-brev vecklas ut.
+  useEffect(() => {
+    if (visibleStoryId) playPaper();
+  }, [visibleStoryId]);
+
+  if (!d || hidden) return null;
   // Berättelselägets brev: kan inte skjutas upp (kedjade beats får inte tappas).
   const isStory = d.id.startsWith("story:");
 

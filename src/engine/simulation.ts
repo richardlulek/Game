@@ -685,7 +685,6 @@ export function advanceMonth(state: GameState): GameState {
   // ── Industrisektorer – månadsuppdatering ─────────────────────────────────
   {
     const portfolio = s.industryPortfolio ?? [];
-    let allHighOcc = portfolio.filter((a) => a.sector === "hotell" && a.status === "klar").length > 0;
     s.industryPortfolio = portfolio.map((asset) => {
       if (asset.status === "bygger") {
         const newLeft = asset.buildLeft - 1;
@@ -732,12 +731,6 @@ export function advanceMonth(state: GameState): GameState {
             .map((c) => ({ ...c, monthsLeft: c.monthsLeft - 1 }))
             .filter((c) => c.monthsLeft > 0),
         };
-      }
-
-      // Hotellets OCC-streak för hotelKing
-      if (na.sector === "hotell" && na.hotelMeta) {
-        const streak = na.hotelMeta.highOccStreak ?? 0;
-        if (streak < (na.hotelMeta.highOccStreak ?? 0) || streak === 0) allHighOcc = false;
       }
 
       return na;

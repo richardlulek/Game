@@ -5,7 +5,6 @@
 
 import { useState } from "react";
 import type { GameAction, GameState, IndustryAsset, IndustrySectorKey } from "../engine/types";
-import { industryAssetValue } from "../engine/industries";
 import { msek, kr } from "../engine/format";
 import { C, FONTS, THEME, BURGUNDY } from "../styles/tokens";
 

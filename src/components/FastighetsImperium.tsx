@@ -3,6 +3,7 @@ import {
   isSoundEnabled, setSoundEnabled,
   startMusic, stopMusic, setMusicMood, setMusicTempo,
   playLevelUp, playMilestone, playBell, playAlert, playBuild, playTick,
+  playCarArrive, playChapter,
 } from "../audio/sound";
 import { canUpgrade, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { formatGameDate } from "../engine/date";
@@ -236,6 +237,8 @@ export default function FastighetsImperium() {
     if (!started || !left || left === storyBeat) return;
     const front = CHAPTER_FRONTS[left];
     if (front && !suppressNews.current) setStoryFront(front);
+    // Kapitelfanfar – men inte när beatet byts av en laddad sparfil.
+    if (!suppressNews.current) playChapter();
   }, [started, storyBeat]);
 
   // Berättelseregi: vissa brev föregås av en scen. Modalen hålls dold av
@@ -261,6 +264,7 @@ export default function FastighetsImperium() {
       });
       return done;
     }
+    if (cine.car) playCarArrive(); // tystas av ljudmodulen om ljud är av
     if (cine.focusDistrict) {
       const pt = cinematicPointFor(cine.focusDistrict);
       useUiStore.getState().requestFocusPoint(pt.x, pt.z, cine.zoom);

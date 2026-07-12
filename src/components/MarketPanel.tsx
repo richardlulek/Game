@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { useState } from "react";
-import { kr, msek } from "../engine/format";
+import { msek } from "../engine/format";
 import { DISTRICTS, PROP_TYPES } from "../engine/data";
 import type { GameAction, GameState, PropTypeKey } from "../engine/types";
 import { S } from "../styles/styles";

@@ -15,7 +15,6 @@ import type {
   LogisticsMeta,
 } from "./types";
 import { kr } from "./format";
-import { rnd } from "./random";
 
 // ── Gemensamma hjälpare ────────────────────────────────────────────────────
 
@@ -168,7 +167,7 @@ export function energyMonthlyRevenue(asset: IndustryAsset, state: GameState): nu
   return Math.round(ppaRev + spotRev + ppaSubsidy + spotSubsidy);
 }
 
-export function energyMonthlyOpex(asset: IndustryAsset, state: GameState): number {
+export function energyMonthlyOpex(asset: IndustryAsset, _state: GameState): number {
   const meta = asset.energyMeta;
   if (!meta) return 0;
   // Nätavgift + O&M

@@ -30,7 +30,6 @@ const btn: React.CSSProperties = {
   fontFamily: FONTS.body,
 };
 const btnRed: React.CSSProperties = { ...btn, background: "#6b1a1a", borderColor: "#c05050" };
-const btnBlue: React.CSSProperties = { ...btn, background: "#1a3a6b" };
 
 function CondBar({ value }: { value: number }) {
   const color = value > 70 ? C.positive : value > 40 ? "#c9a45c" : "#b83030";
@@ -54,7 +53,6 @@ function HotelSection({ asset, state, dispatch }: { asset: IndustryAsset; state:
   const noi = rev - opex;
   const occ = rev > 0 ? Math.min(98, Math.round((rev / (meta.baseAdr * [1,1.2,1.5,1.9,2.6][meta.starRating-1] * meta.totalRooms * 30.5)) * 100)) : 0;
 
-  const allChannels = HOTEL_BOOKING_CHANNELS.map((c) => c.id);
   const toggleChannel = (chId: string) => {
     const current = meta.bookingChannels;
     const next = current.includes(chId as BookingChannel) ? current.filter((c) => c !== chId) : [...current, chId as BookingChannel];

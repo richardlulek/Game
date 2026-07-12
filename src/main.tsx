@@ -8,6 +8,13 @@ import "./styles/global.css";
 // för visuell QA. Annars startar spelet som vanligt.
 const isGallery = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("gallery");
 
+// PWA: registrera service workern i produktion (cache + offlinestart).
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     {isGallery ? <Gallery /> : <FastighetsImperium />}

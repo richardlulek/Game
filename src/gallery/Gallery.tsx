@@ -64,7 +64,6 @@ export function Gallery() {
   const equity = equityOf(state);
   const ltv = ltvOf(state);
   const terms = loanTerms(state);
-  const monthlyNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state) / 12, 0);
 
   return (
     <div style={{ minHeight: "100vh", background: THEME.feltBg, color: C.creamText, fontFamily: FONTS.body, padding: 24 }}>

@@ -83,7 +83,7 @@ export function BuildingArt({ p, month, cover }: Props) {
   const grime = Math.max(0, (100 - p.condition) / 100); // 0 fint … 1 slitet
   const building = p.status === "bygger"
     ? <Construction wall={wall} />
-    : <Finished type={p.type} wall={wall} dark={dark} occ={occ} grime={grime} id={p.id} winter={winter} />;
+    : <Finished type={p.type} wall={wall} dark={dark} occ={occ} grime={grime} winter={winter} />;
 
   if (cover) {
     // Bred banner: byggnaden hålls HEL och centrerad ("meet") medan
@@ -141,14 +141,13 @@ export function BuildingArt({ p, month, cover }: Props) {
 // ── Färdig byggnad per typ ──────────────────────────────────────
 
 function Finished({
-  type, wall, dark, occ, grime, id, winter,
+  type, wall, dark, occ, grime, winter,
 }: {
   type: PropTypeKey;
   wall: { light: string; dark: string; roof: string };
   dark: string;
   occ: number;
   grime: number;
-  id: number;
   winter: boolean;
 }) {
   const lit = (n: number) => Math.round(occ * n);

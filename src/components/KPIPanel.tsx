@@ -29,7 +29,7 @@ function KPICard({ label, value, sub, color }: { label: string; value: string; s
   );
 }
 
-export function KPIPanel({ state, dispatch }: Props) {
+export function KPIPanel({ state, dispatch: _dispatch }: Props) {
   const [stressRate, setStressRate] = useState(2);
   const [stressVacancy, setStressVacancy] = useState(10);
 

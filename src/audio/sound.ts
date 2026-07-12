@@ -296,6 +296,49 @@ export function playMilestone(): void {
   tone(1046, 0.05, 0.4, "sine", 0.035);
 }
 
+/* ── Berättelselägets ljud ──────────────────────────────────────────── */
+
+/** Pappersprassel när ett brev vecklas ut (filtrerat brus i två svep). */
+export function playPaper(): void {
+  if (!enabled) return;
+  noise(0, 0.09, 0.035, 5200);
+  noise(0.07, 0.13, 0.028, 3800);
+  noise(0.16, 0.07, 0.02, 5600);
+}
+
+/** Rogges bil glider in: mullrande motor som saktar in och stannar. */
+export function playCarArrive(): void {
+  if (!enabled) return;
+  // Motormuller – låg sågtand som sjunker i varv och tonas ut.
+  const c = audio();
+  if (!c || !sfxBus) return;
+  const osc = c.createOscillator();
+  const g = c.createGain();
+  osc.type = "sawtooth";
+  osc.connect(g);
+  g.connect(sfxBus);
+  const t0 = c.currentTime;
+  osc.frequency.setValueAtTime(88, t0);
+  osc.frequency.exponentialRampToValueAtTime(46, t0 + 1.9);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(0.035, t0 + 0.25);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.1);
+  osc.start(t0);
+  osc.stop(t0 + 2.2);
+  // Däck mot grus + dörr som stängs.
+  noise(1.5, 0.25, 0.03, 900);
+  noise(2.15, 0.05, 0.05, 1400);
+}
+
+/** Kapitelfanfar – tre stigande toner i mässing när ett kapitel klaras. */
+export function playChapter(): void {
+  if (!enabled) return;
+  tone(523, 0, 0.16, "triangle", 0.055);
+  tone(659, 0.14, 0.16, "triangle", 0.055);
+  tone(784, 0.28, 0.34, "triangle", 0.06);
+  tone(1046, 0.30, 0.3, "sine", 0.03);
+}
+
 /** IPO-klocka – börsklockan ringer. */
 export function playBell(): void {
   if (!enabled) return;

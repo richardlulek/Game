@@ -5,14 +5,18 @@
 import { useState } from "react";
 import { MEMORY_NOTES, STORY_BEATS, beatById, beatIndex, foundNotes } from "../engine/story";
 import { useGameStore } from "../store/gameStore";
+import { useUiStore } from "../store/uiStore";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
 export function StoryHud() {
   const story = useGameStore((s) => s.state.story);
   const state = useGameStore((s) => s.state);
+  const cinematic = useUiStore((s) => s.cinematic);
   const [collapsed, setCollapsed] = useState(false);
 
   if (!story || story.done) return null;
+  // Regipaus: panelen skulle skymma scenen kameran visar – göm den.
+  if (cinematic) return null;
   const beat = beatById(story.beat);
   if (!beat) return null;
   const idx = beatIndex(beat.id);

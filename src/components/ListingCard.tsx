@@ -5,7 +5,7 @@ import { loanTerms } from "../engine/finance";
 import { propAnnualOpex, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { S } from "../styles/styles";
-import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
+import { BURGUNDY, C, FONTS } from "../styles/tokens";
 import { BuildingArt } from "./BuildingArt";
 import { CondBar } from "./CondBar";
 

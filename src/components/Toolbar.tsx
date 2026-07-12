@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import { getVolume, playClick, setVolume } from "../audio/sound";
 import { formatGameDate } from "../engine/date";
+import { exportSaveFile, importSaveFile, saveGame } from "../store/persistence";
 import { BURGUNDY } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
@@ -100,12 +102,61 @@ export function Toolbar({
       <button style={S.toolbarMiniBtn} onClick={onLoad}>
         Ladda
       </button>
+      <SaveFileButtons state={state} onLoad={onLoad} />
       {warnCount > 0 && (
         <div style={S.toolbarWarn} title="Fastigheter som kräver åtgärd">
           ⚠ {warnCount}
         </div>
       )}
     </div>
+  );
+}
+
+/** Sparfil till/från disk – försäkring mot att Safari rensar localStorage. */
+function SaveFileButtons({ state, onLoad }: { state: GameState; onLoad: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const doExport = () => {
+    const blob = new Blob([exportSaveFile(state)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fastighetsimperium-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
+  const doImport = async (file: File) => {
+    const imported = importSaveFile(await file.text());
+    if (!imported) {
+      window.alert("Filen gick inte att läsa som en sparfil.");
+      return;
+    }
+    if (!window.confirm("Importera sparfilen? Den skriver över spelet i aktiv slot.")) return;
+    saveGame(imported); // in i aktiv slot …
+    onLoad();           // … och ladda den direkt.
+  };
+
+  return (
+    <>
+      <button style={S.toolbarMiniBtn} onClick={doExport} title="Ladda ner en sparfil (JSON) som säkerhetskopia">
+        ⬇︎ Fil
+      </button>
+      <button style={S.toolbarMiniBtn} onClick={() => fileRef.current?.click()} title="Läs in en tidigare exporterad sparfil">
+        ⬆︎ Fil
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,application/json"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void doImport(f);
+          e.target.value = "";
+        }}
+      />
+    </>
   );
 }
 

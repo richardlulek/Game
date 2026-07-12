@@ -1,6 +1,6 @@
 import { kr } from "../engine/format";
 import type { GameState } from "../engine/types";
-import { C, FONTS, THEME } from "../styles/tokens";
+import { C, FONTS } from "../styles/tokens";
 
 interface Props {
   state: GameState;
