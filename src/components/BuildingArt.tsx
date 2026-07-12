@@ -85,13 +85,39 @@ export function BuildingArt({ p, month, cover }: Props) {
     ? <Construction wall={wall} />
     : <Finished type={p.type} wall={wall} dark={dark} occ={occ} grime={grime} id={p.id} winter={winter} />;
 
+  if (cover) {
+    // Bred banner: byggnaden hålls HEL och centrerad ("meet") medan
+    // himlen och marken målas av containern – slice-beskärningen gjorde
+    // annars att bara sockelvåningen syntes i breda kort.
+    const groundH = 100 - GY; // % av höjden (viewBox är 100 hög)
+    return (
+      <div
+        style={{
+          position: "relative", width: "100%", height: "100%",
+          background: `linear-gradient(${sky[0]}, ${sky[1]})`, overflow: "hidden",
+        }}
+      >
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${groundH}%`, background: winter ? "#e9eef2" : "#c9c0b2" }} />
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: `${groundH - 0.5}%`, height: 2, background: winter ? "#d2dae0" : "#b3a896" }} />
+        <svg
+          viewBox="0 0 160 100"
+          style={{ position: "relative", display: "block", width: "100%", height: "100%" }}
+          preserveAspectRatio="xMidYMax meet"
+          aria-hidden
+        >
+          <circle cx="132" cy="22" r="11" fill="#fff" opacity={winter ? 0.4 : 0.55} />
+          {building}
+          <rect x="0" y={GY} width="160" height={100 - GY} fill={winter ? "#e9eef2" : "#c9c0b2"} />
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <svg
       viewBox="0 0 160 100"
-      style={cover
-        ? { display: "block", width: "100%", height: "100%" }
-        : { display: "block", width: "100%", height: "auto" }}
-      preserveAspectRatio={cover ? "xMidYMax slice" : "xMidYMid meet"}
+      style={{ display: "block", width: "100%", height: "auto" }}
+      preserveAspectRatio="xMidYMid meet"
       aria-hidden
     >
       <defs>

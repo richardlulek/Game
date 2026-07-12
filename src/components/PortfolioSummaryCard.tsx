@@ -32,6 +32,41 @@ function Flag({ label, color }: { label: string; color: string }) {
 
 export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
   const value = propMarketValue(p, state);
+
+  // Utfällt läge: en slimmad rubrikrad – bilden och nyckeltalen finns
+  // redan i förvaltningskortet under, så de dubbleras inte.
+  if (open) {
+    return (
+      <div
+        onClick={onToggle}
+        style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          gap: 10, padding: "9px 14px", cursor: "pointer",
+          background: THEME.parchment, border: `1px solid ${BURGUNDY}`,
+          borderRadius: 8, color: C.ink,
+          boxShadow: `0 0 0 2px ${BURGUNDY}55, 0 4px 12px rgba(0,0,0,0.3)`,
+        }}
+        title="Klicka för att stänga förvaltningen"
+      >
+        <span style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+          <span style={{
+            background: BURGUNDY, color: C.brassBright, fontSize: 9.5, fontWeight: 700,
+            letterSpacing: 0.8, textTransform: "uppercase", padding: "2px 7px", borderRadius: 3,
+          }}>
+            {p.typeLabel}
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, fontFamily: FONTS.heading, whiteSpace: "nowrap" }}>
+            {p.districtName}
+          </span>
+          <span style={{ fontSize: 13, color: C.inkSoft, whiteSpace: "nowrap" }}>{msek(value)}</span>
+        </span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: BURGUNDY, whiteSpace: "nowrap" }}>
+          ▲ Dölj förvaltning
+        </span>
+      </div>
+    );
+  }
+
   const building = p.status === "bygger";
   const noi = propNOI(p, state);
   const yieldPct = propYieldOnCost(p, state) * 100;
