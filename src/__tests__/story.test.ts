@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { equityOf } from "../engine/finance";
 import { reducer } from "../engine/reducer";
+import { advanceMonth } from "../engine/simulation";
 import {
   CHAPTER_FRONTS,
   GOSTA_NAME,
@@ -401,6 +402,52 @@ describe("berättelseregi (pauser före breven)", () => {
           expect(pt.x !== 0 || pt.z !== 0).toBe(true); // riktigt distrikt hittades
       }
     }
+  });
+});
+
+describe("skriptade hyresgäster äger scenen (kap 0–2)", () => {
+  it("inga slumpansökningar till morfars hus före kapitel 3", () => {
+    // Slump 0.0 = maximalt organiskt inflöde – ändå ska huset vara tomt.
+    vi.spyOn(Math, "random").mockReturnValue(0.0);
+    let s = storyStart();
+    s = reducer(s, { type: "RESOLVE_DECISION", optionIndex: 0 });
+    s = reducer(s, { type: "RESOLVE_DECISION", optionIndex: 0 });
+    s = reducer(s, { type: "RESOLVE_DECISION", optionIndex: 0 }); // prolog läst
+    s = advanceStory(s);
+    s = reducer(s, { type: "RESOLVE_DECISION", optionIndex: 0 }); // kap 1-brevet
+    for (let i = 0; i < 3; i++) s = advanceMonth(s);
+    expect(heirloomOf(s)!.applications ?? []).toHaveLength(0);
+  });
+
+  it("i kapitel 2 finns exakt de tre skriptade sökandena", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.0);
+    let s = storyStart();
+    s = readLetters(s);
+    s = advanceStory({
+      ...s,
+      portfolio: s.portfolio.map((p) => (p.storyTag === "arvet" ? { ...p, condition: 65 } : p)),
+    });
+    s = readLetters(s);
+    expect(s.story?.beat).toBe("hyresgasten");
+    const apps = heirloomOf(s)!.applications ?? [];
+    expect(apps).toHaveLength(3);
+    // En månad till: fortfarande bara de skriptade – inga slumpgäster.
+    const after = advanceMonth(s);
+    expect((heirloomOf(after)!.applications ?? []).length).toBeLessThanOrEqual(3);
+    // Annonskampanj på huset avböjs vänligt under scenen.
+    const boost = reducer(s, { type: "MARKET_BOOST", id: heirloomOf(s)!.id });
+    expect(boost.cash).toBe(s.cash);
+    expect(boost.log[0].t).toContain("berättelsen ordnar sökande");
+  });
+
+  it("från kapitel 3 öppnar det vanliga ansökningsflödet igen", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.0);
+    let s = storyStart();
+    s = readLetters(s);
+    s = { ...s, story: { ...s.story!, beat: "forhandlingen" } };
+    const before = (heirloomOf(s)!.applications ?? []).length;
+    const after = advanceMonth(s);
+    expect((heirloomOf(after)!.applications ?? []).length).toBeGreaterThan(before);
   });
 });
 

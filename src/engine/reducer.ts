@@ -37,7 +37,7 @@ import {
 import { newId } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
-import { MEMORY_NOTES, applyStoryFlag, districtLocked, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById } from "./story";
+import { MEMORY_NOTES, applyStoryFlag, districtLocked, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById, suppressOrganicApplications } from "./story";
 import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
 import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
 
@@ -909,6 +909,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // tre nya ansökningar kommer in vid månadsskiftet (U1).
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status !== "klar") return state;
+      if (suppressOrganicApplications(state, p))
+        return log(state, "🎬 Lugn – berättelsen ordnar sökande till morfars hus. Spara annonspengarna.", "info");
       if (pendingWork(p, "kampanj"))
         return log(state, `En annonskampanj pågår redan för ${p.typeLabel} i ${p.districtName}.`, "info");
       if (state.cash < 25000) return log(state, "För lite kontanter för annonskampanj.", "warn");

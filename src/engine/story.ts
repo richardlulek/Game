@@ -955,6 +955,17 @@ export function districtLocked(s: GameState, district: string): boolean {
   return u !== null && !u.has(district);
 }
 
+/**
+ * Under kapitel 0–2 får morfars hus inga slumpansökningar – scenen ska
+ * ägas av de skriptade sökandena (metalbandet, Margit och influencer-
+ * paret). Från kapitel 3 öppnar det vanliga flödet igen.
+ */
+export function suppressOrganicApplications(s: GameState, p: Property): boolean {
+  if (!s.story || s.story.done) return false;
+  if (p.storyTag !== "arvet") return false;
+  return beatIndex(s.story.beat) <= beatIndex("hyresgasten");
+}
+
 /** Loggrad när ett beat öppnar nya områden. */
 export function unlockLogFor(beatId: string): string | null {
   const opened = DISTRICT_UNLOCK_AT[beatId] ?? [];

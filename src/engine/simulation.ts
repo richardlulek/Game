@@ -27,7 +27,7 @@ import {
 } from "./leasing";
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, UPGRADES } from "./data";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
-import { advanceStory, districtLocked, unlockedDistrictsFor } from "./story";
+import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
@@ -249,7 +249,7 @@ export function advanceMonth(state: GameState): GameState {
             break;
           }
           case "kampanj": {
-            if (np.status === "klar") {
+            if (np.status === "klar" && !suppressOrganicApplications(s, np)) {
               const slotRent = propPotentialRent(np, s) / Math.max(1, np.capacity) / 12;
               const apps = [0, 1, 2].map(() => makeApplication(np, s, nowAbs, slotRent));
               np.applications = [...(np.applications ?? []), ...apps];
@@ -535,9 +535,10 @@ export function advanceMonth(state: GameState): GameState {
         }
         return np;
       }
-      // Ansökningar in/ut.
+      // Ansökningar in/ut. I storyns kapitel 0–2 hålls morfars hus fritt
+      // från slumpsökande – de skriptade ansökningarna äger scenen.
       const apps = (np.applications ?? []).filter((a) => a.expiresAbs > nowAbsApp);
-      const rate = applicationRate(np, s, season);
+      const rate = suppressOrganicApplications(s, np) ? 0 : applicationRate(np, s, season);
       let n = Math.floor(rate) + (Math.random() < rate - Math.floor(rate) ? 1 : 0);
       // Inkorgen växer inte i det oändliga.
       n = Math.min(n, Math.max(0, free + 3 - apps.length));
@@ -561,6 +562,7 @@ export function advanceMonth(state: GameState): GameState {
       let chained = 0;
       s.portfolio = s.portfolio.map((p) => {
         if (p.status === "klar" && movers.length > 0 && Math.random() < 0.4) {
+          if (suppressOrganicApplications(s, p)) return p;
           const room = p.capacity - p.tenants.length + 3 - (p.applications ?? []).length;
           if (room > 0 && p.capacity > p.tenants.length && !p.regulated) {
             const mover = movers.shift()!;
