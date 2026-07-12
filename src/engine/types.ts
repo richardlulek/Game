@@ -223,12 +223,17 @@ export interface SalePackage {
   listedAbs: number;
 }
 
+/** Karaktärerna i berättelseläget – nycklar till porträtten i breven. */
+export type PortraitId = "morfar" | "ekelof" | "rogge" | "gosta" | "ulla";
+
 /** Ett val som spelaren måste ta ställning till innan spelet kan gå vidare. */
 export interface PendingDecision {
   id: string;
   title: string;
   text: string;
   options: DecisionOption[];
+  /** Avsändarens porträtt (berättelselägets brev). */
+  portrait?: PortraitId;
 }
 
 /** Ett alternativ i ett beslut – effekten är ren data (serialiserbar). */

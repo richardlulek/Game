@@ -924,7 +924,7 @@ export function advanceMonth(state: GameState): GameState {
   const rivalIsClose = leadProgress > 0.75; // rival within striking distance
 
   // ── Competing bid on active listing (~12 % chans/mån) ──────────
-  if (!s.competingBid && s.listings.length > 0 && Math.random() < (rivalIsClose ? 0.28 : 0.12)) {
+  if (!s.competingBid && s.competitors.length > 0 && s.listings.length > 0 && Math.random() < (rivalIsClose ? 0.28 : 0.12)) {
     const target = pick(s.listings.filter((p) => p.status === "klar"));
     if (target) {
       const rival = pick(s.competitors);

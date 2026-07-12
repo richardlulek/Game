@@ -4,6 +4,7 @@
 import { MEMORY_NOTES } from "../engine/story";
 import { useUiStore } from "../store/uiStore";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
+import { StoryPortrait } from "./StoryPortrait";
 
 export function MemoryNoteCard() {
   const openNoteId = useUiStore((s) => s.openNoteId);
@@ -19,7 +20,10 @@ export function MemoryNoteCard() {
           ×
         </button>
       </div>
-      <div style={body}>{note.text}</div>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        <StoryPortrait id="morfar" size={52} />
+        <div style={body}>{note.text}</div>
+      </div>
       <div style={foot}>En gul lapp i morfars handstil. Bläcket har bleknat, inte humorn.</div>
     </div>
   );

@@ -404,6 +404,26 @@ describe("berättelseregi (pauser före breven)", () => {
   });
 });
 
+describe("karaktärsporträtt i breven", () => {
+  it("alla story-brev har rätt avsändarporträtt", () => {
+    const s = storyStart();
+    const expected: Record<string, string> = {
+      brev_ekelof: "ekelof", brev_morfar_1: "morfar", rogge_lowball: "rogge",
+      brev_kap1: "morfar", gosta_dilemma: "gosta", brev_kap2: "morfar",
+      brev_kap3: "morfar", brev_kap4: "ulla", brev_kap5: "morfar",
+      bailout_frys: "morfar", brev_kap6: "morfar", brev_kap7: "rogge",
+      rogge_surbrev: "rogge", brev_epilog: "morfar",
+    };
+    for (const [id, portrait] of Object.entries(expected)) {
+      const d = storyDecisionById(id, s);
+      expect(d, id).not.toBeNull();
+      expect(d!.portrait, id).toBe(portrait);
+    }
+    // Redan väntande brevet vid start bär porträttet (persisteras med state).
+    expect(s.pendingDecision?.portrait).toBe("ekelof");
+  });
+});
+
 describe("kapitel-förstasidor", () => {
   it("finns för exakt de fyra markanta kapitlen med komplett innehåll", () => {
     expect(Object.keys(CHAPTER_FRONTS).sort()).toEqual(

@@ -46,6 +46,8 @@ describe("anställda (reducer)", () => {
 
 describe("ändra användning (reducer)", () => {
   it("byter typ och räknar om baseRent – ombyggnaden tar tre månader", () => {
+    // Hög slump = inga händelser/beslut som pausar månadsticken.
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
     const s = makeState({ cash: 50e6, portfolio: [makeProperty({ id: 1, type: "bostad", tenants: [] })] });
     let next = reducer(s, { type: "CHANGE_USE", id: 1, propType: "kontor" });
     expect(next.portfolio[0].type).toBe("bostad"); // inget direkt – hantverkarna jobbar

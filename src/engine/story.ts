@@ -193,6 +193,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 0 – Begravningen */
   brev_ekelof: () => ({
     id: "story:brev_ekelof",
+    portrait: "ekelof",
     title: "Advokatbyrån Ekelöf & Söner (inga söner)",
     text:
       "”Bästa arvtagare. Er morfader Gunnar har, som Ni möjligen noterat på begravningen, avlidit. " +
@@ -215,6 +216,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
 
   brev_morfar_1: () => ({
     id: "story:brev_morfar_1",
+    portrait: "morfar",
     title: "📜 Brev från morfar (1 av oräkneliga)",
     text:
       "”Om du läser det här är jag död. Eller så har Ekelöf skickat brevet för tidigt igen – då ses vi på söndag som vanligt. " +
@@ -232,6 +234,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
 
   rogge_lowball: () => ({
     id: "story:rogge_lowball",
+    portrait: "rogge",
     title: "🕶️ Besök: Roger ”Rogge” Flyt, Flyt Fastigheter",
     text:
       "En man i vita loafers klampar in på begravningskaffet och delar ut visitkort mellan kanapéerna. " +
@@ -255,6 +258,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 1 – Renoveringen */
   brev_kap1: () => ({
     id: "story:brev_kap1",
+    portrait: "morfar",
     title: "📜 Brev från morfar: Om huset",
     text:
       "”Nu har du väl sett skicket. Ja. Jag VET. Taket läcker bara när det regnar, och elen är original – " +
@@ -273,6 +277,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 2 – Hyresgästen */
   gosta_dilemma: () => ({
     id: "story:gosta_dilemma",
+    portrait: "gosta",
     title: "🚪 Gösta står i dörren",
     text:
       "”Jag hör att det renoveras”, säger Gösta misstänksamt och håller upp en termos som försvar. " +
@@ -301,6 +306,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
 
   brev_kap2: () => ({
     id: "story:brev_kap2",
+    portrait: "morfar",
     title: "📜 Brev från morfar: Om hyresgäster",
     text:
       "”Hyresgäster är som väder – man väljer inte, men man kan klä sig rätt. " +
@@ -319,6 +325,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 3 – Förhandlingen */
   brev_kap3: () => ({
     id: "story:brev_kap3",
+    portrait: "morfar",
     title: "📜 Brev från morfar: Om förhandling",
     text:
       "”Förr eller senare måste man prata hyra, och då blir alla plötsligt experter. " +
@@ -337,6 +344,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 4 – Banken */
   brev_kap4: () => ({
     id: "story:brev_kap4",
+    portrait: "ulla",
     title: "🏦 Möte: Ulla på Sparbanken Eken",
     text:
       "Ulla har jobbat på banken sedan hålkort. Hon granskar dig över glasögonen: " +
@@ -355,6 +363,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 5 – Konjunkturen */
   brev_kap5: () => ({
     id: "story:brev_kap5",
+    portrait: "morfar",
     title: "📜 Brev från morfar: Om konjunkturen",
     text:
       "”Om du läser det här brevet har Riksbanken just höjt räntan, för det gör den alltid förr eller senare. Andas. " +
@@ -372,6 +381,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
 
   bailout_frys: () => ({
     id: "story:bailout_frys",
+    portrait: "morfar",
     title: "🧊 Ett fynd i frysen",
     text:
       "Du letar efter något ätbart i morfars gamla frys och hittar, längst ner under en isig påse strömming, " +
@@ -389,6 +399,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 6 – Bolaget */
   brev_kap6: () => ({
     id: "story:brev_kap6",
+    portrait: "morfar",
     title: "📜 Brev från morfar: Om bolag",
     text:
       "”Två hus och en fungerande ekonomi – nu är du officiellt inte längre en 'privatperson med problem' utan en 'aktör i sektorn'. Grattis. " +
@@ -407,6 +418,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Kapitel 7 – Revanschen */
   brev_kap7: () => ({
     id: "story:brev_kap7",
+    portrait: "rogge",
     title: "🕶️ Rogge Flyt köper upp din gata",
     text:
       "Rogge Flyt står utanför grannhuset och fotograferar det med tummen upp. " +
@@ -424,6 +436,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
 
   rogge_surbrev: () => ({
     id: "story:rogge_surbrev",
+    portrait: "rogge",
     title: "📬 Ett surt brev på blankt papper",
     text:
       "”Grattis eller vad man säger. Budgivning är ändå mest en grej för folk som gillar att äga hus. " +
@@ -442,6 +455,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   /* Epilog */
   brev_epilog: () => ({
     id: "story:brev_epilog",
+    portrait: "morfar",
     title: "📜 Morfars sista brev",
     text:
       "”Om Ekelöf har skött sig får du det här brevet när du inte längre behöver det – när huset blivit flera, " +

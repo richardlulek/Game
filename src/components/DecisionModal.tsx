@@ -2,6 +2,7 @@ import { playClick } from "../audio/sound";
 import type { GameAction, GameState } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
+import { StoryPortrait } from "./StoryPortrait";
 
 interface Props {
   state: GameState;
@@ -26,7 +27,14 @@ export function DecisionModal({ state, dispatch }: Props) {
           <span>{d.title}</span>
         </div>
         <div style={goldRule} />
-        <div style={body}>{d.text}</div>
+        {d.portrait ? (
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 18 }}>
+            <StoryPortrait id={d.portrait} />
+            <div style={{ ...body, marginBottom: 0 }}>{d.text}</div>
+          </div>
+        ) : (
+          <div style={body}>{d.text}</div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {d.options.map((o, i) => (
             <button
