@@ -10,7 +10,7 @@ const CACHE = "fi-v1";
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(["/", "/manifest.webmanifest"])).then(() => self.skipWaiting()),
+    caches.open(CACHE).then((c) => c.addAll(["./", "./manifest.webmanifest"])).then(() => self.skipWaiting()),
   );
 });
 
@@ -33,10 +33,10 @@ self.addEventListener("fetch", (e) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("/", copy));
+          caches.open(CACHE).then((c) => c.put("./", copy));
           return res;
         })
-        .catch(() => caches.match("/")),
+        .catch(() => caches.match("./")),
     );
     return;
   }
