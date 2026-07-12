@@ -417,11 +417,15 @@ export function playTick(): void {
   tone(1180, 0, 0.05, "sine", 0.01);
 }
 
-// ── Reaktiv ambient-musik ─────────────────────────────────────────────────────
-// En långsam ackordbädd (pad + bas + gles arp) som böljar utan hörbar loop.
-// Humöret följer konjunkturen (dur i boom, moll i bust) och tempot klockan.
+// ── Reaktiv bakgrundsmusik ───────────────────────────────────────────────────
+// Standardstilen är 20-tals RAGTIME: stride-bas (oom-pah), synkoperad
+// honky-tonk-melodi och lätt saloon-detune – helt syntetiserad, ingen
+// ljudfil. Humöret följer konjunkturen (dur i boom, moll i bust) och
+// tempot klockan. Den gamla ambient-bädden finns kvar som alternativ stil.
 
 type Mood = "boom" | "stable" | "bust";
+type MusicStyle = "ragtime" | "ambient";
+const MUSIC_STYLE: MusicStyle = "ragtime";
 
 // Ackordföljder som halvtonssteg från grundtonen, per humör (moll/dur-känsla).
 const PROGRESSIONS: Record<Mood, number[][]> = {
@@ -531,7 +535,104 @@ function scheduleChord() {
   scheduler = setTimeout(scheduleChord, chordDur * 1000);
 }
 
-/** Startar ambient-musiken (kräver en användargest först – AudioContext). */
+// ── Ragtime-motorn ───────────────────────────────────────────────────────────
+// Allt spelas genom musicBus (lågpass + LFO + hall) så humörfiltret och
+// volymtoningen fungerar som förut. En TAKT schemaläggs i taget.
+
+/** Honky-tonk-pianoton: två lätt detunade oscillatorer + svag oktavpartial,
+    skarp attack och exponentiellt utklingande – saloon-karaktären sitter i
+    detunen (4–9 cent) och den snabba dämpningen. */
+function pianoNote(freq: number, at: number, dur: number, vel: number) {
+  const c = ctx;
+  if (!c || !musicBus) return;
+  const det = 4 + Math.random() * 5; // cent – honky-tonk!
+  for (const [type, mult, g0] of [["triangle", 1, 1], ["square", 1, 0.22], ["sine", 2, 0.3]] as const) {
+    for (const sign of type === "triangle" ? [-1, 1] : [1]) {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = type;
+      osc.frequency.value = freq * mult * Math.pow(2, (sign * det) / 1200);
+      osc.connect(g);
+      g.connect(musicBus);
+      const peak = vel * g0 * (type === "triangle" ? 0.5 : 1) * 0.05;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.linearRampToValueAtTime(peak, at + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      osc.start(at);
+      osc.stop(at + dur + 0.03);
+    }
+  }
+}
+
+// Ackordföljder som halvtonssteg (grundton + treklang/septima), per humör.
+const RAG_PROGRESSIONS: Record<Mood, number[][]> = {
+  // Klassisk glad rag i dur: I I IV I · V7 V7 I V7
+  boom: [
+    [0, 4, 7], [0, 4, 7], [5, 9, 12], [0, 4, 7],
+    [7, 11, 14, 17], [7, 11, 14, 17], [0, 4, 7], [7, 11, 14, 17],
+  ],
+  // Mjukare vardagsrag: I vi IV V
+  stable: [
+    [0, 4, 7], [9, 12, 16], [5, 9, 12], [7, 11, 14],
+    [0, 4, 7], [9, 12, 16], [5, 9, 12], [7, 11, 14, 17],
+  ],
+  // Moll-rag i kristider: i iv i V7 (långsammare, dovare)
+  bust: [
+    [0, 3, 7], [5, 8, 12], [0, 3, 7], [7, 11, 14],
+    [0, 3, 7], [5, 8, 12], [7, 11, 14], [0, 3, 7],
+  ],
+};
+
+// Synkoperade melodirytmer i 16-delsrutnät (klassiska 3+3+2-mönster).
+const RAG_RHYTHMS: number[][] = [
+  [0, 3, 6, 8, 11, 14],
+  [0, 2, 4, 7, 10, 12, 14],
+  [0, 3, 4, 8, 11, 12],
+  [2, 4, 7, 8, 12, 14],
+  [0, 4, 6, 10, 12],
+];
+
+let barIx = 0;
+
+/** Schemalägger EN takt ragtime (stride-bas + stab + synkoperad melodi). */
+function scheduleRagBar() {
+  const c = ctx;
+  if (!c || !musicBus || !musicOn) return;
+  const prog = RAG_PROGRESSIONS[mood];
+  const chord = prog[barIx % prog.length];
+  barIx++;
+  const bpm = (mood === "boom" ? 112 : mood === "bust" ? 76 : 94) * (1 + Math.min(0.16, (tempo - 1) * 0.08));
+  const beat = 60 / bpm;
+  const bar = beat * 4;
+  const t0 = c.currentTime + 0.06;
+
+  // Stride: bas på slag 1 & 3 (grundton/kvint om lott), stab på 2 & 4.
+  const bassRoot = semi(chord[0] - 24);
+  const bassFifth = semi(chord[0] - 24 + (barIx % 2 === 0 ? 7 : -5));
+  pianoNote(bassRoot, t0, 0.42, 1.0);
+  pianoNote(bassFifth, t0 + 2 * beat, 0.42, 0.9);
+  for (const off of [1, 3]) {
+    for (const n of chord.slice(0, 3)) pianoNote(semi(n - 12), t0 + off * beat, 0.16, 0.55);
+  }
+
+  // Melodi: ett synkoperat mönster på ackordtoner en oktav upp, med
+  // grannton-krydda och liten anslagsvariation – aldrig samma takt två gånger.
+  const rhythm = RAG_RHYTHMS[Math.floor(Math.random() * RAG_RHYTHMS.length)];
+  const pool = [...chord.map((n) => n + 12), chord[0] + 24, chord[1 % chord.length] + 24];
+  let prev = Math.floor(Math.random() * pool.length);
+  for (const six of rhythm) {
+    if (mood === "bust" && Math.random() < 0.3) continue; // glesare i moll
+    const step = Math.random() < 0.7 ? (Math.random() < 0.5 ? 1 : -1) : 2;
+    prev = Math.max(0, Math.min(pool.length - 1, prev + step));
+    let n = pool[prev];
+    if (Math.random() < 0.12) n += Math.random() < 0.5 ? 1 : -1; // blue note-grannton
+    pianoNote(semi(n), t0 + (six / 4) * beat, 0.32, 0.6 + Math.random() * 0.3);
+  }
+
+  scheduler = setTimeout(scheduleRagBar, bar * 1000);
+}
+
+/** Startar bakgrundsmusiken (kräver en användargest först – AudioContext). */
 export function startMusic(): void {
   if (musicOn) {
     if (enabled) fadeMusic(true);
@@ -541,7 +642,8 @@ export function startMusic(): void {
   if (!c) return;
   musicOn = true;
   fadeMusic(true);
-  scheduleChord();
+  if (MUSIC_STYLE === "ragtime") scheduleRagBar();
+  else scheduleChord();
 }
 
 export function stopMusic(): void {
@@ -558,7 +660,9 @@ export function setMusicMood(phase: Mood): void {
   mood = phase;
   const c = audio();
   if (c && musicFilter) {
-    const base = phase === "boom" ? 1750 : phase === "bust" ? 640 : 1050;
+    const base = MUSIC_STYLE === "ragtime"
+      ? (phase === "boom" ? 3200 : phase === "bust" ? 1300 : 2300)
+      : (phase === "boom" ? 1750 : phase === "bust" ? 640 : 1050);
     musicFilter.frequency.setTargetAtTime(base, c.currentTime, 2.5);
   }
 }
