@@ -10,6 +10,12 @@ import coinsUrl from "./samples/coins.ogg";
 import chipsUrl from "./samples/chips.ogg";
 import clickUrl from "./samples/click.ogg";
 import buildUrl from "./samples/build.ogg";
+import warnUrl from "./samples/warn.ogg";
+import deniedUrl from "./samples/denied.ogg";
+import levelupUrl from "./samples/levelup.ogg";
+import milestoneUrl from "./samples/milestone.ogg";
+import discoverUrl from "./samples/discover.ogg";
+import impactUrl from "./samples/impact.ogg";
 
 const KEY = "fastighetsimperium:sound";
 const VOL_KEY = "fastighetsimperium:volume";
@@ -156,6 +162,12 @@ const SAMPLE_URLS: Record<string, string> = {
   chips: chipsUrl,
   click: clickUrl,
   build: buildUrl,
+  warn: warnUrl,
+  denied: deniedUrl,
+  levelup: levelupUrl,
+  milestone: milestoneUrl,
+  discover: discoverUrl,
+  impact: impactUrl,
 };
 const buffers: Record<string, AudioBuffer | undefined> = {};
 let samplesRequested = false;
@@ -234,9 +246,10 @@ export function playIncome(): void {
   tone(880, 0.09, 0.16, "sine", 0.06);
 }
 
-/** Varning – lågt fallande surr. */
+/** Varning – CC0-fallande larm (Kenney), annars lågt surr. */
 export function playWarn(): void {
   if (!enabled) return;
+  if (playSample("warn", 0.4)) return;
   tone(300, 0, 0.16, "sawtooth", 0.05);
   tone(210, 0.12, 0.22, "sawtooth", 0.05);
 }
@@ -283,17 +296,27 @@ export function playLease(): void {
   tone(622, 0.08, 0.16, "sine", 0.05);
 }
 
-/** Nivåhöjning – triumffanfar. */
+/** Nivåhöjning – CC0-stigande svep (Kenney), annars triumffanfar. */
 export function playLevelUp(): void {
   if (!enabled) return;
+  if (playSample("levelup", 0.5)) return;
   [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.1, 0.24, "triangle", 0.06));
 }
 
-/** Milstolpe – klar liten bjällra. */
+/** Milstolpe – CC0-upptäcktsjingel (Kenney), annars klar bjällra. */
 export function playMilestone(): void {
   if (!enabled) return;
+  if (playSample("milestone", 0.45)) return;
   tone(1318, 0, 0.5, "sine", 0.05);
   tone(1046, 0.05, 0.4, "sine", 0.035);
+}
+
+/** Upptäckt – morfars minneslappar m.m. CC0-jingel (Kenney), annars bjällra. */
+export function playDiscover(): void {
+  if (!enabled) return;
+  if (playSample("discover", 0.45)) return;
+  tone(880, 0, 0.14, "sine", 0.05);
+  tone(1175, 0.1, 0.25, "sine", 0.05);
 }
 
 /* ── Berättelselägets ljud ──────────────────────────────────────────── */
@@ -353,16 +376,21 @@ export function playAlert(): void {
   tone(740, 0.2, 0.14, "square", 0.045);
 }
 
-/** Katastrof/skada – dov smäll. */
+/** Katastrof/skada – CC0-stenslag (Kenney) + bastryck, annars dov smäll. */
 export function playImpact(): void {
   if (!enabled) return;
+  if (playSample("impact", 0.55)) {
+    tone(90, 0, 0.35, "sine", 0.05);
+    return;
+  }
   noise(0, 0.35, 0.08, 700);
   tone(90, 0, 0.4, "sine", 0.06);
 }
 
-/** Nekad åtgärd – kort låg dubbelknäpp. */
+/** Nekad åtgärd – kort CC0-felknäpp (Kenney), annars låg dubbelknäpp. */
 export function playDenied(): void {
   if (!enabled) return;
+  if (playSample("denied", 0.4)) return;
   tone(180, 0, 0.08, "square", 0.04);
   tone(150, 0.09, 0.1, "square", 0.04);
 }

@@ -8,6 +8,7 @@
      och räknas som hittad (FOUND_NOTE i reducern).                 */
 
 import { Html } from "@react-three/drei";
+import { playDiscover } from "../audio/sound";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
@@ -159,6 +160,7 @@ export function MemoryNotes() {
   })();
 
   const open = (id: string) => {
+    playDiscover();
     dispatch({ type: "FOUND_NOTE", id });
     setOpenNote(id);
   };
