@@ -22,11 +22,13 @@ const BLOCK_PARCELS: Map<string, string[]> = (() => {
   return m;
 })();
 
-/** Alla kvarter som spelaren äger i sin helhet (varje tomt = ägd fastighet). */
+/** Alla kvarter som spelaren äger i sin helhet. Ägd, obebyggd tomtmark
+ *  (köpta lots) räknas också – marken är din även utan hus på den. */
 export function fullyOwnedBlocks(state: GameState): string[] {
   const ownedParcels = new Set(
     state.portfolio.filter((p) => p.parcelId).map((p) => p.parcelId!),
   );
+  for (const l of state.lots) if (l.owned && l.parcelId) ownedParcels.add(l.parcelId);
   const out: string[] = [];
   for (const [blockId, parcelIds] of BLOCK_PARCELS) {
     if (parcelIds.every((id) => ownedParcels.has(id))) out.push(blockId);
@@ -49,7 +51,7 @@ export function hasBlockBonus(p: Property, state: GameState): boolean {
 
 /** Antal tomter som saknas för att kvarteret ska bli helägt (0 = klart). */
 export function blockGap(p: Property, state: GameState): number | null {
-  if (!p.parcelId) return null;
+  if (!p.parcelId || p.signature) return null; // signaturkvarter ÄR kvarteret
   const parcel = parcelById(p.parcelId);
   if (!parcel) return null;
   const parcelIds = BLOCK_PARCELS.get(parcel.blockId);

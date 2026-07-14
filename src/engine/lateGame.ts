@@ -17,6 +17,7 @@
    Ren logik utan React-beroenden.
    ============================================================ */
 
+import { cityProfileById } from "./cityProjects";
 import { esgRatingOf } from "./esg";
 import type { GameState } from "./types";
 
@@ -182,6 +183,7 @@ export interface DynastyBreakdown {
   utdelningar: number;
   lyxOchDonationer: number;
   megaprojekt: number;
+  stadsdelar: number;
   esg: number;
   nojdhet: number;
   reglerat: number;
@@ -200,6 +202,10 @@ export function dynastyScore(s: GameState): DynastyBreakdown {
     (a, id) => a + (MEGA_PROJECTS.find((m) => m.id === id)?.dynasty ?? 0),
     0,
   );
+  const stadsdelar = (s.signatureBlocks ?? []).reduce(
+    (a, b) => a + (cityProfileById(b.profile)?.dynasty ?? 0),
+    0,
+  );
   const esgLetter = esgRatingOf(s).letter;
   const esg = esgLetter === "A" ? 150 : esgLetter === "B" ? 75 : 0;
   const klara = s.portfolio.filter((p) => p.status === "klar");
@@ -209,7 +215,7 @@ export function dynastyScore(s: GameState): DynastyBreakdown {
     : 0;
   const nojdhet = avgSat >= 70 ? 100 : avgSat >= 55 ? 40 : 0;
   const reglerat = klara.filter((p) => p.regulated).length * 10;
-  const total = utdelningar + lyxOchDonationer + megaprojekt + esg + nojdhet + reglerat;
+  const total = utdelningar + lyxOchDonationer + megaprojekt + stadsdelar + esg + nojdhet + reglerat;
   const grade = total >= 1000 ? "S" : total >= 600 ? "A" : total >= 300 ? "B" : total >= 100 ? "C" : "E";
   const gradeLabel =
     grade === "S" ? "Dynasti – staden bär ditt namn"
@@ -217,5 +223,5 @@ export function dynastyScore(s: GameState): DynastyBreakdown {
     : grade === "B" ? "Mecenat – staden minns dig"
     : grade === "C" ? "Framgångsrik – men vad lämnar du efter dig?"
     : "Kapitalist – pengarna dog med bolaget";
-  return { utdelningar, lyxOchDonationer, megaprojekt, esg, nojdhet, reglerat, total, grade, gradeLabel };
+  return { utdelningar, lyxOchDonationer, megaprojekt, stadsdelar, esg, nojdhet, reglerat, total, grade, gradeLabel };
 }

@@ -4,6 +4,14 @@
 
 import { useState } from "react";
 import { fullyOwnedBlocks } from "../engine/blocks";
+import {
+  CITY_PROJECT_MIN_LEVEL,
+  CITY_PROJECT_PROFILES,
+  blockDistrictName,
+  cityProfileById,
+  cityProjectCost,
+  eligibleCityBlocks,
+} from "../engine/cityProjects";
 import { kr, msek } from "../engine/format";
 import { LUXURIES, MEGA_PROJECTS, dynastyScore } from "../engine/lateGame";
 import type { GameAction, GameState } from "../engine/types";
@@ -28,6 +36,8 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
   const owned = new Set(state.ownerLuxuries ?? []);
   const blocks = fullyOwnedBlocks(state);
   const freeBlocks = blocks.filter((b) => !(state.megaActive ?? []).some((m) => m.blockId === b));
+  const cityBlocks = eligibleCityBlocks(state, blocks);
+  const levelOk = (state.companyLevel ?? 1) >= CITY_PROJECT_MIN_LEVEL;
 
   // Utdelning: flytta pengar från bolagets kassa till ägarens privata förmögenhet.
   const divCap = Math.max(0, state.cash - DIVIDEND_CASH_FLOOR);
@@ -46,6 +56,7 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
         <div style={P.row}><span>Utdelat till ägaren</span><strong>{dyn.utdelningar} p</strong></div>
         <div style={P.row}><span>Lyx & donationer</span><strong>{dyn.lyxOchDonationer} p</strong></div>
         <div style={P.row}><span>Megaprojekt</span><strong>{dyn.megaprojekt} p</strong></div>
+        <div style={P.row}><span>Signaturkvarter</span><strong>{dyn.stadsdelar} p</strong></div>
         <div style={P.row}><span>ESG-bestånd</span><strong>{dyn.esg} p</strong></div>
         <div style={P.row}><span>Nöjda hyresgäster</span><strong>{dyn.nojdhet} p</strong></div>
         <div style={P.row}><span>Reglerade bostäder (allmännytta)</span><strong>{dyn.reglerat} p</strong></div>
@@ -135,6 +146,65 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
             );
           })}
         </div>
+      </div>
+
+      {/* ── Stadsdelsprojekt ─────────────────────────────────────── */}
+      <div style={P.card}>
+        <div style={P.title}>🏙️ Stadsdelsprojekt</div>
+        <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 10 }}>
+          Riv ett HELÄGT kvarter i stenstaden och bygg ett signaturkvarter — miljardbygge i
+          flera år som permanent lyfter hela distriktet och skriver om stadens siluett.
+          {!levelOk && ` Kräver bolagsnivå ${CITY_PROJECT_MIN_LEVEL}.`}
+          {levelOk && cityBlocks.length === 0 && " Du har inget ledigt helägt kvarter (köp alla fastigheter i ett slutet kvarter i Centrum eller Innerstaden)."}
+        </div>
+        {(state.cityProjects ?? []).map((m) => {
+          const prof = cityProfileById(m.profile)!;
+          return (
+            <div key={m.blockId} style={{ ...P.row, fontWeight: 700 }}>
+              <span>{prof.icon} {prof.name} i {blockDistrictName(m.blockId)} — bygget pågår</span>
+              <span>{m.monthsLeft} mån kvar</span>
+            </div>
+          );
+        })}
+        {(state.signatureBlocks ?? []).map((sb) => {
+          const prof = cityProfileById(sb.profile)!;
+          return (
+            <div key={sb.blockId} style={{ ...P.row, color: "#b8860b", fontWeight: 700 }}>
+              <span>🏆 {prof.icon} {prof.name} i {blockDistrictName(sb.blockId)}</span>
+              <span>invigt</span>
+            </div>
+          );
+        })}
+        {CITY_PROJECT_PROFILES.map((prof) => {
+          const block = cityBlocks[0];
+          const cost = block ? cityProjectCost(block, prof, state) : 0;
+          const canStart = levelOk && !!block && state.cash >= cost;
+          return (
+            <div key={prof.id} style={{ borderTop: "1px solid #e8edf3", padding: "8px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
+                <span>{prof.icon} {prof.name}</span>
+                <span style={{ color: "#5d6b7c" }}>
+                  {block ? msek(cost) : "—"} · {prof.months} mån · +{prof.dynasty} p
+                </span>
+              </div>
+              <div style={{ fontSize: 11.5, color: "#8291a3", margin: "2px 0 6px" }}>
+                {prof.desc} Distriktet lyfter permanent (+{Math.round(prof.devBoost * 100)} %), rykte +{prof.reputation}.
+              </div>
+              <button
+                style={{
+                  padding: "4px 12px", borderRadius: 6, fontSize: 11.5, fontWeight: 700, border: "none",
+                  cursor: canStart ? "pointer" : "default",
+                  background: canStart ? BURGUNDY : "#dde4ec", color: canStart ? "#fff" : "#8291a3",
+                }}
+                disabled={!canStart}
+                title={!levelOk ? `Kräver bolagsnivå ${CITY_PROJECT_MIN_LEVEL}` : !block ? "Kräver ett ledigt helägt kvarter i stenstaden" : state.cash < cost ? `Kassan räcker inte (${kr(cost)})` : ""}
+                onClick={() => block && dispatch({ type: "START_CITY_PROJECT", blockId: block, profile: prof.id })}
+              >
+                Byggstarta{block ? ` (kvarter ${block}, ${blockDistrictName(block)})` : ""}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Megaprojekt ──────────────────────────────────────────── */}

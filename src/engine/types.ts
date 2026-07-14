@@ -304,9 +304,20 @@ export interface StoryState {
   done?: boolean;
 }
 
-/** En pågående egen detaljplansprocess på köpt råmark. */
-export interface PlanProcess {
+/** Ett pågående stadsdelsprojekt: ett helägt kvarter rivs och byggs om
+ *  till ett signaturkvarter med vald arkitektprofil (cityProjects.ts). */
+export interface CityProject {
   blockId: string;
+  /** Arkitektprofil (kontorskluster/bostadskvarter/kulturstråk). */
+  profile: string;
+  district: string;
+  monthsLeft: number;
+  totalMonths: number;
+  cost: number;
+}
+
+/** En pågående egen detaljplansprocess på köpt råmark. */
+export interface PlanProcess {  blockId: string;
   district: string;
   districtName: string;
   /** Samråd → granskning → (ev. överklagad) → laga kraft vid 0 mån. */
@@ -403,6 +414,9 @@ export interface Property {
   brokerMandate?: boolean;
   /** Berättelseläget: "arvet" = morfars hus, "revansch" = grannhuset i kap 7. */
   storyTag?: string;
+  /** Signaturkvarter (stadsdelsprojekt): profil-id. Fastigheten ÄR ett helt
+   *  kvarter byggt av spelaren – ritas med egen kvartersarkitektur i 3D. */
+  signature?: string;
   /** Beställda arbeten (underhåll, uppgraderingar, kampanjer …) som får
    *  effekt först vid kommande månadsskiften. */
   pendingWorks?: PendingWork[];
@@ -686,6 +700,10 @@ export interface GameState {
   megaActive?: { projectId: string; blockId: string; district: string; monthsLeft: number; totalMonths: number }[];
   /** Färdigställda megaprojekt (projekt-id:n). */
   megaCompleted?: string[];
+  /** Pågående stadsdelsprojekt: helägda kvarter som rivs och byggs om. */
+  cityProjects?: CityProject[];
+  /** Färdigställda signaturkvarter (kvarter + arkitektprofil). */
+  signatureBlocks?: { blockId: string; profile: string }[];
   /** Ägarens privata förmögenhet – byggs av utdelningar. */
   ownerWealth?: number;
   /** Ägarens köpta lyx och donationer (lyx-id:n). */
@@ -828,6 +846,7 @@ export type GameAction =
   | { type: "REPAY_REVOLVING"; amount: number }
   | { type: "PAY_DIVIDEND"; amount: number }
   | { type: "START_MEGA"; projectId: string; blockId: string }
+  | { type: "START_CITY_PROJECT"; blockId: string; profile: string }
   | { type: "BUY_LUXURY"; luxuryId: string }
   | { type: "BUY_AMBIENT"; parcelId: string }
   | { type: "BUY_RAW_LAND"; blockId: string }

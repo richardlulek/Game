@@ -335,7 +335,10 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   // uthyrt = tänt, lågt skick = smutsig/sliten fasad.
   let variant: FacadeVariant = "normal";
   let solar = false;
-  if ("prop" in content) {
+  // Signaturkvarter ritas av SignatureBlocks över HELA kvarteret –
+  // standardhuset på mittentomten skulle krocka med arkitekturen.
+  const isSignature = "prop" in content && !!content.prop.signature;
+  if ("prop" in content && !isSignature) {
     const p = content.prop;
     underConstruction = p.status === "bygger";
     constructionProgress = underConstruction
@@ -365,7 +368,8 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       windows: !overlayActive,
     };
   }
-  const fullH = building ? building.floors * FLOOR_HEIGHT : 0;
+  // Signaturkvarterets ikoner/etiketter svävar över tornen (ritas separat).
+  const fullH = building ? building.floors * FLOOR_HEIGHT : isSignature ? 46 : 0;
 
   // Helägda kvarter markeras med guldring på varje ingående tomt.
   const ringColor = selected

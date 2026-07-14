@@ -27,6 +27,7 @@ import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
 import { Roads, Traffic } from "./Roads";
+import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
 
 const LABEL_STYLE: React.CSSProperties = {
@@ -130,7 +131,21 @@ function CityParcels() {
   // Identiteten måste vara innehållsstabil: byParcel byggs om varje
   // månad (marknadsläget ändras), men de sammanslagna geometrierna
   // ska bara byggas om när tomtupptagningen faktiskt ändras.
-  const occupiedKey = useMemo(() => [...byParcel.keys()].sort().join(","), [byParcel]);
+  // Stadsdelsprojektens kvarter räknas som upptagna i sin helhet så att
+  // varken dekorhus eller träd ritas under byggplank och signaturarkitektur.
+  const projectBlocks = useMemo(
+    () =>
+      new Set(
+        [...(state.cityProjects ?? []), ...(state.signatureBlocks ?? [])].map((x) => x.blockId),
+      ),
+    [state.cityProjects, state.signatureBlocks],
+  );
+  const occupiedKey = useMemo(() => {
+    const ids = new Set(byParcel.keys());
+    if (projectBlocks.size > 0)
+      for (const p of PARCELS) if (projectBlocks.has(p.blockId)) ids.add(p.id);
+    return [...ids].sort().join(",");
+  }, [byParcel, projectBlocks]);
   const occupied = useMemo(
     () => new Set(occupiedKey ? occupiedKey.split(",") : []),
     [occupiedKey],
@@ -276,6 +291,7 @@ export function CityCanvas() {
       <CityParcels />
       <Harbor />
       <Landmarks />
+      <SignatureBlocks />
       <Headquarters />
       <OwnerLuxuries />
       <RoggeCar />

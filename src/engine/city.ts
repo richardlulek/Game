@@ -325,7 +325,9 @@ export function hasAmbientBuilding(p: Parcel, grown?: ReadonlySet<string>): bool
   return parcelHash(p.id) % 100 < chance;
 }
 
-/** Tomt-id:n som upptas av spelobjekt (ägda/annonser/tomter/rivaler). */
+/** Tomt-id:n som upptas av spelobjekt (ägda/annonser/tomter/rivaler).
+ *  Stadsdelsprojekt (pågående och invigda) tar HELA sitt kvarter i anspråk –
+ *  signaturfastigheten bär bara en tomtruta men arkitekturen fyller kvarteret. */
 export function occupiedParcelIds(state: GameState): Set<string> {
   const used = new Set<string>();
   for (const p of state.portfolio) if (p.parcelId) used.add(p.parcelId);
@@ -333,6 +335,12 @@ export function occupiedParcelIds(state: GameState): Set<string> {
   for (const l of state.lots) if (l.parcelId) used.add(l.parcelId);
   for (const c of state.competitors)
     for (const p of c.portfolio ?? []) if (p.parcelId) used.add(p.parcelId);
+  const projectBlocks = new Set([
+    ...(state.cityProjects ?? []).map((x) => x.blockId),
+    ...(state.signatureBlocks ?? []).map((x) => x.blockId),
+  ]);
+  if (projectBlocks.size > 0)
+    for (const p of PARCELS) if (projectBlocks.has(p.blockId)) used.add(p.id);
   return used;
 }
 
@@ -434,6 +442,14 @@ export function placeCity(state: GameState): GameState {
   state.lots.forEach(reserve);
   state.listings.forEach(reserve);
   for (const c of state.competitors) (c.portfolio ?? []).forEach(reserve);
+  // Stadsdelsprojektens kvarter är byggarbetsplats/signaturarkitektur –
+  // inga nya objekt får placeras där.
+  const projectBlocks = new Set([
+    ...(state.cityProjects ?? []).map((x) => x.blockId),
+    ...(state.signatureBlocks ?? []).map((x) => x.blockId),
+  ]);
+  if (projectBlocks.size > 0)
+    for (const p of PARCELS) if (projectBlocks.has(p.blockId)) reserved.add(p.id);
 
   // Pass 2: behåll giltiga rutor, dela bara ut nya till objekt som saknar en –
   // och styr aldrig en nykomling till en ruta som redan är reserverad.

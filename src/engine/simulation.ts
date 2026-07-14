@@ -5,6 +5,7 @@
 
 import { fullyOwnedBlocks } from "./blocks";
 import { EXPANSION_BLOCKS, PARCELS, districtsWithSpace, emptyParcels, pickFrontierParcel } from "./city";
+import { blockInfo, cityProfileById, signatureArea } from "./cityProjects";
 import { planTick, rawLandPrice } from "./cityPlan";
 import {
   OVERLOAD_COST_PER_PROP,
@@ -1135,6 +1136,74 @@ export function advanceMonth(state: GameState): GameState {
         s.reputation = Math.min(100, s.reputation + proj.reputation);
         events.push({
           t: `${proj.icon} INVIGNING: ${proj.name} står klar! Hela staden firar — området lyfter och ditt namn skrivs in i historien.`,
+          kind: "event",
+        });
+      }
+    }
+
+    // Stadsdelsprojekt tickar och invigs: kvarteret blir EN signaturfastighet
+    // och distriktet lyfts permanent.
+    if ((s.cityProjects ?? []).length > 0) {
+      const doneProjects: NonNullable<GameState["cityProjects"]> = [];
+      s.cityProjects = (s.cityProjects ?? [])
+        .map((m) => ({ ...m, monthsLeft: m.monthsLeft - 1 }))
+        .filter((m) => {
+          if (m.monthsLeft <= 0) {
+            doneProjects.push(m);
+            return false;
+          }
+          return true;
+        });
+      for (const m of doneProjects) {
+        const profile = cityProfileById(m.profile)!;
+        const info = blockInfo(m.blockId)!;
+        const area = signatureArea(m.blockId, profile);
+        const d = DISTRICTS.find((x) => x.id === m.district)!;
+        // Kvarterets mittersta tomt bär fastigheten (3D:n ritar hela kvarteret).
+        const cx = info.parcels.reduce((a, p) => a + p.x, 0) / info.parcels.length;
+        const cz = info.parcels.reduce((a, p) => a + p.z, 0) / info.parcels.length;
+        const center = info.parcels.reduce((a, p) =>
+          Math.hypot(p.x - cx, p.z - cz) < Math.hypot(a.x - cx, a.z - cz) ? p : a,
+        );
+        s.portfolio = [
+          ...s.portfolio,
+          {
+            id: newId(),
+            district: m.district,
+            districtName: d.name,
+            type: profile.type,
+            typeLabel: `Signaturkvarter · ${profile.name}`,
+            area,
+            condition: 100,
+            askPrice: Math.round(m.cost * 1.05),
+            baseRent: Math.round(m.cost * profile.yieldOnCost),
+            purchasePrice: m.cost,
+            upgrades: [],
+            owned: true,
+            rentMult: 1,
+            opexMult: 1,
+            vacancyMult: 1,
+            valueMult: 1,
+            tenants: [],
+            capacity: Math.min(9, Math.floor(area / 4000) + 4),
+            status: "klar",
+            buildLeft: 0,
+            parcelId: center.id,
+            energyClass: "A",
+            builtYear: s.year,
+            wholeBlock: true,
+            signature: profile.id,
+            txHistory: [{ type: "nybygg", price: m.cost, month: s.month, year: s.year, party: "Spelaren (stadsdelsprojekt)" }],
+          },
+        ];
+        s.signatureBlocks = [...(s.signatureBlocks ?? []), { blockId: m.blockId, profile: profile.id }];
+        s.districtDev = {
+          ...(s.districtDev ?? {}),
+          [m.district]: +(((s.districtDev?.[m.district] ?? 1) + profile.devBoost).toFixed(3)),
+        };
+        s.reputation = Math.min(100, s.reputation + profile.reputation);
+        events.push({
+          t: `${profile.icon} INVIGNING: Signaturkvarteret ${profile.name} i ${d.name} står klart! ${Math.round(area / 1000)} tusen m² slår upp portarna, hela distriktet lyfter och stadens siluett är för alltid förändrad.`,
           kind: "event",
         });
       }

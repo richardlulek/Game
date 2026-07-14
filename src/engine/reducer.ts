@@ -9,6 +9,14 @@ import { newPlanProcess, planFee, rawLandPrice } from "./cityPlan";
 import { nextTier, qualifiesFor } from "./company";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "./data";
 import { fullyOwnedBlocks } from "./blocks";
+import {
+  CITY_PROJECT_MIN_LEVEL,
+  blockDistrictName,
+  blockInfo,
+  cityProfileById,
+  cityProjectCost,
+  eligibleCityBlocks,
+} from "./cityProjects";
 import { equityOf, loanTerms } from "./finance";
 import { ambientAsk, ambientProfile, ambientValue } from "./landDeals";
 import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
@@ -1855,6 +1863,58 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, state.reputation + 2),
         log: [
           { t: `${proj.icon} MEGAPROJEKT: ${proj.name} byggstartar (${msek(proj.cost)}, klart om ~${proj.months} mån). Staden häpnar.`, kind: "event" },
+          ...state.log,
+        ],
+      };
+    }
+    case "START_CITY_PROJECT": {
+      // Stadsdelsprojekt: riv ett HELÄGT kvarter och bygg ett signaturkvarter.
+      // Kvarterets fastigheter försvinner ur portföljen (rivs), hyrorna tystnar
+      // under byggåren och kassan töms – slutspelets kapitalsänka.
+      const profile = cityProfileById(action.profile);
+      if (!profile) return state;
+      const info = blockInfo(action.blockId);
+      if (!info) return log(state, "Stadsdelsprojekt kräver ett slutet kvarter med flera tomter (stenstaden).", "warn");
+      if ((state.companyLevel ?? 1) < CITY_PROJECT_MIN_LEVEL)
+        return log(state, `Staden släpper bara fram kvartersbyggen för etablerade bolag (bolagsnivå ${CITY_PROJECT_MIN_LEVEL}).`, "warn");
+      if (!eligibleCityBlocks(state, fullyOwnedBlocks(state)).includes(action.blockId))
+        return log(state, "Kvarteret är inte helägt eller används redan av ett projekt.", "warn");
+      const cost = cityProjectCost(action.blockId, profile, state);
+      if (state.cash < cost)
+        return log(state, `${profile.name} på kvarteret kostar ${msek(cost)} — kassan räcker inte.`, "warn");
+      const blockParcelIds = new Set(info.parcels.map((p) => p.id));
+      const demolished = state.portfolio.filter((p) => p.parcelId && blockParcelIds.has(p.parcelId));
+      const demolishedIds = new Set(demolished.map((p) => p.id));
+      return {
+        ...state,
+        cash: state.cash - cost,
+        portfolio: state.portfolio.filter((p) => !demolishedIds.has(p.id)),
+        lots: state.lots.filter((l) => !(l.owned && l.parcelId && blockParcelIds.has(l.parcelId))),
+        // Rivna hus: utestående bud, säljuppdrag och förhandlingar är inaktuella.
+        offers: (state.offers ?? []).filter(
+          (o) => !demolishedIds.has(o.propId) && !(o.propertyIds ?? []).some((id) => demolishedIds.has(id)),
+        ),
+        salePackages: (state.salePackages ?? []).filter(
+          (pk) => !pk.propertyIds.some((id) => demolishedIds.has(id)),
+        ),
+        pendingRenewals: (state.pendingRenewals ?? []).filter((r) => !demolishedIds.has(r.propertyId)),
+        cityProjects: [
+          ...(state.cityProjects ?? []),
+          {
+            blockId: action.blockId,
+            profile: profile.id,
+            district: info.district,
+            monthsLeft: profile.months,
+            totalMonths: profile.months,
+            cost,
+          },
+        ],
+        reputation: Math.min(100, state.reputation + 2),
+        log: [
+          {
+            t: `${profile.icon} STADSDELSPROJEKT: ${profile.name} byggstartar i ${blockDistrictName(action.blockId)} — ${demolished.length} hus rivs, ${msek(cost)} investeras, klart om ~${profile.months} mån. Staden har aldrig sett något liknande.`,
+            kind: "event",
+          },
           ...state.log,
         ],
       };
