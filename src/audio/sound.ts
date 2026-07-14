@@ -13,7 +13,6 @@ import buildUrl from "./samples/build.ogg";
 import coffeeUrl from "./music/coffee-shop-jazz.mp3";
 import bigcityUrl from "./music/big-city-big-dreams.mp3";
 import deniedUrl from "./samples/denied.ogg";
-import levelupUrl from "./samples/levelup.ogg";
 import milestoneUrl from "./samples/milestone.ogg";
 import discoverUrl from "./samples/discover.ogg";
 import impactUrl from "./samples/impact.ogg";
@@ -164,7 +163,6 @@ const SAMPLE_URLS: Record<string, string> = {
   click: clickUrl,
   build: buildUrl,
   denied: deniedUrl,
-  levelup: levelupUrl,
   milestone: milestoneUrl,
   discover: discoverUrl,
   impact: impactUrl,
@@ -311,11 +309,16 @@ export function playLease(): void {
   tone(622, 0.08, 0.16, "sine", 0.05);
 }
 
-/** Nivåhöjning – CC0-stigande svep (Kenney), annars triumffanfar. */
+/** Nivåhöjning – varm mässingsfanfar i fyra stigande steg med bottenoktav
+    och avslutande skimmer (ersatte ett arkadigt Kenney-svep). */
 export function playLevelUp(): void {
   if (!enabled) return;
-  if (playSample("levelup", 0.5)) return;
-  [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.1, 0.24, "triangle", 0.06));
+  const steps: [number, number][] = [[523, 0], [659, 0.11], [784, 0.22], [1046, 0.34]];
+  for (const [f, at] of steps) {
+    tone(f, at, 0.32, "triangle", 0.055);
+    tone(f / 2, at, 0.3, "sine", 0.028); // varm botten under varje ton
+  }
+  tone(1568, 0.36, 0.55, "sine", 0.018); // skimmer på toppen
 }
 
 /** Milstolpe – CC0-upptäcktsjingel (Kenney), annars klar bjällra. */
