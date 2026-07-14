@@ -237,16 +237,53 @@ export function reducer(state: GameState, action: GameAction): GameState {
         };
       }
       const withdrawn = Math.random() < 0.25;
+      if (!withdrawn)
+        return {
+          ...state,
+          log: [
+            { t: `Ditt bud på ${p.typeLabel} i ${p.districtName} (${msek(bid)}) avvisades. Försök igen eller höj budet.`, kind: "warn" },
+            ...state.log,
+          ],
+        };
+      // Säljaren tog ett annat bud – huset försvinner INTE från kartan:
+      // köparen är ett av stadens bolag och fastigheten flyttar till dess
+      // portfölj med tomtrutan kvar. Utan bolag återgår den till poolen.
+      const rival =
+        state.competitors.length > 0
+          ? state.competitors[Math.floor(Math.random() * state.competitors.length)]
+          : undefined;
+      const paid = Math.max(bid + 1, Math.round(p.askPrice * 0.97));
+      const soldAway: Property = {
+        ...p,
+        owned: false,
+        askPrice: paid,
+        listedMonth: undefined,
+        expiresMonth: undefined,
+        poolAskPrice: undefined,
+        poolBaseRent: undefined,
+        ...(rival ? {} : { parcelId: undefined }),
+        txHistory: [
+          ...(p.txHistory ?? []),
+          { type: "köp" as const, price: paid, month: state.month, year: state.year, party: rival?.name ?? "Okänd köpare" },
+        ],
+      };
       return {
         ...state,
-        listings: withdrawn ? state.listings.filter((x) => x.id !== p.id) : state.listings,
-        competingBid:
-          withdrawn && state.competingBid?.listingId === p.id ? undefined : state.competingBid,
+        listings: state.listings.filter((x) => x.id !== p.id),
+        competitors: rival
+          ? state.competitors.map((c) =>
+              c.name === rival.name
+                ? { ...c, portfolio: [...(c.portfolio ?? []), soldAway], cash: Math.max(0, c.cash - paid), units: (c.portfolio?.length ?? 0) + 1 }
+                : c,
+            )
+          : state.competitors,
+        worldPool: rival ? state.worldPool : [...(state.worldPool ?? []), soldAway],
+        competingBid: state.competingBid?.listingId === p.id ? undefined : state.competingBid,
         log: [
           {
-            t: withdrawn
-              ? `Ditt bud på ${p.typeLabel} i ${p.districtName} avvisades – säljaren tog ett annat bud.`
-              : `Ditt bud på ${p.typeLabel} i ${p.districtName} (${msek(bid)}) avvisades. Försök igen eller höj budet.`,
+            t: rival
+              ? `🏢 ${rival.name} vann budgivningen om ${p.typeLabel} i ${p.districtName} (${msek(paid)}) – ditt bud på ${msek(bid)} räckte inte.`
+              : `Ditt bud på ${p.typeLabel} i ${p.districtName} avvisades – säljaren tog ett annat bud.`,
             kind: "warn",
           },
           ...state.log,

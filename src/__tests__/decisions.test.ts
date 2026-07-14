@@ -81,4 +81,23 @@ describe("PLACE_BID (utgående bud på marknadsobjekt)", () => {
     expect(next.listings).toHaveLength(1);
     expect(next.portfolio).toHaveLength(0);
   });
+
+  it("säljaren tar annat bud: huset försvinner inte utan går till ett stadsbolag", () => {
+    // roll 1 (0.99): budet avvisas · roll 2 (0.1): säljaren tar annat bud
+    // roll 3 (0.0): första rivalen blir köpare.
+    vi.spyOn(Math, "random")
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.1)
+      .mockReturnValue(0.0);
+    const placed: Property = { ...listing, parcelId: "pc-test" };
+    const rival = { name: "Nordfast AB", cash: 50_000_000, units: 0, equity: 0, portfolio: [], strategy: "värde" as const, agenda: { kind: "units" as const, target: 5, label: "" } };
+    const s = makeState({ listings: [placed], competitors: [rival], cash: 5_000_000, debt: 0 });
+    const next = reducer(s, { type: "PLACE_BID", id: 7, amount: 3_200_000 });
+    expect(next.listings).toHaveLength(0);
+    expect(next.portfolio).toHaveLength(0);
+    const bought = next.competitors[0].portfolio.find((p) => p.id === 7);
+    expect(bought).toBeDefined();
+    expect(bought!.parcelId).toBe("pc-test"); // tomtrutan (och huset) står kvar
+    expect(bought!.expiresMonth).toBeUndefined();
+  });
 });

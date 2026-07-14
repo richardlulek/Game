@@ -82,6 +82,17 @@ describe("placeCity", () => {
     expect(again.portfolio[0].parcelId).toBe(first);
   });
 
+  it("annonser tar över stående dekorhus – inga nybyggen ur tomma intet", () => {
+    // En annons utan ruta ska hamna på en tomt där ett privathus redan står
+    // (så länge distriktet har några), inte på obebyggd mark.
+    const s = makeState({
+      listings: [makeProperty({ id: 2, district: "centrum", owned: false })],
+    });
+    const placed = placeCity(s);
+    const parcel = parcelById(placed.listings[0].parcelId!)!;
+    expect(hasAmbientBuilding(parcel)).toBe(true);
+  });
+
   it("löser krockar: två objekt med samma ruta separeras", () => {
     const s = makeState({
       portfolio: [

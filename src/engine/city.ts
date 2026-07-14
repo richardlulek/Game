@@ -371,10 +371,22 @@ export function claimRandomParcel(
   occupied: Set<string>,
   allowed?: (p: Parcel) => boolean,
   grown?: ReadonlySet<string>,
+  preferAmbient = false,
 ): Parcel {
   const all = parcelsIn(district).filter((p) => (allowed ? allowed(p) : !p.expansion));
   const free = all.filter((p) => !occupied.has(p.id));
   const empty = free.filter((p) => !hasAmbientBuilding(p, grown));
+  // Befintliga hus till salu (preferAmbient): ta helst över en tomt där ett
+  // privathus redan står – skylten dyker upp på ett stående hus i stället
+  // för att en byggnad materialiseras ur tomma intet på obebyggd mark.
+  if (preferAmbient) {
+    const decor = free.filter((p) => hasAmbientBuilding(p, grown));
+    if (decor.length > 0) {
+      const chosen = decor[Math.floor(Math.random() * decor.length)];
+      occupied.add(chosen.id);
+      return chosen;
+    }
+  }
   const pool = empty.length ? empty : free.length ? free : all;
   // Kontinuerlig tillväxt: nya hus reser sig helst intill redan bebyggd mark i
   // distriktet, så området växer UTÅT i ett sammanhängande stråk i stället för
@@ -426,21 +438,21 @@ export function placeCity(state: GameState): GameState {
   // Pass 2: behåll giltiga rutor, dela bara ut nya till objekt som saknar en –
   // och styr aldrig en nykomling till en ruta som redan är reserverad.
   const used = new Set<string>();
-  function claimFor<T extends { district: string; parcelId?: string }>(o: T): T {
+  function claimFor<T extends { district: string; parcelId?: string }>(o: T, preferAmbient: boolean): T {
     if (o.parcelId && BY_ID.has(o.parcelId) && !used.has(o.parcelId)) {
       used.add(o.parcelId);
       return o;
     }
     const occ = new Set<string>([...used, ...reserved]);
-    const parcel = claimRandomParcel(o.district, occ, allowed, grown);
+    const parcel = claimRandomParcel(o.district, occ, allowed, grown, preferAmbient);
     used.add(parcel.id);
     anyChanged = true;
     return { ...o, parcelId: parcel.id };
   }
-  function placeArr<T extends { district: string; parcelId?: string }>(arr: T[]): T[] {
+  function placeArr<T extends { district: string; parcelId?: string }>(arr: T[], preferAmbient = false): T[] {
     let changed = false;
     const out = arr.map((o) => {
-      const n = claimFor(o);
+      const n = claimFor(o, preferAmbient);
       if (n !== o) changed = true;
       return n;
     });
@@ -448,9 +460,11 @@ export function placeCity(state: GameState): GameState {
   }
 
   // Ordningen ger stabilitet: spelarens objekt behåller sina rutor först.
+  // Annonser är BEFINTLIGA hus som byter ägare – de tar över dekorhus när
+  // sådana finns, så kartan inte får nybyggen som blinkar in och ut.
   const portfolio = placeArr(state.portfolio);
   const lots = placeArr(state.lots);
-  const listings = placeArr(state.listings);
+  const listings = placeArr(state.listings, true);
   let competitorsChanged = false;
   const competitors = state.competitors.map((c) => {
     const np = placeArr(c.portfolio);
