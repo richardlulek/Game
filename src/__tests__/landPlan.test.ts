@@ -64,6 +64,18 @@ describe("köp av privatägda hus", () => {
     expect(med.ask).toBeGreaterThan(utan.ask);
   });
 
+  it("privathus i Finansdistriktet är storskaliga och kostar minst golvet", () => {
+    // Alla dekorhus i distriktet – inte bara ett – ska klara golvet,
+    // även i lågkonjunktur (marketMod 0.7).
+    const s = makeState({ marketMod: 0.7 });
+    const parcels = parcelsIn("finans").filter((p) => hasAmbientBuilding(p));
+    expect(parcels.length).toBeGreaterThan(0);
+    for (const pc of parcels) {
+      expect(ambientProfile(pc).area).toBeGreaterThanOrEqual(4000);
+      expect(ambientAsk(pc, s).ask).toBeGreaterThanOrEqual(250_000_000);
+    }
+  });
+
   it("nejsägare kräver ~50 % extra", () => {
     const holdout = PARCELS.find((p) => hasAmbientBuilding(p) && ambientProfile(p).holdout);
     expect(holdout).toBeDefined();

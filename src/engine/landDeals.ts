@@ -13,7 +13,7 @@
    ============================================================ */
 
 import { locationFactor, parcelById, parcelHash, type Parcel } from "./city";
-import { DISTRICTS, PROP_TYPES } from "./data";
+import { DISTRICT_GEN, DISTRICTS, PROP_TYPES } from "./data";
 import type { GameState, PropTypeKey } from "./types";
 
 /** Fastighetstyp för ett dekorhus – speglar 3D-vyns typmix per distrikt. */
@@ -44,7 +44,16 @@ export function ambientProfile(parcel: Parcel): AmbientProfile {
   const type = ambientTypeFor(parcel);
   // Yta ur tomtstorlek och ett par "våningar" ur hashen.
   const floors = 2 + (hash % 3);
-  const area = Math.round(parcel.w * parcel.d * 0.55 * floors);
+  let area = Math.round(parcel.w * parcel.d * 0.55 * floors);
+  // Distrikt med prisgolv (Finansdistriktet): även privatägda hus är
+  // storskaliga torn – ytan dras ur distriktsprofilens spann i stället
+  // för tomtens fotavtryck, deterministiskt ur samma hash.
+  const gen = DISTRICT_GEN[parcel.district];
+  if (gen?.minPrice) {
+    const span = Math.max(0, gen.areaMax - gen.areaMin);
+    // >>> håller hashen osignerad – annars kan spannet bli negativt.
+    area = Math.max(area, Math.round(gen.areaMin + (((hash >>> 7) % 1000) / 1000) * span));
+  }
   const condition = 45 + ((hash >> 5) % 41); // 45–85: bebott men inte nytt
   return {
     type,
@@ -102,6 +111,13 @@ export function ambientAsk(parcel: Parcel, state: GameState): AmbientAsk {
   const neighbors = ownedInBlock(state, parcel.blockId);
   let premium = 1.18 + neighbors * 0.06;
   if (prof.holdout) premium *= 1.5;
-  const ask = Math.round((value * premium) / 10_000) * 10_000;
+  let ask = Math.round((value * premium) / 10_000) * 10_000;
+  // Distriktets prisgolv gäller även privatägare: ingen i Finansdistriktet
+  // släpper sitt torn under golvet, oavsett konjunktur.
+  const gen = DISTRICT_GEN[parcel.district];
+  if (gen?.minPrice && ask < gen.minPrice) {
+    ask = gen.minPrice;
+    premium = ask / Math.max(1, value);
+  }
   return { value, ask, premium, holdout: prof.holdout };
 }
