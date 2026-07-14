@@ -140,10 +140,10 @@ function SaveFileButtons({ state, onLoad }: { state: GameState; onLoad: () => vo
   return (
     <>
       <button style={S.toolbarMiniBtn} onClick={doExport} title="Ladda ner en sparfil (JSON) som säkerhetskopia">
-        ⬇︎ Fil
+        ⬇︎
       </button>
       <button style={S.toolbarMiniBtn} onClick={() => fileRef.current?.click()} title="Läs in en tidigare exporterad sparfil">
-        ⬆︎ Fil
+        ⬆︎
       </button>
       <input
         ref={fileRef}

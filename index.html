@@ -20,6 +20,8 @@
     />
     <style>
       html, body, #root { height: 100%; margin: 0; }
+      /* Hemskärms-PWA: statusfältet ligger ovanpå sidan – knuffa ner UI:t. */
+      #root { padding-top: env(safe-area-inset-top, 0px); box-sizing: border-box; }
       body {
         background: #0d1218;
         font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;

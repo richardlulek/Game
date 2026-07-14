@@ -10,7 +10,6 @@ import coinsUrl from "./samples/coins.ogg";
 import chipsUrl from "./samples/chips.ogg";
 import clickUrl from "./samples/click.ogg";
 import buildUrl from "./samples/build.ogg";
-import warnUrl from "./samples/warn.ogg";
 import coffeeUrl from "./music/coffee-shop-jazz.mp3";
 import bigcityUrl from "./music/big-city-big-dreams.mp3";
 import deniedUrl from "./samples/denied.ogg";
@@ -164,7 +163,6 @@ const SAMPLE_URLS: Record<string, string> = {
   chips: chipsUrl,
   click: clickUrl,
   build: buildUrl,
-  warn: warnUrl,
   denied: deniedUrl,
   levelup: levelupUrl,
   milestone: milestoneUrl,
@@ -248,12 +246,27 @@ export function playIncome(): void {
   tone(880, 0.09, 0.16, "sine", 0.06);
 }
 
-/** Varning – CC0-fallande larm (Kenney), annars lågt surr. */
+/** Varning – två mjuka klubbslag i fallande ters. Uppmärksammar loggens
+    varningar utan att gnälla (ersatte ett väl skarpt arkadlarm). */
 export function playWarn(): void {
   if (!enabled) return;
-  if (playSample("warn", 0.4)) return;
-  tone(300, 0, 0.16, "sawtooth", 0.05);
-  tone(210, 0.12, 0.22, "sawtooth", 0.05);
+  const c = audio();
+  if (!c || !sfxBus) return;
+  for (const [f, at] of [[392, 0], [311, 0.17]] as const) {
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = "triangle";
+    const t0 = c.currentTime + at;
+    osc.frequency.setValueAtTime(f, t0);
+    osc.frequency.exponentialRampToValueAtTime(f * 0.94, t0 + 0.1);
+    osc.connect(g);
+    g.connect(sfxBus);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.045, t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+    osc.start(t0);
+    osc.stop(t0 + 0.3);
+  }
 }
 
 /** Kort klick vid knapptryck – CC0-klick (Kenney), annars kort ton. */

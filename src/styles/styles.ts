@@ -231,6 +231,7 @@ export const S: Record<string, CSSProperties> = {
     color: C.creamSoft,
     fontWeight: 600,
     minWidth: 54,
+    whiteSpace: "nowrap",
   },
   toolbarNextBtn: {
     background: BURGUNDY,
@@ -261,6 +262,7 @@ export const S: Record<string, CSSProperties> = {
     borderRadius: 4,
     fontSize: 12,
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
   toolbarWarn: {
     background: BURGUNDY,
