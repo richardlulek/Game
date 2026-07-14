@@ -100,7 +100,7 @@ function genProperty(
   const typeKey = pickType(d.id);
   const t = PROP_TYPES[typeKey];
   const wholeBlock = prof?.wholeBlock ?? false;
-  const area = Math.round(rnd(prof?.areaMin ?? 400, prof?.areaMax ?? 4500));
+  let area = Math.round(rnd(prof?.areaMin ?? 400, prof?.areaMax ?? 4500));
   const condition = Math.round(rnd(condMin, 95));
   const condFactor = 0.6 + (condition / 100) * 0.6;
   // Priset speglar det marknadsvärde säljaren skulle sätta: samma publika,
@@ -109,7 +109,14 @@ function genProperty(
   // varje köp bokförde ~+23 % "gratis" eget kapital (och köp-och-flippa lönade
   // sig). Beläggnings-/hyrespremien lämnas kvar som spelaren själv förtjänar.
   const priceFactor = d.growth * rateValueFactor(state.interestRate);
-  const value = area * d.base * condFactor * state.marketMod * priceFactor * rnd(priceJitter[0], priceJitter[1]);
+  const perM2 = d.base * condFactor * state.marketMod * priceFactor * rnd(priceJitter[0], priceJitter[1]);
+  let value = area * perM2;
+  // Distriktets prisgolv: räcker inte ytan till golvet (t.ex. i lågkonjunktur)
+  // växer huset tills det gör det – golvet ändrar aldrig priset per m².
+  if (prof?.minPrice && value < prof.minPrice) {
+    area = Math.ceil(prof.minPrice / perM2);
+    value = area * perM2;
+  }
   const annualRent = value * t.rentFactor * 12 * (0.7 + (condition / 100) * 0.5);
 
   const p: Property = {
@@ -159,10 +166,12 @@ export function genListing(state: GameState, allowed?: ReadonlySet<string>): Pro
   return p;
 }
 
-/** Genererar en byggbar tomt till salu. */
+/** Genererar en byggbar tomt till salu. Ytan följer distriktets profil så
+    att t.ex. Finansdistriktets tomter bara rymmer storskaliga projekt. */
 export function genLot(state: GameState, allowed?: ReadonlySet<string>): Lot {
   const d = pickDistrict(allowed);
-  const area = Math.round(rnd(600, 3500));
+  const prof = DISTRICT_GEN[d.id];
+  const area = Math.round(rnd(prof?.areaMin ?? 600, prof?.areaMax ?? 3500));
   const price = Math.round(area * d.base * 0.18 * state.marketMod);
   const born = absMonth(state);
   return {

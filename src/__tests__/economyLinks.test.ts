@@ -214,6 +214,18 @@ describe("nyproduktion och generatorer", () => {
     expect(builtYearFor(100, 5)).toBe(5);
     expect(builtYearFor(30, 5)).toBeLessThan(5);
   });
+
+  it("Finansdistriktet har prisgolv: inga små billiga hus, ens i lågkonjunktur", () => {
+    // marketMod 0.7 pressar priserna – golvet ska ändå hålla genom att ytan växer.
+    const s = makeState({ marketMod: 0.7 });
+    const allowed = new Set(["finans"]);
+    for (let i = 0; i < 60; i++) {
+      const p = genListing(s, allowed);
+      expect(p.district).toBe("finans");
+      expect(p.askPrice).toBeGreaterThanOrEqual(250_000_000);
+      expect(p.area).toBeGreaterThanOrEqual(4000);
+    }
+  });
 });
 
 describe("kostnader bokförs exakt en gång", () => {

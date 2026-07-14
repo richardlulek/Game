@@ -4,9 +4,10 @@
    in-memory-lösning (window[SAVE_KEY]).
    ============================================================ */
 
+import { calcCapacity } from "../engine/generators";
 import { agendaFor } from "../engine/initState";
 import { syncIdCounter } from "../engine/random";
-import type { GameState } from "../engine/types";
+import type { GameState, Property } from "../engine/types";
 
 const SAVE_KEY_LEGACY = "fastighetsimperium:save"; // slot 1 (bakåtkompatibel nyckel)
 const SAVE_KEY_PREFIX = "fastighetsimperium:save";
@@ -55,7 +56,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 25;
+export const SAVE_VERSION = 26;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -118,6 +119,35 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       pendingWorks: p.pendingWorks ?? [],
     })),
   }),
+  // v25 → v26: prisgolv i Finansdistriktet – inga små billiga hus bland
+  // osålda objekt. Ytan växer upp till golvet (priset per m² bevaras);
+  // ägda fastigheter (spelarens och rivalernas böcker) lämnas orörda.
+  25: (s) => {
+    const FLOOR = 250_000_000;
+    const grow = (p: Property): Property => {
+      if (p.district !== "finans" || p.owned || p.askPrice >= FLOOR || p.askPrice <= 0) return p;
+      const f = FLOOR / p.askPrice;
+      const area = Math.ceil(p.area * f);
+      return {
+        ...p,
+        area,
+        askPrice: FLOOR,
+        baseRent: Math.round(p.baseRent * f),
+        capacity: calcCapacity(area, p.wholeBlock),
+        tenants: (p.tenants ?? []).map((t) => ({ ...t, rent: Math.round(t.rent * f) })),
+      };
+    };
+    return {
+      ...s,
+      listings: (s.listings ?? []).map(grow),
+      worldPool: (s.worldPool ?? []).map(grow),
+      lots: (s.lots ?? []).map((l) =>
+        l.district === "finans" && l.area < 4000
+          ? { ...l, area: 4000, price: Math.round(l.price * (4000 / Math.max(1, l.area))) }
+          : l,
+      ),
+    };
+  },
 };
 
 /** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */

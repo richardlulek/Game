@@ -34,11 +34,14 @@ export interface DistrictGenProfile {
   areaMax: number;
   wholeBlock?: boolean;
   weight: number;
+  /** Prisgolv (kr): objekt under golvet växer i yta tills de når det.
+   *  I Finansdistriktet finns inga små billiga hus – bara storskaliga torn. */
+  minPrice?: number;
 }
 
 export const DISTRICT_GEN: Record<string, DistrictGenProfile> = {
   centrum:   { types: [["kontor", 45], ["butik", 25], ["bostad", 30]], areaMin: 800,  areaMax: 3500, weight: 25 },
-  finans:    { types: [["kontor", 85], ["butik", 15]],                 areaMin: 2500, areaMax: 9000, weight: 9 },
+  finans:    { types: [["kontor", 85], ["butik", 15]],                 areaMin: 4000, areaMax: 12000, weight: 9, minPrice: 250_000_000 },
   innerstad: { types: [["bostad", 45], ["butik", 30], ["kontor", 25]], areaMin: 600,  areaMax: 2500, weight: 27 },
   hamnen:    { types: [["industri", 40], ["kontor", 35], ["butik", 25]], areaMin: 800, areaMax: 4000, weight: 9 },
   industri:  { types: [["industri", 85], ["kontor", 15]],              areaMin: 1500, areaMax: 7000, weight: 9 },
