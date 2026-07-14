@@ -9,7 +9,9 @@ import { BURGUNDY, C, FONTS, THEME } from "./tokens";
 export const S: Record<string, CSSProperties> = {
   app: {
     fontFamily: FONTS.body,
-    minHeight: "100vh",
+    // 100 % av #root (inte 100vh): #root bär safe-area-padding för
+    // hemskärms-PWA:n, och 100vh skulle skjuta ut botten under skärmkanten.
+    minHeight: "100%",
     color: C.creamText,
     background: THEME.feltBg,
   },
@@ -316,7 +318,9 @@ export const S: Record<string, CSSProperties> = {
   appLayout: {
     display: "flex",
     flexDirection: "column",
-    height: "100vh",
+    // Se kommentaren vid S.app: 100 % av #root i stället för 100vh så att
+    // safe-area-paddingen inte trycker ut nedersta raden under skärmkanten.
+    height: "100%",
     overflow: "hidden",
     background: THEME.feltBg,
     color: C.creamText,

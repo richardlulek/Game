@@ -16,6 +16,8 @@ import deniedUrl from "./samples/denied.ogg";
 import milestoneUrl from "./samples/milestone.ogg";
 import discoverUrl from "./samples/discover.ogg";
 import impactUrl from "./samples/impact.ogg";
+import warnUrl from "./samples/warn.ogg";
+import levelupUrl from "./samples/levelup.ogg";
 
 const KEY = "fastighetsimperium:sound";
 const VOL_KEY = "fastighetsimperium:volume";
@@ -166,6 +168,8 @@ const SAMPLE_URLS: Record<string, string> = {
   milestone: milestoneUrl,
   discover: discoverUrl,
   impact: impactUrl,
+  warn: warnUrl,
+  levelup: levelupUrl,
 };
 const buffers: Record<string, AudioBuffer | undefined> = {};
 let samplesRequested = false;
@@ -244,10 +248,11 @@ export function playIncome(): void {
   tone(880, 0.09, 0.16, "sine", 0.06);
 }
 
-/** Varning – två mjuka klubbslag i fallande ters. Uppmärksammar loggens
-    varningar utan att gnälla (ersatte ett väl skarpt arkadlarm). */
+/** Varning – dov CC0-felton (Kenney error5, mörkast i paketet), annars två
+    mjuka klubbslag i fallande ters. */
 export function playWarn(): void {
   if (!enabled) return;
+  if (playSample("warn", 0.4)) return;
   const c = audio();
   if (!c || !sfxBus) return;
   for (const [f, at] of [[392, 0], [311, 0.17]] as const) {
@@ -309,10 +314,11 @@ export function playLease(): void {
   tone(622, 0.08, 0.16, "sine", 0.05);
 }
 
-/** Nivåhöjning – varm mässingsfanfar i fyra stigande steg med bottenoktav
-    och avslutande skimmer (ersatte ett arkadigt Kenney-svep). */
+/** Nivåhöjning – stigande CC0-svep (Kenney upgrade1, mjukast i paketet),
+    annars varm mässingsfanfar i fyra stigande steg. */
 export function playLevelUp(): void {
   if (!enabled) return;
+  if (playSample("levelup", 0.55)) return;
   const steps: [number, number][] = [[523, 0], [659, 0.11], [784, 0.22], [1046, 0.34]];
   for (const [f, at] of steps) {
     tone(f, at, 0.32, "triangle", 0.055);
