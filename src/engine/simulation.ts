@@ -967,6 +967,23 @@ export function advanceMonth(state: GameState): GameState {
     s.competitors = s.competitors.filter((_, i) => i !== buyer.i && i !== weakest.i);
     s.competitors = [...s.competitors, merged];
     events.push({ t: `🤝 FÖRVÄRV: ${ca.name} köper upp krisande ${cb.name}.`, kind: "warn" });
+    // Det uppköpta bolagets aktie avnoteras: spelarens innehav löses ut
+    // till kurs och ev. blankning stängs – annars blir aktien ett zombie-
+    // papper utan bolag bakom som driver på ren slump.
+    const bStock = s.stocks.find((st) => st.competitorName === cb.name);
+    if (bStock) {
+      let payout = Math.round(bStock.owned * bStock.price);
+      if ((bStock.shortQty ?? 0) > 0) {
+        const avg = bStock.shortAvgPrice ?? bStock.price;
+        payout += Math.max(0, Math.round(avg * bStock.shortQty! * 1.5) + Math.round(bStock.shortQty! * (avg - bStock.price)));
+      }
+      if (payout > 0) {
+        s.cash += payout;
+        events.push({ t: `💰 Uppköpet löste ut din position i ${cb.name}: +${msek(payout)}.`, kind: "sell" });
+      }
+      s.stocks = s.stocks.filter((st) => st.id !== bStock.id);
+      s.stockOrders = (s.stockOrders ?? []).filter((o) => o.stockId !== bStock.id);
+    }
   }
 
   // ── Lokala distriktshändelser (~8 % chans/distrikt/mån) ─────────

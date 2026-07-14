@@ -3,7 +3,7 @@ import { equityOf } from "../engine/finance";
 import { reducer } from "../engine/reducer";
 import { priceStocks, stockHoldingsValue, subsidiaryValue } from "../engine/stocks";
 import type { Competitor, Stock } from "../engine/types";
-import { makeState } from "./factories";
+import { makeProperty, makeState } from "./factories";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -52,17 +52,21 @@ describe("uppköp av konkurrent", () => {
   });
 
   it("ACQUIRE_COMPANY vid 50–75 % är ett fientligt bud (premie 30 %)", () => {
+    const hus = makeProperty({ id: 71, owned: false, parcelId: "centrum-2" });
     const s = makeState({
-      cash: 10e6, competitors: [comp], reputation: 50,
+      cash: 10e6, competitors: [{ ...comp, portfolio: [hus] }], reputation: 50,
       stocks: [stock({ id: "c0", name: "Rival AB", competitorName: "Rival AB", owned: 600, sharesOutstanding: 1000, price: 100 })],
     });
     const next = reducer(s, { type: "ACQUIRE_COMPANY", stockId: "c0" });
     expect(next.competitors).toHaveLength(0);
     expect(next.stocks).toHaveLength(0);
-    expect(next.subsidiaries).toHaveLength(1);
-    expect(next.subsidiaries[0].monthlyIncome).toBe(50_000);
-    // fientligt bud: 30 % premie på resterande 400 aktier + ryktekostnad
-    expect(next.cash).toBeCloseTo(10e6 - 400 * 100 * 1.3, 2);
+    // Fusion, inte skalbolag: fastigheterna (med tomtruta) och kassan tillförs.
+    expect(next.subsidiaries).toHaveLength(0);
+    const köpt = next.portfolio.find((p) => p.id === 71);
+    expect(köpt?.owned).toBe(true);
+    expect(köpt?.parcelId).toBe("centrum-2"); // huset står kvar på kartan
+    // fientligt bud: 30 % premie på resterande 400 aktier, + bolagets kassa 1 Msek
+    expect(next.cash).toBeCloseTo(10e6 - 400 * 100 * 1.3 + 1e6, 2);
     expect(next.reputation).toBe(47);
   });
 
@@ -72,10 +76,29 @@ describe("uppköp av konkurrent", () => {
       stocks: [stock({ id: "c0", name: "Rival AB", competitorName: "Rival AB", owned: 800, sharesOutstanding: 1000, price: 100 })],
     });
     const next = reducer(s, { type: "ACQUIRE_COMPANY", stockId: "c0" });
-    expect(next.subsidiaries).toHaveLength(1);
-    // vänligt bud: 15 % premie på resterande 200 aktier + rykte +4
-    expect(next.cash).toBeCloseTo(10e6 - 200 * 100 * 1.15, 2);
+    expect(next.subsidiaries).toHaveLength(0);
+    // vänligt bud: 15 % premie på resterande 200 aktier + bolagets kassa, rykte +4
+    expect(next.cash).toBeCloseTo(10e6 - 200 * 100 * 1.15 + 1e6, 2);
     expect(next.reputation).toBe(54);
+  });
+
+  it("ACQUIRE_RIVAL fusioneras in: kassa följer med, aktien avnoteras, inget skalbolag", () => {
+    const hus = makeProperty({ id: 72, owned: false, askPrice: 5e6, parcelId: "centrum-3" });
+    const rival: Competitor = { name: "Rival AB", cash: 2e6, units: 1, equity: 7e6, monthlyNOI: 40_000, portfolio: [hus] };
+    const s = makeState({
+      cash: 20e6, competitors: [rival],
+      stocks: [stock({ id: "c0", name: "Rival AB", competitorName: "Rival AB", owned: 200, sharesOutstanding: 1000, price: 100 })],
+    });
+    // Pris 130 % av EK = 9,1 Msek; egen aktiepost 20 % räknas av → 7,28 Msek.
+    const next = reducer(s, { type: "ACQUIRE_RIVAL", competitorName: "Rival AB", amount: 9_100_000 });
+    expect(next.competitors).toHaveLength(0);
+    expect(next.subsidiaries).toHaveLength(0); // ingen spökintäkt ovanpå husen
+    expect(next.stocks).toHaveLength(0); // avnoterad
+    expect(next.portfolio.find((p) => p.id === 72)?.parcelId).toBe("centrum-3");
+    const price = Math.round(9_100_000 * 0.8);
+    const down = Math.round(price * 0.25);
+    expect(next.cash).toBe(20e6 - down + 2e6); // handpenning ut, rivalens kassa in
+    expect(next.debt).toBe(price - down);
   });
 });
 

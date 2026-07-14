@@ -56,7 +56,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 26;
+export const SAVE_VERSION = 27;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -146,6 +146,32 @@ const migrations: Record<number, (state: GameState) => GameState> = {
           ? { ...l, area: 4000, price: Math.round(l.price * (4000 / Math.max(1, l.area))) }
           : l,
       ),
+    };
+  },
+  // v26 → v27: föräldralösa rivalaktier avnoteras. Tidigare lämnade förvärv
+  // och fusioner kvar aktier vars bolag inte längre fanns – zombiepapper som
+  // drev på ren slump. Spelarens innehav löses ut till kurs (blankning stängs).
+  26: (s) => {
+    const names = new Set(s.competitors.map((c) => c.name));
+    let payout = 0;
+    const stocks = (s.stocks ?? []).filter((st) => {
+      if (!st.competitorName || st.competitorName === "__player__" || names.has(st.competitorName))
+        return true;
+      payout += st.owned * st.price;
+      const shortQty = st.shortQty ?? 0;
+      if (shortQty > 0) {
+        const avg = st.shortAvgPrice ?? st.price;
+        payout += Math.max(0, Math.round(avg * shortQty * 1.5) + Math.round(shortQty * (avg - st.price)));
+      }
+      return false;
+    });
+    if (stocks.length === (s.stocks ?? []).length) return s;
+    const liveIds = new Set(stocks.map((st) => st.id));
+    return {
+      ...s,
+      stocks,
+      cash: s.cash + Math.round(payout),
+      stockOrders: (s.stockOrders ?? []).filter((o) => liveIds.has(o.stockId)),
     };
   },
 };

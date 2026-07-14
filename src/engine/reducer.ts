@@ -1269,21 +1269,36 @@ export function reducer(state: GameState, action: GameAction): GameState {
           "warn",
         );
       const comp = state.competitors.find((c) => c.name === st.competitorName);
-      const monthlyIncome = Math.max(
-        20_000,
-        Math.round(comp?.monthlyNOI ?? ((comp?.equity ?? 0) * 0.06) / 12),
-      );
+      // Fusion, inte skalbolag: HELA bolaget går upp i koncernen – fastig-
+      // heterna (med sina tomtrutor) och kassan tillförs. Tidigare försvann
+      // husen från kartan och ersattes av en evig "dotterbolagsintäkt" utan
+      // täckning – dubbelfel som gjorde förvärven omöjliga att balansera.
+      const acquired = (comp?.portfolio ?? []).map((p) => ({
+        ...p,
+        owned: true,
+        purchasePrice: p.askPrice,
+        txHistory: [
+          ...(p.txHistory ?? []),
+          { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: `Förvärv av ${st.name}` },
+        ],
+      }));
+      // Egen blankning i bolaget stängs till kurs vid avnoteringen.
+      const shortSettle = (st.shortQty ?? 0) > 0
+        ? Math.max(0, Math.round((st.shortAvgPrice ?? st.price) * st.shortQty! * 1.5) + Math.round(st.shortQty! * ((st.shortAvgPrice ?? st.price) - st.price)))
+        : 0;
+      const cashIn = Math.round(comp?.cash ?? 0) + shortSettle;
       const repDelta = friendly ? 4 : -3;
       const dramaLog = friendly
-        ? `🏛️ FÖRVÄRV: Styrelsen i ${st.name} rekommenderade ditt bud. Du köpte upp bolaget för ${msek(cost)} (premie 15 %). Blir dotterbolag (${kr(monthlyIncome)}/mån).`
-        : `🏛️ FIENTLIGT FÖRVÄRV: Trots styrelsens giftpiller vann du budstriden om ${st.name} för ${msek(cost)} (premie 30 %). Blir dotterbolag (${kr(monthlyIncome)}/mån). Rykte −3.`;
+        ? `🏛️ FÖRVÄRV: Styrelsen i ${st.name} rekommenderade ditt bud. Du köpte upp bolaget för ${msek(cost)} (premie 15 %) – ${acquired.length} fastigheter och ${msek(Math.round(comp?.cash ?? 0))} i kassa fusioneras in i koncernen.`
+        : `🏛️ FIENTLIGT FÖRVÄRV: Trots styrelsens giftpiller vann du budstriden om ${st.name} för ${msek(cost)} (premie 30 %) – ${acquired.length} fastigheter och ${msek(Math.round(comp?.cash ?? 0))} i kassa fusioneras in. Rykte −3.`;
       return {
         ...state,
-        cash: state.cash - cost,
+        cash: state.cash - cost + cashIn,
         reputation: Math.max(0, Math.min(100, state.reputation + repDelta)),
+        portfolio: [...state.portfolio, ...acquired],
         competitors: state.competitors.filter((c) => c.name !== st.competitorName),
         stocks: state.stocks.filter((x) => x.id !== st.id),
-        subsidiaries: [...(state.subsidiaries ?? []), { name: st.name, monthlyIncome }],
+        stockOrders: (state.stockOrders ?? []).filter((o) => o.stockId !== st.id),
         log: [{ t: dramaLog, kind: "buy" }, ...state.log],
       };
     }
@@ -1561,10 +1576,16 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const minPrice = Math.round((rival.equity ?? 0) * 1.3);
       if (action.amount < minPrice)
         return log(state, `Minimipris för förvärv är ${msek(minPrice)} (130 % av eget kapital).`, "warn");
-      const down = Math.round(action.amount * 0.25);
+      // Din befintliga aktiepost i bolaget räknas av – du köper bara resten.
+      const stock = state.stocks.find((x) => x.competitorName === rival.name);
+      const ownFrac = stock && stock.sharesOutstanding > 0
+        ? Math.min(1, stock.owned / stock.sharesOutstanding)
+        : 0;
+      const price = Math.round(action.amount * (1 - ownFrac));
+      const down = Math.round(price * 0.25);
       if (state.cash < down)
         return log(state, `Otillräcklig kassa – behöver minst ${msek(down)} (25 % handpenning).`, "warn");
-      const loan = action.amount - down;
+      const loan = price - down;
       const acquired = (rival.portfolio ?? []).map((p) => ({
         ...p,
         owned: true,
@@ -1574,18 +1595,26 @@ export function reducer(state: GameState, action: GameAction): GameState {
           { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: `Förvärv av ${rival.name}` },
         ],
       }));
-      const subIncome = Math.round(((rival.monthlyNOI ?? 0) || Math.round((rival.equity * 0.04) / 12)));
+      // Egen blankning i bolaget stängs till kurs vid avnoteringen. Något
+      // "dotterbolag" med evig intäkt skapas INTE längre – husen ger hyra i
+      // portföljen och en skalbolagsintäkt ovanpå vore dubbelräkning.
+      const shortSettle = stock && (stock.shortQty ?? 0) > 0
+        ? Math.max(0, Math.round((stock.shortAvgPrice ?? stock.price) * stock.shortQty! * 1.5) + Math.round(stock.shortQty! * ((stock.shortAvgPrice ?? stock.price) - stock.price)))
+        : 0;
       return {
         ...state,
-        cash: state.cash - down,
+        // Bolagets kassa följer med köpet – du köper hela bolaget, inte bara husen.
+        cash: state.cash - down + Math.round(rival.cash ?? 0) + shortSettle,
         debt: state.debt + loan,
         portfolio: [...state.portfolio, ...acquired],
         competitors: state.competitors.filter((c) => c.name !== action.competitorName),
-        subsidiaries: [...(state.subsidiaries ?? []), { name: rival.name, monthlyIncome: subIncome }],
+        // Aktien avnoteras – bolaget är helägt och fusioneras in i koncernen.
+        stocks: stock ? state.stocks.filter((x) => x.id !== stock.id) : state.stocks,
+        stockOrders: stock ? (state.stockOrders ?? []).filter((o) => o.stockId !== stock.id) : state.stockOrders,
         reputation: Math.min(100, state.reputation + 8),
         log: [
           {
-            t: `🏢 FÖRVÄRV: ${rival.name} förvärvat för ${msek(action.amount)} – ${acquired.length} fastigheter tillföll portföljen!`,
+            t: `🏢 FÖRVÄRV: ${rival.name} fusioneras in i koncernen för ${msek(price)}${ownFrac > 0 ? ` (din aktiepost ${pct(ownFrac)} räknades av)` : ""} – ${acquired.length} fastigheter och ${msek(Math.round(rival.cash ?? 0))} i kassa tillförs!`,
             kind: "buy",
           },
           ...state.log,

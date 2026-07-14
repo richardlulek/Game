@@ -260,7 +260,8 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
           </div>
         ) : (
           <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
-            Inga dotterbolag ännu — köp majoritet i en konkurrent på Börsen och förvärva den.
+            Inga dotterbolag. Förvärvade konkurrenter fusioneras in i koncernen —
+            fastigheterna och kassan tillförs direkt i stället för att ligga i ett skalbolag.
           </div>
         )}
       </div>
