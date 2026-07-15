@@ -896,7 +896,6 @@ export type GameAction =
   | { type: "BUY_INDUSTRY_INSURANCE"; id: number }
   | { type: "NEXT_DAY" }
   | { type: "NEXT_MONTH" }
-  | { type: "FAST_FORWARD"; months: number }
   | { type: "LOAD"; state: GameState }
   | { type: "SET_COMPANY_NAME"; name: string }
   | { type: "UPGRADE_COMPANY" }

@@ -2470,15 +2470,6 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Manuellt månadssteg: kör hela månadssimuleringen och landa på dag 1
       // i den nya månaden så att den rullande kalendern förblir koherent.
       return { ...advanceMonth(state), day: 1 };
-    case "FAST_FORWARD": {
-      let s = state;
-      const n = Math.min(action.months, 24);
-      for (let i = 0; i < n; i++) {
-        if (s.gameOver || s.pendingDecision) break;
-        s = advanceMonth(s);
-      }
-      return { ...s, day: 1 };
-    }
     case "START_RENOVATION": {
       // Utvecklingsprojekt: totalrenovering (skick/energi/hyra), påbyggnad
       // (+yta/kapacitet/värde) eller lokalanpassning (ändrat antal lokaler –

@@ -77,6 +77,12 @@ function cashflow(s: GameState, delta: number, reason: string): void {
   if (CASHFLOW_DEBUG) cashLedger.push({ reason, delta });
 }
 
+/** Motsvarigheten för en rivals kassa – samma enda kanal så att hela
+ *  ekonomin (spelare + konkurrenter) går att revidera på ett ställe. */
+function rivalCashflow(c: { cash: number }, delta: number): void {
+  c.cash += delta;
+}
+
 /**
  * Stegar fram spelet EN dag och returnerar det nya tillståndet.
  *
@@ -1355,7 +1361,7 @@ export function advanceMonth(state: GameState): GameState {
     const nc = { ...c, portfolio: [...(c.portfolio ?? [])] };
     const portVal = nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI) / 12);
-    nc.cash += nc.monthlyNOI;
+    rivalCashflow(nc, nc.monthlyNOI);
     // Rivalernas byggen tickar och färdigställs (kranar på kartan).
     let finishedBuild: string | null = null;
     nc.portfolio = nc.portfolio.map((p) => {
@@ -1383,7 +1389,7 @@ export function advanceMonth(state: GameState): GameState {
       const dObj = DISTRICTS.find((d) => d.id === district);
       const cost = Math.round(build.askPrice * 0.85);
       if (nc.cash >= cost) {
-        nc.cash -= cost;
+        rivalCashflow(nc, -cost);
         nc.portfolio.push({
           ...build,
           district,
@@ -1412,7 +1418,7 @@ export function advanceMonth(state: GameState): GameState {
         const p = nc.portfolio[idx];
         const cost = Math.round(propMarketValue(p, s) * 0.3);
         if (nc.cash >= cost) {
-          nc.cash -= cost;
+          rivalCashflow(nc, -cost);
           nc.portfolio[idx] = {
             ...p,
             devLevel: (p.devLevel ?? 0) + 1,
@@ -1432,7 +1438,7 @@ export function advanceMonth(state: GameState): GameState {
       const sale = pickStrategicSale(nc, s, cyclePhase as "boom" | "bust" | "stable");
       if (sale) {
         const selling = nc.portfolio.splice(sale.index, 1)[0];
-        nc.cash += sale.price;
+        rivalCashflow(nc, sale.price);
         const born = s.year * 12 + s.month;
         s.listings = [
           ...s.listings,
@@ -1453,7 +1459,7 @@ export function advanceMonth(state: GameState): GameState {
     // Rivalens industrier tjänar pengar och ingår i det egna kapitalet –
     // samma NOI-logik som spelarens (6 %/år på tillgångsvärdet, förenklat).
     const indVal = (nc.industries ?? []).reduce((a, x) => a + industryAssetValue(x, s), 0);
-    if (indVal > 0) nc.cash += Math.round((indVal * 0.06 * cycleNOI) / 12);
+    if (indVal > 0) rivalCashflow(nc, Math.round((indVal * 0.06 * cycleNOI) / 12));
     nc.equity = nc.cash + indVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     return nc;
   });
