@@ -45,6 +45,7 @@ import {
   shouldTriggerCrisis,
 } from "./lateGame";
 import { amortInfoOf, equityOf, loanTerms } from "./finance";
+import { covenantBreach, creditRatingOf } from "./rating";
 import { kr, msek } from "./format";
 import { calYear, daysInMonth, formatMonthYear } from "./date";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
@@ -2031,6 +2032,27 @@ export function advanceMonth(state: GameState): GameState {
   if (landBudget > 0 && Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS && allowedNow.size > 0) {
     s.lots = [...s.lots, genLot(s, allowedNow)];
     landBudget -= 1;
+  }
+
+  // ── Covenantvakt: ratinginstitutet och banken följer skuldsättningen ──
+  // Varning kvartalsvis vid brott; i kris kräver banken tvångsamortering.
+  {
+    const info = creditRatingOf(s);
+    const breach = covenantBreach(info);
+    if (breach && s.month % 3 === 0) {
+      if ((s.crisisMonthsLeft ?? 0) > 0 && s.debt > 0) {
+        const forced = Math.min(Math.max(0, s.cash), Math.round(s.debt * 0.02));
+        if (forced > 0) {
+          s.cash -= forced;
+          s.debt -= forced;
+          events.push({ t: `🏦 COVENANTBROTT I KRIS: ${breach}. Banken tvingar fram amortering: ${msek(forced)}.`, kind: "warn" });
+        } else {
+          events.push({ t: `🏦 COVENANTBROTT: ${breach} — och kassan är tom. Sälj tillgångar innan banken agerar.`, kind: "warn" });
+        }
+      } else {
+        events.push({ t: `🏦 Ratinginstitutet varnar (betyg ${info.rating}): ${breach}. Ny upplåning blir dyrare tills balansen stärkts.`, kind: "warn" });
+      }
+    }
   }
 
   // Lånelöptid: refinansiering var 48–72 månad

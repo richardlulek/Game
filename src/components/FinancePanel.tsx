@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { esgRatingOf } from "../engine/esg";
 import { LENDERS, amortInfoOf, loanTerms } from "../engine/finance";
+import { bondRateFor, creditRatingOf } from "../engine/rating";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
 import type { GameAction, GameState, LoanTerms } from "../engine/types";
@@ -17,6 +18,7 @@ interface FinancePanelProps {
 }
 
 export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePanelProps) {
+  const rating = creditRatingOf(state);
   const [amortAmt, setAmortAmt] = useState(1000000);
   const [refiAmt, setRefiAmt] = useState(1000000);
   const [drawAmt, setDrawAmt] = useState(500000);
@@ -33,6 +35,18 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
     <div style={S.financeWrap}>
       <div style={S.financeCol}>
         <h3 style={S.h3OnLight}>Balansräkning</h3>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "8px 10px", marginBottom: 8, borderRadius: 6,
+          background: rating.score >= 60 ? "#eef8f2" : rating.score >= 36 ? "#fdf6e3" : "#fdecea",
+          border: `1px solid ${rating.score >= 60 ? "#22a06b" : rating.score >= 36 ? "#c9a13b" : "#c0392b"}`,
+        }}>
+          <span style={{ fontSize: 12.5 }}>
+            Kreditbetyg <strong style={{ fontSize: 15 }}>{rating.rating}</strong>
+            <span style={{ color: "#888" }}> · {rating.drivers.join(" · ")}</span>
+          </span>
+          <span style={{ fontSize: 11, color: "#888" }}>spread {rating.spreadDelta >= 0 ? "+" : ""}{rating.spreadDelta.toFixed(1)} pe</span>
+        </div>
         <Line l="Kassa" v={kr(state.cash)} />
         <Line l="Fastighetsvärde" v={kr(totalValue)} />
         <Line l="Totala tillgångar" v={kr(state.cash + totalValue)} bold />
@@ -267,17 +281,18 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         </div>
 
         {/* Bonds */}
-        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Obligationsemission</h3>
-        {state.reputation < 70 ? (
-          <div style={{ fontSize: 12, color: "#888" }}>Kräver reputation ≥ 70 (nuvarande: {Math.round(state.reputation)}).</div>
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Obligationsprogram</h3>
+        {rating.bondCap <= 0 ? (
+          <div style={{ fontSize: 12, color: "#888" }}>Betyget {rating.rating} stänger obligationsmarknaden — stärk balansräkningen.</div>
         ) : (
           <>
             <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
-              Ge ut företagsobligationer för kapital till fast ränta.
-              Estimerad ränta: {(state.interestRate + 1.2).toFixed(2)} %
+              Programtak vid betyg {rating.rating}: {msek(rating.bondCap)} ·
+              utestående {msek((state.bonds ?? []).reduce((a, b) => a + b.amount, 0))} ·
+              kupong {bondRateFor(state, rating.rating).toFixed(2)} %
             </div>
             <div style={S.amortRow}>
-              <input type="range" min={1000000} max={50000000} step={1000000}
+              <input type="range" min={1000000} max={Math.max(1_000_000, rating.bondCap)} step={1000000}
                 value={bondAmt} onChange={(e) => setBondAmt(+e.target.value)}
                 style={{ flex: 1, accentColor: "#1a4a6b" }} />
               <span style={{ minWidth: 90, textAlign: "right" }}>{msek(bondAmt)}</span>

@@ -32,6 +32,7 @@ import {
 } from "./leasing";
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
+import { bondRateFor, creditRatingOf } from "./rating";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propPotentialRent } from "./property";
 import {
@@ -1668,19 +1669,27 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "ISSUE_BOND": {
-      if (state.reputation < 70) return log(state, "Obligationsemission kräver reputation ≥ 70.", "warn");
+      // Obligationsprogrammet styrs av kreditbetyget: bättre betyg ger
+      // lägre kupong och ett större program (andel av eget kapital).
       if ((state.crisisMonthsLeft ?? 0) > 0)
         return log(state, "📜 Obligationsmarknaden är fryst under krisen — inga emissioner.", "warn");
-      const amount = Math.min(action.amount, 50_000_000);
+      const info = creditRatingOf(state);
+      if (info.bondCap <= 0)
+        return log(state, `📜 Betyget ${info.rating} stänger obligationsmarknaden — stärk balansräkningen först.`, "warn");
+      const outstanding = (state.bonds ?? []).reduce((a, b) => a + b.amount, 0);
+      const room = info.bondCap - outstanding;
+      if (room < 1_000_000)
+        return log(state, `📜 Obligationsprogrammet är fullt (${msek(outstanding)} av ${msek(info.bondCap)} vid betyg ${info.rating}). Lös in eller förbättra betyget.`, "warn");
+      const amount = Math.min(action.amount, room);
       if (amount < 1_000_000) return log(state, "Minsta obligation är 1 MSEK.", "warn");
-      const rate = Math.max(3.5, state.interestRate + 1.2);
+      const rate = bondRateFor(state, info.rating);
       const matureAbs = state.year * 12 + state.month + action.years * 12;
       const newBond = { id: String(Date.now()), amount, rate, matureAbs };
       return {
         ...state,
         cash: state.cash + amount,
         bonds: [...(state.bonds ?? []), newBond],
-        log: [{ t: `📜 Obligationsemission: ${msek(amount)} insamlat till ${rate.toFixed(2)} % ränta, ${action.years} år löptid.`, kind: "income" }, ...state.log],
+        log: [{ t: `📜 Obligationsemission (betyg ${info.rating}): ${msek(amount)} till ${rate.toFixed(2)} % kupong, ${action.years} år. Program: ${msek(outstanding + amount)} av ${msek(info.bondCap)}.`, kind: "income" }, ...state.log],
       };
     }
     case "REPAY_BOND": {

@@ -4,6 +4,7 @@
    ============================================================ */
 
 import { esgRatingOf } from "./esg";
+import { creditRatingOf } from "./rating";
 import { propMarketValue } from "./property";
 import { spreadDelta } from "./progression";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
@@ -38,12 +39,15 @@ export const LENDERS: Lender[] = [
 ];
 
 /** Reputationsbaserade lånevillkor (ränta, påslag, max belåningsgrad).
- *  ESG-betyget justerar påslaget: gröna lån (A/B) ger rabatt, E/F påslag. */
+ *  ESG-betyget justerar påslaget (gröna lån), och kreditbetyget (AAA–CCC)
+ *  lägger sin egen spread ovanpå – hög skuld och svag räntetäckning gör
+ *  varje ny krona dyrare. */
 export function loanTerms(state: GameState): LoanTerms {
   const rep = state.reputation;
   const advisorBonus = (state.advisors ?? []).includes("kapitalstrateg") ? 0.2 : 0;
   const esg = esgRatingOf(state).spreadDelta;
-  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg);
+  const rating = creditRatingOf(state).spreadDelta;
+  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating);
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;
