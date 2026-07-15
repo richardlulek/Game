@@ -18,6 +18,10 @@ import { useGameStore } from "../store/gameStore";
 export const MONTH_MS = 8000;
 /** Takten när ⏭ Månad spolar fram till månadsskiftet (dagarna rullar synligt). */
 const ROLL_SPEED = 8;
+/** Minsta realtid mellan autospar. Sparar vid varje månadsskifte men aldrig
+ *  oftare än så här – vid hög hastighet/spolning kan flera månader passera per
+ *  sekund, och att serialisera hela tillståndet varje gång skulle hacka. */
+const SAVE_THROTTLE_MS = 2500;
 
 export function useGameClock(): void {
   const running = useGameStore((s) => s.clock.running);
@@ -29,6 +33,7 @@ export function useGameClock(): void {
     let raf = 0;
     let last = performance.now();
     let acc = 0;
+    let lastSaveAt = performance.now();
 
     const blocked = () => {
       const st = useGameStore.getState().state;
@@ -46,7 +51,7 @@ export function useGameClock(): void {
       // oavsett vald hastighet – synligt, men snabbt.
       acc += dt * (until != null ? ROLL_SPEED : speed);
       let ticked = false;
-      let yearRolled = false;
+      let monthRolled = false;
       let reachedTarget = false;
       // Dagssteget beror på aktuell månadslängd så varje månad tar MONTH_MS.
       let dayMs = MONTH_MS / daysInMonth(
@@ -55,11 +60,12 @@ export function useGameClock(): void {
       );
       while (acc >= dayMs && !blocked() && !reachedTarget) {
         acc -= dayMs;
-        const prevYear = useGameStore.getState().state.year;
+        const prev = useGameStore.getState().state;
+        const prevAbs = prev.year * 12 + prev.month;
         useGameStore.getState().dispatch({ type: "NEXT_DAY" });
         ticked = true;
         const st = useGameStore.getState().state;
-        if (st.year !== prevYear) yearRolled = true;
+        if (st.year * 12 + st.month !== prevAbs) monthRolled = true;
         if (until != null && st.year * 12 + st.month >= until) reachedTarget = true;
         dayMs = MONTH_MS / daysInMonth(st.year, st.month);
       }
@@ -71,10 +77,13 @@ export function useGameClock(): void {
       }
       if (ticked) {
         const store = useGameStore.getState();
-        // Autospar EN gång per spelår (inte varje dag/månad – serialiseringen
-        // av hela tillståndet till localStorage gav ett märkbart hack varje
-        // tick). Viktiga stopp sparas alltid direkt nedan.
-        if (yearRolled) store.save();
+        // Autospar vid varje månadsskifte så aldrig mer än en månads spel kan
+        // tappas – men strypt på realtid så hög hastighet inte hackar av
+        // ständig serialisering. Viktiga stopp sparas alltid direkt nedan.
+        if (monthRolled && now - lastSaveAt >= SAVE_THROTTLE_MS) {
+          store.save();
+          lastSaveAt = now;
+        }
         if (blocked()) {
           store.save();
           store.setRunning(false);

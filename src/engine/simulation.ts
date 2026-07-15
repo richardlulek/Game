@@ -61,6 +61,23 @@ import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
 /**
+ * Enda kanalen för att ändra spelarens kassa i månadssimuleringen. Ett positivt
+ * `delta` är en inbetalning, negativt en utbetalning. Att allt går genom EN
+ * funktion gör det lätt att hitta samtliga kassaflöden (sök på `cashflow(`) och
+ * ger en enda punkt att logga/spåra från när något inte stämmer i bokslutet.
+ *
+ * Sätt `CASHFLOW_DEBUG = true` för att få en konsolluppställning per månad över
+ * varje flöde och orsak – noll overhead när den är av.
+ */
+const CASHFLOW_DEBUG = false;
+let cashLedger: { reason: string; delta: number }[] = [];
+
+function cashflow(s: GameState, delta: number, reason: string): void {
+  s.cash += delta;
+  if (CASHFLOW_DEBUG) cashLedger.push({ reason, delta });
+}
+
+/**
  * Stegar fram spelet EN dag och returnerar det nya tillståndet.
  *
  * Kalendern (`s.day`) rullar 1..antal dagar i månaden (riktiga månadslängder
@@ -91,8 +108,43 @@ export function advanceMonth(state: GameState): GameState {
   // Ett pågående beslut eller en auktion måste lösas innan spelet går vidare.
   if (state.pendingDecision || state.auction) return state;
 
+  // ────────────────────────────────────────────────────────────────────
+  // FASMANIFEST – advanceMonth kör faserna i denna ordning. Sök på fasens
+  // rubrik (`── Namn ──`) för att hoppa dit. Ordningen är avsiktlig: NOI
+  // ackumuleras i fas 2–6 och landar på kassan i fas 7; rating/covenant och
+  // eget kapital räknas SIST (fas 34–37) på färdiguppdaterade siffror.
+  //
+  //   1  Riksbanken – kvartalsvis räntebesked
+  //   2  Fastighetsloopen – slitage, hyresgäster, underhåll, opex → monthlyNOI
+  //   3  U1 – ansökningsflödet (pris möter efterfrågan) + flyttkedjor
+  //   4  Bolagspolicyn verkställs av cheferna (CFO/förvaltningschef)
+  //   5  Bolagets kontor – overhead och överbelastning
+  //   6  Industrisektorer – hotell/energi/logistik → monthlyNOI
+  //   7  KASSA: monthlyNOI − ränta, sedan skatt/viten/försäkring
+  //   8  Politiska val (var 4:e år)
+  //   9  Distressed rivalförsäljningar
+  //  10  Rivalrace + konkurrerande bud + rivalfusion
+  //  11  Stadshändelser + distriktshändelser + infrastruktur
+  //  12  Slutspelet – kapitalet slår tillbaka (fonder, fientligt bud)
+  //  13  Egen detaljplan – samråd/granskning tickar
+  //  14  AI-konkurrenter agerar (portföljer + personligheter)
+  //  15  Rivalerna konkurrerar om industriobjekten
+  //  16  Bud in/ut på dina & utannonserade fastigheter
+  //  17  Börsen + dotterbolag + IPO/uppköpstryck
+  //  18  Löner + forskning
+  //  19  Områdesutveckling + distriktsöden + helkvarter
+  //  20  ESG-betyg + rivalagendor
+  //  21  Detaljplaneauktion (kommunen släpper kvarter)
+  //  22  Naturlig tillväxt (privata byggherrar förtätar)
+  //  23  Beslutshändelse (~6 %)
+  //  24  Utgångna listings (hus stannar på kartan) + marknadstillflöde
+  //  25  Covenantvakt (rating + bank följer skulden)
+  //  26  Bolagsresan – hint när nästa nivå kan nås
+  //  27  Bokför månad: logg, equity-historik, statsHistory → advanceStory
+  // ────────────────────────────────────────────────────────────────────
   let s: GameState = { ...state };
   let monthlyNOI = 0;
+  if (CASHFLOW_DEBUG) cashLedger = [];
   const events: LogEntry[] = [];
   const prevSent = state.marketSentiment ?? 1; // sentiment innan månadens händelser
 
@@ -172,11 +224,11 @@ export function advanceMonth(state: GameState): GameState {
   const maturingBonds = (s.bonds ?? []).filter((b) => b.matureAbs <= nowAbsBond);
   for (const bond of maturingBonds) {
     if (s.cash >= bond.amount) {
-      s.cash -= bond.amount;
+      cashflow(s, -bond.amount, "obligation återbetald");
       events.push({ t: `🏦 Obligation på ${msek(bond.amount)} återbetalad vid förfall.`, kind: "info" });
     } else {
       s.reputation = Math.max(0, s.reputation - 10);
-      s.cash -= bond.amount * 0.5;
+      cashflow(s, -bond.amount * 0.5, "obligation nödlöst i förtid");
       events.push({ t: `⚠️ Obligation på ${msek(bond.amount)} kunde ej återbetalas! Reputation −10.`, kind: "warn" });
     }
   }
@@ -612,7 +664,7 @@ export function advanceMonth(state: GameState): GameState {
         );
         const amort = Math.floor(Math.max(0, excess) / 10_000) * 10_000;
         if (amort >= 50_000) {
-          s.cash -= amort;
+          cashflow(s, -amort, "auto-amortering (CFO-policy)");
           s.debt = Math.max(0, s.debt - amort);
           events.push({ t: `💼 CFO-policyn amorterade ${kr(amort)} (mål-LTV ${Math.round(pol.autoAmort.ltvTarget * 100)} %).`, kind: "info" });
         }
@@ -644,7 +696,7 @@ export function advanceMonth(state: GameState): GameState {
         const cost = COSTS[cur] ?? 150_000;
         if (s.cash - cost > pol.autoEnergy.cashFloor) {
           const nextClass = CLASSES[CLASSES.indexOf(cur) + 1];
-          s.cash -= cost;
+          cashflow(s, -cost, "auto-energiuppgradering (policy)");
           s.portfolio = s.portfolio.map((p) =>
             p.id === target.id
               ? { ...p, energyClass: nextClass as typeof p.energyClass, condition: Math.min(100, p.condition + 5), rentMult: +(p.rentMult * 1.03).toFixed(3), capexTotal: (p.capexTotal ?? 0) + cost }
@@ -812,7 +864,7 @@ export function advanceMonth(state: GameState): GameState {
 
   const effectiveRate = (s.rateMode === "fixed" && s.fixedRate != null) ? s.fixedRate : loanTerms(s).rate;
   const interest = (s.debt * (effectiveRate / 100)) / 12;
-  s.cash += monthlyNOI - interest;
+  cashflow(s, monthlyNOI - interest, "månadens driftnetto minus ränta");
 
   // Monthly property tax (22% of positive net income, offset by depreciation + ESG class A bonus)
   {
@@ -829,7 +881,7 @@ export function advanceMonth(state: GameState): GameState {
       const taxRate = Math.max(0.10, 0.22 - (energyACount > 0 ? 0.03 : 0));
       const monthlyTax = Math.round(taxableIncome * taxRate);
       if (monthlyTax > 0) {
-        s.cash -= monthlyTax;
+        cashflow(s, -monthlyTax, "fastighetsskatt");
         s.totalTaxPaid = (s.totalTaxPaid ?? 0) + monthlyTax;
         if (s.month % 3 === 0) {
           events.push({ t: `🏛️ Fastighetsskatt: ${kr(monthlyTax)}/mån (avdrag ${kr(Math.round(monthlyDepreciation))}/mån, skattesats ${Math.round(taxRate * 100)} %).`, kind: "expense" });
@@ -845,13 +897,13 @@ export function advanceMonth(state: GameState): GameState {
       const ltv = s.debt / portfolioVal;
       if (ltv > 0.85) {
         const penalty = Math.round((s.debt * 0.015) / 12);
-        s.cash -= penalty;
+        cashflow(s, -penalty, "vite");
         monthlyNOI -= penalty;
         s.reputation = Math.max(0, s.reputation - 1);
         events.push({ t: `🏦 LTV-VARNING: Skuldkvot ${Math.round(ltv * 100)} % överstiger 85 %! Bankavgift ${kr(penalty)}/mån (rep −1).`, kind: "warn" });
       } else if (ltv > 0.75) {
         const surcharge = Math.round((s.debt * 0.005) / 12);
-        s.cash -= surcharge;
+        cashflow(s, -surcharge, "straffavgift");
         monthlyNOI -= surcharge;
         events.push({ t: `⚠️ Skuldkvot ${Math.round(ltv * 100)} % (gräns 75 %) — räntepåslag ${kr(surcharge)}/mån.`, kind: "expense" });
       }
@@ -864,7 +916,7 @@ export function advanceMonth(state: GameState): GameState {
   if (s.debt > 0) {
     const ai = amortInfoOf(s);
     if (ai.monthly > 0) {
-      s.cash -= ai.monthly;
+      cashflow(s, -ai.monthly, "auto-försäkring (policy)");
       s.debt = Math.max(0, s.debt - ai.monthly);
       if (s.month % 3 === 0) {
         events.push({
@@ -992,7 +1044,7 @@ export function advanceMonth(state: GameState): GameState {
         payout += Math.max(0, Math.round(avg * bStock.shortQty! * 1.5) + Math.round(bStock.shortQty! * (avg - bStock.price)));
       }
       if (payout > 0) {
-        s.cash += payout;
+        cashflow(s, payout, "aktieutbetalning vid fusion/avnotering");
         events.push({ t: `💰 Uppköpet löste ut din position i ${cb.name}: +${msek(payout)}.`, kind: "sell" });
       }
       s.stocks = s.stocks.filter((st) => st.id !== bStock.id);
@@ -1142,7 +1194,7 @@ export function advanceMonth(state: GameState): GameState {
       }
       if (supervised > 0) {
         // Efter kassaflödesappliceringen → dras direkt ur kassan.
-        s.cash -= supervised * SUPERVISION_FEE;
+        cashflow(s, -supervised * SUPERVISION_FEE, "tillsynsavgift");
         if (s.month % 3 === 0)
           events.push({ t: `⚖️ Tillsynsavgift: ${kr(supervised * SUPERVISION_FEE)}/mån (dominans i ${supervised} distrikt).`, kind: "expense" });
       }
@@ -1254,7 +1306,7 @@ export function advanceMonth(state: GameState): GameState {
         continue;
       }
       const res = planTick(proc, s, Math.random);
-      if (res.cost > 0) s.cash -= res.cost;
+      if (res.cost > 0) cashflow(s, -res.cost, "detaljplanekostnad");
       events.push(...res.events);
       if (res.decision) s.pendingDecision = res.decision;
       if (!res.done) {
@@ -1594,7 +1646,7 @@ export function advanceMonth(state: GameState): GameState {
   const market = priceStocks(s.stocks ?? [], sentReturn, s.competitors, macro);
   s.stocks = market.stocks;
   if (market.dividends > 0) {
-    s.cash += market.dividends;
+    cashflow(s, market.dividends, "aktieutdelning");
     s.dividendsReceived = (s.dividendsReceived ?? 0) + market.dividends;
     if (s.month % 3 === 0)
       events.push({ t: `📈 Aktieutdelning inkom: ${kr(market.dividends)}.`, kind: "income" });
@@ -1626,7 +1678,7 @@ export function advanceMonth(state: GameState): GameState {
     return a + Math.round(st.price * st.shortQty! * 0.005);
   }, 0);
   if (shortCost > 0) {
-    s.cash -= shortCost;
+    cashflow(s, -shortCost, "blankningskostnad");
     events.push({ t: `📉 Blankningskostnad: ${kr(shortCost)}/mån (låneavgift 0,5 %).`, kind: "expense" });
   }
   // Tvångstäckning om aktie stigit > 80 % från blankningspris
@@ -1636,7 +1688,7 @@ export function advanceMonth(state: GameState): GameState {
       const qty = st.shortQty!;
       const pnl = Math.round(qty * (st.shortAvgPrice - st.price));
       const collateral = Math.round(st.shortAvgPrice * qty * 1.5);
-      s.cash += Math.max(0, collateral + pnl);
+      cashflow(s, Math.max(0, collateral + pnl), "blankning återförd");
       events.push({ t: `🚨 Marginalkrav! Blankning i ${st.name} tvångstäckt @ ${kr(st.price)}. Förlust: ${kr(Math.abs(pnl))}.`, kind: "warn" });
       return { ...st, shortQty: 0, shortAvgPrice: 0 };
     }
@@ -1656,7 +1708,7 @@ export function advanceMonth(state: GameState): GameState {
   // ── Dotterbolag (förvärvade konkurrenter) ───────────────────────
   const subIncome = (s.subsidiaries ?? []).reduce((a, x) => a + x.monthlyIncome, 0);
   if (subIncome > 0) {
-    s.cash += subIncome;
+    cashflow(s, subIncome, "dotterbolagsvinst");
     if (s.month % 3 === 0)
       events.push({ t: `🏛️ Dotterbolagen bidrog med ${kr(subIncome * 3)} i kvartalet.`, kind: "income" });
   }
@@ -1731,7 +1783,7 @@ export function advanceMonth(state: GameState): GameState {
   // ── Löner (anställda) ───────────────────────────────────────────
   const salaries = salariesTotal(s);
   if (salaries > 0) {
-    s.cash -= salaries;
+    cashflow(s, -salaries, "löner");
     if (s.month % 3 === 0)
       events.push({ t: `👔 Löner betalades: ${kr(salaries)}/mån.`, kind: "expense" });
   }
@@ -2058,7 +2110,7 @@ export function advanceMonth(state: GameState): GameState {
       if ((s.crisisMonthsLeft ?? 0) > 0 && s.debt > 0) {
         const forced = Math.min(Math.max(0, s.cash), Math.round(s.debt * 0.02));
         if (forced > 0) {
-          s.cash -= forced;
+          cashflow(s, -forced, "tvångsamortering (covenant)");
           s.debt -= forced;
           events.push({ t: `🏦 COVENANTBROTT I KRIS: ${breach}. Banken tvingar fram amortering: ${msek(forced)}.`, kind: "warn" });
         } else {
@@ -2194,6 +2246,10 @@ export function advanceMonth(state: GameState): GameState {
       s.gameOver = true;
       s.log = [{ t: "💥 KONKURS! Kassan under −1 000 000 kr. Spelet är slut.", kind: "warn" }, ...s.log];
     }
+  }
+  if (CASHFLOW_DEBUG && cashLedger.length) {
+    const net = cashLedger.reduce((a, c) => a + c.delta, 0);
+    console.table([...cashLedger, { reason: "NETTO", delta: net }]);
   }
   // Berättelseläget: injects, brev och kapitelavancemang efter månadens händelser.
   return advanceStory(s);

@@ -212,3 +212,23 @@ describe("startområdet", () => {
     }
   });
 });
+
+describe("placeCity: reproducerbar placering (seedad)", () => {
+  it("samma oplacerade tillstånd ger identiska rutor två gånger", () => {
+    const props = [
+      makeProperty({ id: 101, district: "centrum", parcelId: undefined }),
+      makeProperty({ id: 102, district: "centrum", parcelId: undefined }),
+      makeProperty({ id: 103, district: "hamnen", parcelId: undefined }),
+      makeProperty({ id: 104, district: "förort", parcelId: undefined }),
+    ];
+    const a = placeCity(makeState({ portfolio: props.map((p) => ({ ...p })) }));
+    const b = placeCity(makeState({ portfolio: props.map((p) => ({ ...p })) }));
+    const ids = (st: typeof a) => st.portfolio.map((p) => `${p.id}:${p.parcelId}`);
+    expect(ids(a)).toEqual(ids(b));
+    // Och varje objekt fick faktiskt en ruta.
+    expect(a.portfolio.every((p) => !!p.parcelId)).toBe(true);
+    // Två objekt i samma distrikt hamnar inte på samma ruta.
+    const placed = a.portfolio.map((p) => p.parcelId);
+    expect(new Set(placed).size).toBe(placed.length);
+  });
+});

@@ -384,13 +384,29 @@ export function districtsWithSpace(state: GameState): Set<string> {
  * ruta återanvänds enbart som krasch-skydd – nygenereringen styrs
  * numera till distrikt med ledig mark (districtsWithSpace).
  */
+/** Stabilt index i [0, len) ur ett heltalsfrö (xorshift-mix). Används för att
+ *  placeringen ska bli REPRODUCERBAR: samma objekt (via sitt id) landar på
+ *  samma ruta när en sparfil laddas, i stället för att slumpas om varje gång. */
+function seededIndex(seed: number, len: number): number {
+  let x = (Math.trunc(seed) ^ 0x9e3779b9) >>> 0;
+  x = Math.imul(x ^ (x >>> 15), 0x85ebca6b) >>> 0;
+  x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35) >>> 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  return len > 0 ? x % len : 0;
+}
+
 export function claimRandomParcel(
   district: string,
   occupied: Set<string>,
   allowed?: (p: Parcel) => boolean,
   grown?: ReadonlySet<string>,
   preferAmbient = false,
+  seed?: number,
 ): Parcel {
+  // Med frö → deterministiskt val (salt skiljer de tre valställena åt);
+  // utan frö → oförändrat slumpbeteende.
+  const pickIndex = (len: number, salt: number) =>
+    seed === undefined ? Math.floor(Math.random() * len) : seededIndex(seed + salt, len);
   const all = parcelsIn(district).filter((p) => (allowed ? allowed(p) : !p.expansion));
   const free = all.filter((p) => !occupied.has(p.id));
   const empty = free.filter((p) => !hasAmbientBuilding(p, grown));
@@ -400,7 +416,7 @@ export function claimRandomParcel(
   if (preferAmbient) {
     const decor = free.filter((p) => hasAmbientBuilding(p, grown));
     if (decor.length > 0) {
-      const chosen = decor[Math.floor(Math.random() * decor.length)];
+      const chosen = decor[pickIndex(decor.length, 1)];
       occupied.add(chosen.id);
       return chosen;
     }
@@ -417,9 +433,9 @@ export function claimRandomParcel(
       .map((p) => ({ p, d: Math.min(...anchors.map((a) => Math.hypot(a.x - p.x, a.z - p.z))) }))
       .sort((x, y) => x.d - y.d);
     const near = ranked.slice(0, Math.min(3, ranked.length));
-    chosen = near[Math.floor(Math.random() * near.length)].p;
+    chosen = near[pickIndex(near.length, 2)].p;
   } else {
-    chosen = pool[Math.floor(Math.random() * pool.length)];
+    chosen = pool[pickIndex(pool.length, 3)];
   }
   occupied.add(chosen.id);
   return chosen;
@@ -466,18 +482,19 @@ export function placeCity(state: GameState): GameState {
   // Pass 2: behåll giltiga rutor, dela bara ut nya till objekt som saknar en –
   // och styr aldrig en nykomling till en ruta som redan är reserverad.
   const used = new Set<string>();
-  function claimFor<T extends { district: string; parcelId?: string }>(o: T, preferAmbient: boolean): T {
+  function claimFor<T extends { district: string; parcelId?: string; id?: number }>(o: T, preferAmbient: boolean): T {
     if (o.parcelId && BY_ID.has(o.parcelId) && !used.has(o.parcelId)) {
       used.add(o.parcelId);
       return o;
     }
     const occ = new Set<string>([...used, ...reserved]);
-    const parcel = claimRandomParcel(o.district, occ, allowed, grown, preferAmbient);
+    // Objektets id blir frö → samma objekt landar på samma ruta vid omladdning.
+    const parcel = claimRandomParcel(o.district, occ, allowed, grown, preferAmbient, o.id);
     used.add(parcel.id);
     anyChanged = true;
     return { ...o, parcelId: parcel.id };
   }
-  function placeArr<T extends { district: string; parcelId?: string }>(arr: T[], preferAmbient = false): T[] {
+  function placeArr<T extends { district: string; parcelId?: string; id?: number }>(arr: T[], preferAmbient = false): T[] {
     let changed = false;
     const out = arr.map((o) => {
       const n = claimFor(o, preferAmbient);
