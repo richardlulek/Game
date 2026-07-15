@@ -44,7 +44,7 @@ import {
   fundsActive,
   shouldTriggerCrisis,
 } from "./lateGame";
-import { amortInfoOf, equityOf, loanTerms } from "./finance";
+import { amortInfoOf, equityOf, loanTerms, portfolioValue } from "./finance";
 import { covenantBreach, creditRatingOf } from "./rating";
 import { tickCityEvent } from "./cityEvents";
 import { rivalQuote } from "./rivalPersonas";
@@ -2163,6 +2163,19 @@ export function advanceMonth(state: GameState): GameState {
 
   const equity = equityOf(s);
   s.history = [...s.history, { month: s.history.length, equity }].slice(-120);
+  // Statistik-panelens tidsserier: EK, driftnetto, kassa, portföljvärde
+  // och bästa rivalens EK - kurvorna är tycoon-spelarens belöning.
+  s.statsHistory = [
+    ...(s.statsHistory ?? []),
+    {
+      abs: s.year * 12 + s.month,
+      equity,
+      noi: Math.round(monthlyNOI),
+      cash: Math.round(s.cash),
+      portfolio: Math.round(portfolioValue(s)),
+      bestRival: Math.round(Math.max(0, ...s.competitors.map((c) => c.equity))),
+    },
+  ].slice(-120);
 
   if (s.cash < -200_000 && s.cash >= -1_000_000 && !s.gameOver) {
     s.log = [{ t: `🚨 KASSAVARNING: Kassan ${kr(s.cash)}. Konkurs vid −1 000 000 kr!`, kind: "warn" }, ...s.log];

@@ -705,6 +705,8 @@ export interface GameState {
   infraProjects?: InfraProject[];
   /** Pågående stadshändelse (mässa, strejk, elkris …) – en i taget. */
   cityEvent?: { id: string; name: string; monthsLeft: number };
+  /** Månadsstatistik för Statistik-panelen (rullande 120 månader). */
+  statsHistory?: { abs: number; equity: number; noi: number; cash: number; portfolio: number; bestRival: number }[];
   /** Fastighetskris: månader kvar av kraschen (0/undefined = ingen kris). */
   crisisMonthsLeft?: number;
   /** Pågående megaprojekt (prestige-slutspel). */

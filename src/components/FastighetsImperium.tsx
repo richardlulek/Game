@@ -48,6 +48,7 @@ import { DistrictPanel } from "./DistrictPanel";
 import { ContractCalendar } from "./ContractCalendar";
 import { TenantPanel } from "./TenantPanel";
 import { NewsFeedPanel } from "./NewsFeedPanel";
+import { StatsPanel } from "./StatsPanel";
 import { OnboardingOverlay } from "./OnboardingOverlay";
 import { IndustryPanel } from "./IndustryPanel";
 import { IndustryMarket } from "./IndustryMarket";
@@ -105,6 +106,7 @@ const TABS = [
   { id: "calendar",     label: "Kalender" },
   { id: "tenants",      label: "Hyresgäster" },
   { id: "nyheter",      label: "Nyheter" },
+  { id: "statistik",    label: "Statistik" },
   { id: "industri",    label: "Industri" },
   { id: "ind_marknad", label: "Ind. Marknad" },
 ];
@@ -660,6 +662,7 @@ export default function FastighetsImperium() {
               case "calendar": return <ContractCalendar state={state} />;
               case "tenants": return <TenantPanel state={state} dispatch={dispatch} />;
               case "nyheter": return <NewsFeedPanel state={state} />;
+              case "statistik": return <StatsPanel state={state} />;
               case "industri": return <IndustryPanel state={state} dispatch={dispatch} />;
               case "ind_marknad": return <IndustryMarket state={state} dispatch={dispatch} />;
               default: return null;
