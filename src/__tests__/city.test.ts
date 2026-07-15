@@ -200,3 +200,15 @@ describe("industriernas placering", () => {
     expect(occupiedParcelIds(placed).has("hamnen-3")).toBe(false);
   });
 });
+
+describe("startområdet", () => {
+  it("de tre instegsobjekten ligger alltid i Villakullen", async () => {
+    const { initState } = await import("../engine/initState");
+    for (let i = 0; i < 5; i++) {
+      const s = initState();
+      const affordable = s.listings.filter((l) => l.askPrice <= 9_000_000);
+      expect(affordable.length).toBeGreaterThanOrEqual(3);
+      expect(affordable.filter((l) => l.district === "kulle").length).toBeGreaterThanOrEqual(3);
+    }
+  });
+});

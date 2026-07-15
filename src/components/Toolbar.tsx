@@ -1,8 +1,8 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getVolume, playClick, setVolume } from "../audio/sound";
 import { formatGameDate } from "../engine/date";
 import { exportSaveFile, importSaveFile, saveGame } from "../store/persistence";
-import { BURGUNDY } from "../styles/tokens";
+import { BURGUNDY, C } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
 import type { GameAction, GameState } from "../engine/types";
@@ -88,21 +88,15 @@ export function Toolbar({
           📨 {offersCount}
         </button>
       )}
-      <button
-        style={S.toolbarMiniBtn}
-        onClick={onToggleSound}
-        title={soundOn ? "Stäng av ljud" : "Sätt på ljud"}
-      >
-        {soundOn ? "🔊" : "🔇"}
-      </button>
-      {soundOn && <VolumeSlider />}
       <button style={S.toolbarMiniBtn} onClick={onSave}>
         {saved ? "✓ Sparat" : "Spara"}
       </button>
-      <button style={S.toolbarMiniBtn} onClick={onLoad}>
-        Ladda
-      </button>
-      <SaveFileButtons state={state} onLoad={onLoad} />
+      <SettingsMenu
+        state={state}
+        onLoad={onLoad}
+        soundOn={soundOn}
+        onToggleSound={onToggleSound}
+      />
       {warnCount > 0 && (
         <div style={S.toolbarWarn} title="Fastigheter som kräver åtgärd">
           ⚠ {warnCount}
@@ -112,9 +106,27 @@ export function Toolbar({
   );
 }
 
-/** Sparfil till/från disk – försäkring mot att Safari rensar localStorage. */
-function SaveFileButtons({ state, onLoad }: { state: GameState; onLoad: () => void }) {
+/** Inställningsmeny (⚙): ljud/volym, ladda och sparfil till/från disk –
+ *  samlade bakom en knapp så översta raden får luft (viktigt på iPad). */
+function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
+  state: GameState;
+  onLoad: () => void;
+  soundOn: boolean;
+  onToggleSound: () => void;
+}) {
+  const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Stäng vid klick utanför menyn.
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [open]);
 
   const doExport = () => {
     const blob = new Blob([exportSaveFile(state)], { type: "application/json" });
@@ -137,40 +149,79 @@ function SaveFileButtons({ state, onLoad }: { state: GameState; onLoad: () => vo
     onLoad();           // … och ladda den direkt.
   };
 
-  return (
-    <>
-      <button style={S.toolbarMiniBtn} onClick={doExport} title="Ladda ner en sparfil (JSON) som säkerhetskopia">
-        ⬇︎
-      </button>
-      <button style={S.toolbarMiniBtn} onClick={() => fileRef.current?.click()} title="Läs in en tidigare exporterad sparfil">
-        ⬆︎
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".json,application/json"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void doImport(f);
-          e.target.value = "";
-        }}
-      />
-    </>
-  );
-}
+  const row: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    gap: 12, padding: "7px 4px", fontSize: 13, whiteSpace: "nowrap",
+  };
+  const rowBtn: React.CSSProperties = {
+    ...S.toolbarMiniBtn, width: "100%", textAlign: "left" as const,
+  };
 
-function VolumeSlider() {
   return (
-    <input
-      type="range"
-      min={0}
-      max={1}
-      step={0.05}
-      defaultValue={getVolume()}
-      onChange={(e) => setVolume(parseFloat(e.target.value))}
-      title="Volym"
-      style={{ width: 64, accentColor: BURGUNDY, cursor: "pointer" }}
-    />
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <button
+        style={{ ...S.toolbarMiniBtn, ...(open ? { borderColor: BURGUNDY, color: "#ffd080" } : {}) }}
+        onClick={() => setOpen(!open)}
+        title="Inställningar: ljud, ladda och sparfiler"
+      >
+        ⚙
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 300,
+          minWidth: 230, padding: "10px 12px", borderRadius: 8,
+          background: "#1c242e", border: `1px solid ${C.brass}`,
+          boxShadow: "0 10px 28px rgba(0,0,0,0.5)",
+        }}>
+          <div style={row}>
+            <span style={{ color: C.creamSoft }}>Ljud</span>
+            <button style={S.toolbarMiniBtn} onClick={onToggleSound}>
+              {soundOn ? "🔊 På" : "🔇 Av"}
+            </button>
+          </div>
+          {soundOn && (
+            <div style={row}>
+              <span style={{ color: C.creamSoft }}>Volym</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                defaultValue={getVolume()}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                style={{ width: 110, accentColor: BURGUNDY, cursor: "pointer" }}
+              />
+            </div>
+          )}
+          <div style={{ height: 1, background: `${C.brass}44`, margin: "6px 0" }} />
+          <div style={row}>
+            <button style={rowBtn} onClick={() => { setOpen(false); onLoad(); }}>
+              📂 Ladda sparat spel
+            </button>
+          </div>
+          <div style={row}>
+            <button style={rowBtn} onClick={doExport} title="Ladda ner en sparfil (JSON) som säkerhetskopia">
+              ⬇︎ Exportera sparfil
+            </button>
+          </div>
+          <div style={row}>
+            <button style={rowBtn} onClick={() => fileRef.current?.click()} title="Läs in en tidigare exporterad sparfil">
+              ⬆︎ Importera sparfil
+            </button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json,application/json"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void doImport(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
+    </div>
   );
 }

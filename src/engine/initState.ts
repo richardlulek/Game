@@ -5,7 +5,7 @@
 
 import { DEFAULT_COMPANY_NAME } from "./company";
 import { AI_NAMES, DISTRICTS } from "./data";
-import { builtYearFor, calcCapacity, energyClassFor, genLot, genWorldProperty, makeTenant } from "./generators";
+import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { rnd } from "./random";
 import { initStocks } from "./stocks";
 import { makeIndustryAssetFromTemplate } from "./industries";
@@ -154,15 +154,21 @@ export function initState(opts?: InitOptions): GameState {
     );
     return { ...sp, tenants };
   };
-  const cheapest = [...listingProps].sort((a, b) => a.askPrice - b.askPrice).slice(0, 3);
   const specs: [number, (cap: number) => number][] = [
     [84, (cap) => cap],                            // kassaflöde: fullt uthyrt
     [26, () => 0],                                 // nedgånget: tomt
     [58, (cap) => Math.max(1, Math.round(cap / 2))], // mix: delvis uthyrt
   ];
-  cheapest.forEach((p, i) => {
+  // Instegsobjekten ligger ALLTID i Villakullen – småskaligt, billigt och
+  // överblickbart: ett naturligt startområde att lära sig spelet i innan
+  // stenstaden och Finansdistriktet lockar. De ersätter de tre billigaste
+  // slumpade annonserna.
+  const kulleAllowed = new Set(["kulle"]);
+  const byPrice = [...listingProps].sort((a, b) => a.askPrice - b.askPrice).slice(0, 3);
+  byPrice.forEach((p, i) => {
     const [cond, fill] = specs[i] ?? specs[0];
-    listingProps[listingProps.indexOf(p)] = applyArchetype(p, cond, fill);
+    const starter = genListing(base, kulleAllowed);
+    listingProps[listingProps.indexOf(p)] = applyArchetype(starter, cond, fill);
   });
   base.listings = listingProps.map((p) => toListingProp(p, base));
 
