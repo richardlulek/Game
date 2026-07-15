@@ -84,10 +84,12 @@ export function hotelMonthlyRevenue(asset: IndustryAsset, state: GameState): num
 
   const adr = meta.baseAdr * adrMult;
 
-  // OCC
+  // OCC – staden bär hotellet: områdesutveckling (megaprojekt, stadsdels-
+  // projekt, satsningar) lyfter beläggningen med halv effekt mot värdet.
+  const dev = 1 + ((state.districtDev?.[asset.district] ?? 1) - 1) * 0.5;
   const occ = Math.min(
     0.98,
-    Math.max(0.25, (baseOcc + occBonus) * state.demandMod * sf * cf),
+    Math.max(0.25, (baseOcc + occBonus) * state.demandMod * sf * cf * dev),
   );
 
   const revpar = adr * occ;
@@ -217,11 +219,21 @@ export function logisticsMonthlyRevenue(asset: IndustryAsset, state: GameState):
 
   const autoMult = AUTO_THROUGHPUT[meta.automationLevel];
   const throughputBoost = logisticsThroughputBoost(state);
+  // Stadens industristock matar terminalerna: fler industrifastigheter i
+  // staden (oavsett ägare) ger mer gods – upp till +15 %.
+  const cityIndustry =
+    state.portfolio.filter((p) => p.type === "industri" && p.status === "klar").length +
+    state.listings.filter((p) => p.type === "industri").length +
+    state.competitors.reduce(
+      (a, c) => a + (c.portfolio ?? []).filter((p) => p.type === "industri").length,
+      0,
+    );
+  const cityPulse = 1 + Math.min(0.15, cityIndustry * 0.01);
   const isQ4 = state.month >= 10;
 
   let total = 0;
   for (const c of meta.throughputContracts) {
-    let revenue = c.guaranteedM3 * c.ratePerM3 * autoMult * throughputBoost;
+    let revenue = c.guaranteedM3 * c.ratePerM3 * autoMult * throughputBoost * cityPulse;
     if (isQ4 && meta.peakSurchargeActive) {
       const peakProfile = ["ehandel", "3pl"].includes(c.clientProfile);
       if (peakProfile) revenue *= 1.28;
@@ -311,6 +323,36 @@ export function industryMonthlyOpex(asset: IndustryAsset, state: GameState): num
     case "energi":   return energyMonthlyOpex(asset, state);
     case "logistik": return logisticsMonthlyOpex(asset, state);
   }
+}
+
+/** Aktiva synergier mellan industrierna och fastighetsbeståndet – läsbara
+ *  rader för Industri-panelen så att kopplingarna SYNS, inte bara verkar. */
+export function synergySummary(state: GameState): string[] {
+  const out: string[] = [];
+  const mw = state.energyOwnedMW ?? 0;
+  if (mw > 0) {
+    const cut = Math.round((1 - energySynergyMult(state)) * 100);
+    out.push(`⚡ ${mw} MW egen el: −${cut} % driftkostnad i hela beståndet, +${Math.min(1, mw / 25).toFixed(1)} p ESG-betyg`);
+  }
+  const byDistrict = new Map<string, { stars: number; name: string }>();
+  for (const a of state.industryPortfolio ?? []) {
+    if (a.sector !== "hotell" || a.status !== "klar") continue;
+    const e = byDistrict.get(a.district) ?? { stars: 0, name: a.districtName };
+    e.stars += a.hotelMeta?.starRating ?? 0;
+    byDistrict.set(a.district, e);
+  }
+  for (const [, e] of byDistrict)
+    out.push(`🏨 Hotell i ${e.name}: +${Math.min(8, e.stars)} % butikshyra i distriktet (gästflöden)`);
+  const terminals = new Map<string, { n: number; name: string }>();
+  for (const a of state.industryPortfolio ?? []) {
+    if (a.sector !== "logistik" || a.status !== "klar") continue;
+    const e = terminals.get(a.district) ?? { n: 0, name: a.districtName };
+    e.n += 1;
+    terminals.set(a.district, e);
+  }
+  for (const [, e] of terminals)
+    out.push(`📦 Terminal i ${e.name}: +${e.n * 3} % industrihyra i distriktet`);
+  return out;
 }
 
 /** Energisynergi: ägda MW minskar driftkostnad för fastigheterna. */

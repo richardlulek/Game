@@ -11,6 +11,7 @@ import {
   hotelMonthlyRevenue, hotelMonthlyOpex,
   energyMonthlyRevenue, energyMonthlyOpex,
   logisticsMonthlyRevenue, logisticsMonthlyOpex,
+  synergySummary,
 } from "../engine/industries";
 import { S } from "../styles/styles";
 import { C, FONTS } from "../styles/tokens";
@@ -96,6 +97,24 @@ export function IndustryPanel({ state, dispatch }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Synergier med fastighetsbeståndet – industrierna är del av staden */}
+      {synergySummary(state).length > 0 && (
+        <div style={{
+          marginBottom: 16,
+          padding: "10px 14px",
+          border: `1px solid ${C.brassDim}`,
+          borderRadius: 6,
+          background: "rgba(201,164,92,0.08)",
+        }}>
+          <div style={{ fontSize: 10, color: C.inkSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+            Aktiva synergier med fastighetsbeståndet
+          </div>
+          {synergySummary(state).map((row) => (
+            <div key={row} style={{ fontSize: 12.5, padding: "2px 0", color: C.ink }}>{row}</div>
+          ))}
+        </div>
+      )}
 
       {/* Sektorfilter */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>

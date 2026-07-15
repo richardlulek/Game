@@ -273,3 +273,57 @@ describe("industripriser är kapitaliserat driftnetto", () => {
     }
   });
 });
+
+/* ── Symbios: industrierna och fastighetsbeståndet är EN ekonomi ───── */
+
+describe("symbios stad ↔ industri", () => {
+  it("hotell i distriktet lyfter butikshyran (turistflöden)", async () => {
+    const { propPotentialRent } = await import("../engine/property");
+    const butik = makeProperty({ type: "butik", district: "centrum", baseRent: 1_200_000 });
+    const utan = makeState({ portfolio: [butik] });
+    const med = makeState({
+      portfolio: [butik],
+      industryPortfolio: [makeIndustryAsset({ district: "centrum" })], // 3★
+    });
+    const lyft = propPotentialRent(butik, med) / propPotentialRent(butik, utan);
+    expect(lyft).toBeCloseTo(1.03, 2); // +1 %/stjärna
+    // …men bara för butiker i samma distrikt.
+    const bostad = makeProperty({ type: "bostad", district: "centrum", baseRent: 1_200_000 });
+    expect(propPotentialRent(bostad, med)).toBe(propPotentialRent(bostad, utan));
+  });
+
+  it("områdesutveckling lyfter hotellets beläggning och intäkt", () => {
+    const hotel = makeIndustryAsset({ district: "centrum" });
+    const lugnt = makeState({ districtDev: { centrum: 1 } });
+    const hett = makeState({ districtDev: { centrum: 1.4 } });
+    expect(hotelMonthlyRevenue(hotel, hett)).toBeGreaterThan(hotelMonthlyRevenue(hotel, lugnt));
+  });
+
+  it("stadens industristock ger terminalerna mer gods", () => {
+    const terminal = makeIndustryAsset({
+      sector: "logistik",
+      hotelMeta: null,
+      logisticsMeta: {
+        totalBays: 16, automationLevel: 0, peakSurchargeActive: false,
+        throughputContracts: [{ id: 1, clientName: "Test 3PL", clientProfile: "3pl", guaranteedM3: 10_000, ratePerM3: 30, monthsLeft: 24, termTotal: 24, penaltyRisk: 0, defaultRisk: 0 }],
+      },
+    });
+    const tomStad = makeState({ month: 3 });
+    const industristad = makeState({
+      month: 3,
+      portfolio: Array.from({ length: 10 }, (_, i) => makeProperty({ id: 500 + i, type: "industri" })),
+    });
+    expect(logisticsMonthlyRevenue(terminal, industristad)).toBeGreaterThan(
+      logisticsMonthlyRevenue(terminal, tomStad),
+    );
+  });
+
+  it("egen förnybar el förbättrar ESG-betyget (gröna lån för koncernen)", async () => {
+    const { esgRatingOf } = await import("../engine/esg");
+    const props = [makeProperty({ energyClass: "C" })];
+    const utan = esgRatingOf(makeState({ portfolio: props, energyOwnedMW: 0 }));
+    const med = esgRatingOf(makeState({ portfolio: props, energyOwnedMW: 25 }));
+    expect(med.score).toBeGreaterThan(utan.score);
+    expect(med.letter).toBe("B"); // C-bestånd + 25 MW ⇒ grönt lånebetyg
+  });
+});

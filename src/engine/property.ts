@@ -100,6 +100,18 @@ export function propPotentialRent(p: Property, state: GameState): number {
   ).length;
   const logistikBonus = p.type === "industri" ? 1 + logistikInDistrict * 0.03 : 1.0;
 
+  // Turistsynergi: egna hotell i distriktet driver gästflöden till butikerna –
+  // +1 % potentialhyra per hotellstjärna, max +8 %.
+  const hotelStars = (state.industryPortfolio ?? []).reduce(
+    (a, x) =>
+      a +
+      (x.sector === "hotell" && x.district === p.district && x.status === "klar"
+        ? x.hotelMeta?.starRating ?? 0
+        : 0),
+    0,
+  );
+  const hotellBonus = p.type === "butik" ? 1 + Math.min(0.08, hotelStars * 0.01) : 1.0;
+
   // Områdesutveckling lyfter hyran (halv effekt mot värdet).
   const devRent = 1 + (districtDevOf(state, p.district) - 1) * 0.5;
   // Läget på kartan påverkar hyran med halv effekt mot värdet.
@@ -116,7 +128,7 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const hoodRent = 1 + (blockConditionMult(p, state) - 1) * 0.5;
   // Livscykel: åldrade byggnader tappar i hyra (halv effekt mot värdet).
   const obsRent = 1 + (obsolescenceFactor(p, state) - 1) * 0.5;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * blockRent * single * mix * reg * hoodRent * obsRent;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * hotellBonus * blockRent * single * mix * reg * hoodRent * obsRent;
   const vacancy = p.regulated
     ? 0
     : Math.max(
