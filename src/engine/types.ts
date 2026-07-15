@@ -72,6 +72,8 @@ export interface IndustryAsset {
   name: string;
   district: string;
   districtName: string;
+  /** Tomtruta på stadskartan – industrier står på kartan som allt annat. */
+  parcelId?: string;
   purchasePrice: number;
   condition: number;       // 0–100, samma skala som Property
   upgrades: string[];

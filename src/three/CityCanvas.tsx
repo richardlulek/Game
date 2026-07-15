@@ -26,6 +26,7 @@ import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
 import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
+import { IndustryProps } from "./IndustryProps";
 import { Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
@@ -144,8 +145,12 @@ function CityParcels() {
     const ids = new Set(byParcel.keys());
     if (projectBlocks.size > 0)
       for (const p of PARCELS) if (projectBlocks.has(p.blockId)) ids.add(p.id);
+    // Industriernas rutor (ägda + till salu) – ritas av IndustryProps.
+    for (const a of state.industryPortfolio ?? []) if (a.parcelId) ids.add(a.parcelId);
+    for (const a of state.industryListings ?? []) if (a.parcelId) ids.add(a.parcelId);
     return [...ids].sort().join(",");
-  }, [byParcel, projectBlocks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [byParcel, projectBlocks, state.industryPortfolio, state.industryListings]);
   const occupied = useMemo(
     () => new Set(occupiedKey ? occupiedKey.split(",") : []),
     [occupiedKey],
@@ -292,6 +297,7 @@ export function CityCanvas() {
       <Harbor />
       <Landmarks />
       <SignatureBlocks />
+      <IndustryProps />
       <Headquarters />
       <OwnerLuxuries />
       <RoggeCar />

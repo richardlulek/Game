@@ -335,6 +335,8 @@ export function occupiedParcelIds(state: GameState): Set<string> {
   for (const l of state.lots) if (l.parcelId) used.add(l.parcelId);
   for (const c of state.competitors)
     for (const p of c.portfolio ?? []) if (p.parcelId) used.add(p.parcelId);
+  for (const a of state.industryPortfolio ?? []) if (a.parcelId) used.add(a.parcelId);
+  for (const a of state.industryListings ?? []) if (a.parcelId) used.add(a.parcelId);
   const projectBlocks = new Set([
     ...(state.cityProjects ?? []).map((x) => x.blockId),
     ...(state.signatureBlocks ?? []).map((x) => x.blockId),
@@ -442,6 +444,8 @@ export function placeCity(state: GameState): GameState {
   state.lots.forEach(reserve);
   state.listings.forEach(reserve);
   for (const c of state.competitors) (c.portfolio ?? []).forEach(reserve);
+  (state.industryPortfolio ?? []).forEach(reserve);
+  (state.industryListings ?? []).forEach(reserve);
   // Stadsdelsprojektens kvarter är byggarbetsplats/signaturarkitektur –
   // inga nya objekt får placeras där.
   const projectBlocks = new Set([
@@ -481,6 +485,10 @@ export function placeCity(state: GameState): GameState {
   const portfolio = placeArr(state.portfolio);
   const lots = placeArr(state.lots);
   const listings = placeArr(state.listings, true);
+  // Industrier står på kartan som allt annat: hotell, energiparker och
+  // terminaler får en ruta i sitt distrikt (ägda och till salu).
+  const industryPortfolio = placeArr(state.industryPortfolio ?? []);
+  const industryListings = placeArr(state.industryListings ?? []);
   let competitorsChanged = false;
   const competitors = state.competitors.map((c) => {
     const np = placeArr(c.portfolio);
@@ -495,6 +503,8 @@ export function placeCity(state: GameState): GameState {
     portfolio,
     lots,
     listings,
+    industryPortfolio,
+    industryListings,
     competitors: competitorsChanged ? competitors : state.competitors,
   };
 }

@@ -1,0 +1,229 @@
+/* Industrierna på kartan – hotell, energiparker och logistikterminaler
+   står på sina tomtrutor som allt annat och ger staden liv:
+   · Hotell     torn efter stjärnnivå med entrémarkis och takskylt
+   · Sol        panelrader i prydliga räta led
+   · Vind       roterande turbiner (2–3 st efter MW)
+   · Logistik   lågt lagerskepp med portar och containerstaplar
+   Klick öppnar Industri-fönstret (ägda) eller industrimarknaden
+   (till salu). Beacon: 🔵 ägd, 🏷️ till salu – som fastigheterna. */
+
+import { Html, useCursor } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { useMemo, useRef, useState } from "react";
+import { MeshStandardMaterial, type Group } from "three";
+import { parcelById, type Parcel } from "../engine/city";
+import type { IndustryAsset } from "../engine/types";
+import { useGameStore } from "../store/gameStore";
+import { useUiStore } from "../store/uiStore";
+import { iconTexture } from "./textures";
+import { windowTexture } from "./textures";
+
+const CREAM = "#e8e0cd";
+const PANEL = "#2e4a6b";
+const STEEL = "#c9ced4";
+
+/** Fasadmaterial med fönsterrutnät (memoiserat per storlek). */
+function useFacade(color: string, cols: number, floors: number) {
+  return useMemo(() => {
+    const m = new MeshStandardMaterial({ color, roughness: 0.7 });
+    m.map = windowTexture(Math.max(2, cols), Math.max(2, floors));
+    return m;
+  }, [color, cols, floors]);
+}
+
+function Hotel({ pc, stars }: { pc: Parcel; stars: number }) {
+  const floors = 3 + stars * 2;
+  const h = floors * 3;
+  const w = pc.w * 0.72, d = pc.d * 0.72;
+  const facade = useFacade(CREAM, Math.round(w / 3), floors);
+  return (
+    <group>
+      <mesh castShadow receiveShadow material={facade} position={[0, h / 2, 0]}>
+        <boxGeometry args={[w, h, d]} />
+      </mesh>
+      {/* Burgundytak + guldskylt */}
+      <mesh castShadow position={[0, h + 0.4, 0]}>
+        <boxGeometry args={[w + 0.6, 0.8, d + 0.6]} />
+        <meshStandardMaterial color="#6e1a2a" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, h + 1.6, 0]}>
+        <boxGeometry args={[Math.min(6, w * 0.6), 1.4, 0.4]} />
+        <meshStandardMaterial color="#c9a13b" emissive="#c9a13b" emissiveIntensity={0.35} metalness={0.5} roughness={0.4} />
+      </mesh>
+      {/* Entrémarkis */}
+      <mesh castShadow position={[0, 2.6, d / 2 + 1]}>
+        <boxGeometry args={[4.4, 0.3, 2.2]} />
+        <meshStandardMaterial color="#6e1a2a" />
+      </mesh>
+      {[[-1.8, 0], [1.8, 0]].map(([x], i) => (
+        <mesh key={i} position={[x, 1.3, d / 2 + 1.8]}>
+          <cylinderGeometry args={[0.1, 0.1, 2.6, 6]} />
+          <meshStandardMaterial color="#c9a13b" metalness={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function SolarPark({ pc }: { pc: Parcel }) {
+  const rows = Math.max(3, Math.floor(pc.d / 6));
+  const cols = Math.max(2, Math.floor(pc.w / 7));
+  return (
+    <group>
+      {Array.from({ length: rows }, (_, r) =>
+        Array.from({ length: cols }, (_, c) => (
+          <group
+            key={`${r}-${c}`}
+            position={[-pc.w / 2 + (c + 0.5) * (pc.w / cols), 0.9, -pc.d / 2 + (r + 0.5) * (pc.d / rows)]}
+            rotation-x={-0.5}
+          >
+            <mesh castShadow>
+              <boxGeometry args={[pc.w / cols - 1.6, 0.15, 3.4]} />
+              <meshStandardMaterial color={PANEL} roughness={0.35} metalness={0.4} />
+            </mesh>
+          </group>
+        )),
+      )}
+      {/* Transformatorbod */}
+      <mesh castShadow position={[pc.w / 2 - 2, 1, pc.d / 2 - 2]}>
+        <boxGeometry args={[2.4, 2, 2]} />
+        <meshStandardMaterial color="#9aa0a6" />
+      </mesh>
+    </group>
+  );
+}
+
+/** Ett vindkraftverk med roterande rotor. */
+function Turbine({ x, z, h, phase }: { x: number; z: number; h: number; phase: number }) {
+  const rotor = useRef<Group>(null);
+  useFrame(({ clock }) => {
+    if (rotor.current) rotor.current.rotation.z = clock.elapsedTime * 1.4 + phase;
+  });
+  return (
+    <group position={[x, 0, z]}>
+      <mesh castShadow position={[0, h / 2, 0]}>
+        <cylinderGeometry args={[0.35, 0.7, h, 8]} />
+        <meshStandardMaterial color={STEEL} roughness={0.5} />
+      </mesh>
+      <mesh castShadow position={[0, h, 1]}>
+        <boxGeometry args={[1.4, 1.4, 2.6]} />
+        <meshStandardMaterial color={STEEL} />
+      </mesh>
+      <group ref={rotor} position={[0, h, 2.2]}>
+        {[0, 2.094, 4.189].map((a) => (
+          <mesh key={a} castShadow rotation-z={a} position={[Math.sin(a) * -0, 0, 0]}>
+            <boxGeometry args={[0.7, h * 0.62, 0.12]} />
+            <meshStandardMaterial color="#f2f4f5" />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+function WindFarm({ pc, mw }: { pc: Parcel; mw: number }) {
+  const n = mw >= 20 ? 3 : 2;
+  const h = Math.min(26, pc.w * 0.9);
+  const spots: [number, number][] = n === 3
+    ? [[-pc.w * 0.28, -pc.d * 0.22], [pc.w * 0.26, 0], [-pc.w * 0.1, pc.d * 0.28]]
+    : [[-pc.w * 0.22, -pc.d * 0.15], [pc.w * 0.24, pc.d * 0.2]];
+  return (
+    <group>
+      {spots.map(([x, z], i) => (
+        <Turbine key={i} x={x} z={z} h={h} phase={i * 1.7} />
+      ))}
+    </group>
+  );
+}
+
+function Warehouse({ pc }: { pc: Parcel }) {
+  const w = pc.w * 0.82, d = pc.d * 0.62, h = 6;
+  return (
+    <group>
+      <mesh castShadow receiveShadow position={[0, h / 2, -pc.d * 0.12]}>
+        <boxGeometry args={[w, h, d]} />
+        <meshStandardMaterial color="#b9bec4" roughness={0.85} />
+      </mesh>
+      <mesh castShadow position={[0, h + 0.3, -pc.d * 0.12]}>
+        <boxGeometry args={[w + 0.4, 0.6, d + 0.4]} />
+        <meshStandardMaterial color="#7d838a" />
+      </mesh>
+      {/* Lastportar mot gården */}
+      {Array.from({ length: Math.max(2, Math.floor(w / 5)) }, (_, i) => (
+        <mesh key={i} position={[-w / 2 + (i + 0.5) * (w / Math.max(2, Math.floor(w / 5))), 1.8, -pc.d * 0.12 + d / 2 + 0.05]}>
+          <boxGeometry args={[2.6, 3.6, 0.1]} />
+          <meshStandardMaterial color="#5f6771" />
+        </mesh>
+      ))}
+      {/* Containerstaplar på gården */}
+      {([["#b34a3d", -0.28, 0], ["#3d6db3", -0.1, 0], ["#c99a3b", -0.19, 1]] as const).map(([col, kx, ky], i) => (
+        <mesh key={i} castShadow position={[pc.w * (kx as number), 1.1 + (ky as number) * 2.2, pc.d * 0.34]}>
+          <boxGeometry args={[5, 2.2, 2.2]} />
+          <meshStandardMaterial color={col} roughness={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** En industritillgång på sin tomtruta, med beacon och klickyta. */
+function IndustryNode({ asset, forSale }: { asset: IndustryAsset; forSale: boolean }) {
+  const requestOpen = useUiStore((s) => s.requestOpen);
+  const [hovered, setHovered] = useState(false);
+  useCursor(hovered);
+  const pc = asset.parcelId ? parcelById(asset.parcelId) : undefined;
+  if (!pc) return null;
+  const beaconY =
+    asset.sector === "hotell" ? (3 + (asset.hotelMeta?.starRating ?? 2) * 2) * 3 + 6
+    : asset.sector === "energi" && asset.energyMeta?.subType === "vind" ? 32
+    : 12;
+  return (
+    <group
+      position={[pc.x, 0.14, pc.z]}
+      onClick={(e) => {
+        e.stopPropagation();
+        requestOpen(forSale ? "ind_marknad" : "industri");
+      }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
+      onPointerOut={() => setHovered(false)}
+    >
+      {asset.sector === "hotell" && <Hotel pc={pc} stars={asset.hotelMeta?.starRating ?? 2} />}
+      {asset.sector === "energi" && (asset.energyMeta?.subType === "vind"
+        ? <WindFarm pc={pc} mw={asset.energyMeta?.installedMW ?? 10} />
+        : <SolarPark pc={pc} />)}
+      {asset.sector === "logistik" && <Warehouse pc={pc} />}
+      <sprite position={[0, beaconY, 0]} scale={forSale ? [7, 7, 1] : [4.6, 4.6, 1]} renderOrder={39}>
+        <spriteMaterial map={iconTexture(forSale ? "🏷️" : "🔵", forSale ? "#ffce3a" : "rgba(255,252,244,0.95)")} transparent depthTest={false} />
+      </sprite>
+      {hovered && (
+        <Html position={[0, beaconY - 3, 0]} center zIndexRange={[40, 0]}>
+          <div style={{
+            pointerEvents: "none", background: "rgba(26,26,26,0.92)", color: "#fff",
+            padding: "6px 10px", borderRadius: 8, fontSize: 12,
+            fontFamily: "'Inter', system-ui, sans-serif", whiteSpace: "nowrap", textAlign: "center",
+          }}>
+            <strong>{asset.name}</strong>
+            <br />
+            <span style={{ opacity: 0.8 }}>{forSale ? "Industri till salu – klicka för marknaden" : "Din industri – klicka för översikt"}</span>
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+/** Alla industrier på kartan (ägda + till salu). */
+export function IndustryProps() {
+  const industryPortfolio = useGameStore((s) => s.state.industryPortfolio);
+  const industryListings = useGameStore((s) => s.state.industryListings);
+  return (
+    <>
+      {(industryPortfolio ?? []).map((a) => (
+        <IndustryNode key={a.id} asset={a} forSale={false} />
+      ))}
+      {(industryListings ?? []).map((a) => (
+        <IndustryNode key={a.id} asset={a} forSale />
+      ))}
+    </>
+  );
+}
