@@ -5,6 +5,7 @@
    ============================================================ */
 
 import { INDUSTRY_UPGRADES, HOTEL_BOOKING_CHANNELS } from "./industryData";
+import { cityEventHotelMult, cityEventLogisticsMult, cityEventSpotMult } from "./cityEvents";
 import { hotelRevParBoost, energySpotBoost, logisticsThroughputBoost } from "./progression";
 import type {
   GameState,
@@ -92,7 +93,7 @@ export function hotelMonthlyRevenue(asset: IndustryAsset, state: GameState): num
     state.marketCycle?.phase === "boom" ? 1.10 : state.marketCycle?.phase === "bust" ? 0.85 : 1.0;
   const occ = Math.min(
     0.98,
-    Math.max(0.25, (baseOcc + occBonus) * state.demandMod * sf * cf * dev * cycle),
+    Math.max(0.25, (baseOcc + occBonus) * state.demandMod * sf * cf * dev * cycle * cityEventHotelMult(state)),
   );
 
   const revpar = adr * occ;
@@ -163,7 +164,7 @@ export function energyMonthlyRevenue(asset: IndustryAsset, state: GameState): nu
 
   // Spot för resterande MWh
   const spotMWh = Math.max(0, monthlyMWh - ppaMWh);
-  const spotPrice = BASE_SPOT_PRICE * state.marketSentiment * seasonFactor(state.month, "spot");
+  const spotPrice = BASE_SPOT_PRICE * state.marketSentiment * seasonFactor(state.month, "spot") * cityEventSpotMult(state);
   const spotBoostMult = 1 + upgRevBoost(asset) + energySpotBoost(state) - 1; // net of base 1
   const spotRev = spotMWh * spotPrice * Math.max(0.5, spotBoostMult);
 
@@ -231,7 +232,7 @@ export function logisticsMonthlyRevenue(asset: IndustryAsset, state: GameState):
       (a, c) => a + (c.portfolio ?? []).filter((p) => p.type === "industri").length,
       0,
     );
-  const cityPulse = 1 + Math.min(0.15, cityIndustry * 0.01);
+  const cityPulse = (1 + Math.min(0.15, cityIndustry * 0.01)) * cityEventLogisticsMult(state);
   const isQ4 = state.month >= 10;
 
   let total = 0;

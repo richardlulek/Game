@@ -703,6 +703,8 @@ export interface GameState {
   salePackages?: SalePackage[];
   /** Pågående kommunala infrastrukturprojekt. */
   infraProjects?: InfraProject[];
+  /** Pågående stadshändelse (mässa, strejk, elkris …) – en i taget. */
+  cityEvent?: { id: string; name: string; monthsLeft: number };
   /** Fastighetskris: månader kvar av kraschen (0/undefined = ingen kris). */
   crisisMonthsLeft?: number;
   /** Pågående megaprojekt (prestige-slutspel). */

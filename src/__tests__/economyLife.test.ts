@@ -160,3 +160,51 @@ describe("synliga hus försvinner aldrig från kartan", () => {
     expect(s1.log.some((l) => l.t.includes("plockade upp"))).toBe(true);
   });
 });
+
+/* ── Stadshändelser ─────────────────────────────────────────────────── */
+
+describe("stadshändelser", () => {
+  it("elpriskaoset lyfter energiintäkter och fastigheters driftkostnad", async () => {
+    const { energyMonthlyRevenue } = await import("../engine/industries");
+    const { propAnnualOpex } = await import("../engine/property");
+    const { makeIndustryAsset, makeProperty, makeState } = await import("./factories");
+    const park = makeIndustryAsset({
+      sector: "energi", hotelMeta: null,
+      energyMeta: { subType: "vind", installedMW: 15, capacityFactor: 0.28, ppaContracts: [], degradationPct: 0, subsidyActive: true, commissionedAbs: 0 },
+    });
+    const hus = makeProperty({ baseRent: 2_000_000 });
+    const lugnt = makeState({ month: 4 });
+    const kaos = makeState({ month: 4, cityEvent: { id: "elkris", name: "Elpriskaoset", monthsLeft: 2 } });
+    expect(energyMonthlyRevenue(park, kaos)).toBeGreaterThan(energyMonthlyRevenue(park, lugnt));
+    expect(propAnnualOpex(hus, kaos)).toBeGreaterThan(propAnnualOpex(hus, lugnt));
+  });
+
+  it("hamnstrejken halverar terminalgodset, mässan fyller hotellen", async () => {
+    const { hotelMonthlyRevenue, logisticsMonthlyRevenue } = await import("../engine/industries");
+    const { makeIndustryAsset, makeState } = await import("./factories");
+    const hotel = makeIndustryAsset({});
+    const terminal = makeIndustryAsset({
+      sector: "logistik", hotelMeta: null,
+      logisticsMeta: { totalBays: 16, automationLevel: 0, peakSurchargeActive: false,
+        throughputContracts: [{ id: 1, clientName: "K", clientProfile: "3pl", guaranteedM3: 10_000, ratePerM3: 30, monthsLeft: 24, termTotal: 24, penaltyRisk: 0, defaultRisk: 0 }] },
+    });
+    const lugnt = makeState({ month: 4 });
+    expect(hotelMonthlyRevenue(hotel, makeState({ month: 4, cityEvent: { id: "massa", name: "Stadsmässan", monthsLeft: 1 } })))
+      .toBeGreaterThan(hotelMonthlyRevenue(hotel, lugnt));
+    expect(logisticsMonthlyRevenue(terminal, makeState({ month: 4, cityEvent: { id: "hamnstrejk", name: "Hamnstrejken", monthsLeft: 2 } })))
+      .toBeLessThan(logisticsMonthlyRevenue(terminal, lugnt));
+  });
+
+  it("tickCityEvent lottar fram, räknar ner och avslutar händelser", async () => {
+    const { tickCityEvent } = await import("../engine/cityEvents");
+    const { makeState } = await import("./factories");
+    const events: { t: string; kind: string }[] = [];
+    const s = makeState({ month: 4 });
+    tickCityEvent(s, events as never, () => 0.01); // låg roll: händelse startar
+    expect(s.cityEvent).toBeDefined();
+    const months = s.cityEvent!.monthsLeft;
+    for (let i = 0; i < months; i++) tickCityEvent(s, events as never, () => 0.99);
+    expect(s.cityEvent).toBeUndefined();
+    expect(events.some((e) => e.t.includes("!") || e.t.length > 0)).toBe(true);
+  });
+});

@@ -5,6 +5,7 @@
 
 import { BLOCK_OPEX_CUT, BLOCK_RENT_BONUS, blockConditionMult, hasBlockBonus } from "./blocks";
 import { locationFactor } from "./city";
+import { cityEventOpexMult, cityEventShopMult } from "./cityEvents";
 import { rateValueFactor } from "./economyLife";
 import { obsolescenceFactor } from "./lifecycle";
 import { DISTRICTS, PROP_TYPES } from "./data";
@@ -111,6 +112,8 @@ export function propPotentialRent(p: Property, state: GameState): number {
     0,
   );
   const hotellBonus = p.type === "butik" ? 1 + Math.min(0.08, hotelStars * 0.01) : 1.0;
+  // Stadshändelser: mässor och festivaler fyller butikerna.
+  const eventBonus = p.type === "butik" ? cityEventShopMult(state) : 1.0;
 
   // Områdesutveckling lyfter hyran (halv effekt mot värdet).
   const devRent = 1 + (districtDevOf(state, p.district) - 1) * 0.5;
@@ -128,7 +131,7 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const hoodRent = 1 + (blockConditionMult(p, state) - 1) * 0.5;
   // Livscykel: åldrade byggnader tappar i hyra (halv effekt mot värdet).
   const obsRent = 1 + (obsolescenceFactor(p, state) - 1) * 0.5;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * hotellBonus * blockRent * single * mix * reg * hoodRent * obsRent;
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * hotellBonus * eventBonus * blockRent * single * mix * reg * hoodRent * obsRent;
   const vacancy = p.regulated
     ? 0
     : Math.max(
@@ -145,7 +148,7 @@ export function propAnnualOpex(p: Property, state: GameState): number {
   const t = PROP_TYPES[p.type];
   const block = hasBlockBonus(p, state) ? BLOCK_OPEX_CUT : 1;
   const single = p.capacity === 1 && !p.wholeBlock ? SINGLE_TENANT_OPEX_CUT : 1;
-  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state) * energySynergyMult(state) * block * single;
+  return p.baseRent * t.opexFactor * p.opexMult * state.taxMod * opexMult(state) * energySynergyMult(state) * cityEventOpexMult(state) * block * single;
 }
 
 /** Driftnetto per år (hyra − driftkostnad). */

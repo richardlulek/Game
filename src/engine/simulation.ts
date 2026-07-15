@@ -46,6 +46,7 @@ import {
 } from "./lateGame";
 import { amortInfoOf, equityOf, loanTerms } from "./finance";
 import { covenantBreach, creditRatingOf } from "./rating";
+import { tickCityEvent } from "./cityEvents";
 import { kr, msek } from "./format";
 import { calYear, daysInMonth, formatMonthYear } from "./date";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
@@ -988,6 +989,9 @@ export function advanceMonth(state: GameState): GameState {
       s.stockOrders = (s.stockOrders ?? []).filter((o) => o.stockId !== bStock.id);
     }
   }
+
+  // ── Stadshändelser: mässa, festival, strejk, elkris ─────────────
+  tickCityEvent(s, events);
 
   // ── Lokala distriktshändelser (~8 % chans/distrikt/mån) ─────────
   if (!s.settings?.calmMode && Math.random() < 0.08) {
