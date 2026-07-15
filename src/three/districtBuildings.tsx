@@ -16,7 +16,7 @@
    så att inget kvarter ser klonat ut.
    ============================================================ */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { PropTypeKey } from "../engine/types";
@@ -38,7 +38,9 @@ export function districtFloors(parcel: Parcel, hash: number, area?: number): num
       const zone = DISTRICT_ZONES.find((z) => z.district === "finans")!;
       const dist = Math.hypot(parcel.x - zone.x, parcel.z - zone.z);
       const maxDist = Math.hypot(zone.w / 2, zone.d / 2);
-      const central = 1 - dist / maxDist;
+      // Klampas till [0,1] – tomter utanför zonen (t.ex. modellbiblioteket)
+      // ska inte kunna ge negativa våningsantal.
+      const central = Math.max(0, Math.min(1, 1 - dist / maxDist));
       return Math.round(20 + central * 24 + (hash % 7)); // 20–50
     }
     case "innerstad":
@@ -199,6 +201,73 @@ function EntranceDetail({
   return null;
 }
 
+/** Takdetaljer: skorstenar, ventilationshuvar och takfönster gör platta
+ *  tak levande – seedat så varje hus får sin egen uppsättning. */
+function RoofClutter({ w, d, y, seed }: { w: number; d: number; y: number; seed: number }) {
+  const items: ReactNode[] = [];
+  if (seed % 2 === 0)
+    items.push(
+      <mesh key="skorsten" castShadow position={[w * 0.28, y + 1.1, -d * 0.22]}>
+        <boxGeometry args={[0.9, 2.2, 0.9]} />
+        <meshStandardMaterial color="#8a5a43" roughness={0.9} />
+      </mesh>,
+    );
+  items.push(
+    <mesh key="vent" castShadow position={[-w * 0.24, y + 0.5, d * 0.18]}>
+      <boxGeometry args={[1.5, 1.0, 1.2]} />
+      <meshStandardMaterial color="#9aa0a4" metalness={0.3} roughness={0.6} />
+    </mesh>,
+  );
+  if ((seed >> 2) % 3 === 0)
+    items.push(
+      <mesh key="hatt" castShadow position={[w * 0.05, y + 0.7, d * 0.3]}>
+        <cylinderGeometry args={[0.35, 0.45, 1.4, 8]} />
+        <meshStandardMaterial color="#b8bdc2" metalness={0.4} roughness={0.5} />
+      </mesh>,
+    );
+  return <group>{items}</group>;
+}
+
+/** Slitage (variant "sliten"): igenbommade fönster, fuktränder från
+ *  taket och en sprucken sockel – förfallet ska SYNAS, inte bara anas. */
+function WornDetails({ w, d, h, sx, sz, seed }: {
+  w: number; d: number; h: number; sx: number; sz: number; seed: number;
+}) {
+  const along = sx !== 0;
+  const px = sx * (w / 2 + 0.1);
+  const pz = sz * (d / 2 + 0.1);
+  const boards = 2 + (seed % 2);
+  return (
+    <group>
+      {/* Igenbommade fönster: plywood på gatufasaden */}
+      {Array.from({ length: boards }, (_, i) => {
+        const t = (i + 1) / (boards + 1) - 0.5;
+        const fy = 2.6 + ((seed >> (i * 3)) % Math.max(1, Math.floor(h / 3 - 1))) * 3;
+        return (
+          <mesh key={i} position={[along ? px : t * w * 0.8, Math.min(fy, h - 1.6), along ? t * d * 0.8 : pz]}>
+            <boxGeometry args={[along ? 0.14 : 1.7, 2.0, along ? 1.7 : 0.14]} />
+            <meshStandardMaterial color="#7a6248" roughness={1} />
+          </mesh>
+        );
+      })}
+      {/* Fuktrand från taklinjen */}
+      <mesh position={[along ? px : -w * 0.28, h * 0.72, along ? -d * 0.28 : pz]}>
+        <boxGeometry args={[along ? 0.12 : 1.1, h * 0.5, along ? 1.1 : 0.12]} />
+        <meshStandardMaterial color="#4e4a42" transparent opacity={0.55} roughness={1} />
+      </mesh>
+      {/* Sprucken sockel + skräp vid entrén */}
+      <mesh position={[along ? px : w * 0.3, 0.5, along ? d * 0.3 : pz]}>
+        <boxGeometry args={[along ? 0.16 : 2.6, 1.0, along ? 2.6 : 0.16]} />
+        <meshStandardMaterial color="#5d594f" roughness={1} />
+      </mesh>
+      <mesh castShadow position={[px + sx * 1.6 + (along ? 0 : w * 0.34), 0.55, pz + sz * 1.6 + (along ? d * 0.34 : 0)]} rotation-y={0.5} rotation-z={0.12}>
+        <boxGeometry args={[1.1, 1.1, 0.8]} />
+        <meshStandardMaterial color="#3f5347" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
 /* ── Centrum: sluten stenstad ─────────────────────────────────────── */
 
 function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers, seed, variant, solar }: DistrictBuildingProps) {
@@ -216,10 +285,14 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
   return (
     <group {...handlers}>
       <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(mainW, h, mainD)} position={[offX, h / 2, offZ]} dispose={null} />
-      {/* Takräcke/parapet */}
+      {/* Takräcke/parapet + takplatta (annars gapar ett mörkt hål uppifrån) */}
       <mesh castShadow position={[offX, h + 0.35, offZ]}>
         <boxGeometry args={[mainW * 0.99, 0.7, mainD * 0.99]} />
         <meshStandardMaterial color={new Color(color).multiplyScalar(0.6).getStyle()} />
+      </mesh>
+      <mesh receiveShadow position={[offX, h + 0.72, offZ]}>
+        <boxGeometry args={[mainW * 0.93, 0.08, mainD * 0.93]} />
+        <meshStandardMaterial color={new Color(color).multiplyScalar(0.72).getStyle()} roughness={0.95} />
       </mesh>
       {/* Gårdsflygel mot kvarterets insida */}
       {hasInside && (
@@ -245,6 +318,10 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
         </group>
       )}
       {solar && <SolarPanel w={mainW * 0.44} d={mainD * 0.32} y={h + 0.85} x={offX - sx * mainW * 0.12} z={offZ - sz * mainD * 0.12} />}
+      <group position={[offX, 0, offZ]}>
+        <RoofClutter w={mainW} d={mainD} y={h + 0.7} seed={seed} />
+        {variant === "sliten" && <WornDetails w={mainW} d={mainD} h={h} sx={sx} sz={sz} seed={seed} />}
+      </group>
     </group>
   );
 }
@@ -287,6 +364,7 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
         <meshStandardMaterial color="#7a8288" metalness={0.6} roughness={0.4} />
       </mesh>
       {solar && <SolarPanel w={w * 0.32} d={d * 0.28} y={h + 0.2} x={-w * 0.24} z={d * 0.22} />}
+      {style === 0 && !landmark && <RoofClutter w={w} d={d} y={h} seed={seed >> 1} />}
       {/* Kontorstorn får en glasentré i gatuplan */}
       {windows && type === "kontor" && (
         <EntranceDetail type="kontor" w={w} d={d} sx={streetSide(parcel)[0]} sz={streetSide(parcel)[1]} color={color} seed={seed} />
@@ -338,6 +416,8 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
       {windows && <EntranceDetail type={type} w={w} d={d} sx={sx} sz={sz} color={color} seed={seed} />}
       {/* Solpanel: platt funkistak (tegelhusens sadeltak lämnas ifred) */}
       {solar && !tegel && <SolarPanel w={w * 0.36} d={d * 0.3} y={h + 0.35} x={-w * 0.26} z={-d * 0.2} />}
+      {!tegel && <RoofClutter w={w} d={d} y={h + 0.1} seed={seed >> 1} />}
+      {variant === "sliten" && <WornDetails w={w} d={d} h={h} sx={sx} sz={sz} seed={seed} />}
     </group>
   );
 }
@@ -364,6 +444,7 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
           <group key={i} position={[x, 0, z]}>
             <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(hw, hh, hd)} position={[0, hh / 2, 0]} dispose={null} />
             <HipRoof w={hw} d={hd} y={hh + 0.8} rise={1.8} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
+            {variant === "sliten" && i === 0 && <WornDetails w={hw} d={hd} h={hh} sx={0} sz={row === 0 ? -1 : 1} seed={seed} />}
           </group>
         );
       })}
@@ -408,6 +489,21 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
           <boxGeometry args={[4, 2.4, 3.4]} />
           <meshStandardMaterial color={new Color(color).multiplyScalar(0.85).getStyle()} />
         </mesh>
+      )}
+      {variant === "sliten" && (
+        <group>
+          <mesh position={[0, 1.9, vd / 2 + 0.06]}>
+            <boxGeometry args={[1.4, 1.6, 0.12]} />
+            <meshStandardMaterial color="#7a6248" roughness={1} />
+          </mesh>
+          {/* Vildvuxen tomt */}
+          {[[-vw * 0.8, vd * 0.7], [vw * 0.75, vd * 0.85], [-vw * 0.6, -vd * 0.9]].map(([x, z], i) => (
+            <mesh key={i} position={[x, 0.35, z]}>
+              <sphereGeometry args={[0.7 + (i % 2) * 0.3, 6, 5]} />
+              <meshStandardMaterial color="#6b7a45" roughness={1} />
+            </mesh>
+          ))}
+        </group>
       )}
     </group>
   );
@@ -467,6 +563,16 @@ function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, 
         </>
       )}
       {solar && <SolarPanel w={w * 0.4} d={d * 0.34} y={hallH + 1.35} x={-w * 0.24} z={d * 0.22} />}
+      {variant === "sliten" && (
+        <group>
+          {[[-w * 0.3, 0], [w * 0.18, 1], [w * 0.42, 0]].map(([x], i) => (
+            <mesh key={i} position={[x as number, hallH * 0.55 + 1, d / 2 + 0.05]}>
+              <boxGeometry args={[0.9, hallH * 0.7, 0.1]} />
+              <meshStandardMaterial color="#8a5a35" transparent opacity={0.5} roughness={1} />
+            </mesh>
+          ))}
+        </group>
+      )}
     </group>
   );
 }
@@ -488,6 +594,7 @@ function HarborShed({ parcel, type, floors, color, windows, selected, handlers, 
         <boxGeometry args={[w * 0.3, 4, 0.25]} />
         <meshStandardMaterial color={type === "kontor" ? "#8fa8b8" : "#4a4238"} />
       </mesh>
+      {variant === "sliten" && <WornDetails w={w} d={d} h={h} sx={0} sz={1} seed={seed} />}
     </group>
   );
 }

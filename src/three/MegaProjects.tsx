@@ -64,7 +64,7 @@ function Site({ progress, w, d, h }: { progress: number; w: number; d: number; h
 }
 
 /** Imperium Arena: oval skål med läktarringar och grön plan. */
-function Arena() {
+export function Arena() {
   return (
     <group>
       <group scale={[1.35, 1, 1]}>
@@ -72,7 +72,7 @@ function Arena() {
           <cylinderGeometry args={[30, 34, 10, 28, 1, true]} />
           <meshStandardMaterial color="#d8d2c2" roughness={0.8} side={2} />
         </mesh>
-        <mesh castShadow position={[0, 10.6, 0]}>
+        <mesh castShadow position={[0, 10.6, 0]} rotation-x={-Math.PI / 2}>
           <torusGeometry args={[30.5, 1.4, 8, 28]} />
           <meshStandardMaterial color="#6e1a2a" roughness={0.7} />
         </mesh>
@@ -99,7 +99,7 @@ function Arena() {
 }
 
 /** Universitetscampus: fakultetslängor kring en aula med klocktorn. */
-function Campus() {
+export function Campus() {
   const brick = useFacade("#9c5a43", 8, 4);
   const stone = useFacade("#ded5bd", 6, 3);
   return (
@@ -150,7 +150,7 @@ function Campus() {
 }
 
 /** Sjukhuskvarteret: vita längor i H-form, rött kors och helikopterplatta. */
-function Hospital() {
+export function Hospital() {
   const white = useFacade("#eef0ee", 10, 6);
   return (
     <group>

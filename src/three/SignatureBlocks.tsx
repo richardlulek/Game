@@ -62,7 +62,7 @@ function Crane({ x, z, h, rot }: { x: number; z: number; h: number; rot: number 
 }
 
 /** Byggarbetsplats: plank runt kvarteret + betongkärnor efter framdrift. */
-function ConstructionSite({ b, progress, floors }: { b: Bounds; progress: number; floors: number }) {
+export function ConstructionSite({ b, progress, floors }: { b: Bounds; progress: number; floors: number }) {
   const coreH = Math.max(1.5, floors * 3 * progress);
   return (
     <group position={[b.x, 0, b.z]}>
@@ -91,7 +91,7 @@ function ConstructionSite({ b, progress, floors }: { b: Bounds; progress: number
 }
 
 /** Kontorskluster: tre glastorn i olika höjd kring ett upphöjt podium. */
-function OfficeCluster({ b, floors }: { b: Bounds; floors: number }) {
+export function OfficeCluster({ b, floors }: { b: Bounds; floors: number }) {
   const tall = useFacade(GLASS, 6, floors);
   const mid = useFacade(GLASS, 5, Math.round(floors * 0.75));
   const low = useFacade(GLASS, 4, Math.round(floors * 0.5));
@@ -121,7 +121,7 @@ function OfficeCluster({ b, floors }: { b: Bounds; floors: number }) {
 }
 
 /** Bostadskvarter: kringbyggd gård – fyra längor runt en grön gård. */
-function ResidentialBlock({ b, floors }: { b: Bounds; floors: number }) {
+export function ResidentialBlock({ b, floors }: { b: Bounds; floors: number }) {
   const h = floors * 3;
   const t = Math.min(b.w, b.d) * 0.24;
   const north = useFacade(BRICK, 8, floors);
@@ -167,7 +167,7 @@ function ResidentialBlock({ b, floors }: { b: Bounds; floors: number }) {
 }
 
 /** Kulturstråk: två sågtandshallar, ett torg och en kampanil. */
-function CultureDistrict({ b, floors }: { b: Bounds; floors: number }) {
+export function CultureDistrict({ b, floors }: { b: Bounds; floors: number }) {
   const h = floors * 3 * 0.8;
   const hall = useFacade(CULTURE, 10, Math.max(2, floors - 1));
   const teeth = 5;

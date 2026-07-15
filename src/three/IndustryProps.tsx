@@ -32,7 +32,7 @@ function useFacade(color: string, cols: number, floors: number) {
   }, [color, cols, floors]);
 }
 
-function Hotel({ pc, stars }: { pc: { w: number; d: number }; stars: number }) {
+export function Hotel({ pc, stars }: { pc: { w: number; d: number }; stars: number }) {
   const floors = 3 + stars * 2;
   const h = floors * 3;
   const w = pc.w * 0.72, d = pc.d * 0.72;
@@ -66,7 +66,7 @@ function Hotel({ pc, stars }: { pc: { w: number; d: number }; stars: number }) {
   );
 }
 
-function SolarPark({ pc }: { pc: { w: number; d: number } }) {
+export function SolarPark({ pc }: { pc: { w: number; d: number } }) {
   const rows = Math.max(3, Math.floor(pc.d / 6));
   const cols = Math.max(2, Math.floor(pc.w / 7));
   return (
@@ -112,17 +112,20 @@ function Turbine({ x, z, h, phase }: { x: number; z: number; h: number; phase: n
       </mesh>
       <group ref={rotor} position={[0, h, 2.2]}>
         {[0, 2.094, 4.189].map((a) => (
-          <mesh key={a} castShadow rotation-z={a} position={[Math.sin(a) * -0, 0, 0]}>
-            <boxGeometry args={[0.7, h * 0.62, 0.12]} />
-            <meshStandardMaterial color="#f2f4f5" />
-          </mesh>
+          <group key={a} rotation-z={a}>
+            {/* Bladet utgår från navet – annars blir tre blad en sexarmad stjärna. */}
+            <mesh castShadow position={[0, h * 0.31, 0]}>
+              <boxGeometry args={[0.7, h * 0.62, 0.12]} />
+              <meshStandardMaterial color="#f2f4f5" />
+            </mesh>
+          </group>
         ))}
       </group>
     </group>
   );
 }
 
-function WindFarm({ pc, mw }: { pc: { w: number; d: number }; mw: number }) {
+export function WindFarm({ pc, mw }: { pc: { w: number; d: number }; mw: number }) {
   const n = mw >= 10 ? 3 : 2;
   const h = Math.min(38, pc.w * 0.55);
   const spots: [number, number][] = n === 3
@@ -137,7 +140,7 @@ function WindFarm({ pc, mw }: { pc: { w: number; d: number }; mw: number }) {
   );
 }
 
-function Warehouse({ pc }: { pc: { w: number; d: number } }) {
+export function Warehouse({ pc }: { pc: { w: number; d: number } }) {
   const w = pc.w * 0.82, d = pc.d * 0.62, h = 6;
   return (
     <group>
