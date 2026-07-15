@@ -114,6 +114,8 @@ export interface MegaProject {
   devBoost: number;
   reputation: number;
   desc: string;
+  /** Fast plats på kartan – megaprojekt är landmärken, inte kvartershus. */
+  site: { x: number; z: number; district: string };
 }
 
 export const MEGA_PROJECTS: MegaProject[] = [
@@ -127,6 +129,7 @@ export const MEGA_PROJECTS: MegaProject[] = [
     devBoost: 0.15,
     reputation: 10,
     desc: "Evenemangsarena som sätter staden på kartan.",
+    site: { x: -180, z: 315, district: "hamnen" },
   },
   {
     id: "campus",
@@ -138,6 +141,7 @@ export const MEGA_PROJECTS: MegaProject[] = [
     devBoost: 0.2,
     reputation: 12,
     desc: "Fakulteter, studentliv och forskning i världsklass.",
+    site: { x: -180, z: -330, district: "innerstad" },
   },
   {
     id: "sjukhus",
@@ -149,6 +153,7 @@ export const MEGA_PROJECTS: MegaProject[] = [
     devBoost: 0.25,
     reputation: 15,
     desc: "Regionens nya universitetssjukhus – ditt livsverk.",
+    site: { x: 560, z: 90, district: "industri" },
   },
 ];
 

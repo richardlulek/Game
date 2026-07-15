@@ -854,7 +854,7 @@ export type GameAction =
   | { type: "DRAW_REVOLVING"; amount: number }
   | { type: "REPAY_REVOLVING"; amount: number }
   | { type: "PAY_DIVIDEND"; amount: number }
-  | { type: "START_MEGA"; projectId: string; blockId: string }
+  | { type: "START_MEGA"; projectId: string }
   | { type: "START_CITY_PROJECT"; blockId: string; profile: string }
   | { type: "BUY_LUXURY"; luxuryId: string }
   | { type: "BUY_AMBIENT"; parcelId: string }

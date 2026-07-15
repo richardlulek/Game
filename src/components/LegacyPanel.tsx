@@ -35,7 +35,6 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
   const wealth = state.ownerWealth ?? 0;
   const owned = new Set(state.ownerLuxuries ?? []);
   const blocks = fullyOwnedBlocks(state);
-  const freeBlocks = blocks.filter((b) => !(state.megaActive ?? []).some((m) => m.blockId === b));
   const cityBlocks = eligibleCityBlocks(state, blocks);
   const levelOk = (state.companyLevel ?? 1) >= CITY_PROJECT_MIN_LEVEL;
 
@@ -211,8 +210,8 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
       <div style={P.card}>
         <div style={P.title}>🏗️ Megaprojekt</div>
         <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 10 }}>
-          Kräver ett helägt kvarter som byggplats och bolagets kassa. Prestige — inte avkastning.
-          {blocks.length === 0 && " Du äger inget helt kvarter ännu (köp alla fastigheter i ett slutet kvarter)."}
+          Landmärken med fasta platser i stadens omland. Kräver bolagsnivå 4, gott rykte (60+)
+          och bolagets kassa. Prestige — inte avkastning.
         </div>
         {(state.megaActive ?? []).map((m) => {
           const proj = MEGA_PROJECTS.find((x) => x.id === m.projectId)!;
@@ -227,7 +226,7 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
           const done = (state.megaCompleted ?? []).includes(proj.id);
           const active = (state.megaActive ?? []).some((m) => m.projectId === proj.id);
           if (active) return null;
-          const canStart = !done && freeBlocks.length > 0 && state.cash >= proj.cost;
+          const canStart = !done && state.cash >= proj.cost && (state.companyLevel ?? 1) >= 4 && state.reputation >= 60;
           return (
             <div key={proj.id} style={{ borderTop: "1px solid #e8edf3", padding: "8px 0" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
@@ -245,10 +244,10 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
                     background: canStart ? BURGUNDY : "#dde4ec", color: canStart ? "#fff" : "#8291a3",
                   }}
                   disabled={!canStart}
-                  title={freeBlocks.length === 0 ? "Kräver ett ledigt helägt kvarter" : state.cash < proj.cost ? `Kassan räcker inte (${kr(proj.cost)})` : ""}
-                  onClick={() => dispatch({ type: "START_MEGA", projectId: proj.id, blockId: freeBlocks[0] })}
+                  title={state.cash < proj.cost ? `Kassan räcker inte (${kr(proj.cost)})` : (state.companyLevel ?? 1) < 4 ? "Kräver bolagsnivå 4" : state.reputation < 60 ? "Kräver rykte 60+" : ""}
+                  onClick={() => dispatch({ type: "START_MEGA", projectId: proj.id })}
                 >
-                  Byggstarta{freeBlocks.length > 0 ? ` (kvarter ${freeBlocks[0]})` : ""}
+                  Byggstarta
                 </button>
               )}
             </div>

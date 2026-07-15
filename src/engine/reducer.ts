@@ -1880,27 +1880,25 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "START_MEGA": {
-      // Megaprojekt: kräver ett HELÄGT kvarter och en rejäl kassa.
-      // Prestige – inte avkastning – är belöningen.
+      // Megaprojekt är LANDMÄRKEN med fasta platser i stadens omland –
+      // de kräver inte längre ett helägt kvarter, utan stadens förtroende
+      // (rykte) och ett etablerat bolag. Prestige – inte avkastning.
       const proj = MEGA_PROJECTS.find((m) => m.id === action.projectId);
       if (!proj) return state;
       if ((state.megaCompleted ?? []).includes(proj.id) || (state.megaActive ?? []).some((m) => m.projectId === proj.id))
         return log(state, `${proj.name} är redan ${state.megaCompleted?.includes(proj.id) ? "byggd" : "under uppförande"}.`, "info");
-      if (!fullyOwnedBlocks(state).includes(action.blockId))
-        return log(state, "Megaprojekt kräver ett helägt kvarter som byggplats.", "warn");
-      if ((state.megaActive ?? []).some((m) => m.blockId === action.blockId))
-        return log(state, "Kvarteret används redan av ett annat megaprojekt.", "warn");
+      if ((state.companyLevel ?? 1) < 4)
+        return log(state, "Megaprojekt kräver ett etablerat bolag (nivå 4).", "warn");
+      if (state.reputation < 60)
+        return log(state, `Staden anförtror bara megaprojekt åt aktörer med gott rykte (60+, du har ${Math.round(state.reputation)}).`, "warn");
       if (state.cash < proj.cost)
         return log(state, `${proj.name} kostar ${msek(proj.cost)} — kassan räcker inte.`, "warn");
-      const district = state.portfolio.find(
-        (p) => p.parcelId && PARCELS.find((pc) => pc.id === p.parcelId)?.blockId === action.blockId,
-      )?.district ?? "centrum";
       return {
         ...state,
         cash: state.cash - proj.cost,
         megaActive: [
           ...(state.megaActive ?? []),
-          { projectId: proj.id, blockId: action.blockId, district, monthsLeft: proj.months, totalMonths: proj.months },
+          { projectId: proj.id, blockId: "", district: proj.site.district, monthsLeft: proj.months, totalMonths: proj.months },
         ],
         reputation: Math.min(100, state.reputation + 2),
         log: [

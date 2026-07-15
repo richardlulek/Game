@@ -3,7 +3,6 @@
    samt ägarens privata förmögenhet (utdelningar → lyxköp). */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PARCELS } from "../engine/city";
 import { loanTerms } from "../engine/finance";
 import {
   ACTIVIST_TAKEOVER_AT,
@@ -188,53 +187,36 @@ describe("fastighetskrisen", () => {
 
 /* ── C6: Megaprojekt ───────────────────────────────────────────────── */
 
-/** Minsta slutna kvarter i staden + fastigheter som fyller det. */
-function ownedBlockFixture(): { blockId: string; props: Property[] } {
-  const byBlock = new Map<string, string[]>();
-  for (const pc of PARCELS) {
-    if (!byBlock.has(pc.blockId)) byBlock.set(pc.blockId, []);
-    byBlock.get(pc.blockId)!.push(pc.id);
-  }
-  const [blockId, parcelIds] = [...byBlock.entries()]
-    .filter(([, ids]) => ids.length >= 2)
-    .sort((a, b) => a[1].length - b[1].length)[0];
-  const props = parcelIds.map((pid, i) => makeProperty({ id: 100 + i, parcelId: pid }));
-  return { blockId, props };
-}
-
 describe("megaprojekt", () => {
-  it("kräver ett helägt kvarter", () => {
-    const s0 = makeState({ cash: 400_000_000, portfolio: [makeProperty({})] });
-    const s1 = reducer(s0, { type: "START_MEGA", projectId: "arena", blockId: "centrum-b1" });
+  it("kräver gott rykte och etablerat bolag – inte längre helägt kvarter", () => {
+    const s0 = makeState({ cash: 400_000_000, reputation: 40, companyLevel: 4 });
+    const s1 = reducer(s0, { type: "START_MEGA", projectId: "arena" });
     expect(s1.megaActive ?? []).toHaveLength(0);
-    expect(s1.cash).toBe(400_000_000);
-    expect(s1.log[0].t).toContain("helägt kvarter");
+    expect(s1.log[0].t).toContain("rykte");
   });
 
-  it("byggstartar på helägt kvarter och invigs när tiden gått", () => {
-    const { blockId, props } = ownedBlockFixture();
+  it("byggstartar som landmärke och invigs när tiden gått", () => {
     const arena = MEGA_PROJECTS.find((m) => m.id === "arena")!;
-    const s0 = makeState({ cash: 400_000_000, portfolio: props });
-    const s1 = reducer(s0, { type: "START_MEGA", projectId: "arena", blockId });
+    const s0 = makeState({ cash: 400_000_000, reputation: 70, companyLevel: 4 });
+    const s1 = reducer(s0, { type: "START_MEGA", projectId: "arena" });
     expect(s1.cash).toBe(400_000_000 - arena.cost);
     expect(s1.megaActive).toHaveLength(1);
     expect(s1.megaActive![0].monthsLeft).toBe(arena.months);
+    expect(s1.megaActive![0].district).toBe(arena.site.district);
 
     // Sista månaden tickar ut → invigning med distriktslyft.
     const nästan = { ...s1, megaActive: [{ ...s1.megaActive![0], monthsLeft: 1 }] };
     const klar = advanceMonth(nästan);
     expect(klar.megaActive ?? []).toHaveLength(0);
     expect(klar.megaCompleted).toContain("arena");
-    const district = s1.megaActive![0].district;
-    expect(klar.districtDev![district]).toBeGreaterThan(s0.districtDev![district]);
+    expect(klar.districtDev![arena.site.district]).toBeGreaterThan(s0.districtDev![arena.site.district] ?? 1);
     expect(klar.log.some((l) => l.t.includes("INVIGNING"))).toBe(true);
   });
 
-  it("samma kvarter kan inte användas till två projekt", () => {
-    const { blockId, props } = ownedBlockFixture();
-    let s = makeState({ cash: 1_000_000_000, portfolio: props });
-    s = reducer(s, { type: "START_MEGA", projectId: "arena", blockId });
-    s = reducer(s, { type: "START_MEGA", projectId: "campus", blockId });
+  it("samma projekt kan inte startas två gånger", () => {
+    let s = makeState({ cash: 1_000_000_000, reputation: 70, companyLevel: 5 });
+    s = reducer(s, { type: "START_MEGA", projectId: "arena" });
+    s = reducer(s, { type: "START_MEGA", projectId: "arena" });
     expect(s.megaActive).toHaveLength(1);
   });
 });

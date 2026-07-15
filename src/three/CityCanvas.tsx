@@ -27,6 +27,7 @@ import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
 import { IndustryProps } from "./IndustryProps";
+import { MegaLandmarks } from "./MegaProjects";
 import { Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
@@ -300,6 +301,7 @@ export function CityCanvas() {
       <Landmarks />
       <SignatureBlocks />
       <IndustryProps />
+      <MegaLandmarks />
       <Headquarters />
       <OwnerLuxuries />
       <RoggeCar />
