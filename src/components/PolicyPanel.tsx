@@ -68,9 +68,10 @@ export function PolicyPanel({
   const hasCfo = (state.staff?.["cfo"] ?? 0) > 0;
   const hasOps = (state.staff?.["forvaltning"] ?? 0) > 0;
 
-  // Portföljdirektörens instruktioner – speglas här och i Hyresgäster.
+  // Portföljdirektören anlitas och instrueras HÄR – Portfölj och
+  // Hyresgäster visar bara status med länk hit.
   const gmS: GlobalManagerSettings =
-    state.globalManager ?? { active: false, minCondition: 40, minTenantQuality: 0.8, rentTargetPct: 1.0 };
+    state.globalManager ?? { active: false, minCondition: 45, minTenantQuality: 0.8, rentTargetPct: 1.0 };
   const setGm = (patch: Partial<GlobalManagerSettings>) =>
     dispatch({ type: "SET_GLOBAL_MANAGER", settings: { ...gmS, ...patch } });
   const gmFee = 15_000 + state.portfolio.length * 1_500;
@@ -224,9 +225,9 @@ export function PolicyPanel({
         </div>
       </div>
 
-      {/* ── Förvaltning: portföljdirektörens instruktioner ───────── */}
+      {/* ── Förvaltning: portföljdirektören anlitas och styrs här ── */}
       <div style={{ ...P.card, background: "#eef2f6" }}>
-        <div style={P.cardTitle}>👔 Förvaltning & underhåll</div>
+        <div style={P.cardTitle}>👔 Portföljdirektören (förvaltning & underhåll)</div>
         <div style={P.row}>
           <span style={P.label}>Portföljdirektör</span>
           <button style={toggleStyle(hasDirector)} onClick={() => setGm({ active: !hasDirector })}>
@@ -235,7 +236,7 @@ export function PolicyPanel({
           <span style={{ fontSize: 11.5, color: "#777" }}>
             {hasDirector
               ? `Arvode ${kr(gmFee)}/mån — sköter hela beståndet enligt instruktionerna nedan.`
-              : `Arvode ${kr(gmFee)}/mån (15 000 kr + 1 500 kr per fastighet). Finns även under Hyresgäster.`}
+              : `Arvode ${kr(gmFee)}/mån (15 000 kr + 1 500 kr per fastighet). Utan direktör förvaltar du själv – gratis, men över kontorets kapacitet tillkommer merkostnad.`}
           </span>
         </div>
         <div style={P.row}>
@@ -270,8 +271,9 @@ export function PolicyPanel({
           ))}
         </div>
         <div style={P.hint}>
-          Underhåll utförs när skicket faller under tröskeln — 100 håller alla hus i toppskick men
-          kostar därefter. Fastigheter med egen förvaltare följer sina egna instruktioner i stället.
+          Underhåll beställs när skicket faller under tröskeln (+15 skick vid månadsskiftet, precis
+          som manuellt underhåll) — 100 håller alla hus i toppskick men kostar därefter. Fastigheter
+          med egen anställd förvaltare följer förvaltarens instruktioner i stället.
           {hasDirector ? "" : " Instruktionerna sparas och gäller så fort direktören anlitas."}
         </div>
       </div>

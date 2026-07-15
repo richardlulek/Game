@@ -948,7 +948,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const managed = !p.managed;
       return {
         ...state,
-        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, managed } : x)),
+        // Avslutad förvaltare tar sina instruktioner med sig – annars
+        // fortsätter gamla trösklar att tyst överstyra portföljdirektören.
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id ? { ...x, managed, managerSettings: managed ? x.managerSettings : undefined } : x,
+        ),
         log: [
           {
             t: managed

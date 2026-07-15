@@ -180,8 +180,6 @@ export function orgLoadOf(state: GameState): OrgLoad {
 
 /** Administrativ merkostnad per månad när organisationen är överbelastad. */
 export const OVERLOAD_COST_PER_PROP = 6_000;
-/** Extra slitage på oförvaltade hus när organisationen inte hinner med. */
-export const OVERLOAD_WEAR_MULT = 1.35;
 
 /** Kan bolaget expandera till nästa nivå just nu (krav + kassa)? */
 export function canUpgrade(state: GameState): {

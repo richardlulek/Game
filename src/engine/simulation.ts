@@ -9,7 +9,6 @@ import { blockInfo, cityProfileById, signatureArea } from "./cityProjects";
 import { planTick, rawLandPrice } from "./cityPlan";
 import {
   OVERLOAD_COST_PER_PROP,
-  OVERLOAD_WEAR_MULT,
   nextTier,
   orgLoadOf,
   qualifiesFor,
@@ -50,7 +49,7 @@ import { tickCityEvent } from "./cityEvents";
 import { rivalQuote } from "./rivalPersonas";
 import { kr, msek } from "./format";
 import { calYear, daysInMonth, formatMonthYear } from "./date";
-import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
+import { pendingWork, propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
@@ -203,9 +202,9 @@ export function advanceMonth(state: GameState): GameState {
   const season = seasonName === "sommar" ? 1.08 : seasonName === "vinter" ? 0.94 : 1.0;
 
   // Organisationens kapacitet: fler självförvaltade hus än kontoret klarar
-  // ger extra slitage (och administrativ merkostnad längre ned).
+  // ger administrativ merkostnad (längre ned). Inget extra slitage – att
+  // förvalta själv i början är en förväntad del av resan, inte ett straff.
   const orgLoad = orgLoadOf(state);
-  const overloadWear = orgLoad.over > 0 ? OVERLOAD_WEAR_MULT : 1;
 
   // Flyttkedjor: stadens vakansläge styr hur lätt hyresgäster flyttar,
   // och de som lämnar kan dyka upp som sökande hos dina andra hus.
@@ -347,25 +346,30 @@ export function advanceMonth(state: GameState): GameState {
       }
       return np;
     }
-    // Global portföljdirektör – effektiva inställningar
+    // Effektiva förvaltningsinstruktioner: fastighetens EGEN förvaltare går
+    // före portföljdirektören – men bara så länge förvaltaren är anställd
+    // (avslutas förvaltaren gäller direktörens instruktioner igen).
     const gm = s.globalManager;
+    const own = np.managed ? np.managerSettings : undefined;
     const effectiveManaged = np.managed || (gm?.active ?? false);
-    const effectiveMaintainThreshold = np.managerSettings?.maintainThreshold ?? gm?.minCondition ?? 45;
-    const effectiveRentTargetPct = np.managerSettings?.rentTargetPct ?? gm?.rentTargetPct ?? 1.0;
-    // Förvaltare: månadskostnad + auto-underhåll med konfigurerbar tröskel
+    const effectiveMaintainThreshold = own?.maintainThreshold ?? gm?.minCondition ?? 45;
+    const effectiveRentTargetPct = own?.rentTargetPct ?? gm?.rentTargetPct ?? 1.0;
+    // Förvaltare: månadskostnad + auto-underhåll med konfigurerbar tröskel.
+    // Beställs som pendingWork precis som manuellt underhåll: betalas nu,
+    // +15 skick vid nästa månadsskifte – samma regler oavsett vem som beställer.
     if (effectiveManaged) {
       if (np.managed) {
         // per-property manager fee
         const managerCost = Math.max(2000, Math.round(np.tenants.reduce((a, t) => a + t.rent, 0) * 0.03));
         monthlyNOI -= managerCost;
       }
-      if (np.condition < effectiveMaintainThreshold) {
+      if (np.condition < effectiveMaintainThreshold && !pendingWork(np, "underhåll")) {
         const maintainCost = Math.round(propMarketValue(np, s) * 0.02);
         if (s.cash >= maintainCost) {
           monthlyNOI -= maintainCost;
-          np.condition = Math.min(100, np.condition + 15);
           np.capexTotal = (np.capexTotal ?? 0) + maintainCost;
-          events.push({ t: `🔧 Förvaltare underhöll ${np.typeLabel} i ${np.districtName} (tröskel ${effectiveMaintainThreshold}).`, kind: "upg" });
+          np.pendingWorks = [...(np.pendingWorks ?? []), { kind: "underhåll" as const, monthsLeft: 1 }];
+          events.push({ t: `🔧 Förvaltaren beställde underhåll av ${np.typeLabel} i ${np.districtName} (tröskel ${effectiveMaintainThreshold}) – +15 skick vid månadsskiftet.`, kind: "upg" });
         }
       }
     }
@@ -375,18 +379,16 @@ export function advanceMonth(state: GameState): GameState {
     // Seasonal effect on vacancy for residential
     const seasonFactor = np.type === "bostad" ? season : 1.0;
     // Short-term rental: higher effective rent but higher vacancy, no tenants
-    // Överbelastad organisation sliter på husen ingen hinner se till.
-    const orgWear = effectiveManaged ? 1 : overloadWear;
     if (np.shortTerm) {
       const shortRent = Math.round((propPotentialRent(np, s) / np.capacity / 12) * 1.3 * (1 - 0.60 * seasonFactor));
       monthlyNOI += shortRent * np.capacity;
       np.totalEarnedRent = (np.totalEarnedRent ?? 0) + shortRent * np.capacity;
       // Wear is higher with short-term rentals
-      np.condition = Math.max(10, np.condition - rnd(0.4, 1.0) * wearMult(s) * ageFactor * orgWear);
+      np.condition = Math.max(10, np.condition - rnd(0.4, 1.0) * wearMult(s) * ageFactor);
       return np;
     }
     // Slitage (långsammare med smart förvaltning, mer med byggnadsålder)
-    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7) * wearMult(s) * ageFactor * orgWear);
+    np.condition = Math.max(10, np.condition - rnd(0.2, 0.7) * wearMult(s) * ageFactor);
     // Zone change countdown
     if (np.pendingZoneChange) {
       if (np.pendingZoneChange.monthsLeft <= 1) {
@@ -498,7 +500,11 @@ export function advanceMonth(state: GameState): GameState {
     const acceptPol = s.policy?.autoAccept;
     const policyAccept = !!acceptPol?.enabled && !!s.globalManager?.active;
     if ((effectiveManaged || policyAccept) && np.status === "klar" && np.tenants.length < np.capacity) {
-      const minQuality = policyAccept ? acceptPol!.minQuality : (gm?.minTenantQuality ?? 0);
+      // Kvalitetskrav: policyn → egen förvaltare → direktören → 0.8 som
+      // golv (en ensam förvaltare ska inte signera vem som helst).
+      const minQuality = policyAccept
+        ? acceptPol!.minQuality
+        : (own?.minTenantQuality ?? gm?.minTenantQuality ?? 0.8);
       const contractKind = policyAccept ? acceptPol!.contract : "standard";
       const app = bestApplication(np, minQuality);
       if (app && !(contractKind === "ankare" && !app.anchorEligible)) {
@@ -680,7 +686,7 @@ export function advanceMonth(state: GameState): GameState {
       monthlyNOI -= adminCost;
       if (s.month % 3 === 0) {
         events.push({
-          t: `⚠️ Organisationen är överbelastad: ${orgLoad.selfManaged} självförvaltade fastigheter men kapacitet för ${orgLoad.cap}. Merkostnad ${kr(adminCost)}/mån och snabbare slitage – expandera bolaget eller anlita förvaltare.`,
+          t: `⚠️ Organisationen är överbelastad: ${orgLoad.selfManaged} självförvaltade fastigheter men kapacitet för ${orgLoad.cap}. Merkostnad ${kr(adminCost)}/mån – expandera bolaget eller anlita förvaltare.`,
           kind: "warn",
         });
       }

@@ -126,3 +126,59 @@ describe("policy: förvaltningschefens skydd och energi", () => {
     expect(s3.log.some((l) => l.t.includes("Energipolicyn"))).toBe(false);
   });
 });
+
+/* ── Förvaltningsavstämningen: styrningen konsoliderad ─────────────── */
+
+describe("förvaltning: instruktioner och trösklar", () => {
+  it("avslutad förvaltare tar sina instruktioner med sig", () => {
+    const p = makeProperty({
+      id: 1,
+      managed: true,
+      managerSettings: { maintainThreshold: 90, rentTargetPct: 1.2 },
+    });
+    const s1 = reducer(makeState({ portfolio: [p] }), { type: "TOGGLE_MANAGER", id: 1 });
+    expect(s1.portfolio[0].managed).toBe(false);
+    expect(s1.portfolio[0].managerSettings).toBeUndefined();
+  });
+
+  it("auto-underhåll beställs som pendingWork – +15 skick först vid nästa månadsskifte", () => {
+    const p = makeProperty({ id: 1, condition: 30, managed: true, tenants: [makeTenantFixture()] });
+    const s1 = advanceMonth(makeState({ cash: 10_000_000, portfolio: [p] }));
+    // Ingen omedelbar skickhöjning (bara slitage), men jobbet är beställt.
+    expect(s1.portfolio[0].condition).toBeLessThan(45);
+    expect((s1.portfolio[0].pendingWorks ?? []).some((w) => w.kind === "underhåll")).toBe(true);
+    const s2 = advanceMonth(s1);
+    expect(s2.portfolio[0].condition).toBeGreaterThan(s1.portfolio[0].condition + 10);
+  });
+
+  it("ensam förvaltare signerar inte under kvalitetsgolvet 0.8", () => {
+    const p = makeProperty({ id: 1, capacity: 2, managed: true, tenants: [], applications: [app(0.7)] });
+    const s1 = advanceMonth(makeState({ portfolio: [p] }));
+    expect(s1.portfolio[0].tenants).toHaveLength(0);
+    // …men med eget krav "Alla" (0) signeras samma ansökan.
+    const p2 = makeProperty({
+      id: 2, capacity: 2, managed: true, tenants: [], applications: [app(0.7)],
+      managerSettings: { maintainThreshold: 45, rentTargetPct: 1, minTenantQuality: 0 },
+    });
+    const s2 = advanceMonth(makeState({ portfolio: [p2] }));
+    expect(s2.portfolio[0].tenants).toHaveLength(1);
+  });
+
+  it("överbelastning ger merkostnad men inte längre extra slitage", () => {
+    // 5 självförvaltade hus på nivå 1 (kapacitet 3): slitaget ska vara
+    // identiskt med samma hus under en portföljdirektör (Math.random låst).
+    const props = (n: number, offset = 0) =>
+      Array.from({ length: n }, (_, i) => makeProperty({ id: offset + i + 1, condition: 80, tenants: [] }));
+    const over = advanceMonth(makeState({ cash: 5_000_000, portfolio: props(5), companyLevel: 1 }));
+    const covered = advanceMonth(
+      makeState({
+        cash: 5_000_000,
+        portfolio: props(5),
+        companyLevel: 1,
+        globalManager: { active: true, minCondition: 0, rentTargetPct: 1, minTenantQuality: 0.8 },
+      }),
+    );
+    for (let i = 0; i < 5; i++)
+      expect(over.portfolio[i].condition).toBeCloseTo(covered.portfolio[i].condition, 5);
+  });
+});

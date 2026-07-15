@@ -3,6 +3,7 @@ import { msek, kr, pct } from "../engine/format";
 import { pendingWork, propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { interestLabel, packageStats } from "../engine/selling";
 import type { GameAction, GameState, GlobalManagerSettings } from "../engine/types";
+import { useUiStore } from "../store/uiStore";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
 import { PortfolioCard } from "./PortfolioCard";
 
@@ -15,12 +16,6 @@ type SortKey = "value" | "yield" | "condition" | "noi" | "vacant";
 
 const DISTRICT_OPTIONS = ["Alla", "Centrum", "Hamnen", "Industriområdet", "Förorten", "Villakullen"];
 const TYPE_OPTIONS = ["Alla", "Bostadshus", "Kontor", "Butik", "Industri/Lager"];
-
-function qualityLabel(q: number): string {
-  if (q < 0.8) return "Låg";
-  if (q < 1.4) return "Medel";
-  return "Hög";
-}
 
 function condColor(c: number): string {
   if (c >= 70) return C.positive;
@@ -48,19 +43,11 @@ export function PortfolioTable({ state, dispatch }: Props) {
 
   const gm: GlobalManagerSettings = state.globalManager ?? {
     active: false,
-    minCondition: 40,
+    minCondition: 45,
     minTenantQuality: 0.8,
     rentTargetPct: 1.0,
   };
-
-  const [localGm, setLocalGm] = useState<GlobalManagerSettings>(gm);
-
-  function updateGm(patch: Partial<GlobalManagerSettings>) {
-    const next = { ...localGm, ...patch };
-    setLocalGm(next);
-    dispatch({ type: "SET_GLOBAL_MANAGER", settings: next });
-  }
-
+  const requestOpen = useUiStore((s) => s.requestOpen);
   const gmCost = 15000 + state.portfolio.length * 1500;
 
   // Filter
@@ -114,87 +101,40 @@ export function PortfolioTable({ state, dispatch }: Props) {
 
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
-      {/* ── Global portföljdirektör ─────────────────────────────── */}
+      {/* ── Portföljdirektör: statusspegel – styrs i Policy-fliken ── */}
       <div style={{
         background: C.wood,
         border: `1px solid ${C.brass}`,
         borderRadius: 8,
-        padding: "16px 20px",
+        padding: "12px 20px",
         marginBottom: 18,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        flexWrap: "wrap",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
-          <span style={{ fontFamily: FONTS.heading, fontSize: 16, fontWeight: 700, color: C.brassBright }}>
-            Portföljdirektör
+        <span style={{ fontFamily: FONTS.heading, fontSize: 15, fontWeight: 700, color: C.brassBright }}>
+          Portföljdirektör
+        </span>
+        {gm.active ? (
+          <span style={{ fontSize: 12.5, color: C.creamSoft }}>
+            ✓ Aktiv · underhåll under skick {gm.minCondition} · hyresmål {pct(gm.rentTargetPct)} ·
+            kvalitet ≥ {gm.minTenantQuality > 0 ? gm.minTenantQuality.toFixed(2) : "alla"} · <strong style={{ color: C.gold }}>{kr(gmCost)}/mån</strong>
           </span>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={localGm.active}
-              onChange={(e) => updateGm({ active: e.target.checked })}
-              style={{ accentColor: BURGUNDY, width: 16, height: 16 }}
-            />
-            <span style={{ fontSize: 13, color: localGm.active ? C.brassBright : C.creamSoft }}>
-              {localGm.active ? "Aktiv" : "Inaktiv"}
-            </span>
-          </label>
-          <span style={{ fontSize: 12, color: C.creamSoft, marginLeft: "auto" }}>
-            Månadskostnad: <strong style={{ color: C.gold }}>{kr(gmCost)}</strong>
+        ) : (
+          <span style={{ fontSize: 12.5, color: C.creamSoft }}>
+            Inaktiv — sköter uthyrning och underhåll för hela beståndet ({kr(gmCost)}/mån).
           </span>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
-          <div>
-            <label style={{ fontSize: 12, color: C.creamSoft, display: "block", marginBottom: 4 }}>
-              Auto-underhåll under skick {localGm.minCondition}
-            </label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="range" min={0} max={100} step={5}
-                value={localGm.minCondition}
-                onChange={(e) => updateGm({ minCondition: +e.target.value })}
-                style={{ flex: 1, accentColor: C.brass }}
-              />
-              <span style={{ minWidth: 28, textAlign: "right", fontSize: 13, color: C.brassBright }}>
-                {localGm.minCondition}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, color: C.creamSoft, display: "block", marginBottom: 4 }}>
-              Min. hyresgästkvalitet: {qualityLabel(localGm.minTenantQuality)}
-              {" "}({localGm.minTenantQuality.toFixed(1)})
-            </label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="range" min={0} max={2} step={0.1}
-                value={localGm.minTenantQuality}
-                onChange={(e) => updateGm({ minTenantQuality: +e.target.value })}
-                style={{ flex: 1, accentColor: C.brass }}
-              />
-              <span style={{ minWidth: 28, textAlign: "right", fontSize: 13, color: C.brassBright }}>
-                {localGm.minTenantQuality.toFixed(1)}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, color: C.creamSoft, display: "block", marginBottom: 4 }}>
-              Hyresmål: {pct(localGm.rentTargetPct)}
-            </label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="range" min={0.8} max={1.3} step={0.05}
-                value={localGm.rentTargetPct}
-                onChange={(e) => updateGm({ rentTargetPct: +e.target.value })}
-                style={{ flex: 1, accentColor: C.brass }}
-              />
-              <span style={{ minWidth: 36, textAlign: "right", fontSize: 13, color: C.brassBright }}>
-                {pct(localGm.rentTargetPct)}
-              </span>
-            </div>
-          </div>
-        </div>
+        )}
+        <button
+          onClick={() => requestOpen("policy")}
+          style={{
+            marginLeft: "auto", background: BURGUNDY, color: C.brassBright, border: "none",
+            borderRadius: 5, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          Styr i Policy →
+        </button>
       </div>
 
       {/* ── Bulkåtgärder ─────────────────────────────────────────── */}
@@ -217,24 +157,28 @@ export function PortfolioTable({ state, dispatch }: Props) {
         >
           Underhåll alla med skick &lt; 50 ({lowCond.length} st)
         </button>
-        <button
-          onClick={() => {
-            state.portfolio
-              .filter((p) => !p.managed)
-              .forEach((p) => dispatch({ type: "TOGGLE_MANAGER", id: p.id }));
-          }}
-          style={{
-            background: C.woodLight,
-            color: C.parchment,
-            border: `1px solid ${C.brass}`,
-            borderRadius: 5,
-            padding: "7px 14px",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
-        >
-          Aktivera förvaltare på alla
-        </button>
+        {/* Med direktör aktiv är förvaltare på alla bara dubbla arvoden –
+            egen förvaltare behövs enbart för avvikande instruktioner. */}
+        {!gm.active && (
+          <button
+            onClick={() => {
+              state.portfolio
+                .filter((p) => !p.managed)
+                .forEach((p) => dispatch({ type: "TOGGLE_MANAGER", id: p.id }));
+            }}
+            style={{
+              background: C.woodLight,
+              color: C.parchment,
+              border: `1px solid ${C.brass}`,
+              borderRadius: 5,
+              padding: "7px 14px",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            Aktivera förvaltare på alla
+          </button>
+        )}
       </div>
 
       {/* ── Filter ───────────────────────────────────────────────── */}

@@ -3,6 +3,7 @@ import { makeTenant } from "../engine/generators";
 import { kr } from "../engine/format";
 import { propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property, Tenant } from "../engine/types";
+import { useUiStore } from "../store/uiStore";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
 
 interface Props {
@@ -35,6 +36,7 @@ export function TenantPanel({ state, dispatch }: Props) {
 
   const pendingRenewals = state.pendingRenewals ?? [];
   const gm = state.globalManager;
+  const requestOpen = useUiStore((s) => s.requestOpen);
 
   // Vakanser
   const vacantProps = state.portfolio
@@ -187,29 +189,28 @@ export function TenantPanel({ state, dispatch }: Props) {
               )}
             </div>
 
+            {/* Statusspegel: portföljdirektören anlitas och instrueras i Policy. */}
             <div style={{ flex: 2, minWidth: 260, background: C.woodDark, borderRadius: 6, padding: "10px 14px", border: `1px solid ${C.brass}33` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
-                    🤖 Autoförvaltare
+                    👔 Portföljdirektör
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: gm?.active ? C.positive : C.creamSoft }}>
-                    {gm?.active ? "Aktiv — fyller vakanser automatiskt" : "Inaktiv"}
+                    {gm?.active ? "Aktiv — fyller vakanser och förnyar kontrakt" : "Inaktiv"}
                   </div>
                   <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 2 }}>
                     {gm?.active
-                      ? `~30 % chans/vakans/mån · min. kvalitet ${((gm.minTenantQuality ?? 0.8) * 100).toFixed(0)} % · instruktioner i 📋 Policy`
-                      : "Per-fastighets förvaltare fyller också vakanser"}
+                      ? `Min. kvalitet ${((gm.minTenantQuality ?? 0.8) * 100).toFixed(0)} % · hyresmål ${Math.round((gm.rentTargetPct ?? 1) * 100)} %`
+                      : "Sköter uthyrning och underhåll för hela beståndet."}
                   </div>
                 </div>
-                {!gm?.active && (
-                  <button
-                    onClick={() => dispatch({ type: "SET_GLOBAL_MANAGER", settings: { active: true, minCondition: 40, minTenantQuality: 0.8, rentTargetPct: 1.0 } })}
-                    style={{ padding: "7px 14px", background: BURGUNDY, color: C.brassBright, border: "none", borderRadius: 4, fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
-                  >
-                    Aktivera
-                  </button>
-                )}
+                <button
+                  onClick={() => requestOpen("policy")}
+                  style={{ padding: "7px 14px", background: BURGUNDY, color: C.brassBright, border: "none", borderRadius: 4, fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  Styr i Policy →
+                </button>
               </div>
             </div>
           </div>

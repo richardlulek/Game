@@ -95,7 +95,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
   const interestMo   = (state.debt * propShare * (terms.rate / 100)) / 12;
   const netCashflow  = grossRentMo - opexMo - interestMo;
 
-  const currentMgrSettings = p.managerSettings ?? { maintainThreshold: 45, rentTargetPct: 1.0 };
+  const currentMgrSettings = p.managerSettings ?? { maintainThreshold: 45, rentTargetPct: 1.0, minTenantQuality: 0.8 };
+  const directorActive = !!state.globalManager?.active;
 
   const slotPotential  = Math.round(propPotentialRent(p, state) / p.capacity / 12);
   const maxPossibleMo  = Math.round(propPotentialRent(p, state) / 12);
@@ -666,6 +667,18 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         />
       )}
 
+      {/* Vem sköter huset just nu? Egen förvaltare > direktören > du själv. */}
+      <div style={{ fontSize: 11.5, color: C.inkSoft, margin: "2px 0 6px" }}>
+        Styrs av:{" "}
+        <strong style={{ color: p.managed ? "#27660a" : directorActive ? "#2a4a6a" : "#7a5c2a" }}>
+          {p.managed ? "egen förvaltare" : directorActive ? "portföljdirektören" : "dig själv"}
+        </strong>
+        {p.managed
+          ? " — följer instruktionerna nedan."
+          : directorActive
+            ? " — följer direktörens instruktioner (Policy-fliken)."
+            : " — du förnyar kontrakt och beställer underhåll manuellt."}
+      </div>
       <ActionBtn
         label={
           p.managed
@@ -675,7 +688,9 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         sub={
           p.managed
             ? `Auto-förnyar kontrakt och underhåller vid skick < ${currentMgrSettings.maintainThreshold}. Klicka för att avsluta.`
-            : "Auto-förnyar kontrakt vid utgång och underhåller automatiskt."
+            : directorActive
+              ? "Direktören sköter redan huset — egen förvaltare behövs bara för avvikande instruktioner (extra arvode)."
+              : "Auto-förnyar kontrakt vid utgång och underhåller automatiskt."
         }
         color={p.managed ? "#27660a" : "#2a4a6a"}
         disabled={state.gameOver}
@@ -759,6 +774,36 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                   ⚠ Mål {Math.round(currentMgrSettings.rentTargetPct * 100)} % – 60 % chans att hyresgäster lämnar vid förlängning.
                 </div>
               )}
+
+              <div style={{ ...sectionLabel, marginTop: 14 }}>Min. hyresgästkvalitet</div>
+              <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
+                Förvaltaren signerar bara ansökningar med minst denna kvalitet.
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[0, 0.8, 0.9, 1.0].map((q) => {
+                  const active = (currentMgrSettings.minTenantQuality ?? 0.8) === q;
+                  return (
+                    <button
+                      key={q}
+                      onClick={() =>
+                        dispatch({
+                          type: "SET_MANAGER_SETTINGS",
+                          id: p.id,
+                          settings: { ...currentMgrSettings, minTenantQuality: q },
+                        })
+                      }
+                      style={{
+                        padding: "3px 10px", borderRadius: 6, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                        border: `1px solid ${active ? "#5a2a3a" : "#ccc"}`,
+                        background: active ? "#5a2a3a" : "#fff",
+                        color: active ? "#fff" : "#555",
+                      }}
+                    >
+                      {q === 0 ? "Alla" : q.toFixed(2)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </>

@@ -351,6 +351,8 @@ export interface ManagerSettings {
   maintainThreshold: number;
   /** Hyresmål som bråkdel av marknadshyran, t.ex. 1.05 = 105 %. Standard 1.0. */
   rentTargetPct: number;
+  /** Lägsta hyresgästkvalitet förvaltaren signerar (0 = alla). Standard 0.8. */
+  minTenantQuality?: number;
 }
 
 /** En fastighet (till salu eller ägd). */

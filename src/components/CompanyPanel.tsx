@@ -190,8 +190,8 @@ export function CompanyPanel({
         {load.over > 0 ? (
           <div style={{ fontSize: 12.5, color: "#9a5a1a", marginTop: 8 }}>
             ⚠️ {load.over} fastigheter över kapacitet: {kr(load.over * OVERLOAD_COST_PER_PROP)}/mån i
-            merkostnad och snabbare slitage. Expandera bolaget, anlita förvaltare per fastighet
-            eller en portföljdirektör (Hyresgäster → Direktör).
+            merkostnad. Expandera bolaget, anlita förvaltare per fastighet
+            eller en portföljdirektör (Policy → Förvaltning).
           </div>
         ) : (
           <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>
