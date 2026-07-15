@@ -1,8 +1,8 @@
 {
-  "name": "Fastighetsimperium",
-  "short_name": "Imperium",
-  "description": "Res ett fastighetsimperium kvarter för kvarter – svensk tycoon i webbläsaren.",
-  "lang": "sv",
+  "name": "Property Empire",
+  "short_name": "Empire",
+  "description": "Build a property empire block by block – a real-estate tycoon in your browser.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
