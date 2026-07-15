@@ -24,15 +24,15 @@ interface Props {
 }
 
 const UPG_EFFECT: Record<string, string> = {
-  renovering: "+18 % hyra · +35 skick",
-  energi:     "−20 % driftkostnad · +10 skick",
-  tillbygg:   "+25 % värde · +10 % hyra",
-  smart:      "−30 % vakans",
+  renovering: "+18% rent · +35 condition",
+  energi:     "−20% operating cost · +10 condition",
+  tillbygg:   "+25% value · +10% rent",
+  smart:      "−30% vacancy",
 };
 
 const RAISE_OPTIONS  = [5, 10, 20] as const;
 const LOWER_OPTIONS  = [5, 10, 15] as const;
-const DEMAND_LABELS  = ["Mycket låg", "Låg", "Medel", "Hög", "Mycket hög"];
+const DEMAND_LABELS  = ["Very low", "Low", "Medium", "High", "Very high"];
 
 function demandLabel(d: number) {
   if (d < 0.5) return DEMAND_LABELS[0];
@@ -44,11 +44,11 @@ function demandLabel(d: number) {
 
 function acceptProb(newRent: number, marketMo: number) {
   const r = newRent / marketMo;
-  if (r < 1.0)  return { text: "Mycket låg risk",  color: "#27660a", prob: 97 };
-  if (r < 1.1)  return { text: "Låg risk",         color: "#5a8a10", prob: 80 };
-  if (r < 1.2)  return { text: "Medel risk",       color: "#c07f16", prob: 55 };
-  if (r < 1.35) return { text: "Hög risk",         color: "#b04010", prob: 28 };
-  return             { text: "Mycket hög risk",  color: "#c0392b", prob: 10 };
+  if (r < 1.0)  return { text: "Very low risk",  color: "#27660a", prob: 97 };
+  if (r < 1.1)  return { text: "Low risk",       color: "#5a8a10", prob: 80 };
+  if (r < 1.2)  return { text: "Medium risk",    color: "#c07f16", prob: 55 };
+  if (r < 1.35) return { text: "High risk",      color: "#b04010", prob: 28 };
+  return             { text: "Very high risk", color: "#c0392b", prob: 10 };
 }
 
 /** Nöjdhets-chip för en hyresgäst (U3). */
@@ -110,17 +110,17 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       <div style={card}>
         <CardHeader p={p} month={state.month} />
         <div style={valueRow}>
-          <span style={valueText}>🏗️ Under byggnation</span>
+          <span style={valueText}>🏗️ Under construction</span>
         </div>
         <div style={statRow}>
-          <Stat label="Yta"   value={`${p.area} m²`} />
-          <Stat label="Klart" value={`om ${p.buildLeft} mån`} />
-          <Stat label="Värde (nu)" value={msek(value)} />
+          <Stat label="Area"  value={`${p.area} m²`} />
+          <Stat label="Done"  value={`in ${p.buildLeft} mo`} />
+          <Stat label="Value (now)" value={msek(value)} />
         </div>
         <div style={progressWrap}>
           <div style={{ ...progressFill, width: `${progress * 100}%` }} />
         </div>
-        <div style={hint}>Klart om {p.buildLeft} månader · Reputation +5 · 20 % lägre vakans vid inflyttning.</div>
+        <div style={hint}>Done in {p.buildLeft} months · Reputation +5 · 20% lower vacancy on move-in.</div>
       </div>
     );
   }
@@ -139,7 +139,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       {/* ── Värde ──────────────────────────────────────────────── */}
       <div style={valueRow}>
         <span style={valueText}>{msek(value)}</span>
-        <span style={subText}>marknadsvärde</span>
+        <span style={subText}>market value</span>
       </div>
 
       {/* ── Helkvartersstatus (slutna kvarter) ─────────────────── */}
@@ -148,20 +148,20 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         if (gap === null) return null;
         return gap === 0 ? (
           <div style={{ fontSize: 12, fontWeight: 700, color: "#4757c8", margin: "2px 0 6px" }}>
-            🏆 Helkvarter: +10 % hyra · −15 % driftkostnad
+            🏆 Whole block: +10% rent · −15% operating cost
           </div>
         ) : (
           <div style={{ fontSize: 11.5, color: "#8291a3", margin: "2px 0 6px" }}>
-            Kvarterspussel: {gap} {gap === 1 ? "fastighet" : "fastigheter"} kvar till helkvartersbonus.
+            Block puzzle: {gap} {gap === 1 ? "property" : "properties"} left for the whole-block bonus.
           </div>
         );
       })()}
 
       {/* ── Snabbfakta rad 1 ───────────────────────────────────── */}
       <div style={statRow}>
-        <Stat label="Yta" value={`${p.area} m²`} />
-        <StatBar label="Skick" c={p.condition} nextC={condIn3} />
-        <Stat label="NOI/mån" value={kr(noi / 12)} color={noi >= 0 ? "#27660a" : "#c0392b"} />
+        <Stat label="Area" value={`${p.area} m²`} />
+        <StatBar label="Condition" c={p.condition} nextC={condIn3} />
+        <Stat label="NOI/mo" value={kr(noi / 12)} color={noi >= 0 ? "#27660a" : "#c0392b"} />
       </div>
 
       {/* ── Snabbfakta rad 2 ───────────────────────────────────── */}
@@ -171,19 +171,19 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           value={`${yieldPct.toFixed(1)} %`}
           color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#c07f16" : "#c0392b"}
         />
-        <Stat label="Investerat" value={`${(invested / 1e6).toFixed(1)} Msek`} />
+        <Stat label="Invested" value={`${(invested / 1e6).toFixed(1)} MSEK`} />
         {cashOnCash !== null && (
           <Stat
-            label="Total avkastn."
+            label="Total return"
             value={`${cashOnCash >= 0 ? "+" : ""}${cashOnCash.toFixed(0)} %`}
             color={cashOnCash >= 0 ? "#27660a" : "#c0392b"}
           />
         )}
       </div>
       <div style={{ fontSize: 10.5, color: "#8291a3", marginTop: 2 }}>
-        Yield = NOI / (inköp {((p.purchasePrice ?? p.askPrice) / 1e6).toFixed(1)} M
-        {(p.capexTotal ?? 0) > 0 ? ` + åtgärder ${((p.capexTotal ?? 0) / 1e6).toFixed(1)} M` : ""})
-        · {marketYield.toFixed(1)} % på marknadsvärde
+        Yield = NOI / (purchase {((p.purchasePrice ?? p.askPrice) / 1e6).toFixed(1)} M
+        {(p.capexTotal ?? 0) > 0 ? ` + capex ${((p.capexTotal ?? 0) / 1e6).toFixed(1)} M` : ""})
+        · {marketYield.toFixed(1)}% on market value
       </div>
 
       {/* Avdelare mellan nyckeltalen ovan och inställningar/funktioner nedan. */}
@@ -194,27 +194,27 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         onClick={() => setShowDetails(!showDetails)}
         style={detailToggleBtn}
       >
-        {showDetails ? "▲ Dölj analys" : "▼ Kassaflöde & distriktsfakta"}
+        {showDetails ? "▲ Hide analysis" : "▼ Cash flow & district facts"}
       </button>
       {showDetails && (
         <div style={detailBox}>
-          <div style={sectionLabel}>Kassaflöde / mån</div>
-          <CashRow label="Bruttohyra"      v={grossRentMo}    positive />
-          <CashRow label="Driftkostnad"    v={-opexMo} />
-          <CashRow label="≈ Räntedel"      v={-interestMo} />
-          {p.managed && <CashRow label="Förvaltarkostnad" v={-managerCostMo} />}
+          <div style={sectionLabel}>Cash flow / mo</div>
+          <CashRow label="Gross rent"      v={grossRentMo}    positive />
+          <CashRow label="Operating cost"    v={-opexMo} />
+          <CashRow label="≈ Interest portion"      v={-interestMo} />
+          {p.managed && <CashRow label="Manager cost" v={-managerCostMo} />}
           <div style={{ height: 1, background: "#eedede", margin: "5px 0" }} />
-          <CashRow label="Nettokassaflöde" v={netCashflow} bold />
+          <CashRow label="Net cash flow" v={netCashflow} bold />
 
           {district && (
             <>
-              <div style={{ ...sectionLabel, marginTop: 10 }}>Distrikt: {district.name}</div>
+              <div style={{ ...sectionLabel, marginTop: 10 }}>District: {district.name}</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
                 <Chip
-                  label={`Tillväxt ${district.growth >= 1 ? "+" : ""}${((district.growth - 1) * 100).toFixed(0)} %/år`}
+                  label={`Growth ${district.growth >= 1 ? "+" : ""}${((district.growth - 1) * 100).toFixed(0)}%/yr`}
                   color={district.growth >= 1.05 ? "#27660a" : district.growth >= 1 ? "#5a8a10" : "#b04010"}
                 />
-                <Chip label={`Efterfrågan: ${demandLabel(district.demand)}`} color="#2a4a8a" />
+                <Chip label={`Demand: ${demandLabel(district.demand)}`} color="#2a4a8a" />
                 <Chip label={`Prestige ${district.prestige.toFixed(1)}×`} color="#5a2a7a" />
               </div>
             </>
@@ -229,14 +229,14 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       {/* Kolumn 1 – Hyresgäst & förhandling */}
       <div style={colStyle}>
       {/* ── Hyresgäster ────────────────────────────────────────── */}
-      <div style={sectionLabel}>Hyresgäster</div>
+      <div style={sectionLabel}>Tenants</div>
       <div style={{ marginBottom: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: emptySlots === 0 ? "#27660a" : "#7a4800" }}>
-            {p.tenants.length} av {p.capacity} platser uthyrda
+            {p.tenants.length} of {p.capacity} units leased
           </span>
           <span style={{ fontSize: 11, color: "#888" }}>
-            {kr(grossRentMo)}/mån av max {kr(maxPossibleMo)}/mån
+            {kr(grossRentMo)}/mo of max {kr(maxPossibleMo)}/mo
           </span>
         </div>
         <div style={{ display: "flex", gap: 3, marginBottom: 4 }}>
@@ -252,7 +252,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         </div>
         {emptySlots > 0 && (
           <div style={{ fontSize: 11, color: "#a05000" }}>
-            Outnyttjad potential: +{kr(slotPotential * emptySlots)}/mån
+            Untapped potential: +{kr(slotPotential * emptySlots)}/mo
           </div>
         )}
       </div>
@@ -262,10 +262,10 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         const rentVsMarket  = slotPotential > 0 ? t.rent / slotPotential : 1;
         const diffPct       = Math.round(Math.abs(rentVsMarket - 1) * 100);
         const marketChip    = rentVsMarket > 1.08
-          ? { label: `+${diffPct}% över marknad`, color: "#27660a" }
+          ? { label: `+${diffPct}% above market`, color: "#27660a" }
           : rentVsMarket < 0.92
-            ? { label: `−${diffPct}% under marknad`, color: "#c0392b" }
-            : { label: "I nivå med marknad",         color: "#888" };
+            ? { label: `−${diffPct}% below market`, color: "#c0392b" }
+            : { label: "In line with market",         color: "#888" };
 
         const expiring = t.monthsLeft <= 12;
         const critical = t.monthsLeft <= 3;
@@ -282,18 +282,18 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                   {t.profileName && <span style={profileTag}>{t.profileName}</span>}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 3 }}>
-                  <span style={tenantMeta}>{kr(t.rent)}/mån</span>
+                  <span style={tenantMeta}>{kr(t.rent)}/mo</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: marketChip.color }}>
                     {marketChip.label}
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: satChip(t.satisfaction ?? 60).color }} title="Nöjdhet: driver förnyelser och tolerans för hyreshöjningar">
-                    {satChip(t.satisfaction ?? 60).icon} {t.satisfaction ?? 60} %
+                  <span style={{ fontSize: 11, fontWeight: 700, color: satChip(t.satisfaction ?? 60).color }} title="Satisfaction: drives renewals and tolerance for rent increases">
+                    {satChip(t.satisfaction ?? 60).icon} {t.satisfaction ?? 60}%
                   </span>
-                  {t.anchorDeal && <span style={{ fontSize: 11 }} title="Ankaravtal: lyfter hela kvarteret">⭐</span>}
+                  {t.anchorDeal && <span style={{ fontSize: 11 }} title="Anchor deal: lifts the whole block">⭐</span>}
                 </div>
                 <div style={{ ...tenantMeta, marginTop: 2, color: critical ? "#c05000" : "#888" }}>
-                  {critical ? `⚠ löper ut om ${t.monthsLeft} mån` : expiring ? `⚠ ${t.monthsLeft} mån kvar` : `${t.monthsLeft} mån kvar`}
-                  {" "}· {t.termTotal} mån kontrakt · Risk {(t.defaultRisk * 100).toFixed(1)} %
+                  {critical ? `⚠ expires in ${t.monthsLeft} mo` : expiring ? `⚠ ${t.monthsLeft} mo left` : `${t.monthsLeft} mo left`}
+                  {" "}· {t.termTotal} mo contract · Risk {(t.defaultRisk * 100).toFixed(1)}%
                 </div>
               </div>
             </div>
@@ -302,7 +302,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
               {expiring && (
                 <SmallBtn
-                  label="Förläng kontrakt"
+                  label="Renew contract"
                   color="#27660a"
                   onClick={() => {
                     dispatch({ type: "RENEW_LEASE", id: p.id, tenantId: t.id });
@@ -311,7 +311,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                 />
               )}
               <SmallBtn
-                label={showRaise ? "✕ Stäng" : "Höj hyran"}
+                label={showRaise ? "✕ Close" : "Raise rent"}
                 color={BURGUNDY}
                 onClick={() => {
                   setShowRaiseTenantId(showRaise ? null : t.id);
@@ -320,7 +320,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                 disabled={state.gameOver}
               />
               <SmallBtn
-                label={showLower ? "✕ Stäng" : "Sänk hyran"}
+                label={showLower ? "✕ Close" : "Lower rent"}
                 color="#4a6aaa"
                 onClick={() => {
                   setShowLowerTenantId(showLower ? null : t.id);
@@ -329,7 +329,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                 disabled={state.gameOver}
               />
               <SmallBtn
-                label="Säg upp −3 rep"
+                label="Evict −3 rep"
                 color="#a03010"
                 onClick={() => dispatch({ type: "EVICT", id: p.id, tenantId: t.id })}
                 disabled={state.gameOver}
@@ -339,9 +339,9 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             {/* ── Höj hyra ───────────────────────────────────── */}
             {showRaise && (
               <div style={subPanel}>
-                <div style={sectionLabel}>Välj höjning</div>
+                <div style={sectionLabel}>Choose increase</div>
                 <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
-                  Marknadshyra: {kr(slotPotential)}/mån · Nu: {kr(t.rent)}/mån
+                  Market rent: {kr(slotPotential)}/mo · Now: {kr(t.rent)}/mo
                 </div>
                 {RAISE_OPTIONS.map((pct) => {
                   const newR = Math.round(t.rent * (1 + pct / 100));
@@ -357,11 +357,11 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                       style={rentOptionBtn(risk.color)}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ fontWeight: 700, fontSize: 13 }}>+{pct}% → {kr(newR)}/mån</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: risk.color }}>{risk.prob}% chans</span>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>+{pct}% → {kr(newR)}/mo</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: risk.color }}>{risk.prob}% chance</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#888", marginTop: 2 }}>
-                        <span>+{kr(newR - t.rent)}/mån extra</span>
+                        <span>+{kr(newR - t.rent)}/mo extra</span>
                         <span style={{ color: risk.color }}>{risk.text}</span>
                       </div>
                     </button>
@@ -373,9 +373,9 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             {/* ── Sänk hyra ──────────────────────────────────── */}
             {showLower && (
               <div style={subPanel}>
-                <div style={sectionLabel}>Välj sänkning</div>
+                <div style={sectionLabel}>Choose decrease</div>
                 <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
-                  Sänkt hyra accepteras alltid · Ökar chansen att stanna (reputation +0,5)
+                  A rent cut is always accepted · Improves the chance they stay (reputation +0.5)
                 </div>
                 {LOWER_OPTIONS.map((pct) => {
                   const newR = Math.round(t.rent * (1 - pct / 100));
@@ -390,8 +390,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                       style={rentOptionBtn("#4a6aaa")}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ fontWeight: 700, fontSize: 13 }}>−{pct}% → {kr(newR)}/mån</span>
-                        <span style={{ fontSize: 12, color: "#4a6aaa" }}>−{kr(t.rent - newR)}/mån</span>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>−{pct}% → {kr(newR)}/mo</span>
+                        <span style={{ fontSize: 12, color: "#4a6aaa" }}>−{kr(t.rent - newR)}/mo</span>
                       </div>
                     </button>
                   );
@@ -407,9 +407,9 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         <div style={vacantBox}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <span style={vacantTitle}>
-              {emptySlots} {emptySlots === 1 ? "ledig lokal" : "lediga lokaler"}
+              {emptySlots} {emptySlots === 1 ? "vacant unit" : "vacant units"}
             </span>
-            <span style={vacantSub}>Marknadshyra {kr(slotPotential)}/mån</span>
+            <span style={vacantSub}>Market rent {kr(slotPotential)}/mo</span>
           </div>
           {/* Utgångshyra: låg = kö av sökande, hög = glest och sämre mix.
               Utan egen inställning gäller bolagspolicyn. */}
@@ -421,10 +421,10 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                     värdet aldrig trycks ut ur det smala kortet. */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
                   <span style={{ fontSize: 11.5, color: "#666" }}>
-                    Utgångshyra{p.askRentPct === undefined ? " (policy)" : ""}
+                    Asking rent{p.askRentPct === undefined ? " (policy)" : ""}
                   </span>
                   <strong style={{ fontSize: 12.5, whiteSpace: "nowrap", color: eff > 1.1 ? "#b5542a" : eff < 0.95 ? "#4d8b52" : "#333" }}>
-                    {Math.round(eff * 100)} % · {kr(Math.round(slotPotential * eff))}
+                    {Math.round(eff * 100)}% · {kr(Math.round(slotPotential * eff))}
                   </strong>
                 </div>
                 <input
@@ -442,7 +442,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           {/* Inkomna ansökningar */}
           {(p.applications ?? []).length === 0 ? (
             <div style={{ fontSize: 12, color: "#8291a3", marginBottom: 6 }}>
-              Inga ansökningar ännu — {(p.askRentPct ?? 1) > 1.05 ? "utgångshyran ligger över marknaden, sänk eller vänta" : "sökande brukar dyka upp inom någon månad"}.
+              No applications yet — {(p.askRentPct ?? 1) > 1.05 ? "the asking rent is above market, lower it or wait" : "applicants usually appear within a month"}.
             </div>
           ) : (
             (p.applications ?? []).map((a) => (
@@ -452,10 +452,10 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                     {a.tenant.name}
                     {a.anchorEligible ? " ⭐" : ""}
                   </span>
-                  <span style={{ fontWeight: 700, fontSize: 13, color: "#27660a" }}>{kr(a.tenant.rent)}/mån</span>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#27660a" }}>{kr(a.tenant.rent)}/mo</span>
                 </div>
                 <div style={{ fontSize: 11, color: "#888", margin: "2px 0 5px" }}>
-                  {a.tenant.profileName ?? a.tenant.profile} · Kvalitet {a.tenant.quality.toFixed(2)} · Risk {(a.tenant.defaultRisk * 100).toFixed(1)} %
+                  {a.tenant.profileName ?? a.tenant.profile} · Quality {a.tenant.quality.toFixed(2)} · Risk {(a.tenant.defaultRisk * 100).toFixed(1)}%
                 </div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {(["kort", "standard", "långt"] as const).map((c) => (
@@ -474,14 +474,14 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                       onClick={() => dispatch({ type: "ACCEPT_APPLICATION", id: p.id, applicationId: a.id, contract: "ankare" })}
                       style={{ ...contractBtn, background: "#4757c8", borderColor: "#4757c8", color: "#fff" }}
                     >
-                      Ankare ⭐
+                      Anchor ⭐
                     </button>
                   )}
                   <button
                     onClick={() => dispatch({ type: "REJECT_APPLICATION", id: p.id, applicationId: a.id })}
                     style={{ ...contractBtn, color: "#8291a3", borderColor: "#ddd" }}
                   >
-                    Avslå
+                    Reject
                   </button>
                 </div>
               </div>
@@ -502,7 +502,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                     fontSize: 12, fontWeight: 700, cursor: canBoost ? "pointer" : "default",
                   }}
                 >
-                  {campaignOn ? "⏳ Kampanj pågår – svar vid månadsskiftet" : "📣 Annonskampanj 25 k (3 ansökningar nästa månad)"}
+                  {campaignOn ? "⏳ Campaign running – response at month end" : "📣 Ad campaign 25k (3 applications next month)"}
                 </button>
               );
             })()}
@@ -516,7 +516,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                 fontSize: 12, fontWeight: 700, cursor: "pointer",
               }}
             >
-              {p.brokerMandate ? "✓ Mäklaruppdrag aktivt · 15 k/mån" : "🤝 Mäklaruppdrag 15 k/mån"}
+              {p.brokerMandate ? "✓ Broker mandate active · 15k/mo" : "🤝 Broker mandate 15k/mo"}
             </button>
           </div>
         </div>
@@ -524,7 +524,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       {p.regulated && emptySlots > 0 && (
         <div style={{ ...vacantBox, borderColor: "#4d8b52" }}>
           <span style={{ fontSize: 12.5, color: "#27660a", fontWeight: 700 }}>
-            🏛️ Bostadskön tilldelar {emptySlots} {emptySlots === 1 ? "lägenhet" : "lägenheter"} nästa månad.
+            🏛️ The housing queue assigns {emptySlots} {emptySlots === 1 ? "apartment" : "apartments"} next month.
           </span>
         </div>
       )}
@@ -535,11 +535,11 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       {/* Kolumn 2 – Investeringar & utveckling */}
       <div style={colStyle}>
       {/* ── Investeringar ───────────────────────────────────────── */}
-      <div style={sectionLabel}>Investeringar</div>
+      <div style={sectionLabel}>Investments</div>
 
       <ActionBtn
-        label={maintPending ? "⏳ Underhåll pågår" : `🔧 Underhåll · ${msek(maintainCost)}`}
-        sub={maintPending ? "+15 skick vid månadsskiftet – hyran flyter under tiden" : "+15 skick · minskar vakans och hyrestapp"}
+        label={maintPending ? "⏳ Maintenance in progress" : `🔧 Maintenance · ${msek(maintainCost)}`}
+        sub={maintPending ? "+15 condition at month end – rent keeps flowing" : "+15 condition · reduces vacancy and rent loss"}
         color={canMaintain ? "#2a6a1a" : undefined}
         disabled={!canMaintain}
         onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
@@ -553,8 +553,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         return (
           <ActionBtn
             key={u.id}
-            label={done ? `✓ ${u.name}` : pending ? `⏳ ${u.name} pågår (${pending.monthsLeft} mån kvar)` : `${u.name} · ${msek(cost)}`}
-            sub={pending ? "Hyresgästerna bor kvar och betalar hyra under arbetet" : UPG_EFFECT[u.id] ?? u.desc}
+            label={done ? `✓ ${u.name}` : pending ? `⏳ ${u.name} in progress (${pending.monthsLeft} mo left)` : `${u.name} · ${msek(cost)}`}
+            sub={pending ? "Tenants stay and pay rent during the work" : UPG_EFFECT[u.id] ?? u.desc}
             color={done ? "#27660a" : canDo ? "#5a2a3a" : undefined}
             done={done}
             disabled={done || !canDo}
@@ -566,25 +566,25 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       {/* ── Utvecklingsprojekt (kräver vakant fastighet) ─────────── */}
       {p.status === "klar" && (
         <>
-          <div style={sectionLabel}>Utvecklingsprojekt</div>
+          <div style={sectionLabel}>Development projects</div>
           {p.tenants.length > 0 && (
             <div style={{ fontSize: 11.5, color: "#8291a3", margin: "2px 0 6px" }}>
-              Kräver vakant fastighet — säg upp eller vänta ut kontrakten.
+              Requires a vacant property — evict or wait out the contracts.
             </div>
           )}
           <ActionBtn
-            label={`✨ Totalrenovering · ${msek(Math.round(value * 0.18))}`}
-            sub="6 mån · skick 100, energiklass A, +15 % hyra · nollställer byggnadsåldern"
+            label={`✨ Full renovation · ${msek(Math.round(value * 0.18))}`}
+            sub="6 mo · condition 100, energy class A, +15% rent · resets building age"
             color="#7a5c2a"
             disabled={p.tenants.length > 0 || state.cash < value * 0.18 || state.gameOver}
             onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "totalrenovering" })}
           />
           <ActionBtn
-            label={`🏗️ Påbyggnad · ${msek(Math.round(value * 0.3))}`}
+            label={`🏗️ Extension · ${msek(Math.round(value * 0.3))}`}
             sub={
               (p.devLevel ?? 0) >= maxDevLevel(state, p.district)
-                ? `10 mån · +25 % yta, +1 plats, +20 % värde · höjdtak nått (${districtTier(state, p.district).name}) – lyft distriktet för att bygga högre`
-                : "10 mån · +25 % yta, +1 hyresplats, +20 % värde · huset reser sig på kartan"
+                ? `10 mo · +25% area, +1 unit, +20% value · height cap reached (${districtTier(state, p.district).name}) – lift the district to build higher`
+                : "10 mo · +25% area, +1 unit, +20% value · the building rises on the map"
             }
             color="#7a5c2a"
             disabled={p.tenants.length > 0 || state.cash < value * 0.3 || state.gameOver}
@@ -599,8 +599,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             if (age < 15) return null;
             return (
               <ActionBtn
-                label={`🏙️ Rivning & nybyggnation · ${msek(redevCost)}`}
-                sub={`Ålder ${age} år${obsolete ? ` · omodernt (−${Math.round((1 - obs) * 100)} % värde)` : ""} · nollställer åldern, +15 % yta, +1 plats, energiklass A`}
+                label={`🏙️ Demolish & rebuild · ${msek(redevCost)}`}
+                sub={`Age ${age} yr${obsolete ? ` · outdated (−${Math.round((1 - obs) * 100)}% value)` : ""} · resets age, +15% area, +1 unit, energy class A`}
                 color={obsolete ? BURGUNDY : "#7a5c2a"}
                 disabled={p.tenants.length > 0 || state.cash < redevCost || state.gameOver}
                 onClick={() => dispatch({ type: "REDEVELOP", id: p.id })}
@@ -611,8 +611,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           {maxCapacityFor(p) > 1 && (
             <div style={{ margin: "4px 0 8px" }}>
               <div style={{ fontSize: 11.5, color: "#666", marginBottom: 4 }}>
-                🔨 Lokalanpassning (3 mån): {p.capacity} {p.capacity === 1 ? "stor lokal" : "lokaler"} idag ·
-                {p.capacity === 1 ? " premiumhyra +10 %" : " riskspridning"} · bygg om till:
+                🔨 Unit conversion (3 mo): {p.capacity} {p.capacity === 1 ? "large unit" : "units"} today ·
+                {p.capacity === 1 ? " premium rent +10%" : " risk spread"} · convert to:
               </div>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                 {Array.from({ length: maxCapacityFor(p) }, (_, i) => i + 1).map((target) => {
@@ -624,8 +624,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                       key={target}
                       title={
                         p.tenants.length > target
-                          ? `Kräver max ${target} uthyrda (nu ${p.tenants.length})`
-                          : `${target === 1 ? "En stor lokal: +10 % hyra/m², −5 % drift" : `${target} lokaler`} · ${msek(cost)}`
+                          ? `Requires at most ${target} leased (now ${p.tenants.length})`
+                          : `${target === 1 ? "One large unit: +10% rent/m², −5% opex" : `${target} units`} · ${msek(cost)}`
                       }
                       disabled={blocked}
                       onClick={() => dispatch({ type: "START_RENOVATION", id: p.id, kind: "lokalanpassning", targetCapacity: target })}
@@ -651,15 +651,15 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       {/* Kolumn 3 – Förvaltning, energi & försäljning */}
       <div style={colStyle}>
       {/* ── Förvaltning ─────────────────────────────────────────── */}
-      <div style={sectionLabel}>Förvaltning</div>
+      <div style={sectionLabel}>Management</div>
 
       {p.type === "bostad" && (
         <ActionBtn
-          label={p.regulated ? "✓ Ansluten till bostadskön" : "🏛️ Anslut till bostadskön"}
+          label={p.regulated ? "✓ Enrolled in the housing queue" : "🏛️ Join the housing queue"}
           sub={
             p.regulated
-              ? "Reglerad hyra −20 % · noll vakans · +goodwill. Klicka för att lämna."
-              : "Reglerad hyra −20 % men kön fyller alla vakanser direkt och bygger reputation."
+              ? "Regulated rent −20% · zero vacancy · +goodwill. Click to leave."
+              : "Regulated rent −20% but the queue fills all vacancies instantly and builds reputation."
           }
           color={p.regulated ? "#27660a" : "#2a4a6a"}
           disabled={state.gameOver}
@@ -671,26 +671,26 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       <div style={{ fontSize: 11.5, color: C.inkSoft, margin: "2px 0 6px" }}>
         Styrs av:{" "}
         <strong style={{ color: p.managed ? "#27660a" : directorActive ? "#2a4a6a" : "#7a5c2a" }}>
-          {p.managed ? "egen förvaltare" : directorActive ? "portföljdirektören" : "dig själv"}
+          {p.managed ? "own manager" : directorActive ? "the portfolio director" : "yourself"}
         </strong>
         {p.managed
-          ? " — följer instruktionerna nedan."
+          ? " — follows the instructions below."
           : directorActive
-            ? " — följer direktörens instruktioner (Policy-fliken)."
-            : " — du förnyar kontrakt och beställer underhåll manuellt."}
+            ? " — follows the director's instructions (Policy tab)."
+            : " — you renew contracts and order maintenance manually."}
       </div>
       <ActionBtn
         label={
           p.managed
-            ? `✓ Förvaltare anställd · ${kr(managerCostMo)}/mån`
-            : `👔 Anställ förvaltare · ${kr(managerCostMo)}/mån`
+            ? `✓ Manager hired · ${kr(managerCostMo)}/mo`
+            : `👔 Hire manager · ${kr(managerCostMo)}/mo`
         }
         sub={
           p.managed
-            ? `Auto-förnyar kontrakt och underhåller vid skick < ${currentMgrSettings.maintainThreshold}. Klicka för att avsluta.`
+            ? `Auto-renews contracts and maintains at condition < ${currentMgrSettings.maintainThreshold}. Click to end.`
             : directorActive
-              ? "Direktören sköter redan huset — egen förvaltare behövs bara för avvikande instruktioner (extra arvode)."
-              : "Auto-förnyar kontrakt vid utgång och underhåller automatiskt."
+              ? "The director already manages this property — an own manager is only needed for differing instructions (extra fee)."
+              : "Auto-renews contracts at expiry and maintains automatically."
         }
         color={p.managed ? "#27660a" : "#2a4a6a"}
         disabled={state.gameOver}
@@ -703,11 +703,11 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             onClick={() => setShowMgrSettings(!showMgrSettings)}
             style={detailToggleBtn}
           >
-            {showMgrSettings ? "▲ Dölj förvaltningsinstruktioner" : "▼ Justera förvaltarens instruktioner"}
+            {showMgrSettings ? "▲ Hide management instructions" : "▼ Adjust the manager's instructions"}
           </button>
           {showMgrSettings && (
             <div style={detailBox}>
-              <div style={sectionLabel}>Underhållströskel</div>
+              <div style={sectionLabel}>Maintenance threshold</div>
               <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
                 Förvaltaren underhåller automatiskt när skicket sjunker under denna nivå.
               </div>
@@ -727,9 +727,9 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                 <span style={{ fontWeight: 700, fontSize: 13, minWidth: 26 }}>{currentMgrSettings.maintainThreshold}</span>
                 <Chip
                   label={
-                    currentMgrSettings.maintainThreshold <= 30 ? "Låg standard" :
+                    currentMgrSettings.maintainThreshold <= 30 ? "Low standard" :
                     currentMgrSettings.maintainThreshold <= 55 ? "Standard" :
-                    currentMgrSettings.maintainThreshold <= 85 ? "Hög standard" : "Toppskick"
+                    currentMgrSettings.maintainThreshold <= 85 ? "High standard" : "Top condition"
                   }
                   color={
                     currentMgrSettings.maintainThreshold <= 30 ? "#c07f16" :
@@ -738,7 +738,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                 />
               </div>
 
-              <div style={sectionLabel}>Hyresmål vid förlängning</div>
+              <div style={sectionLabel}>Rent target on renewal</div>
               <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
                 Andel av marknadshyran som förvaltaren siktar på. Mål&nbsp;&gt;&nbsp;110 % ökar risken att hyresgästen lämnar.
               </div>
@@ -775,7 +775,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                 </div>
               )}
 
-              <div style={{ ...sectionLabel, marginTop: 14 }}>Min. hyresgästkvalitet</div>
+              <div style={{ ...sectionLabel, marginTop: 14 }}>Min. tenant quality</div>
               <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
                 Förvaltaren signerar bara ansökningar med minst denna kvalitet.
               </div>
@@ -799,7 +799,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                         color: active ? "#fff" : "#555",
                       }}
                     >
-                      {q === 0 ? "Alla" : q.toFixed(2)}
+                      {q === 0 ? "All" : q.toFixed(2)}
                     </button>
                   );
                 })}
@@ -815,10 +815,10 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div>
           <span style={{ fontSize: 12, fontWeight: 700, color: p.insurance ? "#27660a" : C.inkSoft }}>
-            {p.insurance ? "🛡️ Försäkrad" : "⚠️ Ej försäkrad"}
+            {p.insurance ? "🛡️ Insured" : "⚠️ Not insured"}
           </span>
           <span style={{ fontSize: 11, color: C.inkSoft, marginLeft: 6 }}>
-            {p.insurance ? "(2 000 kr/mån)" : "(brand, vatten, skadeansvar)"}
+            {p.insurance ? "(2,000 kr/mo)" : "(fire, water, liability)"}
           </span>
         </div>
         <button
@@ -830,7 +830,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           disabled={state.gameOver || p.status !== "klar"}
           onClick={() => dispatch({ type: p.insurance ? "CANCEL_INSURANCE" : "BUY_INSURANCE", id: p.id })}
         >
-          {p.insurance ? "Avsluta" : "Teckna"}
+          {p.insurance ? "Cancel" : "Buy"}
         </button>
       </div>
 
@@ -846,10 +846,10 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <div>
               <span style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft }}>
-                ⚡ Energiuppgradering: {cur} → {next}
+                ⚡ Energy upgrade: {cur} → {next}
               </span>
               <span style={{ fontSize: 11, color: C.inkSoft, marginLeft: 6 }}>
-                +3 % hyra · +5 skick · −3 % skatt (klass A)
+                +3% rent · +5 condition · −3% tax (class A)
               </span>
             </div>
             <button
@@ -862,7 +862,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
               disabled={state.gameOver || state.cash < cost || !!pendingWork(p, "energi")}
               onClick={() => dispatch({ type: "IMPROVE_ENERGY", id: p.id })}
             >
-              {pendingWork(p, "energi") ? "⏳ pågår" : kr(cost)}
+              {pendingWork(p, "energi") ? "⏳ in progress" : kr(cost)}
             </button>
           </div>
         );
@@ -871,7 +871,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       {/* ── Försäljning: annonsera och invänta köpare, eller snabbsälj ── */}
       {p.forSale?.packageId != null ? (
         <div style={{ fontSize: 12, color: "#4757c8", fontWeight: 700, padding: "8px 10px", background: "#eef2f6", borderRadius: 6 }}>
-          📦 Ingår i säljpaket – hanteras i Bolag → Översikt.
+          📦 Part of a sale package – managed in Company → Overview.
         </div>
       ) : p.forSale ? (
         (() => {
@@ -881,17 +881,17 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           return (
             <div style={{ padding: "8px 10px", background: "#eef2f6", borderRadius: 6 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: "#4757c8" }}>
-                🏷️ Till salu för {msek(p.forSale.ask)}
+                🏷️ For sale at {msek(p.forSale.ask)}
               </div>
               <div style={{ fontSize: 11.5, marginTop: 2 }}>
-                Köpintresse: <strong style={{ color: il.color }}>{il.label}</strong>
-                {" · "}bud landar i 💼-inkorgen
+                Buyer interest: <strong style={{ color: il.color }}>{il.label}</strong>
+                {" · "}bids land in the 💼 inbox
               </div>
               <button
                 style={{ ...contractBtn, marginTop: 6 }}
                 onClick={() => dispatch({ type: "UNLIST", id: p.id })}
               >
-                Ta bort från marknaden
+                Remove from market
               </button>
             </div>
           );
@@ -900,9 +900,9 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         <>
           <div style={{ marginBottom: 4 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
-              <span style={{ fontSize: 12, color: C.inkSoft }}>Utgångspris</span>
+              <span style={{ fontSize: 12, color: C.inkSoft }}>Asking price</span>
               <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>
-                {msek(Math.round((value * askPct) / 100))} ({askPct} %)
+                {msek(Math.round((value * askPct) / 100))} ({askPct}%)
               </span>
             </div>
             <input
@@ -918,8 +918,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             const il = interestLabel(chance);
             return (
               <ActionBtn
-                label={`🏷️ Lägg ut till försäljning · ${msek(ask)}`}
-                sub={`Förväntat köpintresse: ${il.label} – bra skick, hög uthyrning och rätt pris säljer snabbt`}
+                label={`🏷️ List for sale · ${msek(ask)}`}
+                sub={`Expected buyer interest: ${il.label} – good condition, high occupancy and the right price sell fast`}
                 color="#3d54d8"
                 disabled={state.gameOver}
                 onClick={() => dispatch({ type: "LIST_FOR_SALE", id: p.id, ask })}
@@ -927,8 +927,8 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             );
           })()}
           <ActionBtn
-            label={`⚡ Snabbförsäljning · ${msek(Math.round(value * QUICK_SALE_FACTOR))}`}
-            sub="Uppköpare betalar direkt men drar 15 % mot marknadsvärdet"
+            label={`⚡ Quick sale · ${msek(Math.round(value * QUICK_SALE_FACTOR))}`}
+            sub="Buyers pay immediately but take 15% off market value"
             color="#8a4a2a"
             disabled={state.gameOver}
             onClick={() => dispatch({ type: "SELL", id: p.id })}
