@@ -2,6 +2,8 @@ import { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
 import { industryAssetValue } from "../engine/industries";
+import { personaFor } from "../engine/rivalPersonas";
+import { RivalPortrait } from "./RivalPortrait";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
 
@@ -171,8 +173,16 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       alignItems: "center",
                     }}
                   >
-                    <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.brassBright, fontSize: 14 }}>
-                      {comp.name}
+                    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <RivalPortrait company={comp.name} size={36} />
+                      <span style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.brassBright, fontSize: 14 }}>
+                          {comp.name}
+                        </span>
+                        {personaFor(comp.name) && (
+                          <span style={{ fontSize: 11, color: C.creamSoft }}>{personaFor(comp.name)!.person}</span>
+                        )}
+                      </span>
                     </span>
                     <span style={{ fontSize: 12, color: C.creamSoft, display: "flex", gap: 16 }}>
                       <span>{comp.portfolio.length} fastigheter{(comp.industries ?? []).length > 0 ? ` · ${(comp.industries ?? []).length} industrier` : ""}</span>

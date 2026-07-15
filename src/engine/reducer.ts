@@ -33,6 +33,7 @@ import {
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { bondRateFor, creditRatingOf } from "./rating";
+import { rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propPotentialRent } from "./property";
 import {
@@ -1628,7 +1629,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, state.reputation + 8),
         log: [
           {
-            t: `🏢 FÖRVÄRV: ${rival.name} fusioneras in i koncernen för ${msek(price)}${ownFrac > 0 ? ` (din aktiepost ${pct(ownFrac)} räknades av)` : ""} – ${acquired.length} fastigheter och ${msek(Math.round(rival.cash ?? 0))} i kassa tillförs!`,
+            t: `🏢 FÖRVÄRV: ${rival.name} fusioneras in i koncernen för ${msek(price)}${ownFrac > 0 ? ` (din aktiepost ${pct(ownFrac)} räknades av)` : ""} – ${acquired.length} fastigheter och ${msek(Math.round(rival.cash ?? 0))} i kassa tillförs!${rivalQuote(rival.name, "uppköpt", state.month) ? " " + rivalQuote(rival.name, "uppköpt", state.month) : ""}`,
             kind: "buy",
           },
           ...state.log,
@@ -1756,7 +1757,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         portfolio: [...state.portfolio, { ...listing, owned: true, purchasePrice: myBid }],
         listings: state.listings.filter((p) => p.id !== listing.id),
         competingBid: undefined,
-        log: [{ t: `✅ Du vann budkriget! ${listing.typeLabel} i ${listing.districtName} köpt för ${msek(myBid)} efter ${round} ${round === 1 ? "runda" : "rundor"}.`, kind: "buy" }, ...state.log],
+        log: [{ t: `✅ Du vann budkriget! ${listing.typeLabel} i ${listing.districtName} köpt för ${msek(myBid)} efter ${round} ${round === 1 ? "runda" : "rundor"}.${rivalQuote(cb.rivalName, "förlust", round) ? " " + rivalQuote(cb.rivalName, "förlust", round) : ""}`, kind: "buy" }, ...state.log],
       };
     }
     case "PASS_COMPETING_BID": {

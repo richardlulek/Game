@@ -47,6 +47,7 @@ import {
 import { amortInfoOf, equityOf, loanTerms } from "./finance";
 import { covenantBreach, creditRatingOf } from "./rating";
 import { tickCityEvent } from "./cityEvents";
+import { rivalQuote } from "./rivalPersonas";
 import { kr, msek } from "./format";
 import { calYear, daysInMonth, formatMonthYear } from "./date";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
@@ -930,7 +931,8 @@ export function advanceMonth(state: GameState): GameState {
       const amount = Math.round(target.askPrice * rnd(1.02, 1.15));
       const absNow = s.year * 12 + s.month;
       s.competingBid = { listingId: target.id, rivalName: rival.name, amount, expiresAbs: absNow + 1, round: 1 };
-      events.push({ t: `⚡ BUDGIVNING: ${rival.name} lade ${msek(amount)} på ${target.typeLabel} i ${target.districtName}! Slå budet eller låt dem köpa.`, kind: "warn" });
+      const q = rivalQuote(rival.name, "budkrig", absNow);
+      events.push({ t: `⚡ BUDGIVNING: ${rival.name} lade ${msek(amount)} på ${target.typeLabel} i ${target.districtName}!${q ? " " + q : ""} Slå budet eller låt dem köpa.`, kind: "warn" });
     }
   } else if (s.competingBid) {
     // Expire competing bid and let rival buy
@@ -944,7 +946,8 @@ export function advanceMonth(state: GameState): GameState {
             ? { ...c, portfolio: [...(c.portfolio ?? []), listing], units: (c.portfolio ?? []).length + 1 }
             : c,
         );
-        events.push({ t: `🏢 ${s.competingBid.rivalName} köpte ${listing.typeLabel} i ${listing.districtName} för ${msek(s.competingBid.amount)}.`, kind: "event" });
+        const vq = rivalQuote(s.competingBid.rivalName, "vinst", absNow);
+        events.push({ t: `🏢 ${s.competingBid.rivalName} köpte ${listing.typeLabel} i ${listing.districtName} för ${msek(s.competingBid.amount)}.${vq ? " " + vq : ""}`, kind: "event" });
       }
       s.competingBid = undefined;
     }
@@ -970,7 +973,8 @@ export function advanceMonth(state: GameState): GameState {
     };
     s.competitors = s.competitors.filter((_, i) => i !== buyer.i && i !== weakest.i);
     s.competitors = [...s.competitors, merged];
-    events.push({ t: `🤝 FÖRVÄRV: ${ca.name} köper upp krisande ${cb.name}.`, kind: "warn" });
+    const fq = rivalQuote(ca.name, "fusion", s.month);
+    events.push({ t: `🤝 FÖRVÄRV: ${ca.name} köper upp krisande ${cb.name}.${fq ? " " + fq : ""}`, kind: "warn" });
     // Det uppköpta bolagets aktie avnoteras: spelarens innehav löses ut
     // till kurs och ev. blankning stängs – annars blir aktien ett zombie-
     // papper utan bolag bakom som driver på ren slump.
@@ -1407,8 +1411,9 @@ export function advanceMonth(state: GameState): GameState {
           ? { ...c, cash: c.cash - target.purchasePrice, industries: [...(c.industries ?? []), target] }
           : c,
       );
+      const iq = rivalQuote(buyer.name, "industri", s.month);
       events.push({
-        t: `🏭 ${buyer.name} förvärvar ${target.name} (${msek(target.purchasePrice)}) – industrimarknaden är inte längre din ensam.`,
+        t: `🏭 ${buyer.name} förvärvar ${target.name} (${msek(target.purchasePrice)}) – industrimarknaden är inte längre din ensam.${iq ? " " + iq : ""}`,
         kind: "warn",
       });
     }
