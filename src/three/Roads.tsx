@@ -257,26 +257,43 @@ export function Roads() {
 
 interface CarSpec {
   seg: RoadSeg;
-  offset: number;
-  speed: number;
+  offset: number; // startfas 0–1 längs gatan
+  speed: number; // varv per sekund (hela gatan)
+  dir: 1 | -1; // körriktning – konstant, bilen vänder aldrig på gatan
   color: Color;
 }
 
-/** Alla bilar (huvudleder + lokalgator) i två InstancedMesh:ar. */
+/**
+ * Alla bilar i tre InstancedMesh:ar (kaross + hytt + hjulaxlar).
+ * Varje bil kör ENKELRIKTAT i sin fil och börjar om från gatans
+ * början när den når slutet (som att en ny bil svänger in) – den
+ * gamla ping-pong-rörelsen fick bilar att tvärvända mitt på leden
+ * och samtidigt teleportera till motsatt fil.
+ */
 export function Traffic() {
   const specs = useMemo<CarSpec[]>(() => {
     const out: CarSpec[] = [];
     ROADS.forEach((seg, i) => {
-      out.push({ seg, offset: i * 0.7, speed: 0.11 + (i % 3) * 0.03, color: new Color(CAR_COLORS[i % CAR_COLORS.length]) });
-      if (Math.max(seg.w, seg.d) > 60)
-        out.push({ seg, offset: i * 0.7 + 1.1, speed: 0.09 + ((i + 1) % 3) * 0.03, color: new Color(CAR_COLORS[(i + 3) % CAR_COLORS.length]) });
+      // 2–4 bilar per huvudled beroende på längd, varannan i motriktning.
+      const n = Math.max(2, Math.min(4, Math.round(Math.max(seg.w, seg.d) / 90)));
+      for (let c = 0; c < n; c++) {
+        const dir = (c % 2 === 0 ? 1 : -1) as 1 | -1;
+        out.push({
+          seg,
+          offset: ((i * 0.37 + c * 0.71) % 1),
+          speed: 0.05 + ((i + c) % 3) * 0.012,
+          dir,
+          color: new Color(CAR_COLORS[(i * 5 + c) % CAR_COLORS.length]),
+        });
+      }
     });
     // Var femte kvartersgata får en bil – deterministiskt urval.
     ZONE_STREETS.filter((_, i) => i % 5 === 2).forEach((s, i) => {
       out.push({
         seg: { x: s.x, z: s.z, w: s.w, d: s.d },
-        offset: i * 0.83 + 0.4,
-        speed: 0.05 + (i % 3) * 0.015,
+        offset: (i * 0.83 + 0.4) % 1,
+        speed: 0.035 + (i % 3) * 0.01,
+        dir: (i % 2 === 0 ? 1 : -1) as 1 | -1,
         color: new Color(CAR_COLORS[(i + 2) % CAR_COLORS.length]),
       });
     });
@@ -284,52 +301,168 @@ export function Traffic() {
   }, []);
 
   const meshes = useMemo(() => {
-    const bodyMat = new MeshStandardMaterial({ color: "#ffffff" });
-    const cabinMat = new MeshStandardMaterial({ color: "#dce4e8" });
-    const bodies = new InstancedMesh(new BoxGeometry(3.4, 1.1, 1.7), bodyMat, specs.length);
-    const cabins = new InstancedMesh(new BoxGeometry(1.7, 0.7, 1.5), cabinMat, specs.length);
+    const bodyMat = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.5, metalness: 0.15 });
+    const cabinMat = new MeshStandardMaterial({ color: "#aebfc9", roughness: 0.25, metalness: 0.3 });
+    const wheelMat = new MeshStandardMaterial({ color: "#23262a", roughness: 0.9 });
+    const bodies = new InstancedMesh(new BoxGeometry(3.4, 0.95, 1.7), bodyMat, specs.length);
+    const cabins = new InstancedMesh(new BoxGeometry(1.8, 0.75, 1.5), cabinMat, specs.length);
+    // En mörk axelkloss fram + bak per bil ger hjulkänsla från sidan.
+    const wheels = new InstancedMesh(new BoxGeometry(0.62, 0.5, 1.82), wheelMat, specs.length * 2);
     bodies.castShadow = true;
     specs.forEach((c, i) => bodies.setColorAt(i, c.color));
     if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
-    return [bodies, cabins];
+    return [bodies, cabins, wheels] as const;
   }, [specs]);
   useDispose(...meshes);
 
   const scratch = useMemo(() => new Object3D(), []);
   useFrame((state) => {
-    const [bodies, cabins] = meshes;
+    const [bodies, cabins, wheels] = meshes;
     const o = scratch;
     specs.forEach((c, i) => {
       const horizontal = c.seg.w > c.seg.d;
       const len = (horizontal ? c.seg.w : c.seg.d) - 6;
-      const t = state.clock.elapsedTime * c.speed + c.offset;
-      const phase = t % 2;
-      const k = phase < 1 ? phase : 2 - phase;
-      const forward = phase < 1;
-      const along = (k - 0.5) * len;
-      const lane = forward ? 2.6 : -2.6;
+      const k = (state.clock.elapsedTime * c.speed + c.offset) % 1;
+      const along = (k - 0.5) * len * c.dir;
+      // Högertrafik: filen ligger till höger om färdriktningen.
+      const lane = 2.6 * c.dir;
+      let heading: number;
       if (horizontal) {
         o.position.set(c.seg.x + along, 0, c.seg.z + lane);
-        o.rotation.y = forward ? 0 : Math.PI;
+        heading = c.dir === 1 ? 0 : Math.PI;
       } else {
-        o.position.set(c.seg.x + lane, 0, c.seg.z + along);
-        o.rotation.y = forward ? -Math.PI / 2 : Math.PI / 2;
+        o.position.set(c.seg.x - lane, 0, c.seg.z + along);
+        heading = c.dir === 1 ? -Math.PI / 2 : Math.PI / 2;
       }
+      o.rotation.y = heading;
+      const px = o.position.x;
+      const pz = o.position.z;
+      const fx = Math.cos(heading); // färdriktningens enhetsvektor
+      const fz = -Math.sin(heading);
       // Kaross
-      o.position.y = 0.75;
+      o.position.y = 0.78;
       o.updateMatrix();
       bodies.setMatrixAt(i, o.matrix);
-      // Hytt: lokal offset (−0.2 bakåt, upp till 1.5) i bilens riktning
-      o.position.set(
-        o.position.x + Math.cos(o.rotation.y) * -0.2,
-        1.5,
-        o.position.z - Math.sin(o.rotation.y) * -0.2,
-      );
+      // Hytt: något bakom mitten, ovanpå karossen
+      o.position.set(px + fx * -0.25, 1.55, pz + fz * -0.25);
       o.updateMatrix();
       cabins.setMatrixAt(i, o.matrix);
+      // Hjulaxlar fram och bak
+      o.position.set(px + fx * 1.05, 0.28, pz + fz * 1.05);
+      o.updateMatrix();
+      wheels.setMatrixAt(i * 2, o.matrix);
+      o.position.set(px - fx * 1.05, 0.28, pz - fz * 1.05);
+      o.updateMatrix();
+      wheels.setMatrixAt(i * 2 + 1, o.matrix);
     });
     bodies.instanceMatrix.needsUpdate = true;
     cabins.instanceMatrix.needsUpdate = true;
+    wheels.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <>
+      <primitive object={meshes[0]} />
+      <primitive object={meshes[1]} />
+      <primitive object={meshes[2]} />
+    </>
+  );
+}
+
+/* ── Fotgängare: instansierade figurer längs trottoarerna ──────────── */
+
+interface PedSpec {
+  seg: RoadSeg;
+  side: 1 | -1; // vilken trottoar
+  offset: number;
+  speed: number; // m/s i världsenheter
+  jacket: Color;
+}
+
+const JACKETS = ["#8c3b2e", "#3d6db3", "#c99a3b", "#476b4e", "#5b4a72", "#2f3e4a", "#a56d8c", "#7d8a55"];
+const SKIN = new Color("#e0b592");
+
+/**
+ * Fotgängare som promenerar fram och tillbaka längs trottoarerna –
+ * kropp + huvud som två InstancedMesh:ar med lätt gungande gång.
+ * Att en människa vänder vid gatans slut ser naturligt ut, så här
+ * duger ping-pong-rörelsen (till skillnad från bilarna).
+ */
+export function Pedestrians() {
+  const specs = useMemo<PedSpec[]>(() => {
+    const out: PedSpec[] = [];
+    // Varannan kvartersgata får 2 fotgängare (en per trottoar)…
+    ZONE_STREETS.filter((_, i) => i % 2 === 0).forEach((s, i) => {
+      for (const side of [1, -1] as const) {
+        out.push({
+          seg: { x: s.x, z: s.z, w: s.w, d: s.d },
+          side,
+          offset: ((i * 0.61 + (side === 1 ? 0 : 0.43)) % 1),
+          speed: 1.1 + ((i + (side === 1 ? 0 : 1)) % 4) * 0.25,
+          jacket: new Color(JACKETS[(i * 3 + (side === 1 ? 0 : 5)) % JACKETS.length]),
+        });
+      }
+    });
+    // …och huvudlederna 2 per sida med olika fas.
+    ROADS.forEach((seg, i) => {
+      for (let c = 0; c < 4; c++) {
+        out.push({
+          seg,
+          side: (c % 2 === 0 ? 1 : -1) as 1 | -1,
+          offset: ((i * 0.29 + c * 0.31) % 1),
+          speed: 1.0 + ((i + c) % 4) * 0.3,
+          jacket: new Color(JACKETS[(i * 7 + c) % JACKETS.length]),
+        });
+      }
+    });
+    return out;
+  }, []);
+
+  const meshes = useMemo(() => {
+    const bodyMat = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.85 });
+    const headMat = new MeshStandardMaterial({ color: SKIN, roughness: 0.7 });
+    const bodies = new InstancedMesh(new BoxGeometry(0.46, 1.05, 0.34), bodyMat, specs.length);
+    const heads = new InstancedMesh(new SphereGeometry(0.19, 8, 6), headMat, specs.length);
+    specs.forEach((p, i) => bodies.setColorAt(i, p.jacket));
+    if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
+    return [bodies, heads] as const;
+  }, [specs]);
+  useDispose(...meshes);
+
+  const scratch = useMemo(() => new Object3D(), []);
+  useFrame((state) => {
+    const [bodies, heads] = meshes;
+    const o = scratch;
+    const time = state.clock.elapsedTime;
+    specs.forEach((p, i) => {
+      const horizontal = p.seg.w > p.seg.d;
+      const len = (horizontal ? p.seg.w : p.seg.d) - 4;
+      const walk = (horizontal ? p.seg.d : p.seg.w) / 2 + 1.2; // trottoaren utanför körbanan
+      // Ping-pong i meter (inte i fas) så alla går i naturlig takt.
+      const cycle = (time * p.speed + p.offset * 2 * len) % (2 * len);
+      const forward = cycle < len;
+      const along = (forward ? cycle : 2 * len - cycle) - len / 2;
+      const bob = Math.sin(time * 7 + i * 1.3) * 0.05; // gungande gång
+      let heading: number;
+      if (horizontal) {
+        o.position.set(p.seg.x + along, 0, p.seg.z + walk * p.side);
+        heading = forward ? 0 : Math.PI;
+      } else {
+        o.position.set(p.seg.x + walk * p.side, 0, p.seg.z + along);
+        heading = forward ? -Math.PI / 2 : Math.PI / 2;
+      }
+      o.rotation.y = heading;
+      const px = o.position.x;
+      const pz = o.position.z;
+      o.position.y = 0.62 + bob;
+      o.updateMatrix();
+      bodies.setMatrixAt(i, o.matrix);
+      o.position.set(px, 1.34 + bob, pz);
+      o.updateMatrix();
+      heads.setMatrixAt(i, o.matrix);
+    });
+    bodies.instanceMatrix.needsUpdate = true;
+    heads.instanceMatrix.needsUpdate = true;
   });
 
   return (

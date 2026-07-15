@@ -28,7 +28,7 @@ import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
 import { IndustryProps } from "./IndustryProps";
 import { MegaLandmarks } from "./MegaProjects";
-import { Roads, Traffic } from "./Roads";
+import { Pedestrians, Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
 
@@ -309,6 +309,7 @@ export function CityCanvas() {
       <Clouds />
       <Birds />
       <Traffic />
+      <Pedestrians />
       <CameraRig />
     </Canvas>
   );
