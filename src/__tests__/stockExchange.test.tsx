@@ -31,28 +31,28 @@ function stateWithMarket() {
 describe("StockExchange (rendering)", () => {
   it("renderar börsvyn utan att krascha och utan NaN", () => {
     const html = renderToStaticMarkup(<StockExchange state={stateWithMarket()} dispatch={() => {}} />);
-    expect(html).toContain("BÖRSEN");
-    expect(html).toContain("Marknadsindex");
+    expect(html).toContain("STOCK EXCHANGE");
+    expect(html).toContain("Market index");
     expect(html).not.toContain("NaN");
   });
 
   it("visar ticker, sorterbar tabell och bolagsnamn", () => {
     const html = renderToStaticMarkup(<StockExchange state={stateWithMarket()} dispatch={() => {}} />);
     // Tabellrubriker
-    expect(html).toContain("Bolag");
-    expect(html).toContain("Kurs");
+    expect(html).toContain("Company");
+    expect(html).toContain("Price");
     expect(html).toContain("P/E");
     // Både externa bolag och rivalen listas
     expect(html).toContain("Handelsbanken");
     expect(html).toContain("Rival AB");
     // Makrokoppling i headern
-    expect(html).toContain("Styrränta");
-    expect(html).toContain("Högkonjunktur");
+    expect(html).toContain("Policy rate");
+    expect(html).toContain("Boom");
   });
 
   it("tom marknad ger tom-läge utan krasch", () => {
     const s = makeState({ stocks: [], sentimentHistory: [1], marketSentiment: 1 });
     const html = renderToStaticMarkup(<StockExchange state={s} dispatch={() => {}} />);
-    expect(html).toContain("Inga bolag matchar filtret");
+    expect(html).toContain("No companies match the filter");
   });
 });

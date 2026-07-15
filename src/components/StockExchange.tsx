@@ -577,7 +577,7 @@ function PortfolioHistoryCard({ history }: { history: number[] }) {
         <div>
           <div style={{ fontFamily: FONTS.display, fontSize: 13, letterSpacing: 1.5, color: C.brassDim, textTransform: "uppercase", marginBottom: 4 }}>Portfolio value</div>
           <div style={{ ...num, fontSize: 24, fontWeight: 700, color: C.ink }}>{msek(latest)}</div>
-          <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(change), marginTop: 2 }}>{signed(change)} totalt ({history.length} månader)</div>
+          <div style={{ ...num, fontSize: 13, fontWeight: 700, color: trendColor(change), marginTop: 2 }}>{signed(change)} total ({history.length} months)</div>
         </div>
         <Spark data={history} width={200} height={44} color={trendColor(change)} />
       </div>
@@ -700,7 +700,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           <div style={{ fontFamily: FONTS.heading, fontSize: 13, color: C.creamSoft }}>Stockholm Stock Exchange · {calYear(state.year)}</div>
           <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: C.creamSoft }}>{cycleLabel}</span>
-            <span style={{ fontSize: 11, color: C.creamSoft }}>· Styrränta {state.interestRate.toFixed(2)} %</span>
+            <span style={{ fontSize: 11, color: C.creamSoft }}>· Policy rate {state.interestRate.toFixed(2)}%</span>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
@@ -708,7 +708,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           <div style={{ textAlign: "right" }}>
             <div style={{ ...subLabel, color: C.brassDim }}>Market index</div>
             <div style={{ fontFamily: FONTS.heading, fontSize: 28, fontWeight: 700, color: C.brassBright, lineHeight: 1.1 }}>{index.toLocaleString("sv-SE")}</div>
-            <div style={{ fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700, color: indexChange >= 0 ? C.positiveBright : C.negativeBright }}>{signed(indexChange)} mot förra månaden</div>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700, color: indexChange >= 0 ? C.positiveBright : C.negativeBright }}>{signed(indexChange)} vs last month</div>
           </div>
         </div>
       </div>
@@ -721,7 +721,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
         <GoldRule />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14 }}>
           <div><div style={subLabel}>Holdings (market)</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{msek(holdingsValue)}</div><div style={{ fontSize: 11, color: C.inkSoft }}>{kr(holdingsValue)}</div></div>
-          <div><div style={subLabel}>Anskaffningsvärde</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(costBasis)}</div></div>
+          <div><div style={subLabel}>Cost basis</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(costBasis)}</div></div>
           <div><div style={subLabel}>Orealiserat resultat</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: trendColor(unrealized) }}>{(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))}</div><div style={{ ...num, fontSize: 12, fontWeight: 700, color: trendColor(unrealized) }}>{signed(unrealizedPct)}</div></div>
           <div><div style={subLabel}>Total dividends</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.green }}>{kr(state.dividendsReceived)}</div></div>
         </div>
@@ -759,14 +759,14 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
             <GoldRule />
             <div style={{ marginBottom: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: pressureColor }}>Uppköpstryck: {Math.round(pressure)} %</span>
-                <span style={{ fontSize: 11, color: C.inkSoft }}>{pressure >= 75 ? "🚨 Kritiskt — aktivister samlar aktier!" : pressure >= 50 ? "⚠️ Förhöjt tryck" : "✅ Under kontroll"}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: pressureColor }}>Takeover pressure: {Math.round(pressure)}%</span>
+                <span style={{ fontSize: 11, color: C.inkSoft }}>{pressure >= 75 ? "🚨 Critical — activists are amassing shares!" : pressure >= 50 ? "⚠️ Elevated pressure" : "✅ Under control"}</span>
               </div>
               <div style={{ height: 8, background: "#2a1a0a", borderRadius: 4, overflow: "hidden" }}>
                 <div style={{ width: `${pressure}%`, height: "100%", background: pressureColor, borderRadius: 4, transition: "width 0.5s" }} />
               </div>
             </div>
-            <div style={{ fontSize: 11, color: C.inkSoft }}>Trycket ökar varje månad. Håll reputation {">"}70 (−2/mo) och undvik börsnedgångar för att dämpa det.</div>
+            <div style={{ fontSize: 11, color: C.inkSoft }}>Pressure rises each month. Keep reputation {">"}70 (−2/mo) and avoid market downturns to ease it.</div>
           </div>
         );
       })()}
@@ -777,7 +777,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <input
           type="text"
-          placeholder="🔍 Sök bolag…"
+          placeholder="🔍 Search companies…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ ...qtyInput, width: 180, height: 34, textAlign: "left", padding: "0 10px", fontFamily: FONTS.body }}
