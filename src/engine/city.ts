@@ -17,7 +17,8 @@
    Ren TypeScript utan React- eller Three-beroenden.
    ============================================================ */
 
-import type { GameState } from "./types";
+import { ENERGY_SITES } from "./industryData";
+import type { GameState, IndustryAsset } from "./types";
 
 /** En tomtruta på kartan (världskoordinater, centrum i x/z). */
 export interface Parcel {
@@ -335,8 +336,12 @@ export function occupiedParcelIds(state: GameState): Set<string> {
   for (const l of state.lots) if (l.parcelId) used.add(l.parcelId);
   for (const c of state.competitors)
     for (const p of c.portfolio ?? []) if (p.parcelId) used.add(p.parcelId);
-  for (const a of state.industryPortfolio ?? []) if (a.parcelId) used.add(a.parcelId);
-  for (const a of state.industryListings ?? []) if (a.parcelId) used.add(a.parcelId);
+  // Energiparker står på fasta lägen utanför rutnätet – bara stadsindustrier
+  // (hotell/logistik) upptar tomtrutor.
+  for (const a of state.industryPortfolio ?? [])
+    if (a.parcelId && a.sector !== "energi") used.add(a.parcelId);
+  for (const a of state.industryListings ?? [])
+    if (a.parcelId && a.sector !== "energi") used.add(a.parcelId);
   const projectBlocks = new Set([
     ...(state.cityProjects ?? []).map((x) => x.blockId),
     ...(state.signatureBlocks ?? []).map((x) => x.blockId),
@@ -485,10 +490,38 @@ export function placeCity(state: GameState): GameState {
   const portfolio = placeArr(state.portfolio);
   const lots = placeArr(state.lots);
   const listings = placeArr(state.listings, true);
-  // Industrier står på kartan som allt annat: hotell, energiparker och
-  // terminaler får en ruta i sitt distrikt (ägda och till salu).
-  const industryPortfolio = placeArr(state.industryPortfolio ?? []);
-  const industryListings = placeArr(state.industryListings ?? []);
+  // Industrier: hotell och terminaler är stadsbyggnader och får tomtrutor;
+  // energiparker står på fasta lägen utanför rutnätet (ENERGY_SITES) –
+  // en vindpark hör hemma på åsen, inte i ett stadskvarter.
+  const siteTaken = new Set<string>(); // delas av båda listorna – ett läge per park
+  function placeIndustryArr(arr: IndustryAsset[]): IndustryAsset[] {
+    let changed = false;
+    const out = arr.map((a) => {
+      if (a.sector !== "energi") {
+        const n = claimFor(a, false);
+        if (n !== a) changed = true;
+        return n;
+      }
+      if (a.siteId && ENERGY_SITES.some((s) => s.id === a.siteId) && !siteTaken.has(a.siteId)) {
+        siteTaken.add(a.siteId);
+        if (!a.parcelId) return a;
+        changed = true;
+        anyChanged = true;
+        return { ...a, parcelId: undefined }; // äldre placering på tomt släpps
+      }
+      const site =
+        ENERGY_SITES.find((s) => !siteTaken.has(s.id) && s.district === a.district) ??
+        ENERGY_SITES.find((s) => !siteTaken.has(s.id));
+      if (!site) return a;
+      siteTaken.add(site.id);
+      changed = true;
+      anyChanged = true;
+      return { ...a, siteId: site.id, parcelId: undefined };
+    });
+    return changed ? out : arr;
+  }
+  const industryPortfolio = placeIndustryArr(state.industryPortfolio ?? []);
+  const industryListings = placeIndustryArr(state.industryListings ?? []);
   let competitorsChanged = false;
   const competitors = state.competitors.map((c) => {
     const np = placeArr(c.portfolio);

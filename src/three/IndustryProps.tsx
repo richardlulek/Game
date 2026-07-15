@@ -11,7 +11,8 @@ import { Html, useCursor } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import { MeshStandardMaterial, type Group } from "three";
-import { parcelById, type Parcel } from "../engine/city";
+import { parcelById } from "../engine/city";
+import { ENERGY_SITES } from "../engine/industryData";
 import type { IndustryAsset } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
@@ -31,7 +32,7 @@ function useFacade(color: string, cols: number, floors: number) {
   }, [color, cols, floors]);
 }
 
-function Hotel({ pc, stars }: { pc: Parcel; stars: number }) {
+function Hotel({ pc, stars }: { pc: { w: number; d: number }; stars: number }) {
   const floors = 3 + stars * 2;
   const h = floors * 3;
   const w = pc.w * 0.72, d = pc.d * 0.72;
@@ -65,7 +66,7 @@ function Hotel({ pc, stars }: { pc: Parcel; stars: number }) {
   );
 }
 
-function SolarPark({ pc }: { pc: Parcel }) {
+function SolarPark({ pc }: { pc: { w: number; d: number } }) {
   const rows = Math.max(3, Math.floor(pc.d / 6));
   const cols = Math.max(2, Math.floor(pc.w / 7));
   return (
@@ -121,9 +122,9 @@ function Turbine({ x, z, h, phase }: { x: number; z: number; h: number; phase: n
   );
 }
 
-function WindFarm({ pc, mw }: { pc: Parcel; mw: number }) {
-  const n = mw >= 20 ? 3 : 2;
-  const h = Math.min(26, pc.w * 0.9);
+function WindFarm({ pc, mw }: { pc: { w: number; d: number }; mw: number }) {
+  const n = mw >= 10 ? 3 : 2;
+  const h = Math.min(38, pc.w * 0.55);
   const spots: [number, number][] = n === 3
     ? [[-pc.w * 0.28, -pc.d * 0.22], [pc.w * 0.26, 0], [-pc.w * 0.1, pc.d * 0.28]]
     : [[-pc.w * 0.22, -pc.d * 0.15], [pc.w * 0.24, pc.d * 0.2]];
@@ -136,7 +137,7 @@ function WindFarm({ pc, mw }: { pc: Parcel; mw: number }) {
   );
 }
 
-function Warehouse({ pc }: { pc: Parcel }) {
+function Warehouse({ pc }: { pc: { w: number; d: number } }) {
   const w = pc.w * 0.82, d = pc.d * 0.62, h = 6;
   return (
     <group>
@@ -166,20 +167,29 @@ function Warehouse({ pc }: { pc: Parcel }) {
   );
 }
 
-/** En industritillgång på sin tomtruta, med beacon och klickyta. */
+/** Fullskaligt energiläge utanför rutnätet (sol ~46×32 m, vind utspritt). */
+const SITE_FOOTPRINT = { w: 64, d: 44 };
+
+/** En industritillgång på sin plats: tomtruta (hotell/logistik) eller
+ *  fast energiläge utanför rutnätet (sol-/vindparker). */
 function IndustryNode({ asset, forSale }: { asset: IndustryAsset; forSale: boolean }) {
   const requestOpen = useUiStore((s) => s.requestOpen);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  const pc = asset.parcelId ? parcelById(asset.parcelId) : undefined;
-  if (!pc) return null;
+  const isEnergy = asset.sector === "energi";
+  const site = isEnergy && asset.siteId ? ENERGY_SITES.find((s) => s.id === asset.siteId) : undefined;
+  const parcel = !isEnergy && asset.parcelId ? parcelById(asset.parcelId) : undefined;
+  const pos = site ?? parcel;
+  if (!pos) return null;
+  const pc: { w: number; d: number } = parcel ?? SITE_FOOTPRINT;
   const beaconY =
     asset.sector === "hotell" ? (3 + (asset.hotelMeta?.starRating ?? 2) * 2) * 3 + 6
-    : asset.sector === "energi" && asset.energyMeta?.subType === "vind" ? 32
+    : isEnergy && asset.energyMeta?.subType === "vind" ? 48
+    : isEnergy ? 16
     : 12;
   return (
     <group
-      position={[pc.x, 0.14, pc.z]}
+      position={[pos.x, 0.14, pos.z]}
       onClick={(e) => {
         e.stopPropagation();
         requestOpen(forSale ? "ind_marknad" : "industri");

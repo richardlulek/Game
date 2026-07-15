@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DISTRICT_ZONES,
+  occupiedParcelIds,
   frontierScore,
   hasAmbientBuilding,
   locationFactor,
@@ -155,5 +156,47 @@ describe("placeCity", () => {
     const placed = placeCity(s);
     expect(placed.competitors[0].portfolio[0].parcelId).toBe("industri-0");
     expect(placed.lots[0].parcelId).not.toBe("industri-0");
+  });
+});
+
+describe("industriernas placering", () => {
+  const mkInd = (over: Record<string, unknown>) => ({
+    id: 900, sector: "hotell", name: "Test", district: "centrum", districtName: "Centrum",
+    purchasePrice: 10e6, condition: 80, upgrades: [], managed: false, insurance: false,
+    status: "klar", buildLeft: 0, monthlyRevenue: 0, monthlyOpex: 0, totalRevenue: 0,
+    txHistory: [], hotelMeta: null, energyMeta: null, logisticsMeta: null, ...over,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any;
+
+  it("hotell/logistik får tomtrutor, energiparker fasta lägen utanför rutnätet", () => {
+    const s = makeState({
+      industryListings: [
+        mkInd({ id: 901, sector: "hotell", district: "centrum" }),
+        mkInd({ id: 902, sector: "energi", district: "förort", energyMeta: { subType: "sol", installedMW: 5, capacityFactor: 0.12, ppaContracts: [], degradationPct: 0, subsidyActive: true, commissionedAbs: 0 } }),
+      ],
+    });
+    const placed = placeCity(s);
+    const hotel = placed.industryListings![0];
+    const sol = placed.industryListings![1];
+    expect(hotel.parcelId).toBeDefined();
+    expect(parcelById(hotel.parcelId!)?.district).toBe("centrum");
+    // Energiparken står på sitt distrikts energiläge – ingen tomtruta.
+    expect(sol.siteId).toBe("energi-vast");
+    expect(sol.parcelId).toBeUndefined();
+    // Rutan hotellet står på är upptagen; energiläget tar ingen ruta.
+    expect(occupiedParcelIds(placed).has(hotel.parcelId!)).toBe(true);
+  });
+
+  it("äldre energiplacering på tomtruta släpps och flyttas till energiläge", () => {
+    const s = makeState({
+      industryPortfolio: [
+        mkInd({ id: 903, sector: "energi", district: "hamnen", parcelId: "hamnen-3", energyMeta: { subType: "vind", installedMW: 15, capacityFactor: 0.32, ppaContracts: [], degradationPct: 0, subsidyActive: true, commissionedAbs: 0 } }),
+      ],
+    });
+    const placed = placeCity(s);
+    const vind = placed.industryPortfolio![0];
+    expect(vind.siteId).toBe("energi-kust");
+    expect(vind.parcelId).toBeUndefined();
+    expect(occupiedParcelIds(placed).has("hamnen-3")).toBe(false);
   });
 });

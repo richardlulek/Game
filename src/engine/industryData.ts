@@ -7,6 +7,26 @@ import type { IndustryUpgrade, LogisticsClientProfile } from "./types";
 
 // ── Uppgraderingar ──────────────────────────────────────────────────────────
 
+/** Fasta energilägen UTANFÖR stadsrutnätet – sol- och vindparker hör hemma
+ *  på åkrarna och åsarna runt staden, inte på kvarterstomter. Punkterna är
+ *  reserverade (inga kollisioner med tomtsystemet) och kopplade till sitt
+ *  distrikts utkant. */
+export interface EnergySite {
+  id: string;
+  district: string;
+  x: number;
+  z: number;
+}
+
+export const ENERGY_SITES: EnergySite[] = [
+  { id: "energi-vast",     district: "förort",   x: -560, z: 150 },  // åkrarna väster om Förorten
+  { id: "energi-nordvast", district: "kulle",    x: -510, z: -330 }, // åsen bortom Villakullen
+  { id: "energi-nordost",  district: "industri", x: 600,  z: -300 }, // fälten nordost om industrin
+  { id: "energi-ost",      district: "industri", x: 660,  z: -80 },  // östra slätten
+  { id: "energi-kust",     district: "hamnen",   x: 600,  z: 280 },  // kustremsan öster om Hamnen
+  { id: "energi-nord",     district: "innerstad",x: 140,  z: -430 }, // norr om Innerstaden
+];
+
 export const INDUSTRY_UPGRADES: IndustryUpgrade[] = [
   // Hotell (5)
   {
@@ -207,7 +227,10 @@ export interface IndustryAssetTemplate {
 }
 
 export const INDUSTRY_TEMPLATES: IndustryAssetTemplate[] = [
-  // Hotell
+  // Hotell – graderingen följer läget: palats i Finansdistriktet, boutique i
+  // Innerstaden, vandrarhemsklass i Förorten och truckerhotell vid industrin.
+  { sector: "hotell", name: "Palatshotellet",   district: "finans",   districtName: "Finansdistriktet", basePrice: 40_000_000, rooms: 150, starRating: 5, baseAdr: 3_200 },
+  { sector: "hotell", name: "Boutiquehotellet", district: "innerstad",districtName: "Innerstaden",    basePrice: 15_000_000, rooms: 45,  starRating: 3, baseAdr: 1_600 },
   { sector: "hotell", name: "Centralhotellet",  district: "centrum",  districtName: "Centrum",        basePrice: 18_000_000, rooms: 80,  starRating: 3, baseAdr: 1_400 },
   { sector: "hotell", name: "Hamnhotellet",     district: "hamnen",   districtName: "Hamnen",         basePrice: 12_000_000, rooms: 60,  starRating: 2, baseAdr:   950 },
   { sector: "hotell", name: "Grand Kulle Hotel",district: "kulle",    districtName: "Villakullen",    basePrice: 28_000_000, rooms: 120, starRating: 4, baseAdr: 2_100 },

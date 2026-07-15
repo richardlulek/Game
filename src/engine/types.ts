@@ -72,8 +72,10 @@ export interface IndustryAsset {
   name: string;
   district: string;
   districtName: string;
-  /** Tomtruta på stadskartan – industrier står på kartan som allt annat. */
+  /** Tomtruta på stadskartan (hotell/logistik – stadsbyggnader). */
   parcelId?: string;
+  /** Fast energiläge utanför rutnätet (sol-/vindparker, se ENERGY_SITES). */
+  siteId?: string;
   purchasePrice: number;
   condition: number;       // 0–100, samma skala som Property
   upgrades: string[];
