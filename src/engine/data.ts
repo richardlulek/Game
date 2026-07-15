@@ -13,13 +13,13 @@ import type {
 } from "./types";
 
 export const DISTRICTS: District[] = [
-  { id: "centrum",   name: "Centrum",          base: 32000, growth: 1.0,  demand: 1.00, prestige: 1.4 },
-  { id: "finans",    name: "Finansdistriktet", base: 44000, growth: 1.15, demand: 1.05, prestige: 1.7 },
-  { id: "innerstad", name: "Innerstaden",      base: 26000, growth: 1.1,  demand: 1.00, prestige: 1.2 },
-  { id: "hamnen",    name: "Hamnen",           base: 21000, growth: 1.25, demand: 0.85, prestige: 1.1 },
-  { id: "industri",  name: "Industriområdet",  base: 11000, growth: 0.9,  demand: 0.75, prestige: 0.7 },
-  { id: "förort",    name: "Förorten",         base: 15000, growth: 1.1,  demand: 0.90, prestige: 0.9 },
-  { id: "kulle",     name: "Villakullen",      base: 28000, growth: 1.05, demand: 0.95, prestige: 1.3 },
+  { id: "centrum",   name: "Downtown",           base: 32000, growth: 1.0,  demand: 1.00, prestige: 1.4 },
+  { id: "finans",    name: "Financial District", base: 44000, growth: 1.15, demand: 1.05, prestige: 1.7 },
+  { id: "innerstad", name: "Inner City",         base: 26000, growth: 1.1,  demand: 1.00, prestige: 1.2 },
+  { id: "hamnen",    name: "The Harbor",         base: 21000, growth: 1.25, demand: 0.85, prestige: 1.1 },
+  { id: "industri",  name: "Industrial District",base: 11000, growth: 0.9,  demand: 0.75, prestige: 0.7 },
+  { id: "förort",    name: "The Suburbs",        base: 15000, growth: 1.1,  demand: 0.90, prestige: 0.9 },
+  { id: "kulle",     name: "Villa Hill",         base: 28000, growth: 1.05, demand: 0.95, prestige: 1.3 },
 ];
 
 /**
@@ -58,7 +58,7 @@ export const DISTRICT_GEN: Record<string, DistrictGenProfile> = {
  */
 export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
   bostad: {
-    label: "Bostadshus",
+    label: "Residential",
     rentFactor: 0.0050,   // was 0.0042 → +19 %
     opexFactor: 0.23,     // was 0.28  → −18 %
     vacancyBase: 0.04,    // oförändrad (stabil boendemarknad)
@@ -66,7 +66,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
     buildMonths: 10,
   },
   kontor: {
-    label: "Kontor",
+    label: "Office",
     rentFactor: 0.0060,   // 0.0055→0.0060: högre vakans (10 %) ska ge högre yield
     opexFactor: 0.26,     // was 0.32  → −19 %
     vacancyBase: 0.10,    // oförändrad (kontorsmarknaden rörlig)
@@ -74,7 +74,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
     buildMonths: 12,
   },
   butik: {
-    label: "Butik",
+    label: "Retail",
     rentFactor: 0.0068,   // 0.0060→0.0068: högst vakans (13 %) ⇒ högst yield/risk
     opexFactor: 0.23,     // was 0.30  → −23 %
     vacancyBase: 0.13,    // was 0.12  (lite svårare att fylla)
@@ -82,7 +82,7 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
     buildMonths: 11,
   },
   industri: {
-    label: "Industri/Lager",
+    label: "Industrial/Warehouse",
     rentFactor: 0.0052,   // 0.0050→0.0052: medelrisk ⇒ yield mellan bostad och kontor
     opexFactor: 0.17,     // was 0.22  → −23 % (enkla lokaler)
     vacancyBase: 0.07,    // was 0.08
@@ -94,39 +94,39 @@ export const PROP_TYPES: Record<PropTypeKey, PropTypeDef> = {
 export const UPGRADES: Upgrade[] = [
   {
     id: "renovering",
-    name: "Renovering",
+    name: "Renovation",
     cost: 0.12,
     rentBoost: 0.18,
     condBoost: 35,
     months: 2,
-    desc: "Höjer hyra och skick.",
+    desc: "Raises rent and condition.",
   },
   {
     id: "energi",
-    name: "Energiåtgärd",
+    name: "Energy retrofit",
     cost: 0.08,
     opexCut: 0.2,
     condBoost: 10,
     months: 1,
-    desc: "Sänker driftkostnad.",
+    desc: "Lowers operating costs.",
   },
   {
     id: "tillbygg",
-    name: "Tillbyggnad",
+    name: "Extension",
     cost: 0.22,
     valueBoost: 0.25,
     rentBoost: 0.1,
     months: 3,
-    desc: "Ökar yta och värde.",
+    desc: "Increases floor area and value.",
   },
-  { id: "smart", name: "Smart fastighet", cost: 0.06, vacancyCut: 0.3, months: 1, desc: "Sänker vakans." },
+  { id: "smart", name: "Smart building", cost: 0.06, vacancyCut: 0.3, months: 1, desc: "Lowers vacancy." },
 ];
 
 // Hyresgästprofiler (kvalitet påverkar hyra, kontraktslängd, risk)
 export const TENANT_PROFILES: TenantProfile[] = [
   {
     id: "stat",
-    name: "Statlig myndighet",
+    name: "Government agency",
     quality: 1.15,
     termMin: 60,
     termMax: 120,
@@ -134,16 +134,16 @@ export const TENANT_PROFILES: TenantProfile[] = [
   },
   {
     id: "kedja",
-    name: "Etablerad kedja",
+    name: "Established chain",
     quality: 1.08,
     termMin: 36,
     termMax: 84,
     defaultRisk: 0.006,
   },
-  { id: "smb", name: "Mindre företag", quality: 1.0, termMin: 24, termMax: 60, defaultRisk: 0.018 },
+  { id: "smb", name: "Small business", quality: 1.0, termMin: 24, termMax: 60, defaultRisk: 0.018 },
   {
     id: "privat",
-    name: "Privatperson",
+    name: "Private individual",
     quality: 0.97,
     termMin: 12,
     termMax: 36,
@@ -155,7 +155,7 @@ export const TENANT_PROFILES: TenantProfile[] = [
 export const EVENTS: GameEvent[] = [
   {
     id: "rate_up",
-    text: "Riksbanken höjer styrräntan med 0,25 %. Hyresefterfrågan dämpas och börsen svalnar.",
+    text: "The central bank raises the policy rate by 0.25%. Rental demand cools and the market softens.",
     apply: (s) => ({
       ...s,
       interestRate: +(s.interestRate + 0.25).toFixed(2),
@@ -165,7 +165,7 @@ export const EVENTS: GameEvent[] = [
   },
   {
     id: "rate_down",
-    text: "Riksbanken sänker styrräntan med 0,25 %. Investeringsklimatet och börsen lyfter.",
+    text: "The central bank cuts the policy rate by 0.25%. The investment climate and the market lift.",
     apply: (s) => ({
       ...s,
       interestRate: Math.max(0.5, +(s.interestRate - 0.25).toFixed(2)),
@@ -175,7 +175,7 @@ export const EVENTS: GameEvent[] = [
   },
   {
     id: "boom",
-    text: "Högkonjunktur! Marknadsvärden, hyresefterfrågan och börsen stiger.",
+    text: "Boom! Market values, rental demand and the stock market all rise.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 1.06).toFixed(3),
@@ -185,7 +185,7 @@ export const EVENTS: GameEvent[] = [
   },
   {
     id: "bust",
-    text: "Lågkonjunktur. Marknadsvärden faller, efterfrågan sjunker och börsen tappar.",
+    text: "Recession. Market values fall, demand drops and the stock market slides.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 0.94).toFixed(3),
@@ -195,7 +195,7 @@ export const EVENTS: GameEvent[] = [
   },
   {
     id: "tenant_demand",
-    text: "Ökad inflyttning till staden. Hyresefterfrågan stiger markant.",
+    text: "Rising migration into the city. Rental demand climbs sharply.",
     apply: (s) => ({
       ...s,
       demandMod: +(s.demandMod * 1.05).toFixed(3),
@@ -204,7 +204,7 @@ export const EVENTS: GameEvent[] = [
   },
   {
     id: "tax",
-    text: "Höjd fastighetsskatt aviseras.",
+    text: "A property tax hike is announced.",
     apply: (s) => ({
       ...s,
       taxMod: +(s.taxMod * 1.04).toFixed(3),
@@ -213,17 +213,17 @@ export const EVENTS: GameEvent[] = [
   },
   {
     id: "pr",
-    text: "Positiv press om ditt bolag. Reputation +5.",
+    text: "Positive press about your company. Reputation +5.",
     apply: (s) => ({ ...s, reputation: Math.min(100, s.reputation + 5) }),
   },
   {
     id: "ravarubrist",
-    text: "Råvarubrist! Byggmaterial blir dyrare en tid framåt.",
+    text: "Materials shortage! Building materials get pricier for a while.",
     apply: (s) => ({ ...s, buildCostMod: +(((s.buildCostMod ?? 1) * 1.3)).toFixed(3) }),
   },
   {
     id: "hyresreglering",
-    text: "Nya regler: skärpt hyresreglering dämpar efterfrågan.",
+    text: "New rules: tighter rent control dampens demand.",
     apply: (s) => ({
       ...s,
       demandMod: +(s.demandMod * 0.95).toFixed(3),
@@ -236,7 +236,7 @@ export const EVENTS: GameEvent[] = [
 export const RARE_EVENTS: GameEvent[] = [
   {
     id: "kris",
-    text: "Finanskris! Marknadsvärden kraschar, börsen rasar och hyresgäster lämnar.",
+    text: "Financial crisis! Market values crash, the stock market plunges and tenants leave.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 0.88).toFixed(3),
@@ -247,7 +247,7 @@ export const RARE_EVENTS: GameEvent[] = [
   },
   {
     id: "rally",
-    text: "Fastighetsboom! Priserna, hyresefterfrågan och börsen skjuter i höjden.",
+    text: "Property boom! Prices, rental demand and the stock market surge.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 1.10).toFixed(3),
@@ -257,7 +257,7 @@ export const RARE_EVENTS: GameEvent[] = [
   },
   {
     id: "recession",
-    text: "Finanskris! Lågkonjunktur pressar hyresgäster de kommande 3 månaderna. Konkursrisken stiger kraftigt.",
+    text: "Financial crisis! A downturn squeezes tenants for the next 3 months. Default risk rises sharply.",
     apply: (s) => ({ ...s, recessionMonthsLeft: 3, marketMod: +(s.marketMod * 0.88).toFixed(3), demandMod: +(s.demandMod * 0.92).toFixed(3) }),
   },
 ];
@@ -266,17 +266,17 @@ export const RARE_EVENTS: GameEvent[] = [
 export const DISTRICT_EVENTS: GameEvent[] = [
   {
     id: "tunnelbana",
-    text: "Ny tunnelbanestation planeras. Distriktets attraktivitet stiger.",
+    text: "A new metro station is planned. The district's appeal rises.",
     apply: (s) => ({ ...s, demandMod: +(s.demandMod * 1.03).toFixed(3) }),
   },
   {
     id: "byggstörning",
-    text: "Stort byggprojekt skapar störningar. Tillfällig vakansökning.",
+    text: "A large construction project causes disruption. Temporary rise in vacancy.",
     apply: (s) => ({ ...s, demandMod: +(s.demandMod * 0.97).toFixed(3) }),
   },
   {
     id: "stadsfornyelese",
-    text: "Stadsförnyelse i distriktet lockar nya invånare och företag.",
+    text: "Urban renewal in the district draws new residents and businesses.",
     apply: (s) => ({
       ...s,
       marketMod: +(s.marketMod * 1.02).toFixed(3),
@@ -285,12 +285,12 @@ export const DISTRICT_EVENTS: GameEvent[] = [
   },
   {
     id: "oversv",
-    text: "Översvämningsrisk i kustområdet. Fastighetsvärden dämpas tillfälligt.",
+    text: "Flood risk in the coastal area. Property values dip temporarily.",
     apply: (s) => ({ ...s, marketMod: +(s.marketMod * 0.98).toFixed(3) }),
   },
   {
     id: "brottsvag",
-    text: "Ökad brottslighet rapporteras. Hyresefterfrågan sjunker lokalt.",
+    text: "Rising crime is reported. Rental demand falls locally.",
     apply: (s) => ({ ...s, demandMod: +(s.demandMod * 0.97).toFixed(3) }),
   },
 ];
@@ -305,16 +305,16 @@ export interface MilestoneDef {
 }
 
 export const MILESTONES: MilestoneDef[] = [
-  { id: "first_buy",    title: "Första förvärvet",       desc: "Köp din första fastighet.",                        check: (s) => s.portfolio.length >= 1,                                   reward: "Reputation +3" },
-  { id: "first_office", title: "Kontorsdebut",           desc: "Äg en kontorsfastighet.",                          check: (s) => s.portfolio.some((p) => p.type === "kontor"),              reward: "Tillgång till Investmentbanken" },
-  { id: "5props",       title: "Fastighetsmäklare",      desc: "Äg minst 5 färdiga fastigheter.",                  check: (s) => s.portfolio.filter((p) => p.status === "klar").length >= 5, reward: "Reputation +5" },
-  { id: "first_10m",    title: "10 Miljoners-klubben",   desc: "Nå 10 MSEK i eget kapital.",                       check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 10_000_000, reward: "Reputation +5" },
-  { id: "district_dom", title: "Distriktsledare",        desc: "Äg flest fastigheter i ett distrikt.",             check: (s) => checkDistrictLead(s),                                      reward: "Distriktets dragningskraft +5 %" },
-  { id: "first_build",  title: "Byggherren",             desc: "Bygg din första fastighet från grunden.",          check: (s) => s.portfolio.some((p) => (p.txHistory ?? []).some((t) => t.type === "nybygg")), reward: "Byggtid −1 månad" },
-  { id: "no_debt",      title: "Skuldfri",               desc: "Ha noll skulder med minst 3 fastigheter.",         check: (s) => s.debt === 0 && s.portfolio.length >= 3,                   reward: "Reputation +10" },
-  { id: "50_rep",       title: "Etablerat namn",         desc: "Nå 50 i reputation.",                              check: (s) => s.reputation >= 50,                                        reward: "Ränterabatt via bättre långivare" },
-  { id: "50m_equity",   title: "Fastighetsimperium",     desc: "Nå 50 MSEK i eget kapital.",                       check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 50_000_000, reward: "Reputation +15" },
-  { id: "full_coverage",title: "Rikstäckande",           desc: "Äg fastigheter i minst 5 av stadens 7 distrikt.",  check: (s) => new Set(s.portfolio.map((p) => p.district)).size >= 5,     reward: "Distriktsdiversifiering −5 % vakans" },
+  { id: "first_buy",    title: "First acquisition",     desc: "Buy your first property.",                          check: (s) => s.portfolio.length >= 1,                                   reward: "Reputation +3" },
+  { id: "first_office", title: "Office debut",          desc: "Own an office property.",                           check: (s) => s.portfolio.some((p) => p.type === "kontor"),              reward: "Access to the Investment Bank" },
+  { id: "5props",       title: "Estate agent",          desc: "Own at least 5 completed properties.",              check: (s) => s.portfolio.filter((p) => p.status === "klar").length >= 5, reward: "Reputation +5" },
+  { id: "first_10m",    title: "The 10 Million Club",   desc: "Reach 10 MSEK in equity.",                          check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 10_000_000, reward: "Reputation +5" },
+  { id: "district_dom", title: "District leader",       desc: "Own the most properties in a district.",            check: (s) => checkDistrictLead(s),                                      reward: "District appeal +5%" },
+  { id: "first_build",  title: "The developer",         desc: "Build your first property from scratch.",           check: (s) => s.portfolio.some((p) => (p.txHistory ?? []).some((t) => t.type === "nybygg")), reward: "Build time −1 month" },
+  { id: "no_debt",      title: "Debt-free",             desc: "Hold zero debt with at least 3 properties.",        check: (s) => s.debt === 0 && s.portfolio.length >= 3,                   reward: "Reputation +10" },
+  { id: "50_rep",       title: "Established name",       desc: "Reach 50 reputation.",                              check: (s) => s.reputation >= 50,                                        reward: "Rate discount via a better lender" },
+  { id: "50m_equity",   title: "Property empire",       desc: "Reach 50 MSEK in equity.",                          check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 50_000_000, reward: "Reputation +15" },
+  { id: "full_coverage",title: "Citywide",              desc: "Own properties in at least 5 of the city's 7 districts.", check: (s) => new Set(s.portfolio.map((p) => p.district)).size >= 5,     reward: "District diversification −5% vacancy" },
 ];
 
 function checkDistrictLead(s: import("./types").GameState): boolean {
@@ -338,39 +338,39 @@ export interface PoliticalParty {
 export const POLITICAL_PARTIES: PoliticalParty[] = [
   {
     id: "rödgrön",
-    name: "Rödgrön koalition",
-    desc: "Skärpt hyresreglering och höjd fastighetsskatt.",
+    name: "Red-Green coalition",
+    desc: "Tighter rent control and higher property tax.",
     apply: (s) => ({ ...s, taxMod: +(s.taxMod * 1.06).toFixed(3), demandMod: +(s.demandMod * 0.96).toFixed(3) }),
   },
   {
     id: "borgerlig",
-    name: "Borgerlig majoritet",
-    desc: "Sänkt fastighetsskatt och enklare bygglov.",
+    name: "Center-right majority",
+    desc: "Lower property tax and easier building permits.",
     apply: (s) => ({ ...s, taxMod: +(s.taxMod * 0.95).toFixed(3), buildCostMod: +((s.buildCostMod ?? 1) * 0.92).toFixed(3) }),
   },
   {
     id: "mittenkoalition",
-    name: "Mittenkoalition",
-    desc: "Stabil politik. Inga dramatiska förändringar.",
+    name: "Centrist coalition",
+    desc: "Stable politics. No dramatic changes.",
     apply: (s) => ({ ...s, demandMod: +(s.demandMod * 1.01).toFixed(3) }),
   },
 ];
 
 export const AI_NAMES = [
-  "Nordhem Fastigheter",
-  "Brunnsparken Invest",
-  "Kustlinjen AB",
-  "Stadskärnan Gruppen",
-  "Hamnvikens Kapital",
+  "Nordhem Properties",
+  "Brunnspark Invest",
+  "Coastline Ltd",
+  "City Core Group",
+  "Harborview Capital",
   "Silverberg & Partners",
-  "Lundqvist Fastigheter",
+  "Lundqvist Properties",
 ];
 
 /** Affärsnamn per hyresgästprofil – ger varje kontrakt en egen identitet. */
 export const TENANT_NAMES: Record<string, string[]> = {
-  stat: ["Skatteverket", "Försäkringskassan", "Lantmäteriet", "Arbetsförmedlingen", "Migrationsverket"],
-  kedja: ["ICA Nära", "Espresso House", "Apoteket", "Systembolaget", "Clas Ohlson", "Pressbyrån", "Hemtex"],
-  smb: ["Café Lyckan", "Berg & Co Redovisning", "Nordvik Tandvård", "Studio Form", "Bokhandeln Pagina", "Frisör Saxon"],
-  privat: ["Familjen Andersson", "Familjen Lindqvist", "Erik & Sofia", "Familjen Öberg", "Familjen Holm"],
-  startup: ["Pixelplay AB", "Greenmile Tech", "Fjord Analytics", "Loopa", "Nordbyte", "Tindra Studio"],
+  stat: ["Tax Authority", "Social Insurance Office", "Land Registry", "Employment Agency", "Migration Board"],
+  kedja: ["Corner Grocer", "Espresso House", "City Pharmacy", "Liquor Store", "Handy Hardware", "News Kiosk", "Home Textiles"],
+  smb: ["Café Fortune", "Berg & Co Accounting", "Northside Dental", "Studio Form", "Pagina Bookshop", "Saxon Hair Salon"],
+  privat: ["The Anderson Family", "The Lindqvist Family", "Erik & Sofia", "The Öberg Family", "The Holm Family"],
+  startup: ["Pixelplay Inc", "Greenmile Tech", "Fjord Analytics", "Loopa", "Nordbyte", "Tindra Studio"],
 };

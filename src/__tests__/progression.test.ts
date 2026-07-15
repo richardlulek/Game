@@ -54,7 +54,7 @@ describe("ändra användning (reducer)", () => {
     expect(next.portfolio[0].pendingWorks).toHaveLength(1);
     for (let i = 0; i < 3; i++) next = advanceMonth(next);
     expect(next.portfolio[0].type).toBe("kontor");
-    expect(next.portfolio[0].typeLabel).toBe("Kontor");
+    expect(next.portfolio[0].typeLabel).toBe("Office");
     expect(next.portfolio[0].pendingWorks).toHaveLength(0);
   });
 

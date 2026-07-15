@@ -50,10 +50,10 @@ export const CONTRACTS: Record<
   ContractKind,
   { label: string; rentMult: number; term: (base: number) => number; desc: string }
 > = {
-  kort: { label: "Kort", rentMult: 1.08, term: () => 12, desc: "12 mån · +8 % hyra · flexibelt inför projekt" },
-  standard: { label: "Standard", rentMult: 1.0, term: (b) => b, desc: "Profilens normala löptid" },
-  långt: { label: "Långt", rentMult: 0.95, term: (b) => Math.max(60, b), desc: "60+ mån · −5 % hyra · tryggt kassaflöde" },
-  ankare: { label: "Ankare ⭐", rentMult: 0.85, term: () => 120, desc: "10 år · −15 % hyra · lyfter hela kvarteret" },
+  kort: { label: "Short", rentMult: 1.08, term: () => 12, desc: "12 mo · +8% rent · flexible ahead of projects" },
+  standard: { label: "Standard", rentMult: 1.0, term: (b) => b, desc: "The profile's normal term" },
+  långt: { label: "Long", rentMult: 0.95, term: (b) => Math.max(60, b), desc: "60+ mo · −5% rent · secure cash flow" },
+  ankare: { label: "Anchor ⭐", rentMult: 0.85, term: () => 120, desc: "10 yr · −15% rent · lifts the whole block" },
 };
 
 /** Kvarter → tomt-id:n (byggs en gång, kartan är statisk). */

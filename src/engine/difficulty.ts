@@ -17,23 +17,23 @@ export interface DifficultyDef {
 export const DIFFICULTIES: DifficultyDef[] = [
   {
     id: "lätt",
-    label: "Lätt",
+    label: "Easy",
     icon: "🌤️",
-    desc: "8 MSEK i kassan, låg ränta och snälla rivaler.",
+    desc: "8 MSEK in the bank, low rates and gentle rivals.",
     options: { cash: 8_000_000, interestRate: 2.0, rivalStrength: 0.7, difficulty: "lätt" },
   },
   {
     id: "normal",
     label: "Normal",
     icon: "⚖️",
-    desc: "5 MSEK, 2,5 % ränta – spelets grundbalans.",
+    desc: "5 MSEK, 2.5% rate – the game's baseline balance.",
     options: { cash: 5_000_000, interestRate: 2.5, rivalStrength: 1, difficulty: "normal" },
   },
   {
     id: "svår",
-    label: "Svår",
+    label: "Hard",
     icon: "🌩️",
-    desc: "3 MSEK, dyra pengar och hungriga rivaler.",
+    desc: "3 MSEK, expensive money and hungry rivals.",
     options: { cash: 3_000_000, interestRate: 3.5, rivalStrength: 1.4, difficulty: "svår" },
   },
 ];

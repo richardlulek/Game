@@ -18,16 +18,16 @@ export interface ResearchDef {
 
 /** Forskningsträd – ett projekt i taget, permanent effekt när klart. */
 export const RESEARCH: ResearchDef[] = [
-  { id: "gron_energi",   name: "Grön energi",          desc: "Solceller och värmeåtervinning i hela beståndet.", cost: 1_500_000, months: 6,  effect: "−15 % driftkostnad" },
-  { id: "modulbygge",    name: "Modulbyggnation",      desc: "Prefabricerade moduler kortar byggtid och kostnad.", cost: 2_200_000, months: 8,  effect: "−20 % byggkostnad · −2 mån byggtid" },
-  { id: "datauthyrning", name: "Datadriven uthyrning", desc: "Analys matchar hyresgäster snabbare.", cost: 1_800_000, months: 7,  effect: "−25 % vakans" },
-  { id: "finansstyrka",  name: "Finansiell styrka",    desc: "Stärkt balansräkning ger bättre lånevillkor.", cost: 2_600_000, months: 9,  effect: "−0,4 % räntepåslag" },
-  { id: "smart_forvalt", name: "Smart förvaltning",    desc: "Sensorer och prediktivt underhåll.", cost: 1_400_000, months: 6,  effect: "−8 % driftkostnad · långsammare slitage" },
+  { id: "gron_energi",   name: "Green energy",          desc: "Solar panels and heat recovery across the portfolio.", cost: 1_500_000, months: 6,  effect: "−15% operating cost" },
+  { id: "modulbygge",    name: "Modular construction",  desc: "Prefabricated modules cut build time and cost.", cost: 2_200_000, months: 8,  effect: "−20% build cost · −2 mo build time" },
+  { id: "datauthyrning", name: "Data-driven leasing",   desc: "Analytics match tenants faster.", cost: 1_800_000, months: 7,  effect: "−25% vacancy" },
+  { id: "finansstyrka",  name: "Financial strength",    desc: "A stronger balance sheet earns better loan terms.", cost: 2_600_000, months: 9,  effect: "−0.4% rate spread" },
+  { id: "smart_forvalt", name: "Smart management",      desc: "Sensors and predictive maintenance.", cost: 1_400_000, months: 6,  effect: "−8% operating cost · slower wear" },
   // Industrisektorer
-  { id: "revpro_ai",     name: "Revenue Management AI",    desc: "Dynamisk prissättning optimerar hotellintäkter.", cost: 2_000_000, months: 7, effect: "+15 % ADR för alla hotell" },
-  { id: "grid_opt",      name: "Smart nätoptimering",       desc: "Maximerar energiförsäljning på spotmarknaden.",  cost: 1_800_000, months: 6, effect: "+12 % spot-intäkt · −0,5 %/år degradering" },
-  { id: "warehouse_sim", name: "Digital tvilling – lager",  desc: "Simulerar och optimerar lagerlayout.",          cost: 1_600_000, months: 5, effect: "+10 % throughput · −8 % SLA-risk" },
-  { id: "green_cert",    name: "Miljöcertifiering ISO 14001",desc: "Certifiering för hela koncernen.",             cost: 1_200_000, months: 4, effect: "−5 % opex alla sektorer · Reputation +8" },
+  { id: "revpro_ai",     name: "Revenue Management AI",    desc: "Dynamic pricing optimizes hotel revenue.", cost: 2_000_000, months: 7, effect: "+15% ADR for all hotels" },
+  { id: "grid_opt",      name: "Smart grid optimization",  desc: "Maximizes energy sales on the spot market.",  cost: 1_800_000, months: 6, effect: "+12% spot revenue · −0.5%/yr degradation" },
+  { id: "warehouse_sim", name: "Digital twin – warehouse", desc: "Simulates and optimizes warehouse layout.",   cost: 1_600_000, months: 5, effect: "+10% throughput · −8% SLA risk" },
+  { id: "green_cert",    name: "ISO 14001 certification",  desc: "Certification for the whole group.",          cost: 1_200_000, months: 4, effect: "−5% opex all sectors · Reputation +8" },
 ];
 
 export interface StaffRole {
@@ -41,14 +41,14 @@ export interface StaffRole {
 
 /** Anställningsbara chefer. Högre nivå = större effekt och lön. */
 export const STAFF_ROLES: StaffRole[] = [
-  { id: "forvaltning",     name: "Förvaltningschef",   desc: "Effektiviserar driften av beståndet.",        baseSalary: 24_000, maxLevel: 3, effect: "−4 % driftkostnad / nivå" },
-  { id: "cfo",             name: "Finanschef (CFO)",   desc: "Förhandlar bättre lånevillkor.",              baseSalary: 34_000, maxLevel: 3, effect: "−0,15 % räntepåslag / nivå" },
-  { id: "inkop",           name: "Inköpschef",         desc: "Vassare i förhandlingar och bud.",            baseSalary: 22_000, maxLevel: 3, effect: "+5 %-enh. budacceptans / nivå" },
-  { id: "analys",          name: "Analytiker",         desc: "Bättre urval sänker vakans.",                 baseSalary: 20_000, maxLevel: 3, effect: "−3 % vakans / nivå" },
-  { id: "marknad",         name: "Marknadschef",       desc: "Stärker varumärket månad för månad.",         baseSalary: 23_000, maxLevel: 3, effect: "+0,3 reputation / mån / nivå" },
-  { id: "hotelldirektör",  name: "Hotelldirektör",     desc: "Höjer RevPAR och gästnöjdhet för alla hotell.", baseSalary: 38_000, maxLevel: 3, effect: "+5 % RevPAR / nivå" },
-  { id: "energianalytiker",name: "Energianalytiker",   desc: "Optimerar spot-försäljning och PPA-villkor.", baseSalary: 29_000, maxLevel: 3, effect: "+8 % spot-intäkt / nivå" },
-  { id: "logistikchef",    name: "Logistikchef",       desc: "Effektiviserar logistikflöden och kontrakt.", baseSalary: 31_000, maxLevel: 3, effect: "+6 % throughput / nivå" },
+  { id: "forvaltning",     name: "Head of Management",  desc: "Streamlines operation of the portfolio.",     baseSalary: 24_000, maxLevel: 3, effect: "−4% operating cost / level" },
+  { id: "cfo",             name: "CFO",                 desc: "Negotiates better loan terms.",               baseSalary: 34_000, maxLevel: 3, effect: "−0.15% rate spread / level" },
+  { id: "inkop",           name: "Head of Acquisitions",desc: "Sharper in negotiations and bids.",           baseSalary: 22_000, maxLevel: 3, effect: "+5 pts bid acceptance / level" },
+  { id: "analys",          name: "Analyst",             desc: "Better selection lowers vacancy.",            baseSalary: 20_000, maxLevel: 3, effect: "−3% vacancy / level" },
+  { id: "marknad",         name: "Head of Marketing",   desc: "Builds the brand month by month.",            baseSalary: 23_000, maxLevel: 3, effect: "+0.3 reputation / mo / level" },
+  { id: "hotelldirektör",  name: "Hotel Director",      desc: "Raises RevPAR and guest satisfaction across hotels.", baseSalary: 38_000, maxLevel: 3, effect: "+5% RevPAR / level" },
+  { id: "energianalytiker",name: "Energy Analyst",      desc: "Optimizes spot sales and PPA terms.",         baseSalary: 29_000, maxLevel: 3, effect: "+8% spot revenue / level" },
+  { id: "logistikchef",    name: "Head of Logistics",   desc: "Streamlines logistics flows and contracts.",  baseSalary: 31_000, maxLevel: 3, effect: "+6% throughput / level" },
 ];
 
 const lvl = (s: GameState, role: string) => (s.staff?.[role] ?? 0);
