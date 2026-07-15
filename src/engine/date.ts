@@ -12,13 +12,13 @@
 export const EPOCH_YEAR = 1999;
 
 export const MONTH_NAMES = [
-  "januari", "februari", "mars", "april", "maj", "juni",
-  "juli", "augusti", "september", "oktober", "november", "december",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ] as const;
 
 export const MONTH_NAMES_SHORT = [
-  "jan", "feb", "mar", "apr", "maj", "jun",
-  "jul", "aug", "sep", "okt", "nov", "dec",
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ] as const;
 
 /** Kalenderår för ett givet 1-baserat spelår (spelår 1 → 2000). */

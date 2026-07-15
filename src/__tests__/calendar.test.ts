@@ -49,8 +49,8 @@ describe("kalenderhjälpare (engine/date)", () => {
   });
 
   it("formaterar riktiga datum", () => {
-    expect(formatGameDate(1, 1, 1)).toBe("1 januari 2000");
-    expect(formatMonthYear(6, 1)).toBe("juni 2000");
+    expect(formatGameDate(1, 1, 1)).toBe("1 January 2000");
+    expect(formatMonthYear(6, 1)).toBe("June 2000");
   });
 });
 
