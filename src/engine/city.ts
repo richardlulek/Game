@@ -342,6 +342,9 @@ export function occupiedParcelIds(state: GameState): Set<string> {
     if (a.parcelId && a.sector !== "energi") used.add(a.parcelId);
   for (const a of state.industryListings ?? [])
     if (a.parcelId && a.sector !== "energi") used.add(a.parcelId);
+  for (const c of state.competitors)
+    for (const a of c.industries ?? [])
+      if (a.parcelId && a.sector !== "energi") used.add(a.parcelId);
   const projectBlocks = new Set([
     ...(state.cityProjects ?? []).map((x) => x.blockId),
     ...(state.signatureBlocks ?? []).map((x) => x.blockId),
@@ -525,9 +528,10 @@ export function placeCity(state: GameState): GameState {
   let competitorsChanged = false;
   const competitors = state.competitors.map((c) => {
     const np = placeArr(c.portfolio);
-    if (np === c.portfolio) return c;
+    const ni = c.industries ? placeIndustryArr(c.industries) : c.industries;
+    if (np === c.portfolio && ni === c.industries) return c;
     competitorsChanged = true;
-    return { ...c, portfolio: np };
+    return { ...c, portfolio: np, industries: ni };
   });
 
   if (!anyChanged) return state;

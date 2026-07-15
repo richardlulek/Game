@@ -1305,6 +1305,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - cost + cashIn,
         reputation: Math.max(0, Math.min(100, state.reputation + repDelta)),
         portfolio: [...state.portfolio, ...acquired],
+        // Rivalens industrier (hotell, parker, terminaler) följer med fusionen.
+        industryPortfolio: [...(state.industryPortfolio ?? []), ...(comp?.industries ?? [])],
         competitors: state.competitors.filter((c) => c.name !== st.competitorName),
         stocks: state.stocks.filter((x) => x.id !== st.id),
         stockOrders: (state.stockOrders ?? []).filter((o) => o.stockId !== st.id),
@@ -1616,6 +1618,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - down + Math.round(rival.cash ?? 0) + shortSettle,
         debt: state.debt + loan,
         portfolio: [...state.portfolio, ...acquired],
+        // Rivalens industrier (hotell, parker, terminaler) följer med fusionen.
+        industryPortfolio: [...(state.industryPortfolio ?? []), ...(rival.industries ?? [])],
         competitors: state.competitors.filter((c) => c.name !== action.competitorName),
         // Aktien avnoteras – bolaget är helägt och fusioneras in i koncernen.
         stocks: stock ? state.stocks.filter((x) => x.id !== stock.id) : state.stocks,
@@ -2272,6 +2276,40 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     // ── Industrisektorer ─────────────────────────────────────────────────────
 
+    case "BUY_INDUSTRY_FROM_RIVAL": {
+      // Direktköp av en rivals industri – samma logik som OFFER_TO_RIVAL:
+      // rejäl premie krävs, annars tackar ägaren nej.
+      const comp = state.competitors.find((c) => c.name === action.competitorName);
+      const asset = (comp?.industries ?? []).find((a) => a.id === action.industryId);
+      if (!comp || !asset) return state;
+      const ref = industryAssetValue(asset, state);
+      if (state.cash < action.amount)
+        return log(state, `Industriköp betalas kontant – du behöver ${msek(action.amount)}.`, "warn");
+      const ratio = action.amount / Math.max(1, ref);
+      const accepted = ratio >= 1.25 || (ratio >= 1.1 && Math.random() < 0.7);
+      if (!accepted)
+        return log(state, `${comp.name} avböjde ditt bud på ${asset.name} (${msek(action.amount)}). Bjud minst 125 % av värdet (${msek(Math.round(ref * 1.25))}) för garanterat svar.`, "warn");
+      const bought: IndustryAsset = {
+        ...asset,
+        txHistory: [{ type: "köp", price: action.amount, month: state.month, year: state.year, party: comp.name }, ...(asset.txHistory ?? [])],
+        purchasePrice: action.amount,
+      };
+      return {
+        ...state,
+        cash: state.cash - action.amount,
+        industryPortfolio: [...(state.industryPortfolio ?? []), bought],
+        competitors: state.competitors.map((c) =>
+          c.name === comp.name
+            ? { ...c, cash: c.cash + action.amount, industries: (c.industries ?? []).filter((a) => a.id !== asset.id) }
+            : c,
+        ),
+        reputation: Math.min(100, state.reputation + 2),
+        log: [
+          { t: `🤝 ${comp.name} sålde ${asset.name} till dig för ${msek(action.amount)} (premie ${pct(ratio - 1)}).`, kind: "buy" },
+          ...state.log,
+        ],
+      };
+    }
     case "BUY_INDUSTRY": {
       const asset = (state.industryListings ?? []).find((a) => a.id === action.id);
       if (!asset) return state;

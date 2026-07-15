@@ -172,7 +172,7 @@ const SITE_FOOTPRINT = { w: 64, d: 44 };
 
 /** En industritillgång på sin plats: tomtruta (hotell/logistik) eller
  *  fast energiläge utanför rutnätet (sol-/vindparker). */
-function IndustryNode({ asset, forSale }: { asset: IndustryAsset; forSale: boolean }) {
+function IndustryNode({ asset, forSale, rivalOwner }: { asset: IndustryAsset; forSale: boolean; rivalOwner?: string }) {
   const requestOpen = useUiStore((s) => s.requestOpen);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
@@ -192,7 +192,7 @@ function IndustryNode({ asset, forSale }: { asset: IndustryAsset; forSale: boole
       position={[pos.x, 0.14, pos.z]}
       onClick={(e) => {
         e.stopPropagation();
-        requestOpen(forSale ? "ind_marknad" : "industri");
+        requestOpen(rivalOwner ? "acquisition" : forSale ? "ind_marknad" : "industri");
       }}
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
       onPointerOut={() => setHovered(false)}
@@ -203,7 +203,7 @@ function IndustryNode({ asset, forSale }: { asset: IndustryAsset; forSale: boole
         : <SolarPark pc={pc} />)}
       {asset.sector === "logistik" && <Warehouse pc={pc} />}
       <sprite position={[0, beaconY, 0]} scale={forSale ? [7, 7, 1] : [4.6, 4.6, 1]} renderOrder={39}>
-        <spriteMaterial map={iconTexture(forSale ? "🏷️" : "🔵", forSale ? "#ffce3a" : "rgba(255,252,244,0.95)")} transparent depthTest={false} />
+        <spriteMaterial map={iconTexture(rivalOwner ? "🔴" : forSale ? "🏷️" : "🔵", forSale ? "#ffce3a" : "rgba(255,252,244,0.95)")} transparent depthTest={false} />
       </sprite>
       {hovered && (
         <Html position={[0, beaconY - 3, 0]} center zIndexRange={[40, 0]}>
@@ -214,7 +214,13 @@ function IndustryNode({ asset, forSale }: { asset: IndustryAsset; forSale: boole
           }}>
             <strong>{asset.name}</strong>
             <br />
-            <span style={{ opacity: 0.8 }}>{forSale ? "Industri till salu – klicka för marknaden" : "Din industri – klicka för översikt"}</span>
+            <span style={{ opacity: 0.8 }}>
+              {rivalOwner
+                ? `Ägs av ${rivalOwner} – klicka för att lägga bud`
+                : forSale
+                  ? "Industri till salu – klicka för marknaden"
+                  : "Din industri – klicka för översikt"}
+            </span>
           </div>
         </Html>
       )}
@@ -222,10 +228,11 @@ function IndustryNode({ asset, forSale }: { asset: IndustryAsset; forSale: boole
   );
 }
 
-/** Alla industrier på kartan (ägda + till salu). */
+/** Alla industrier på kartan: dina, till salu och rivalernas. */
 export function IndustryProps() {
   const industryPortfolio = useGameStore((s) => s.state.industryPortfolio);
   const industryListings = useGameStore((s) => s.state.industryListings);
+  const competitors = useGameStore((s) => s.state.competitors);
   return (
     <>
       {(industryPortfolio ?? []).map((a) => (
@@ -234,6 +241,11 @@ export function IndustryProps() {
       {(industryListings ?? []).map((a) => (
         <IndustryNode key={a.id} asset={a} forSale />
       ))}
+      {competitors.flatMap((c) =>
+        (c.industries ?? []).map((a) => (
+          <IndustryNode key={a.id} asset={a} forSale={false} rivalOwner={c.name} />
+        )),
+      )}
     </>
   );
 }

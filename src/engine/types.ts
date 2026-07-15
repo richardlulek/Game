@@ -523,6 +523,9 @@ export interface Competitor {
   /** Internationell fond: kliver in i slutspelet, hålls kapitaliserad
    *  i nivå med spelaren och tävlar aggressivt om varje affär. */
   institutional?: boolean;
+  /** Rivalens industritillgångar (hotell, energi, logistik) – konkurrerar
+   *  på industrimarknaden och följer med vid förvärv/fusion. */
+  industries?: IndustryAsset[];
 }
 
 /** Bransch på börsen. */
@@ -875,6 +878,7 @@ export type GameAction =
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
   | { type: "BUY_INDUSTRY"; id: number }
+  | { type: "BUY_INDUSTRY_FROM_RIVAL"; competitorName: string; industryId: number; amount: number }
   | { type: "SELL_INDUSTRY"; id: number }
   | { type: "UPGRADE_INDUSTRY"; id: number; upg: string }
   | { type: "MAINTAIN_INDUSTRY"; id: number }

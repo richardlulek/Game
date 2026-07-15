@@ -85,11 +85,14 @@ export function hotelMonthlyRevenue(asset: IndustryAsset, state: GameState): num
   const adr = meta.baseAdr * adrMult;
 
   // OCC – staden bär hotellet: områdesutveckling (megaprojekt, stadsdels-
-  // projekt, satsningar) lyfter beläggningen med halv effekt mot värdet.
+  // projekt, satsningar) lyfter beläggningen med halv effekt mot värdet,
+  // och konjunkturen styr resandet: affärsgäster i boom, tomma rum i bust.
   const dev = 1 + ((state.districtDev?.[asset.district] ?? 1) - 1) * 0.5;
+  const cycle =
+    state.marketCycle?.phase === "boom" ? 1.10 : state.marketCycle?.phase === "bust" ? 0.85 : 1.0;
   const occ = Math.min(
     0.98,
-    Math.max(0.25, (baseOcc + occBonus) * state.demandMod * sf * cf * dev),
+    Math.max(0.25, (baseOcc + occBonus) * state.demandMod * sf * cf * dev * cycle),
   );
 
   const revpar = adr * occ;

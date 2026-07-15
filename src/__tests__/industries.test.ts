@@ -1,6 +1,6 @@
 /* Enhetstester för industrisektorer – hotell, energi, logistik. */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   energyMonthlyRevenue,
   energySynergyMult,
@@ -325,5 +325,55 @@ describe("symbios stad ↔ industri", () => {
     const med = esgRatingOf(makeState({ portfolio: props, energyOwnedMW: 25 }));
     expect(med.score).toBeGreaterThan(utan.score);
     expect(med.letter).toBe("B"); // C-bestånd + 25 MW ⇒ grönt lånebetyg
+  });
+});
+
+/* ── Rivalerna på industrimarknaden + konjunktur ↔ hotell ──────────── */
+
+describe("rivaler och konjunktur i industrisektorn", () => {
+  it("hotellintäkten följer konjunkturen: boom > stable > bust", () => {
+    const hotel = makeIndustryAsset({});
+    const mk = (phase: "boom" | "stable" | "bust") =>
+      hotelMonthlyRevenue(hotel, makeState({ marketCycle: { phase, monthsRemaining: 12 } }));
+    expect(mk("boom")).toBeGreaterThan(mk("stable"));
+    expect(mk("stable")).toBeGreaterThan(mk("bust"));
+  });
+
+  it("BUY_INDUSTRY_FROM_RIVAL: 125 % accepteras alltid, tillgången byter ägare", async () => {
+    const { reducer } = await import("../engine/reducer");
+    const { industryAssetValue } = await import("../engine/industries");
+    const asset = makeIndustryAsset({ id: 700 });
+    const rival = { name: "Nordfast AB", cash: 5e6, units: 0, equity: 50e6, portfolio: [], industries: [asset] };
+    const s0 = makeState({ cash: 2_000_000_000, competitors: [rival] });
+    const bud = Math.round(industryAssetValue(asset, s0) * 1.25);
+    const s1 = reducer(s0, { type: "BUY_INDUSTRY_FROM_RIVAL", competitorName: "Nordfast AB", industryId: 700, amount: bud });
+    expect((s1.industryPortfolio ?? []).some((a) => a.id === 700)).toBe(true);
+    expect(s1.competitors[0].industries).toHaveLength(0);
+    expect(s1.competitors[0].cash).toBe(5e6 + bud);
+    expect(s1.cash).toBe(2_000_000_000 - bud);
+  });
+
+  it("förvärv av rival tar med industrierna in i koncernen", async () => {
+    const { reducer } = await import("../engine/reducer");
+    const asset = makeIndustryAsset({ id: 701 });
+    const hus = makeProperty({ id: 44, owned: false, askPrice: 5e6 });
+    const rival = { name: "Nordfast AB", cash: 1e6, units: 1, equity: 6e6, portfolio: [hus], industries: [asset] };
+    const s0 = makeState({ cash: 100e6, competitors: [rival] });
+    const s1 = reducer(s0, { type: "ACQUIRE_RIVAL", competitorName: "Nordfast AB", amount: Math.round(6e6 * 1.3) });
+    expect(s1.competitors).toHaveLength(0);
+    expect((s1.industryPortfolio ?? []).some((a) => a.id === 701)).toBe(true);
+  });
+
+  it("rival kan köpa ett industriobjekt från marknaden (simulering)", async () => {
+    const { advanceMonth } = await import("../engine/simulation");
+    vi.spyOn(Math, "random").mockReturnValue(0.02); // låg roll: rivalköpet triggar
+    const asset = makeIndustryAsset({ id: 702, purchasePrice: 8_000_000 });
+    const rival = { name: "Nordfast AB", cash: 100e6, units: 0, equity: 100e6, portfolio: [] };
+    const s1 = advanceMonth(makeState({ industryListings: [asset], competitors: [rival] }));
+    const köpare = s1.competitors.find((c) => c.name === "Nordfast AB");
+    expect((s1.industryListings ?? []).length + ((köpare?.industries ?? []).length) ).toBeGreaterThan(0);
+    // antingen köpte rivalen (industries=1) eller inte (listan kvar) – med roll 0.02 ska köpet ske
+    expect(köpare?.industries ?? []).toHaveLength(1);
+    vi.restoreAllMocks();
   });
 });

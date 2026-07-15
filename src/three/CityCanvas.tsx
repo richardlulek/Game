@@ -145,9 +145,11 @@ function CityParcels() {
     const ids = new Set(byParcel.keys());
     if (projectBlocks.size > 0)
       for (const p of PARCELS) if (projectBlocks.has(p.blockId)) ids.add(p.id);
-    // Industriernas rutor (ägda + till salu) – ritas av IndustryProps.
+    // Industriernas rutor (ägda + till salu + rivalernas) – ritas av IndustryProps.
     for (const a of state.industryPortfolio ?? []) if (a.parcelId) ids.add(a.parcelId);
     for (const a of state.industryListings ?? []) if (a.parcelId) ids.add(a.parcelId);
+    for (const c of state.competitors)
+      for (const a of c.industries ?? []) if (a.parcelId) ids.add(a.parcelId);
     return [...ids].sort().join(",");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [byParcel, projectBlocks, state.industryPortfolio, state.industryListings]);

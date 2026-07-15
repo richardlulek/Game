@@ -54,7 +54,8 @@ import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progress
 import { newId, pick, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
 import { applyStockNews, executeLimitOrders, maybeListingEvents, priceStocks, quarterlyEarnings, rivalNews, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
-import { tickHotel, tickEnergy, tickLogistik } from "./industries";
+import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
+import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
 /**
@@ -960,6 +961,7 @@ export function advanceMonth(state: GameState): GameState {
       ...ca,
       cash: ca.cash + cb.cash,
       portfolio: [...(ca.portfolio ?? []), ...(cb.portfolio ?? [])],
+      industries: [...(ca.industries ?? []), ...(cb.industries ?? [])],
       units: (ca.portfolio ?? []).length + (cb.portfolio ?? []).length,
       equity: ca.equity + cb.equity,
       monthlyNOI: (ca.monthlyNOI ?? 0) + (cb.monthlyNOI ?? 0),
@@ -1381,9 +1383,46 @@ export function advanceMonth(state: GameState): GameState {
       }
     }
     nc.units = nc.portfolio.length;
-    nc.equity = nc.cash + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    // Rivalens industrier tjänar pengar och ingår i det egna kapitalet –
+    // samma NOI-logik som spelarens (6 %/år på tillgångsvärdet, förenklat).
+    const indVal = (nc.industries ?? []).reduce((a, x) => a + industryAssetValue(x, s), 0);
+    if (indVal > 0) nc.cash += Math.round((indVal * 0.06 * cycleNOI) / 12);
+    nc.equity = nc.cash + indVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     return nc;
   });
+  // ── Rivalerna konkurrerar om industriobjekten (~5 %/mån) ─────────
+  if ((s.industryListings ?? []).length > 0 && s.competitors.length > 0 && Math.random() < 0.05) {
+    const target = pick(s.industryListings!);
+    const buyers = s.competitors.filter((c) => c.cash > target.purchasePrice * 1.05);
+    if (buyers.length > 0) {
+      const buyer = pick(buyers);
+      s.industryListings = (s.industryListings ?? []).filter((a) => a.id !== target.id);
+      s.competitors = s.competitors.map((c) =>
+        c.name === buyer.name
+          ? { ...c, cash: c.cash - target.purchasePrice, industries: [...(c.industries ?? []), target] }
+          : c,
+      );
+      events.push({
+        t: `🏭 ${buyer.name} förvärvar ${target.name} (${msek(target.purchasePrice)}) – industrimarknaden är inte längre din ensam.`,
+        kind: "warn",
+      });
+    }
+  }
+  // Påfyllnad: nya industriobjekt när marknaden sinar (unika verksamheter –
+  // en stad har bara ett Grand Kulle Hotel).
+  if ((s.industryListings ?? []).length < 3 && Math.random() < 0.10) {
+    const existing = new Set([
+      ...(s.industryListings ?? []).map((a) => a.name),
+      ...(s.industryPortfolio ?? []).map((a) => a.name),
+      ...s.competitors.flatMap((c) => (c.industries ?? []).map((a) => a.name)),
+    ]);
+    const fresh = INDUSTRY_TEMPLATES.filter((t) => !existing.has(t.name));
+    if (fresh.length > 0) {
+      const asset = makeIndustryAssetFromTemplate(pick(fresh), newId(), s);
+      s.industryListings = [...(s.industryListings ?? []), asset];
+      events.push({ t: `🏭 Ny industri till salu: ${asset.name} (${msek(asset.purchasePrice)}).`, kind: "info" });
+    }
+  }
   // Konkurrent köper från marknaden med strategi-filtrering – även
   // objekt som andra rivaler just annonserat (rival-till-rival-affärer).
   // Köpaptiten följer räntan: billiga pengar → fler affärer.

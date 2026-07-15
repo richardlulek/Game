@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
+import { industryAssetValue } from "../engine/industries";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
 
@@ -174,7 +175,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       {comp.name}
                     </span>
                     <span style={{ fontSize: 12, color: C.creamSoft, display: "flex", gap: 16 }}>
-                      <span>{comp.portfolio.length} fastigheter</span>
+                      <span>{comp.portfolio.length} fastigheter{(comp.industries ?? []).length > 0 ? ` · ${(comp.industries ?? []).length} industrier` : ""}</span>
                       <span>Strategi: {comp.strategy ?? "okänd"}</span>
                       <span style={{ color: C.brass }}>{open ? "▲" : "▼"}</span>
                     </span>
@@ -228,6 +229,38 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                               </div>
                             );
                           })}
+                        </div>
+                      )}
+                      {(comp.industries ?? []).length > 0 && (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                            Industrier
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {(comp.industries ?? []).map((a) => {
+                              const värde = industryAssetValue(a, state);
+                              const bud = Math.round(värde * 1.25);
+                              const råd = state.cash >= bud;
+                              return (
+                                <div key={a.id} style={{ ...cardStyle, background: C.feltLight }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                                    <span style={{ fontWeight: 600, color: C.parchment }}>
+                                      {a.sector === "hotell" ? "🏨" : a.sector === "energi" ? "⚡" : "📦"} {a.name} · {a.districtName}
+                                    </span>
+                                    <span style={{ color: C.creamSoft }}>värde {msek(värde)}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => dispatch({ type: "BUY_INDUSTRY_FROM_RIVAL", competitorName: comp.name, industryId: a.id, amount: bud })}
+                                    disabled={!råd}
+                                    style={{ ...btnSecondaryStyle, opacity: råd ? 1 : 0.5, cursor: råd ? "pointer" : "default" }}
+                                    title={råd ? "" : `Kontantköp – kassan räcker inte (${msek(bud)})`}
+                                  >
+                                    Bjud {msek(bud)} (125 % – garanterat svar)
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
