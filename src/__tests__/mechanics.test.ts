@@ -196,3 +196,24 @@ describe("C9: rivalagendor", () => {
     expect(s2.log.some((l) => l.t.includes("nått sitt mål"))).toBe(false);
   });
 });
+
+/* ── Balansrevision: områdessatsningen är tidsstyrd och proportionerlig ── */
+
+describe("INVEST_DISTRICT (områdessatsning)", () => {
+  it("ger INGEN omedelbar utveckling – effekten kommer som infraprojekt", async () => {
+    const { reducer } = await import("../engine/reducer");
+    const { makeState } = await import("./factories");
+    const s0 = makeState({ cash: 100_000_000, districtDev: { centrum: 1 } });
+    const s1 = reducer(s0, { type: "INVEST_DISTRICT", districtId: "centrum", amount: 50_000_000 });
+    expect(s1.cash).toBe(50_000_000);
+    expect(s1.districtDev!.centrum).toBe(1); // inget direkt lyft
+    expect(s1.infraProjects).toHaveLength(1);
+    const pr = s1.infraProjects![0];
+    // +1 % per 25 Msek, max +5 % – och månader kvar innan effekt.
+    expect(pr.boost).toBeCloseTo(0.02, 3);
+    expect(pr.monthsLeft).toBeGreaterThanOrEqual(6);
+    // 500 Msek klipps vid taket +5 %.
+    const s2 = reducer(makeState({ cash: 600_000_000 }), { type: "INVEST_DISTRICT", districtId: "centrum", amount: 500_000_000 });
+    expect(s2.infraProjects![0].boost).toBeCloseTo(0.05, 3);
+  });
+});

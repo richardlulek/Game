@@ -146,12 +146,22 @@ function genProperty(
   return p;
 }
 
+/** Säljaren prissätter beläggningen: samma premie (upp till +10 % vid fullt
+ *  uthyrt) som propMarketValue ger – annars bokför köpet av ett uthyrt objekt
+ *  premien som gratis eget kapital i samma ögonblick som affären går igenom. */
+function priceInOccupancy(p: Property): Property {
+  if (p.tenants.length === 0 || p.capacity <= 0) return p;
+  const mult = 1 + (p.tenants.length / p.capacity) * 0.10;
+  p.askPrice = Math.round(p.askPrice * mult);
+  return p;
+}
+
 /** Genererar en fastighet för världspoolen (off-market, ingen datumstämpel). */
 export function genWorldProperty(state: GameState, allowed?: ReadonlySet<string>): Property {
   const p = genProperty(state, [0.85, 1.15], 30, allowed);
   if (Math.random() < 0.4)
     p.tenants.push(makeTenant(p.baseRent / p.capacity, state.demandMod, p.condition));
-  return p;
+  return priceInOccupancy(p);
 }
 
 /** Genererar ett marknadsobjekt till salu. */
@@ -163,7 +173,7 @@ export function genListing(state: GameState, allowed?: ReadonlySet<string>): Pro
   // ~55 % chans att objektet redan har hyresgäst
   if (Math.random() < 0.55)
     p.tenants.push(makeTenant(p.baseRent / p.capacity, state.demandMod, p.condition));
-  return p;
+  return priceInOccupancy(p);
 }
 
 /** Genererar en byggbar tomt till salu. Ytan följer distriktets profil så

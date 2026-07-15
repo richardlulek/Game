@@ -306,7 +306,18 @@ const clamp = (lo: number, hi: number, v: number) => Math.max(lo, Math.min(hi, v
 
 /** Värdet av spelarens aktieinnehav. */
 export function stockHoldingsValue(state: { stocks?: Stock[] }): number {
-  return (state.stocks ?? []).reduce((a, s) => a + s.owned * s.price, 0);
+  return (state.stocks ?? []).reduce((a, s) => {
+    let v = s.owned * s.price;
+    // Blankning: säkerheten (1,5×) är fortfarande spelarens pengar och det
+    // orealiserade resultatet hör till förmögenheten – annars ser en öppnad
+    // blankning ut som en ren förlust i eget kapital tills den täcks.
+    const q = s.shortQty ?? 0;
+    if (q > 0) {
+      const avg = s.shortAvgPrice ?? s.price;
+      v += Math.max(0, Math.round(avg * q * 1.5) + Math.round(q * (avg - s.price)));
+    }
+    return a + v;
+  }, 0);
 }
 
 /** Kapitaliserat värde av förvärvade dotterbolag. */

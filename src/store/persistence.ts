@@ -5,6 +5,7 @@
    ============================================================ */
 
 import { calcCapacity } from "../engine/generators";
+import { industryListPrice } from "../engine/industries";
 import { agendaFor } from "../engine/initState";
 import { syncIdCounter } from "../engine/random";
 import type { GameState, Property } from "../engine/types";
@@ -56,7 +57,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 27;
+export const SAVE_VERSION = 28;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -174,6 +175,18 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       stockOrders: (s.stockOrders ?? []).filter((o) => liveIds.has(o.stockId)),
     };
   },
+
+  // v27 → v28: industriobjekt TILL SALU omprissätts från kapitaliserat
+  // driftnetto. Mallpriserna var frikopplade från intäktsmodellen – hotell
+  // och energiparker kunde köpas till bråkdelar av sitt bokförda värde.
+  // Ägda tillgångar rörs inte (gjorda affärer är gjorda).
+  27: (s) => ({
+    ...s,
+    industryListings: (s.industryListings ?? []).map((a) => ({
+      ...a,
+      purchasePrice: industryListPrice(a, s),
+    })),
+  }),
 };
 
 /** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */

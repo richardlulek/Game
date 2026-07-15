@@ -82,6 +82,21 @@ describe("PLACE_BID (utgående bud på marknadsobjekt)", () => {
     expect(next.portfolio).toHaveLength(0);
   });
 
+  it("avvisat bud spärrar nya bud på samma objekt i två månader (anti-spam)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // avvisat, ej tillbakadraget
+    const s0 = makeState({ listings: [listing], cash: 5_000_000, debt: 0, year: 1, month: 3 });
+    const s1 = reducer(s0, { type: "PLACE_BID", id: 7, amount: 3_200_000 });
+    expect(s1.listings[0].bidRejectedAbs).toBe(1 * 12 + 3);
+    // Nytt bud direkt: blockeras utan slumpdrag.
+    const s2 = reducer(s1, { type: "PLACE_BID", id: 7, amount: 3_200_000 });
+    expect(s2.portfolio).toHaveLength(0);
+    expect(s2.log[0].t).toContain("överväger inte nya bud");
+    // Två månader senare går det bra igen (accept vid låg roll).
+    vi.spyOn(Math, "random").mockReturnValue(0.0);
+    const s3 = reducer({ ...s1, month: 5 }, { type: "PLACE_BID", id: 7, amount: 3_600_000 });
+    expect(s3.portfolio).toHaveLength(1);
+  });
+
   it("säljaren tar annat bud: huset försvinner inte utan går till ett stadsbolag", () => {
     // roll 1 (0.99): budet avvisas · roll 2 (0.1): säljaren tar annat bud
     // roll 3 (0.0): första rivalen blir köpare.

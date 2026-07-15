@@ -395,6 +395,8 @@ export interface Property {
    *  återställs vid utgång så priset inte inflateras vid varje ny listning. */
   poolAskPrice?: number;
   poolBaseRent?: number;
+  /** Absolutmånad då säljaren senast avvisade ett bud – spärrar budspam. */
+  bidRejectedAbs?: number;
   /** Förortsmodellen: fastigheten är ETT HELT KVARTER med flera huskroppar
    *  och fler hyresgästplatser – köps, säljs och förvaltas som en enhet. */
   wholeBlock?: boolean;

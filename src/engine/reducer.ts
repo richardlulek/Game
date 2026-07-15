@@ -215,6 +215,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.listings.find((x) => x.id === action.id);
       if (!p) return state;
       if (districtLocked(state, p.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
+      // Budspam-spärr: efter ett avvisat bud överväger säljaren inga nya bud
+      // från dig på två månader. Utan spärren kunde man spamma lågbud tills
+      // slumpen sa ja och systematiskt handla under marknadsvärdet.
+      const nowAbs = state.year * 12 + state.month;
+      if ((p.bidRejectedAbs ?? -99) + 2 > nowAbs)
+        return log(state, `Säljaren av ${p.typeLabel} i ${p.districtName} överväger inte nya bud från dig ännu – vänta eller köp till utpris.`, "warn");
       const { maxLtv } = loanTerms(state);
       const bid = Math.max(0, Math.round(action.amount));
       const down = bid * (1 - maxLtv);
@@ -248,8 +254,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!withdrawn)
         return {
           ...state,
+          listings: state.listings.map((x) =>
+            x.id === p.id ? { ...x, bidRejectedAbs: nowAbs } : x,
+          ),
           log: [
-            { t: `Ditt bud på ${p.typeLabel} i ${p.districtName} (${msek(bid)}) avvisades. Försök igen eller höj budet.`, kind: "warn" },
+            { t: `Ditt bud på ${p.typeLabel} i ${p.districtName} (${msek(bid)}) avvisades. Säljaren vill inte se fler lågbud på ett par månader.`, kind: "warn" },
             ...state.log,
           ],
         };
@@ -2117,15 +2126,30 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "INVEST_DISTRICT": {
       const amount = Math.max(500_000, Math.min(action.amount, state.cash));
       if (state.cash < amount) return log(state, "För lite kassa.", "warn");
-      const boost = amount / 10_000_000;
-      const dev = { ...(state.districtDev ?? {}) };
-      dev[action.districtId] = Math.min(1.6, +(((dev[action.districtId] ?? 1) + boost)).toFixed(4));
+      // Områdessatsningen får effekt när den STÅR KLAR (6–9 mån) och i rimlig
+      // proportion: +1 % områdesutveckling per 25 Msek, max +5 % per satsning.
+      // Tidigare gav 10 Msek +10 % OMEDELBART – den som ägde mycket i
+      // distriktet köpte sig ett mångdubbelt värdelyft i ett klick.
+      const boost = Math.min(0.05, +((amount / 2_500_000_000)).toFixed(4));
+      const d = DISTRICTS.find((x) => x.id === action.districtId);
+      const months = 6 + Math.round(boost * 60);
       return {
         ...state,
         cash: state.cash - amount,
-        districtDev: dev,
+        infraProjects: [
+          ...(state.infraProjects ?? []),
+          {
+            id: newId(),
+            name: "Privat områdessatsning",
+            district: action.districtId,
+            districtName: d?.name ?? action.districtId,
+            monthsLeft: months,
+            totalMonths: months,
+            boost,
+          },
+        ],
         log: [{
-          t: `🏗 Investerade ${msek(amount)} i distriktet – områdesutveckling +${(boost * 100).toFixed(1)} %.`,
+          t: `🏗 Områdessatsning i ${d?.name ?? action.districtId}: ${msek(amount)} investeras – områdesutveckling +${(boost * 100).toFixed(1)} % när den står klar om ~${months} mån.`,
           kind: "upg",
         }, ...state.log],
       };

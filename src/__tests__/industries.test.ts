@@ -242,3 +242,34 @@ describe("industryAssetValue", () => {
     expect(val).toBeLessThanOrEqual(10 * 8_000_000 * 1.2);
   });
 });
+
+/* ── Balansrevision: priser hänger ihop med intäktsmodellen ────────── */
+
+describe("industripriser är kapitaliserat driftnetto", () => {
+  it("hotell och energi till salu avkastar aldrig mer än ~12 %/år på priset", async () => {
+    const { initState } = await import("../engine/initState");
+    const { industryMonthlyRevenue, industryMonthlyOpex } = await import("../engine/industries");
+    for (let i = 0; i < 6; i++) {
+      const s = initState();
+      for (const a of s.industryListings ?? []) {
+        if (a.sector === "logistik") continue; // tom terminal – kontrakten är uppsidan
+        const noi = (industryMonthlyRevenue(a, s) - industryMonthlyOpex(a, s)) * 12;
+        expect(noi / a.purchasePrice).toBeLessThan(0.12);
+      }
+    }
+  });
+
+  it("köp + direktförsäljning av industri är aldrig lönsamt", async () => {
+    const { initState } = await import("../engine/initState");
+    const { reducer } = await import("../engine/reducer");
+    const { equityOf } = await import("../engine/finance");
+    const s0 = initState();
+    const rich = { ...s0, cash: 5_000_000_000 };
+    for (const a of rich.industryListings ?? []) {
+      const before = equityOf(rich);
+      let s = reducer(rich, { type: "BUY_INDUSTRY", id: a.id });
+      s = reducer(s, { type: "SELL_INDUSTRY", id: a.id });
+      expect(equityOf(s)).toBeLessThanOrEqual(before);
+    }
+  });
+});

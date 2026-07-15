@@ -187,13 +187,13 @@ export function DistrictPanel({ state, dispatch }: Props) {
               {/* Invest in district */}
               <div style={{ borderTop: `1px solid ${C.brass}44`, paddingTop: 10, marginTop: 8 }}>
                 <div style={{ fontSize: 11, color: C.creamSoft, marginBottom: 6 }}>
-                  Investera direkt i distriktet (höjer områdesutveckling)
+                  Områdessatsning: +1 % utveckling per 25 Msek (max +5 %), klar om 6–9 mån
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="range"
                     min={500000}
-                    max={Math.min(state.cash, 10_000_000)}
+                    max={Math.min(state.cash, 150_000_000)}
                     step={500000}
                     value={investAmts[d.id] ?? 1_000_000}
                     onChange={(e) => setInvestAmts({ ...investAmts, [d.id]: +e.target.value })}

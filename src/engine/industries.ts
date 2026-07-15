@@ -181,9 +181,11 @@ export function energyMarketValue(asset: IndustryAsset, state: GameState): numbe
   if (asset.status === "bygger") return Math.round(asset.purchasePrice * 0.5);
   const meta = asset.energyMeta;
   if (!meta) return asset.purchasePrice;
-  const degradFactor = 1 - meta.degradationPct / 100;
-  const cf = condFactor(asset.condition);
-  return Math.round(meta.installedMW * 8_000_000 * degradFactor * cf * state.marketMod);
+  // Kapitaliserat driftnetto (10 % cap – spotrisk och degradering), som
+  // hotellen. Den gamla MW-schablonen (8 Msek/MW) var frikopplad från
+  // intäktsmodellen och bokförde 3–4× köpeskillingen direkt vid köp.
+  const annualNOI = (energyMonthlyRevenue(asset, state) - energyMonthlyOpex(asset, state)) * 12;
+  return Math.max(Math.round(asset.purchasePrice * 0.4), Math.round(annualNOI / 0.10));
 }
 
 export function tickEnergy(asset: IndustryAsset, state: GameState): [number, number, LogEntry[]] {
@@ -244,7 +246,10 @@ export function logisticsMarketValue(asset: IndustryAsset, state: GameState): nu
   if (asset.status === "bygger") return Math.round(asset.purchasePrice * 0.5);
   const annualNOI = (logisticsMonthlyRevenue(asset, state) - logisticsMonthlyOpex(asset, state)) * 12;
   const cf = condFactor(asset.condition);
-  return Math.max(asset.purchasePrice * 0.4, Math.round((annualNOI / 0.07) * cf));
+  // En modern terminal utan kontrakt är värd nära återanskaffningsvärdet
+  // (0,85×) – kontrakten är uppsidan. Gamla golvet 0,4× bokförde −60 %
+  // eget kapital i samma ögonblick man köpte en tom terminal.
+  return Math.max(Math.round(asset.purchasePrice * 0.85 * cf), Math.round((annualNOI / 0.07) * cf));
 }
 
 export function tickLogistik(asset: IndustryAsset, state: GameState): [number, number, LogEntry[]] {
@@ -355,7 +360,7 @@ export function makeIndustryAssetFromTemplate(
     };
   }
 
-  return {
+  const asset: IndustryAsset = {
     id,
     sector: template.sector,
     name: template.name,
@@ -376,4 +381,23 @@ export function makeIndustryAssetFromTemplate(
     energyMeta,
     logisticsMeta,
   };
+  asset.purchasePrice = industryListPrice(asset, state);
+  return asset;
+}
+
+/** Säljarens pris för ett industriobjekt: kapitaliserat driftnetto + 5 %
+ *  påslag (aldrig under mallpriset). Mallpriserna var frikopplade från
+ *  intäktsmodellen – ett hotell för 28 Msek kunde avkasta 280 %/år och
+ *  bokföras till 1,4 mdkr i samma ögonblick som köpet gick igenom.
+ *  Logistik lämnas på mallpris (tom terminal – kontrakten är uppsidan). */
+export function industryListPrice(asset: IndustryAsset, state: GameState): number {
+  const annualNOI =
+    (industryMonthlyRevenue(asset, state) - industryMonthlyOpex(asset, state)) * 12;
+  if (asset.sector === "hotell" && asset.hotelMeta) {
+    const cap = STAR_CAP_RATE[asset.hotelMeta.starRating - 1];
+    return Math.max(asset.purchasePrice, Math.round((annualNOI / cap) * 1.05));
+  }
+  if (asset.sector === "energi")
+    return Math.max(asset.purchasePrice, Math.round((annualNOI / 0.10) * 1.05));
+  return asset.purchasePrice;
 }
