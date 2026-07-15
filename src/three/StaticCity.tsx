@@ -38,7 +38,7 @@ import {
 } from "./colors";
 import { ambientColorFor, districtFloors } from "./districtBuildings";
 import { ambientProfile } from "../engine/landDeals";
-import { facadeTexture, glassTexture, type FacadeKind } from "./textures";
+import { facadeTexture, glassTexture, type FacadeKind, type FacadeVariant } from "./textures";
 
 interface CityProps {
   /** Tomter med spelinnehåll (ägt/till salu/tomt/rival) – ritas i ParcelNode. */
@@ -202,6 +202,8 @@ function ambientKindFor(district: string, seed: number): AmbientBucket {
   }
 }
 
+const PLYWOOD = new Color("#8a7a5c");
+
 /** Bygger dekorbebyggelsens silhuett för en tomt (fasader + extras). */
 function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: BufferGeometry[]) {
   const hash = parcelHash(p.id);
@@ -212,7 +214,9 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
   // facadeColor). Skicket är detsamma som BUY_AMBIENT använder (ambientProfile),
   // så nedgångna hus syns gråare på kartan och man kan spana efter förvärvs-
   // och renoveringslägen – kartan och affären är överens.
-  color.lerp(new Color("#6f6a61"), ((100 - ambientProfile(p).condition) / 100) * 0.55);
+  const condition = ambientProfile(p).condition;
+  const worn = condition < 40;
+  color.lerp(new Color("#6f6a61"), ((100 - condition) / 100) * 0.55);
   const dim = new Color().copy(color);
   const h = floors * FLOOR_HEIGHT;
 
@@ -281,29 +285,41 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       extras.push(withColor(roof, seed % 3 ? ROOF_RED : ROOF_DARK));
       if (seed % 2 === 0)
         extras.push(plainBox(4, 2.4, 3.4, p.x + vw * 0.85, 0, p.z - vd * 0.5, dim.multiplyScalar(0.85)));
+      // Slitna villor: plywood för fönstren, så förfallet syns även på
+      // dekorhusen (samma signal som spelhusens "sliten"-variant).
+      if (worn) {
+        extras.push(plainBox(1.7, 2.0, 0.2, p.x - vw * 0.18, 0.9, p.z + vd / 2, PLYWOOD));
+        extras.push(plainBox(0.2, 2.0, 1.5, p.x + vw / 2, 0.9, p.z + vd * 0.15, new Color(PLYWOOD).multiplyScalar(0.85)));
+      }
     }
   }
 }
 
 const AMBIENT_BUCKETS: AmbientBucket[] = ["bostad", "kontor", "butik", "industri", "glas"];
+/** Fasadhink + tillstånd: slitna dekorhus (skick < 40) får sliten-kaklet
+ *  med smuts och släckta fönster, precis som spelhusen. Glas saknar
+ *  slitenvariant. */
+type BucketKey = `${AmbientBucket}:${Extract<FacadeVariant, "normal" | "sliten">}`;
 
 function AmbientBuildings({ occupied, lockedBlocks, grown, onAmbientClick }: CityProps & { onAmbientClick: (e: ThreeEvent<MouseEvent>) => void }) {
   const overlayActive = useUiStore((s) => s.overlay !== "ingen");
 
   const geos = useMemo(() => {
-    const facades = new Map<AmbientBucket, BufferGeometry[]>();
+    const facades = new Map<BucketKey, BufferGeometry[]>();
     const extras: BufferGeometry[] = [];
     const all: BufferGeometry[] = [];
     for (const p of PARCELS) {
       if (occupied.has(p.id) || isLocked(p, lockedBlocks) || !hasAmbientBuilding(p, grown)) continue;
       const kind = ambientKindFor(p.district, parcelHash(p.id) >> 3);
-      const bucket = facades.get(kind) ?? [];
+      const worn = kind !== "glas" && ambientProfile(p).condition < 40;
+      const key: BucketKey = `${kind}:${worn ? "sliten" : "normal"}`;
+      const bucket = facades.get(key) ?? [];
       ambientBuildingGeo(p, bucket, extras);
-      facades.set(kind, bucket);
+      facades.set(key, bucket);
     }
-    const merged = new Map<AmbientBucket, BufferGeometry>();
-    for (const [kind, list] of facades) {
-      if (list.length) merged.set(kind, mergeGeometries(list, false));
+    const merged = new Map<BucketKey, BufferGeometry>();
+    for (const [key, list] of facades) {
+      if (list.length) merged.set(key, mergeGeometries(list, false));
       all.push(...list);
     }
     const ext = extras.length ? mergeGeometries(extras, false) : null;
@@ -312,14 +328,17 @@ function AmbientBuildings({ occupied, lockedBlocks, grown, onAmbientClick }: Cit
   }, [occupied, lockedBlocks, grown]);
 
   const mats = useMemo(() => {
-    const facade = new Map<AmbientBucket, MeshStandardMaterial>();
+    const facade = new Map<BucketKey, MeshStandardMaterial>();
     for (const kind of AMBIENT_BUCKETS) {
-      facade.set(
-        kind,
-        kind === "glas"
-          ? new MeshStandardMaterial({ vertexColors: true, map: glassTexture(4, 4), roughness: 0.35, metalness: 0.25 })
-          : new MeshStandardMaterial({ vertexColors: true, map: facadeTexture(kind), roughness: 0.82, metalness: 0.02 }),
-      );
+      for (const variant of ["normal", "sliten"] as const) {
+        if (kind === "glas" && variant === "sliten") continue;
+        facade.set(
+          `${kind}:${variant}`,
+          kind === "glas"
+            ? new MeshStandardMaterial({ vertexColors: true, map: glassTexture(4, 4), roughness: 0.35, metalness: 0.25 })
+            : new MeshStandardMaterial({ vertexColors: true, map: facadeTexture(kind, variant), roughness: 0.82, metalness: 0.02 }),
+        );
+      }
     }
     return {
       facade,

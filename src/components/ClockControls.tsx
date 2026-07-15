@@ -29,7 +29,7 @@ const C: Record<string, CSSProperties> = {
   speedActive: { background: "#e2e8f0", color: "#1a1a1a", border: "1px solid #e2e8f0" },
 };
 
-const SPEEDS: ClockSpeed[] = [1, 2, 4];
+const SPEEDS: ClockSpeed[] = [1, 2, 4, 8];
 
 /** Paus/play och hastighet för den rullande spelklockan. */
 export function ClockControls() {

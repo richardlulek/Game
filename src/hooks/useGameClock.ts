@@ -15,11 +15,14 @@ import { daysInMonth } from "../engine/date";
 import { useGameStore } from "../store/gameStore";
 
 /** Verklig tid per spelmånad vid 1× hastighet. */
-export const MONTH_MS = 4000;
+export const MONTH_MS = 8000;
+/** Takten när ⏭ Månad spolar fram till månadsskiftet (dagarna rullar synligt). */
+const ROLL_SPEED = 8;
 
 export function useGameClock(): void {
   const running = useGameStore((s) => s.clock.running);
   const speed = useGameStore((s) => s.clock.speed);
+  const until = useGameStore((s) => s.clock.until);
 
   useEffect(() => {
     if (!running) return;
@@ -39,22 +42,32 @@ export function useGameClock(): void {
         useGameStore.getState().setRunning(false);
         return;
       }
-      acc += dt * speed;
+      // Vid månadsspolning (⏭ Månad) rullar dagarna i fast förhöjd takt
+      // oavsett vald hastighet – synligt, men snabbt.
+      acc += dt * (until != null ? ROLL_SPEED : speed);
       let ticked = false;
       let yearRolled = false;
+      let reachedTarget = false;
       // Dagssteget beror på aktuell månadslängd så varje månad tar MONTH_MS.
       let dayMs = MONTH_MS / daysInMonth(
         useGameStore.getState().state.year,
         useGameStore.getState().state.month,
       );
-      while (acc >= dayMs && !blocked()) {
+      while (acc >= dayMs && !blocked() && !reachedTarget) {
         acc -= dayMs;
         const prevYear = useGameStore.getState().state.year;
         useGameStore.getState().dispatch({ type: "NEXT_DAY" });
         ticked = true;
         const st = useGameStore.getState().state;
         if (st.year !== prevYear) yearRolled = true;
+        if (until != null && st.year * 12 + st.month >= until) reachedTarget = true;
         dayMs = MONTH_MS / daysInMonth(st.year, st.month);
+      }
+      if (reachedTarget) {
+        const store = useGameStore.getState();
+        store.save();
+        store.setRunning(false); // nollställer även until
+        return;
       }
       if (ticked) {
         const store = useGameStore.getState();
@@ -80,5 +93,5 @@ export function useGameClock(): void {
       window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onHide);
     };
-  }, [running, speed]);
+  }, [running, speed, until]);
 }

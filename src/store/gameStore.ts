@@ -10,15 +10,20 @@ import { advanceStory } from "../engine/story";
 import type { GameAction, GameState } from "../engine/types";
 import { getActiveSlot, hasSave, loadGame, saveGame, setActiveSlot } from "./persistence";
 
-export type ClockSpeed = 1 | 2 | 4;
+export type ClockSpeed = 1 | 2 | 4 | 8;
 
 interface GameStore {
   state: GameState;
   activeSlot: number;
-  /** Spelklockan: rullande månader (se hooks/useGameClock). */
-  clock: { running: boolean; speed: ClockSpeed };
+  /** Spelklockan: rullande månader (se hooks/useGameClock). `until` är ett
+   *  månadsindex (år*12+månad) – klockan spolar dit i förhöjd takt och
+   *  stannar sedan (⏭ Månad-knappen, som rullar dagarna i stället för att
+   *  hoppa direkt). */
+  clock: { running: boolean; speed: ClockSpeed; until: number | null };
   setRunning: (running: boolean) => void;
   setSpeed: (speed: ClockSpeed) => void;
+  /** Rulla dagarna i snabb takt fram till nästa månadsskifte. */
+  rollToNextMonth: () => void;
   /** Skickar en action genom den rena reducern. */
   dispatch: (action: GameAction) => void;
   /** Sparar nuvarande tillstånd till localStorage. */
@@ -34,9 +39,18 @@ interface GameStore {
 export const useGameStore = create<GameStore>((set, get) => ({
   state: placeCity(initState()),
   activeSlot: getActiveSlot(),
-  clock: { running: false, speed: 1 },
-  setRunning: (running) => set((s) => ({ clock: { ...s.clock, running } })),
+  clock: { running: false, speed: 1, until: null },
+  // Manuell paus/play nollställer alltid ett pågående månadsspolande.
+  setRunning: (running) => set((s) => ({ clock: { ...s.clock, running, until: null } })),
   setSpeed: (speed) => set((s) => ({ clock: { ...s.clock, speed } })),
+  rollToNextMonth: () =>
+    set((s) => ({
+      clock: {
+        ...s.clock,
+        running: true,
+        until: s.state.year * 12 + s.state.month + 1,
+      },
+    })),
   // advanceStory efter varje action gör att kampanjmål bockas av direkt
   // (inte först vid nästa månadstick) – brev kan dyka upp mitt i en handling.
   dispatch: (action) => set((s) => ({ state: placeCity(advanceStory(reducer(s.state, action))) })),

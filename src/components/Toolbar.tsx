@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { getVolume, playClick, setVolume } from "../audio/sound";
 import { formatGameDate } from "../engine/date";
+import { useGameStore } from "../store/gameStore";
 import { exportSaveFile, importSaveFile, saveGame } from "../store/persistence";
 import { BURGUNDY, C } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
-import type { GameAction, GameState } from "../engine/types";
+import type { GameState } from "../engine/types";
 
 interface ToolbarProps {
   state: GameState;
-  dispatch: (action: GameAction) => void;
   saved: boolean;
   onSave: () => void;
   onLoad: () => void;
@@ -20,7 +20,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  state, dispatch, saved, onSave, onLoad,
+  state, saved, onSave, onLoad,
   offersCount, onOpenOffers, soundOn, onToggleSound,
 }: ToolbarProps) {
   // Count warnings: tenants with monthsLeft <= 3 OR condition < 40 on klar properties
@@ -30,7 +30,7 @@ export function Toolbar({
     )
   ).length;
 
-  const next = (a: GameAction) => { playClick(); dispatch(a); };
+  const rollToNextMonth = useGameStore((s) => s.rollToNextMonth);
   const blocked = state.gameOver || !!state.pendingDecision;
 
   // Alltid synlig husräkning – hela beståndet, oavsett förvaltning.
@@ -49,26 +49,10 @@ export function Toolbar({
       <button
         style={{ ...S.toolbarNextBtn, ...(blocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
         disabled={blocked}
-        onClick={() => next({ type: "NEXT_MONTH" })}
-        title="Stega en månad manuellt"
+        onClick={() => { playClick(); rollToNextMonth(); }}
+        title="Spola fram till nästa månadsskifte – dagarna rullar synligt"
       >
         ⏭ Månad
-      </button>
-      <button
-        style={S.toolbarFwdBtn}
-        disabled={blocked}
-        onClick={() => next({ type: "FAST_FORWARD", months: 3 })}
-        title="Hoppa 3 månader framåt"
-      >
-        ×3
-      </button>
-      <button
-        style={S.toolbarFwdBtn}
-        disabled={blocked}
-        onClick={() => next({ type: "FAST_FORWARD", months: 12 })}
-        title="Hoppa 12 månader framåt"
-      >
-        ×12
       </button>
       <div style={{ flex: 1 }} />
       {state.portfolio.length > 0 && (

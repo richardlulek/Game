@@ -404,7 +404,7 @@ export default function FastighetsImperium() {
 
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <Toolbar
-        state={state} dispatch={dispatch} saved={saved} onSave={doSave} onLoad={doLoad}
+        state={state} saved={saved} onSave={doSave} onLoad={doLoad}
         offersCount={offersCount} onOpenOffers={() => setShowOffers(true)}
         soundOn={soundOn} onToggleSound={toggleSound}
       />
