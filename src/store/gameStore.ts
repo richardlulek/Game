@@ -53,6 +53,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })),
   // advanceStory efter varje action gör att kampanjmål bockas av direkt
   // (inte först vid nästa månadstick) – brev kan dyka upp mitt i en handling.
+  // Månadsticken kör advanceStory internt också (för spolning); det är ofarligt
+  // eftersom advanceStory är idempotent – andra körningen no-oppar.
   dispatch: (action) => set((s) => ({ state: placeCity(advanceStory(reducer(s.state, action))) })),
   save: () => saveGame(get().state, get().activeSlot),
   load: (slot?: number) => {

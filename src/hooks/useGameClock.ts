@@ -21,7 +21,13 @@ const ROLL_SPEED = 8;
 /** Minsta realtid mellan autospar. Sparar vid varje månadsskifte men aldrig
  *  oftare än så här – vid hög hastighet/spolning kan flera månader passera per
  *  sekund, och att serialisera hela tillståndet varje gång skulle hacka. */
-const SAVE_THROTTLE_MS = 2500;
+export const SAVE_THROTTLE_MS = 2500;
+
+/** Ska ett autospar ske nu? Ren funktion (testbar utan rAF-loopen): spara vid
+ *  månadsskifte, men aldrig oftare än strypgränsen. */
+export function shouldAutosave(monthRolled: boolean, now: number, lastSaveAt: number): boolean {
+  return monthRolled && now - lastSaveAt >= SAVE_THROTTLE_MS;
+}
 
 export function useGameClock(): void {
   const running = useGameStore((s) => s.clock.running);
@@ -80,7 +86,7 @@ export function useGameClock(): void {
         // Autospar vid varje månadsskifte så aldrig mer än en månads spel kan
         // tappas – men strypt på realtid så hög hastighet inte hackar av
         // ständig serialisering. Viktiga stopp sparas alltid direkt nedan.
-        if (monthRolled && now - lastSaveAt >= SAVE_THROTTLE_MS) {
+        if (shouldAutosave(monthRolled, now, lastSaveAt)) {
           store.save();
           lastSaveAt = now;
         }

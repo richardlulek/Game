@@ -2257,6 +2257,10 @@ export function advanceMonth(state: GameState): GameState {
     const net = cashLedger.reduce((a, c) => a + c.delta, 0);
     console.table([...cashLedger, { reason: "NETTO", delta: net }]);
   }
-  // Berättelseläget: injects, brev och kapitelavancemang efter månadens händelser.
+  // Berättelseläget: injects, brev och kapitelavancemang efter månadens
+  // händelser. Körs HÄR (inte bara i dispatch-pipelinen) så att flera månader
+  // i rad – t.ex. spolning – avancerar storyn per månad. advanceStory är
+  // idempotent (flagg-skyddad + billig tidig-retur), så att dispatch-pipelinen
+  // kör den en gång till på resultatet är ofarligt. Se story-idempotenstestet.
   return advanceStory(s);
 }

@@ -487,3 +487,22 @@ describe("kapitel-förstasidor", () => {
     for (const key of Object.keys(CHAPTER_FRONTS)) expect(beatById(key)).toBeDefined();
   });
 });
+
+describe("advanceStory är idempotent", () => {
+  // Skyddsnät för den avsiktliga dubbelkörningen: advanceMonth kör advanceStory
+  // internt (för spolning) och dispatch-pipelinen kör den igen på resultatet.
+  // Andra körningen får inte ändra något som redan avgjorts.
+  it("dubbel körning ger samma tillstånd i story-läge", () => {
+    const base = readLetters(storyStart());
+    const once = advanceStory(base);
+    const twice = advanceStory(once);
+    expect(twice).toEqual(once);
+  });
+
+  it("är en no-op utan story (sandbox)", () => {
+    const s = makeState();
+    const once = advanceStory(s);
+    expect(once).toBe(s); // tidig-retur → samma referens
+    expect(advanceStory(once)).toBe(once);
+  });
+});
