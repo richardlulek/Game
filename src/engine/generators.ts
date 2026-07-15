@@ -1,11 +1,11 @@
 /* ============================================================
    Generatorer för hyresgäster, marknadsobjekt och tomter.
-   Använder Math.random (samma beteende som prototypen).
+   Slumpen går via random01 (seedad PRNG, se engine/random.ts).
    ============================================================ */
 
 import { DISTRICTS, DISTRICT_GEN, PROP_TYPES, TENANT_NAMES, TENANT_PROFILES } from "./data";
 import { rateValueFactor } from "./economyLife";
-import { newId, pick, rnd } from "./random";
+import { newId, pick, random01, rnd } from "./random";
 import type { District, GameState, Lot, Property, PropTypeKey, Tenant } from "./types";
 
 /** Viktad slumpning av distrikt (vikterna speglar tomtantal per zon).
@@ -16,7 +16,7 @@ function pickDistrict(allowed?: ReadonlySet<string>): District {
     allowed && allowed.size > 0 ? DISTRICTS.filter((d) => allowed.has(d.id)) : DISTRICTS;
   const list = pool.length > 0 ? pool : DISTRICTS;
   const total = list.reduce((a, d) => a + (DISTRICT_GEN[d.id]?.weight ?? 10), 0);
-  let r = Math.random() * total;
+  let r = random01() * total;
   for (const d of list) {
     r -= DISTRICT_GEN[d.id]?.weight ?? 10;
     if (r <= 0) return d;
@@ -29,7 +29,7 @@ function pickType(district: string): PropTypeKey {
   const prof = DISTRICT_GEN[district];
   if (!prof) return pick(Object.keys(PROP_TYPES) as PropTypeKey[]);
   const total = prof.types.reduce((a, [, w]) => a + w, 0);
-  let r = Math.random() * total;
+  let r = random01() * total;
   for (const [t, w] of prof.types) {
     r -= w;
     if (r <= 0) return t;
@@ -159,7 +159,7 @@ function priceInOccupancy(p: Property): Property {
 /** Genererar en fastighet för världspoolen (off-market, ingen datumstämpel). */
 export function genWorldProperty(state: GameState, allowed?: ReadonlySet<string>): Property {
   const p = genProperty(state, [0.85, 1.15], 30, allowed);
-  if (Math.random() < 0.4)
+  if (random01() < 0.4)
     p.tenants.push(makeTenant(p.baseRent / p.capacity, state.demandMod, p.condition));
   return priceInOccupancy(p);
 }
@@ -169,9 +169,9 @@ export function genListing(state: GameState, allowed?: ReadonlySet<string>): Pro
   const p = genProperty(state, [0.9, 1.12], 35, allowed);
   const born = absMonth(state);
   p.listedMonth = born;
-  p.expiresMonth = born + 3 + Math.floor(Math.random() * 2);
+  p.expiresMonth = born + 3 + Math.floor(random01() * 2);
   // ~55 % chans att objektet redan har hyresgäst
-  if (Math.random() < 0.55)
+  if (random01() < 0.55)
     p.tenants.push(makeTenant(p.baseRent / p.capacity, state.demandMod, p.condition));
   return priceInOccupancy(p);
 }
@@ -191,6 +191,6 @@ export function genLot(state: GameState, allowed?: ReadonlySet<string>): Lot {
     area,
     price,
     listedMonth: born,
-    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+    expiresMonth: born + 3 + Math.floor(random01() * 2),
   };
 }

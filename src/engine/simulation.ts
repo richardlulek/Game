@@ -53,7 +53,7 @@ import { pendingWork, propAnnualOpex, propMarketValue, propPotentialRent } from 
 import { genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
-import { newId, pick, rnd } from "./random";
+import { newId, pick, random01, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
 import { applyStockNews, executeLimitOrders, maybeListingEvents, priceStocks, quarterlyEarnings, rivalNews, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
@@ -165,11 +165,11 @@ export function advanceMonth(state: GameState): GameState {
   if (s.marketCycle.monthsRemaining <= 0) {
     const cur = s.marketCycle.phase;
     const next: "boom" | "stable" | "bust" = cur === "stable"
-      ? (Math.random() < 0.55 ? "boom" : "bust")
+      ? (random01() < 0.55 ? "boom" : "bust")
       : "stable";
-    const dur = next === "boom" ? 10 + Math.floor(Math.random() * 14)
-              : next === "bust" ? 6 + Math.floor(Math.random() * 10)
-              : 12 + Math.floor(Math.random() * 12);
+    const dur = next === "boom" ? 10 + Math.floor(random01() * 14)
+              : next === "bust" ? 6 + Math.floor(random01() * 10)
+              : 12 + Math.floor(random01() * 12);
     s.marketCycle = { phase: next, monthsRemaining: dur };
     if (next === "boom") {
       s.marketMod = +(s.marketMod * 1.08).toFixed(3);
@@ -181,7 +181,7 @@ export function advanceMonth(state: GameState): GameState {
       events.push({ t: `📉 KONJUNKTURNEDGÅNG! Marknaden sviktar (${dur} mån kvar).`, kind: "warn" });
       // Bubbla som spricker: nedgång i ett uppblåst läge → fullskalig kris.
       // (Lugnt läge: kriser avstängda.)
-      if (!s.settings?.calmMode && !s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, Math.random())) {
+      if (!s.settings?.calmMode && !s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, random01())) {
         s.crisisMonthsLeft = CRISIS_MONTHS;
         events.push({
           t: `🚨 FASTIGHETSKRIS! Bubblan spricker: värden faller, kreditmarknaden stänger och covenants skärps. Den som har kassa köper billigt — den som är belånad kämpar för livet.`,
@@ -477,7 +477,7 @@ export function advanceMonth(state: GameState): GameState {
       const cycleRisk = cyclePhaseNow === "bust" ? 1.6 : cyclePhaseNow === "boom" ? 0.6 : 1.0;
       // Seasonal effect on default risk for residential
       const effDefaultRisk = t.defaultRisk * loyaltyFactor * recFactor * cycleRisk * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
-      if (Math.random() < effDefaultRisk) {
+      if (random01() < effDefaultRisk) {
         const evictionCost = Math.round(t.rent * 2);
         monthlyNOI -= evictionCost;
         events.push({ t: `⚠️ ${t.name} i ${np.districtName} gick i konkurs. Vräkningskostnad: ${kr(evictionCost)}.`, kind: "expense" });
@@ -485,13 +485,13 @@ export function advanceMonth(state: GameState): GameState {
       }
       // Livscykel: kommersiella hyresgäster expanderar i högkonjunktur
       // (hyr mer yta, +15 % hyra – en gång per hyresgäst).
-      if (cyclePhaseNow === "boom" && np.type !== "bostad" && !t.expanded && Math.random() < 0.01) {
+      if (cyclePhaseNow === "boom" && np.type !== "bostad" && !t.expanded && random01() < 0.01) {
         t.expanded = true;
         t.rent = Math.round(t.rent * 1.15);
         events.push({ t: `📈 ${t.name} expanderar i ${np.districtName} – hyr mer yta (+15 % hyra).`, kind: "income" });
       }
       // Djupt missnöjda lämnar i förtid (U3) – lättare i löst marknadsläge.
-      if (sat < 30 && Math.random() < 0.06 * moveP) {
+      if (sat < 30 && random01() < 0.06 * moveP) {
         movers.push(t);
         events.push({ t: `😟 ${t.name} lämnade ${np.districtName} i förtid – missnöjd (nöjdhet ${sat}).`, kind: "warn" });
         continue;
@@ -511,7 +511,7 @@ export function advanceMonth(state: GameState): GameState {
           const stayMult = Math.max(0.5, Math.min(1.3, 2 - moveP));
           const willStay = premiumRatio <= 1.10 && sat >= 30
             ? true
-            : Math.random() < (isAnchor ? 0.65 : 0.40) * satMult * stayMult;
+            : random01() < (isAnchor ? 0.65 : 0.40) * satMult * stayMult;
           if (willStay) {
             const newRent = rentTargetPct < 1.0
               ? Math.min(t.rent, targetRent)
@@ -608,7 +608,7 @@ export function advanceMonth(state: GameState): GameState {
       // från slumpsökande – de skriptade ansökningarna äger scenen.
       const apps = (np.applications ?? []).filter((a) => a.expiresAbs > nowAbsApp);
       const rate = suppressOrganicApplications(s, np) ? 0 : applicationRate(np, s, season);
-      let n = Math.floor(rate) + (Math.random() < rate - Math.floor(rate) ? 1 : 0);
+      let n = Math.floor(rate) + (random01() < rate - Math.floor(rate) ? 1 : 0);
       // Inkorgen växer inte i det oändliga.
       n = Math.min(n, Math.max(0, free + 3 - apps.length));
       if (n > 0) {
@@ -630,7 +630,7 @@ export function advanceMonth(state: GameState): GameState {
     if (movers.length > 0) {
       let chained = 0;
       s.portfolio = s.portfolio.map((p) => {
-        if (p.status === "klar" && movers.length > 0 && Math.random() < 0.4) {
+        if (p.status === "klar" && movers.length > 0 && random01() < 0.4) {
           if (suppressOrganicApplications(s, p)) return p;
           const room = p.capacity - p.tenants.length + 3 - (p.applications ?? []).length;
           if (room > 0 && p.capacity > p.tenants.length && !p.regulated) {
@@ -840,7 +840,7 @@ export function advanceMonth(state: GameState): GameState {
     s.insuranceCost = 0;
   }
   // Catastrophe: ~1.5% chance per month affects uninsured properties
-  if (Math.random() < 0.015 && s.portfolio.filter((p) => p.status === "klar").length > 0) {
+  if (random01() < 0.015 && s.portfolio.filter((p) => p.status === "klar").length > 0) {
     const uninsured = s.portfolio.filter((p) => !p.insurance && p.status === "klar");
     if (uninsured.length > 0) {
       const victim = pick(uninsured);
@@ -934,13 +934,13 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // Makrohändelse (lugnt läge: avstängt)
-  if (!s.settings?.calmMode && Math.random() < 0.35) {
+  if (!s.settings?.calmMode && random01() < 0.35) {
     const ev = pick(EVENTS);
     s = ev.apply(s);
     events.push({ t: `📰 ${ev.text}`, kind: "event" });
   }
   // Sällsynt chockhändelse (~3 % per månad; lågkonjunkturer startar här)
-  if (!s.settings?.calmMode && Math.random() < 0.03) {
+  if (!s.settings?.calmMode && random01() < 0.03) {
     const ev = pick(RARE_EVENTS);
     s = ev.apply(s);
     events.push({ t: `🚨 ${ev.text}`, kind: "warn" });
@@ -959,8 +959,8 @@ export function advanceMonth(state: GameState): GameState {
 
   // ── Distressed competitor sales ─────────────────────────────────
   for (const comp of s.competitors) {
-    if (comp.cash < 0 && (comp.portfolio ?? []).length > 0 && Math.random() < 0.30) {
-      const selling = comp.portfolio[Math.floor(Math.random() * comp.portfolio.length)];
+    if (comp.cash < 0 && (comp.portfolio ?? []).length > 0 && random01() < 0.30) {
+      const selling = comp.portfolio[Math.floor(random01() * comp.portfolio.length)];
       const distressedPrice = Math.round(selling.askPrice * rnd(0.75, 0.88));
       const born = s.year * 12 + s.month;
       s.listings = [
@@ -988,7 +988,7 @@ export function advanceMonth(state: GameState): GameState {
   const rivalIsClose = leadProgress > 0.75; // rival within striking distance
 
   // ── Competing bid on active listing (~12 % chans/mån) ──────────
-  if (!s.competingBid && s.competitors.length > 0 && s.listings.length > 0 && Math.random() < (rivalIsClose ? 0.28 : 0.12)) {
+  if (!s.competingBid && s.competitors.length > 0 && s.listings.length > 0 && random01() < (rivalIsClose ? 0.28 : 0.12)) {
     const target = pick(s.listings.filter((p) => p.status === "klar"));
     if (target) {
       const rival = pick(s.competitors);
@@ -1021,7 +1021,7 @@ export function advanceMonth(state: GameState): GameState {
   // Fusioner är numera sällsynta (0,4 %/mån) och sker bara medan det finns gott
   // om aktörer (≥4) – då köper den STARKASTE upp den svagaste. Det håller
   // marknaden mångfaldig i stället för att kollapsa till en enda jätte.
-  if (s.competitors.length >= 4 && Math.random() < 0.004) {
+  if (s.competitors.length >= 4 && random01() < 0.004) {
     const ranked = s.competitors.map((c, i) => ({ c, i })).sort((a, b) => a.c.equity - b.c.equity);
     const weakest = ranked[0];       // köps upp
     const buyer = ranked[ranked.length - 1]; // köper
@@ -1062,8 +1062,8 @@ export function advanceMonth(state: GameState): GameState {
   tickCityEvent(s, events);
 
   // ── Lokala distriktshändelser (~8 % chans/distrikt/mån) ─────────
-  if (!s.settings?.calmMode && Math.random() < 0.08) {
-    const ev = DISTRICT_EVENTS[Math.floor(Math.random() * DISTRICT_EVENTS.length)];
+  if (!s.settings?.calmMode && random01() < 0.08) {
+    const ev = DISTRICT_EVENTS[Math.floor(random01() * DISTRICT_EVENTS.length)];
     s = ev.apply(s);
     events.push({ t: `🏘️ Lokalt: ${ev.text}`, kind: "event" });
   }
@@ -1093,11 +1093,11 @@ export function advanceMonth(state: GameState): GameState {
         kind: "event",
       });
     }
-    if ((s.infraProjects ?? []).length === 0 && Math.random() < 0.015) {
+    if ((s.infraProjects ?? []).length === 0 && random01() < 0.015) {
       const kind = pick(INFRA_KINDS);
       const d = pick(DISTRICTS);
-      const months = kind.months[0] + Math.floor(Math.random() * (kind.months[1] - kind.months[0] + 1));
-      const boost = +(kind.boost[0] + Math.random() * (kind.boost[1] - kind.boost[0])).toFixed(3);
+      const months = kind.months[0] + Math.floor(random01() * (kind.months[1] - kind.months[0] + 1));
+      const boost = +(kind.boost[0] + random01() * (kind.boost[1] - kind.boost[0])).toFixed(3);
       s.infraProjects = [
         { id: newId(), name: kind.name, district: d.id, districtName: d.name, monthsLeft: months, totalMonths: months, boost },
       ];
@@ -1184,7 +1184,7 @@ export function advanceMonth(state: GameState): GameState {
       for (const d of DISTRICTS) {
         if (districtShareOf(s, d.id) >= DOMINANCE_SUPERVISED_SHARE) {
           supervised += 1;
-          if (Math.random() < 0.02) {
+          if (random01() < 0.02) {
             const target = s.portfolio.find(
               (p) => p.district === d.id && p.status === "klar" && p.type === "bostad" && !p.regulated,
             );
@@ -1311,7 +1311,7 @@ export function advanceMonth(state: GameState): GameState {
         remaining.push(proc);
         continue;
       }
-      const res = planTick(proc, s, Math.random);
+      const res = planTick(proc, s, random01);
       if (res.cost > 0) cashflow(s, -res.cost, "detaljplanekostnad");
       events.push(...res.events);
       if (res.decision) s.pendingDecision = res.decision;
@@ -1379,7 +1379,7 @@ export function advanceMonth(state: GameState): GameState {
     const buildChance = nc.strategy === "tillväxt" ? 0.05 : 0.02;
     // Bygg BARA om det finns en ledig tomtruta kvar i budgeten – annars skulle
     // huset hamna utanför kartan (spökägande). Full stad = ingen nyproduktion.
-    if (landBudget > 0 && spaceDistricts.size > 0 && cyclePhase !== "bust" && nc.cash > 8_000_000 && Math.random() < buildChance * rateAppetite(s.interestRate)) {
+    if (landBudget > 0 && spaceDistricts.size > 0 && cyclePhase !== "bust" && nc.cash > 8_000_000 && random01() < buildChance * rateAppetite(s.interestRate)) {
       // Bygg bara där det finns obebyggd mark – inga hus trängs undan.
       const build = genWorldProperty(s, spaceDistricts);
       const district =
@@ -1408,7 +1408,7 @@ export function advanceMonth(state: GameState): GameState {
     // egna hus i heta distrikt (uppåtgående/exklusivt) – deras hus reser sig på
     // kartan, upp till distriktets investeringstak. Stadens skyline mognar
     // därmed av faktiska investeringar, inte av sig själv.
-    if (cyclePhase !== "bust" && nc.cash > 5_000_000 && Math.random() < 0.035 * rateAppetite(s.interestRate)) {
+    if (cyclePhase !== "bust" && nc.cash > 5_000_000 && random01() < 0.035 * rateAppetite(s.interestRate)) {
       const idx = nc.portfolio.findIndex((p) => {
         if (p.status !== "klar") return false;
         const tier = tierOfDev(s.districtDev?.[p.district] ?? 1).id;
@@ -1434,7 +1434,7 @@ export function advanceMonth(state: GameState): GameState {
     // Strategisk försäljning: motivdriven (renodling, renoveringsobjekt,
     // vinsthemtagning i boom) – annonseras öppet så att spelaren och
     // andra rivaler konkurrerar om samma objekt.
-    if (Math.random() < rivalSellChance(nc, cyclePhase as "boom" | "bust" | "stable")) {
+    if (random01() < rivalSellChance(nc, cyclePhase as "boom" | "bust" | "stable")) {
       const sale = pickStrategicSale(nc, s, cyclePhase as "boom" | "bust" | "stable");
       if (sale) {
         const selling = nc.portfolio.splice(sale.index, 1)[0];
@@ -1447,7 +1447,7 @@ export function advanceMonth(state: GameState): GameState {
             owned: false,
             askPrice: sale.price,
             listedMonth: born,
-            expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+            expiresMonth: born + 3 + Math.floor(random01() * 2),
             poolAskPrice: undefined,
             poolBaseRent: undefined,
           },
@@ -1464,7 +1464,7 @@ export function advanceMonth(state: GameState): GameState {
     return nc;
   });
   // ── Rivalerna konkurrerar om industriobjekten (~5 %/mån) ─────────
-  if ((s.industryListings ?? []).length > 0 && s.competitors.length > 0 && Math.random() < 0.05) {
+  if ((s.industryListings ?? []).length > 0 && s.competitors.length > 0 && random01() < 0.05) {
     const target = pick(s.industryListings!);
     const buyers = s.competitors.filter((c) => c.cash > target.purchasePrice * 1.05);
     if (buyers.length > 0) {
@@ -1484,7 +1484,7 @@ export function advanceMonth(state: GameState): GameState {
   }
   // Påfyllnad: nya industriobjekt när marknaden sinar (unika verksamheter –
   // en stad har bara ett Grand Kulle Hotel).
-  if ((s.industryListings ?? []).length < 3 && Math.random() < 0.10) {
+  if ((s.industryListings ?? []).length < 3 && random01() < 0.10) {
     const existing = new Set([
       ...(s.industryListings ?? []).map((a) => a.name),
       ...(s.industryPortfolio ?? []).map((a) => a.name),
@@ -1500,7 +1500,7 @@ export function advanceMonth(state: GameState): GameState {
   // Konkurrent köper från marknaden med strategi-filtrering – även
   // objekt som andra rivaler just annonserat (rival-till-rival-affärer).
   // Köpaptiten följer räntan: billiga pengar → fler affärer.
-  if (s.competitors.length > 0 && s.listings.length > 1 && Math.random() < (rivalIsClose ? 0.55 : 0.25) * rateAppetite(s.interestRate)) {
+  if (s.competitors.length > 0 && s.listings.length > 1 && random01() < (rivalIsClose ? 0.55 : 0.25) * rateAppetite(s.interestRate)) {
     const buyer = pick(s.competitors);
     const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
     const buyable = s.listings.filter((p) => {
@@ -1551,7 +1551,7 @@ export function advanceMonth(state: GameState): GameState {
   const buyoutCandidates = s.portfolio.filter(
     (p) => p.status === "klar" && !offers.some((o) => o.propId === p.id),
   );
-  if (buyoutCandidates.length > 0 && s.competitors.length > 0 && Math.random() < 0.09) {
+  if (buyoutCandidates.length > 0 && s.competitors.length > 0 && random01() < 0.09) {
     const target = pick(buyoutCandidates);
     const premium = rnd(1.1, 1.4);
     const amount = Math.round(propMarketValue(target, s) * premium);
@@ -1588,8 +1588,8 @@ export function advanceMonth(state: GameState): GameState {
     if (existing.length === 1) {
       // Budkrig: ett bud ligger redan – 25 % chans att en annan aktör
       // bjuder över. Vänta med att svara och priset kan stiga.
-      if (Math.random() < 0.25 && s.competitors.length > 1) {
-        const rivalBid = Math.round((existing[0].amount * (1.03 + Math.random() * 0.05)) / 10_000) * 10_000;
+      if (random01() < 0.25 && s.competitors.length > 1) {
+        const rivalBid = Math.round((existing[0].amount * (1.03 + random01() * 0.05)) / 10_000) * 10_000;
         const from = pick(s.competitors.filter((c) => c.name !== existing[0].from)).name;
         offers = [
           ...offers,
@@ -1599,7 +1599,7 @@ export function advanceMonth(state: GameState): GameState {
       }
       continue;
     }
-    if (s.competitors.length > 0 && Math.random() < interestChance(A, p.forSale!.ask, value, s.marketSentiment ?? 1)) {
+    if (s.competitors.length > 0 && random01() < interestChance(A, p.forSale!.ask, value, s.marketSentiment ?? 1)) {
       const amount = offerAmount(A, p.forSale!.ask, value);
       const from = pick(s.competitors).name;
       offers = [
@@ -1613,7 +1613,7 @@ export function advanceMonth(state: GameState): GameState {
   for (const pkg of s.salePackages ?? []) {
     if (offers.some((o) => o.packageId === pkg.id)) continue;
     const st = packageStats(pkg, s);
-    if (s.competitors.length > 0 && Math.random() < st.chance) {
+    if (s.competitors.length > 0 && random01() < st.chance) {
       const amount = packageOfferAmount(pkg, s);
       const from = pick(s.competitors).name;
       offers = [
@@ -1968,7 +1968,7 @@ export function advanceMonth(state: GameState): GameState {
     const growChance =
       (phase === "boom" ? 0.3 : phase === "bust" ? 0.04 : 0.12) *
       Math.min(1.4, s.demandMod ?? 1);
-    if (Math.random() < growChance) {
+    if (random01() < growChance) {
       const pc = pickFrontierParcel(s);
       if (pc) {
         s.ambientGrown = [...(s.ambientGrown ?? []), pc.id];
@@ -1988,7 +1988,7 @@ export function advanceMonth(state: GameState): GameState {
 
   // ── Beslutshändelse (~6 %) ──────────────────────────────────────
   // Under berättelseläget står kampanjen för besluten – slumpen väntar.
-  if ((!s.story || s.story.done) && Math.random() < 0.06) {
+  if ((!s.story || s.story.done) && random01() < 0.06) {
     const decision = makeDecision(s);
     s.pendingDecision = decision;
     events.push({ t: `🤔 Beslut krävs: ${decision.title}`, kind: "event" });
@@ -2065,7 +2065,7 @@ export function advanceMonth(state: GameState): GameState {
   // Berättelseläget: bara objekt i upplåsta distrikt når marknaden.
   const storyUnlocked = unlockedDistrictsFor(s);
   if (s.listings.length < MAX_LISTINGS && pool.length > 0 && freeLandNow > 0) {
-    const want = Math.min(1 + Math.floor(Math.random() * Math.min(3, pool.length)), freeLandNow);
+    const want = Math.min(1 + Math.floor(random01() * Math.min(3, pool.length)), freeLandNow);
     const revealIdx: number[] = [];
     for (let i = 0; i < pool.length && revealIdx.length < want; i++) {
       if (!storyUnlocked || storyUnlocked.has(pool[i].district)) revealIdx.push(i);
@@ -2082,7 +2082,7 @@ export function advanceMonth(state: GameState): GameState {
         askPrice: Math.round(p.askPrice * s.marketMod),
         baseRent: Math.round(p.baseRent * s.marketMod),
         listedMonth: born,
-        expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+        expiresMonth: born + 3 + Math.floor(random01() * 2),
       })),
     ].slice(0, MAX_LISTINGS);
     s.worldPool = pool.filter((_, i) => !revealIdx.includes(i));
@@ -2102,7 +2102,7 @@ export function advanceMonth(state: GameState): GameState {
     landBudget -= 1;
     events.push({ t: `🏗️ Nyproduktion utökar marknaden: ${newProp.typeLabel} i ${newProp.districtName}.`, kind: "info" });
   }
-  if (landBudget > 0 && Math.random() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS && allowedNow.size > 0) {
+  if (landBudget > 0 && random01() < 0.4 && s.lots.filter((l) => !l.owned).length < MAX_FREE_LOTS && allowedNow.size > 0) {
     s.lots = [...s.lots, genLot(s, allowedNow)];
     landBudget -= 1;
   }
@@ -2132,7 +2132,7 @@ export function advanceMonth(state: GameState): GameState {
   if (s.debt > 0) {
     const nowAbs3 = s.year * 12 + s.month;
     if (!s.debtMatureAbs) {
-      s.debtMatureAbs = nowAbs3 + 48 + Math.floor(Math.random() * 24);
+      s.debtMatureAbs = nowAbs3 + 48 + Math.floor(random01() * 24);
     } else if (nowAbs3 >= s.debtMatureAbs) {
       const cycle = s.marketCycle?.phase ?? "stable";
       const recSpread = (s.recessionMonthsLeft ?? 0) > 0 ? 2.0 : 0;
@@ -2141,7 +2141,7 @@ export function advanceMonth(state: GameState): GameState {
       const oldRate = s.interestRate;
       const baseRate = loanTerms(s).rate + cycleSpread + recSpread + repSpread;
       s.interestRate = +(Math.min(12, Math.max(2, baseRate)).toFixed(2));
-      s.debtMatureAbs = nowAbs3 + 48 + Math.floor(Math.random() * 24);
+      s.debtMatureAbs = nowAbs3 + 48 + Math.floor(random01() * 24);
       const rateDiff = +(s.interestRate - oldRate).toFixed(2);
       events.push({
         t: `🏦 REFINANSIERING: Lånet förfaller. Ny ränta ${s.interestRate.toFixed(1)} % (${rateDiff >= 0 ? "+" : ""}${rateDiff.toFixed(1)} %). Marknad: ${cycle}${recSpread > 0 ? ", lågkonjunktur" : ""}.`,

@@ -6,7 +6,7 @@
 import { DEFAULT_COMPANY_NAME } from "./company";
 import { AI_NAMES, DISTRICTS } from "./data";
 import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, genWorldProperty, makeTenant } from "./generators";
-import { rnd } from "./random";
+import { random01, rnd } from "./random";
 import { initStocks } from "./stocks";
 import { makeIndustryAssetFromTemplate } from "./industries";
 import { INDUSTRY_TEMPLATES } from "./industryData";
@@ -21,7 +21,11 @@ export function initState(opts?: InitOptions): GameState {
   const startCash = opts?.cash ?? 5_000_000;
   const startRate = opts?.interestRate ?? 2.5;
   const rivalStrength = opts?.rivalStrength ?? 1;
+  // Partiets slumpfrö: bevaras så partiet kan reproduceras från start.
+  const seed = (opts?.seed ?? (Date.now() >>> 0)) >>> 0;
   const base: GameState = {
+    seed,
+    rng: seed,
     day: 1, // 1 januari (spelår 1 = kalenderår 2000, se engine/date.ts)
     month: 1,
     year: 1,
@@ -182,7 +186,7 @@ export function initState(opts?: InitOptions): GameState {
   base.stocks = initStocks(base.competitors);
 
   // ── Industrimarknadslistor (5 slumpmässiga från INDUSTRY_TEMPLATES) ─
-  const shuffled = [...INDUSTRY_TEMPLATES].sort(() => Math.random() - 0.5);
+  const shuffled = [...INDUSTRY_TEMPLATES].sort(() => random01() - 0.5);
   const industryListings: IndustryAsset[] = [];
   let indId = 2000;
   for (const tmpl of shuffled.slice(0, 5)) {
@@ -232,6 +236,6 @@ function toListingProp(p: Property, state: GameState): Property {
     ...p,
     owned: false,
     listedMonth: born,
-    expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+    expiresMonth: born + 3 + Math.floor(random01() * 2),
   };
 }

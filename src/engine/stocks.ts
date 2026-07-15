@@ -6,7 +6,7 @@
    ============================================================ */
 
 import { kr } from "./format";
-import { newId, rnd } from "./random";
+import { newId, random01, rnd } from "./random";
 import type { Competitor, GameState, LimitOrder, Sector, Stock, StockNews } from "./types";
 
 const COURTAGE = 0.003; // 0,3 % avgift per affär
@@ -54,13 +54,13 @@ export function applyStockNews(
   stocks: Stock[],
   date: StockDate = { day: 1, month: 1, year: 1 },
 ): { stocks: Stock[]; newsEntry: string | null } {
-  if (Math.random() > 0.20 || stocks.length === 0)
+  if (random01() > 0.20 || stocks.length === 0)
     return { stocks, newsEntry: null };
-  const idx = Math.floor(Math.random() * stocks.length);
+  const idx = Math.floor(random01() * stocks.length);
   const target = stocks[idx];
-  const tmpl = STOCK_NEWS[Math.floor(Math.random() * STOCK_NEWS.length)];
+  const tmpl = STOCK_NEWS[Math.floor(random01() * STOCK_NEWS.length)];
   const [lo, hi] = tmpl.impact;
-  const mult = lo + Math.random() * (hi - lo);
+  const mult = lo + random01() * (hi - lo);
   const newPrice = Math.max(1, Math.round(target.price * mult * 100) / 100);
   const text = tmpl.text.replace("{n}", target.name);
   const dir: "up" | "down" | "flat" = mult > 1.01 ? "up" : mult < 0.99 ? "down" : "flat";
@@ -71,8 +71,8 @@ export function applyStockNews(
   else if (tmpl.text.includes("bättre än väntat") || tmpl.text.includes("storkontrakt") || tmpl.text.includes("förvärvsrykte") || tmpl.text.includes("aktieåterköp") || tmpl.text.includes("rekordutdelning")) newRating = "Köp";
   // Update EPS based on earnings beat/miss
   let epsMultiplier = 1.0;
-  if (tmpl.text.includes("vinst bättre än väntat")) epsMultiplier = 1 + (Math.random() * 0.12 + 0.05);
-  if (tmpl.text.includes("vinst sämre än väntat")) epsMultiplier = 1 - (Math.random() * 0.12 + 0.05);
+  if (tmpl.text.includes("vinst bättre än väntat")) epsMultiplier = 1 + (random01() * 0.12 + 0.05);
+  if (tmpl.text.includes("vinst sämre än väntat")) epsMultiplier = 1 - (random01() * 0.12 + 0.05);
 
   return {
     stocks: stocks.map((s) =>
@@ -126,7 +126,7 @@ export function rivalNews(
     } else if (prevNOI > 0 && curNOI > prevNOI * 1.12) {
       text = `${c.name}: starkt driftnetto lyfter aktien`;
       dir = "up"; mult = rnd(1.02, 1.05);
-    } else if (c.lastBuy && Math.random() < 0.25) {
+    } else if (c.lastBuy && random01() < 0.25) {
       text = `${c.name} förvärvade ${c.lastBuy}`;
       dir = "up"; mult = rnd(1.005, 1.02);
     }
@@ -164,11 +164,11 @@ export function maybeListingEvents(
   );
 
   // ── Nynotering (IPO): ~4 % chans, om poolen har bolag som inte redan finns.
-  if (Math.random() < 0.04) {
+  if (random01() < 0.04) {
     const listedNames = new Set(next.map((s) => s.name));
     const candidates = IPO_POOL.filter((d) => !listedNames.has(d.name));
     if (candidates.length > 0) {
-      const d = candidates[Math.floor(Math.random() * candidates.length)];
+      const d = candidates[Math.floor(random01() * candidates.length)];
       const price = Math.round(d.price * rnd(0.95, 1.08) * 100) / 100;
       const stock: Stock = {
         ...d,
@@ -192,12 +192,12 @@ export function maybeListingEvents(
   }
 
   // ── Samgående (M&A): ~2 % chans, två externbolag i samma bransch → ett.
-  if (Math.random() < 0.02) {
+  if (random01() < 0.02) {
     const ext = externals();
     if (ext.length >= 2) {
-      const acquirer = ext[Math.floor(Math.random() * ext.length)];
+      const acquirer = ext[Math.floor(random01() * ext.length)];
       const targetPool = ext.filter((s) => s.id !== acquirer.id && s.sector === acquirer.sector);
-      const targ = targetPool.length > 0 ? targetPool[Math.floor(Math.random() * targetPool.length)] : null;
+      const targ = targetPool.length > 0 ? targetPool[Math.floor(random01() * targetPool.length)] : null;
       if (targ) {
         const bumped = Math.round(acquirer.price * rnd(1.04, 1.10) * 100) / 100;
         next = next
@@ -211,10 +211,10 @@ export function maybeListingEvents(
   }
 
   // ── Avnotering: ~1,5 % chans, ett svagt externbolag lämnar börsen.
-  if (Math.random() < 0.015) {
+  if (random01() < 0.015) {
     const weak = externals().filter((s) => s.price < 40);
     if (weak.length > 0) {
-      const gone = weak[Math.floor(Math.random() * weak.length)];
+      const gone = weak[Math.floor(random01() * weak.length)];
       next = next.filter((s) => s.id !== gone.id);
       events.push(`⚠️ Avnotering: ${gone.name} lämnar börsen efter svag utveckling.`);
     }
@@ -515,7 +515,7 @@ export function quarterlyEarnings(
     if (st.competitorName === "__player__") return st; // FBAB hanteras separat
     // Sannolikhet för "beat": högre när sentiment är bra
     const beatProb = 0.45 + (marketSentiment - 1) * 0.25;
-    const beat = Math.random() < beatProb;
+    const beat = random01() < beatProb;
     const surprise = beat
       ? 1.0 + rnd(0.04, 0.18) // +4 till +18 %
       : 1.0 - rnd(0.04, 0.16); // −4 till −16 %

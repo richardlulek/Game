@@ -6,6 +6,7 @@
 import { create } from "zustand";
 import { initState, reducer } from "../engine";
 import { placeCity } from "../engine/city";
+import { readRng, seedRng } from "../engine/random";
 import { advanceStory } from "../engine/story";
 import type { GameAction, GameState } from "../engine/types";
 import { getActiveSlot, hasSave, loadGame, saveGame, setActiveSlot } from "./persistence";
@@ -55,7 +56,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // (inte först vid nästa månadstick) – brev kan dyka upp mitt i en handling.
   // Månadsticken kör advanceStory internt också (för spolning); det är ofarligt
   // eftersom advanceStory är idempotent – andra körningen no-oppar.
-  dispatch: (action) => set((s) => ({ state: placeCity(advanceStory(reducer(s.state, action))) })),
+  //
+  // Slumpen seedas HÄR: PRNG:n sätts från tillståndets rng före reducern och
+  // det framflyttade tillståndet läses tillbaka efteråt, så samma frö + samma
+  // händelsesekvens ger identiskt utfall (determinism/replay).
+  dispatch: (action) =>
+    set((s) => {
+      seedRng(s.state.rng ?? s.state.seed ?? (Date.now() >>> 0));
+      const next = placeCity(advanceStory(reducer(s.state, action)));
+      return { state: { ...next, rng: readRng() } };
+    }),
   save: () => saveGame(get().state, get().activeSlot),
   load: (slot?: number) => {
     const s = slot ?? get().activeSlot;

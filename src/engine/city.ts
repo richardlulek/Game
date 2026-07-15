@@ -18,6 +18,7 @@
    ============================================================ */
 
 import { ENERGY_SITES } from "./industryData";
+import { random01 } from "./random";
 import type { GameState, IndustryAsset } from "./types";
 
 /** En tomtruta på kartan (världskoordinater, centrum i x/z). */
@@ -406,7 +407,7 @@ export function claimRandomParcel(
   // Med frö → deterministiskt val (salt skiljer de tre valställena åt);
   // utan frö → oförändrat slumpbeteende.
   const pickIndex = (len: number, salt: number) =>
-    seed === undefined ? Math.floor(Math.random() * len) : seededIndex(seed + salt, len);
+    seed === undefined ? Math.floor(random01() * len) : seededIndex(seed + salt, len);
   const all = parcelsIn(district).filter((p) => (allowed ? allowed(p) : !p.expansion));
   const free = all.filter((p) => !occupied.has(p.id));
   const empty = free.filter((p) => !hasAmbientBuilding(p, grown));
@@ -638,7 +639,7 @@ export function frontierScore(state: GameState, p: Parcel): number {
  *  staden växer sammanhängande utåt. `null` när det inte finns ledig mark. */
 export function pickFrontierParcel(
   state: GameState,
-  rand: () => number = Math.random,
+  rand: () => number = random01,
 ): Parcel | null {
   const candidates = emptyParcels(state);
   if (candidates.length === 0) return null;

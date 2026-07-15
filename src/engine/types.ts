@@ -287,6 +287,8 @@ export interface InitOptions {
   /** Konkurs avstängd – kassan kan gå hur djupt som helst. */
   noBankruptcy?: boolean;
   difficulty?: DifficultyId;
+  /** Slumpfrö för reproducerbart parti (default: tidsstämpel). */
+  seed?: number;
 }
 
 /** Spelinställningar som måste följa med sparfilen (simuleringen läser dem). */
@@ -679,6 +681,11 @@ export interface GlobalManagerSettings {
 
 /** Hela speltillståndet. */
 export interface GameState {
+  /** Ursprungsfröet för partiets slump (satt vid start). Bevaras för replay. */
+  seed?: number;
+  /** Aktuellt PRNG-tillstånd. Seedas/läses av dispatch-boundaryn i gameStore
+      så att samma frö + samma händelsesekvens ger identiskt utfall. */
+  rng?: number;
   /** Dag i månaden (1..antal dagar i månaden). Kalendern rullar dag för dag
       för mjukt flöde; den tunga ekonomin räknas fortfarande per månad i
       advanceMonth. Se engine/date.ts för kalenderkonvertering (spelår 1 =

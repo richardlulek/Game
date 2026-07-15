@@ -57,7 +57,7 @@ export function listSaveSlots(): SlotInfo[] {
 }
 
 /** Höj denna när sparfilsformatet ändras och lägg till en migrering nedan. */
-export const SAVE_VERSION = 28;
+export const SAVE_VERSION = 29;
 
 /** Äldsta version som kan laddas. Stadskarta 3.0 (v19) ritade om
  *  distrikten i grunden – äldre sparfiler går inte att migrera. */
@@ -187,6 +187,12 @@ const migrations: Record<number, (state: GameState) => GameState> = {
       purchasePrice: industryListPrice(a, s),
     })),
   }),
+  // v28 → v29: seedad RNG. Saknas frö i en gammal sparfil initieras det till
+  // ett färskt värde – determinism gäller framåt, vilket räcker.
+  28: (s) => {
+    const seed = s.seed ?? s.rng ?? (Date.now() >>> 0);
+    return { ...s, seed, rng: s.rng ?? seed };
+  },
 };
 
 /** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */

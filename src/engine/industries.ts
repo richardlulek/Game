@@ -7,6 +7,7 @@
 import { INDUSTRY_UPGRADES, HOTEL_BOOKING_CHANNELS } from "./industryData";
 import { cityEventHotelMult, cityEventLogisticsMult, cityEventSpotMult } from "./cityEvents";
 import { hotelRevParBoost, energySpotBoost, logisticsThroughputBoost } from "./progression";
+import { random01 } from "./random";
 import type {
   GameState,
   IndustryAsset,
@@ -276,13 +277,13 @@ export function tickLogistik(asset: IndustryAsset, state: GameState): [number, n
 
   // SLA-risk och konkurscheck per kontrakt
   const updatedContracts = meta.throughputContracts.map((c) => {
-    if (Math.random() < c.defaultRisk) {
+    if (random01() < c.defaultRisk) {
       const penalty = Math.round(c.ratePerM3 * c.guaranteedM3);
       revenue = Math.max(0, revenue - penalty);
       events.push({ t: `📦 Klientkonkurs: ${c.clientName} hos ${asset.name} – kontrakt avslutat (${kr(penalty)}).`, kind: "warn" });
       return null;
     }
-    if (Math.random() < c.penaltyRisk) {
+    if (random01() < c.penaltyRisk) {
       const sla = Math.round(c.ratePerM3 * c.guaranteedM3 * 0.15);
       revenue = Math.max(0, revenue - sla);
       events.push({ t: `⚠️ SLA-miss hos ${asset.name}: ${kr(sla)} i straffavgift.`, kind: "expense" });

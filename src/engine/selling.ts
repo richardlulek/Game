@@ -9,6 +9,7 @@
    ============================================================ */
 
 import { propMarketValue, propNOI } from "./property";
+import { random01 } from "./random";
 import type { Competitor, GameState, Property, SalePackage } from "./types";
 
 /* Köparna är stadens rivalbolag (AI_NAMES) – då stannar sålda hus
@@ -40,7 +41,7 @@ export function interestChance(A: number, ask: number, value: number, sentiment:
 /** Budbelopp: attraktiva objekt bjuds nära utgångspriset, svaga lågt. */
 export function offerAmount(A: number, ask: number, value: number): number {
   const anchor = Math.min(ask, value * (0.86 + 0.17 * A));
-  const wiggle = 0.97 + Math.random() * 0.06;
+  const wiggle = 0.97 + random01() * 0.06;
   return Math.max(10_000, Math.round((anchor * wiggle) / 10_000) * 10_000);
 }
 
@@ -89,7 +90,7 @@ export function packageStats(pkg: SalePackage, s: GameState): PackageStats {
 export function packageOfferAmount(pkg: SalePackage, s: GameState): number {
   const st = packageStats(pkg, s);
   const anchor = Math.min(pkg.ask, st.value * (0.86 + 0.17 * st.attractiveness) * st.premium);
-  const wiggle = 0.97 + Math.random() * 0.06;
+  const wiggle = 0.97 + random01() * 0.06;
   return Math.max(10_000, Math.round((anchor * wiggle) / 10_000) * 10_000);
 }
 
@@ -121,7 +122,7 @@ export function pickStrategicSale(
       const value = propMarketValue(pf[idx], s);
       return {
         index: idx,
-        price: Math.round(value * (0.97 + Math.random() * 0.06)),
+        price: Math.round(value * (0.97 + random01() * 0.06)),
         motive: `renodlar mot ${c.preferredDistrict}`,
       };
     }
@@ -132,7 +133,7 @@ export function pickStrategicSale(
     const value = propMarketValue(pf[wornIdx], s);
     return {
       index: wornIdx,
-      price: Math.round(value * (0.82 + Math.random() * 0.08)),
+      price: Math.round(value * (0.82 + random01() * 0.08)),
       motive: "säljer renoveringsobjekt",
     };
   }
@@ -143,13 +144,13 @@ export function pickStrategicSale(
       0,
     );
     const value = propMarketValue(pf[idx], s);
-    const premium = phase === "boom" ? 1.02 + Math.random() * 0.1 : 0.97 + Math.random() * 0.08;
+    const premium = phase === "boom" ? 1.02 + random01() * 0.1 : 0.97 + random01() * 0.08;
     return { index: idx, price: Math.round(value * premium), motive: phase === "boom" ? "tar hem vinsten i högkonjunkturen" : "frigör kapital" };
   }
   // 4) Annars: trimma det svagaste innehavet (lägst skick).
   const idx = pf.reduce((worst, p, i) => (p.condition < pf[worst].condition ? i : worst), 0);
   const value = propMarketValue(pf[idx], s);
-  return { index: idx, price: Math.round(value * (0.94 + Math.random() * 0.08)), motive: "trimmar portföljen" };
+  return { index: idx, price: Math.round(value * (0.94 + random01() * 0.08)), motive: "trimmar portföljen" };
 }
 
 /** Säljbenägenhet per månad: strategi × konjunkturfas. */

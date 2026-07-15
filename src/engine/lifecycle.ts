@@ -5,7 +5,7 @@
    Ren, testbar TypeScript utan React-beroenden.
    ============================================================ */
 
-import { rnd } from "./random";
+import { random01, rnd } from "./random";
 import type { GameState, Property } from "./types";
 
 /* ── Byggnadslivscykel ─────────────────────────────────────────────────────
@@ -52,6 +52,6 @@ export function isObsolete(p: Property, state: GameState): boolean {
 export function nextBidRound(amount: number, round: number): { amount: number; fold: boolean } {
   if (round >= 3) return { amount, fold: true };
   const foldChance = round === 1 ? 0.25 : round === 2 ? 0.5 : 0.8;
-  if (Math.random() < foldChance) return { amount, fold: true };
+  if (random01() < foldChance) return { amount, fold: true };
   return { amount: Math.round(amount * rnd(1.08, 1.16)), fold: false };
 }

@@ -11,6 +11,7 @@
    En händelse i taget, 1–2 månader. Ren logik utan React-beroenden.
    ============================================================ */
 
+import { random01 } from "./random";
 import type { GameState, LogEntry } from "./types";
 
 export interface CityEventDef {
@@ -89,7 +90,7 @@ export const cityEventOpexMult = (s: GameState) =>
   active(s, "elkris") ? 1.08 : 1;
 
 /** Månadstick: räknar ner pågående händelse och lottar fram nya (~4 %/mån). */
-export function tickCityEvent(s: GameState, events: LogEntry[], rand: () => number = Math.random): void {
+export function tickCityEvent(s: GameState, events: LogEntry[], rand: () => number = random01): void {
   if (s.cityEvent && s.cityEvent.monthsLeft > 0) {
     const next = s.cityEvent.monthsLeft - 1;
     if (next <= 0) {

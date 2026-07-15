@@ -44,7 +44,7 @@ import {
   buildMonthsDelta,
   hireFee,
 } from "./progression";
-import { newId } from "./random";
+import { newId, random01 } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
 import { MEMORY_NOTES, applyStoryFlag, districtLocked, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById, suppressOrganicApplications } from "./story";
@@ -232,7 +232,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const baseProb =
         ratio >= 0.97 ? 0.92 : ratio >= 0.92 ? 0.62 : ratio >= 0.85 ? 0.34 : ratio >= 0.78 ? 0.13 : 0.03;
       const acceptProb = Math.min(0.98, baseProb + bidBonus(state));
-      if (Math.random() < acceptProb) {
+      if (random01() < acceptProb) {
         const loan = bid - down;
         const txEntry = { type: "köp" as const, price: bid, month: state.month, year: state.year, party: "Spelaren" };
         return {
@@ -252,7 +252,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ],
         };
       }
-      const withdrawn = Math.random() < 0.25;
+      const withdrawn = random01() < 0.25;
       if (!withdrawn)
         return {
           ...state,
@@ -269,7 +269,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // portfölj med tomtrutan kvar. Utan bolag återgår den till poolen.
       const rival =
         state.competitors.length > 0
-          ? state.competitors[Math.floor(Math.random() * state.competitors.length)]
+          ? state.competitors[Math.floor(random01() * state.competitors.length)]
           : undefined;
       const paid = Math.max(bid + 1, Math.round(p.askPrice * 0.97));
       const soldAway: Property = {
@@ -327,7 +327,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         owned: false,
         askPrice: value,
         listedMonth: born,
-        expiresMonth: born + 3 + Math.floor(Math.random() * 2),
+        expiresMonth: born + 3 + Math.floor(random01() * 2),
         txHistory: [...(p.txHistory ?? []), sellTx],
         // Nytt förhandlat pris – gammal pool-snapshot gäller inte längre.
         poolAskPrice: undefined,
@@ -887,7 +887,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Nöjda hyresgäster tål höjningar bättre (U3).
       const satMult    = Math.max(0.3, Math.min(1.25, (tenant.satisfaction ?? 60) / 65));
       const acceptProb = Math.min(0.98, baseProb * satMult);
-      if (Math.random() < acceptProb) {
+      if (random01() < acceptProb) {
         return {
           ...markNegotiated(state),
           portfolio: state.portfolio.map((x) =>
@@ -1070,7 +1070,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const buyer =
         state.competitors.find((c) => c.name === offer.from) ??
         (state.competitors.length > 0
-          ? state.competitors[Math.floor(Math.random() * state.competitors.length)]
+          ? state.competitors[Math.floor(random01() * state.competitors.length)]
           : undefined);
       const soldProp = (x: Property, price: number): Property => ({
         ...x,
@@ -1190,7 +1190,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           : 0;
       const ceiling = offer.amount * (1.02 + 0.1 * A);
       const stretch = offer.amount * (1.1 + 0.08 * A);
-      const accepted = amount <= ceiling || (amount <= stretch && Math.random() < 0.35);
+      const accepted = amount <= ceiling || (amount <= stretch && random01() < 0.35);
       if (accepted) {
         const bumped: GameState = {
           ...state,
@@ -1431,7 +1431,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const qty = Math.max(1, Math.floor(action.qty));
       const limitPrice = Math.max(0.01, +action.limitPrice.toFixed(2));
       const newOrder = {
-        id: String(Date.now()) + String(Math.random()),
+        id: String(Date.now()) + String(random01()),
         stockId: action.stockId,
         stockName: st.name,
         side: action.side,
@@ -1470,7 +1470,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const down = action.amount * (1 - maxLtv);
       if (state.cash < down)
         return log(state, `Du behöver ${msek(down)} i handpenning för att köpa av ${action.competitorName}.`, "warn");
-      const accepted = ratio >= 1.25 || (ratio >= 1.1 && Math.random() < 0.70);
+      const accepted = ratio >= 1.25 || (ratio >= 1.1 && random01() < 0.70);
       if (!accepted) {
         return log(
           state,
@@ -1521,7 +1521,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Accepteras garanterat vid ≥110 %, 50 % chans vid 105–110 %
       const accepted =
         action.amount >= ref * 1.10 ||
-        (action.amount >= ref * 1.05 && Math.random() < 0.5);
+        (action.amount >= ref * 1.05 && random01() < 0.5);
       if (!accepted) {
         return log(
           state,
@@ -2298,7 +2298,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (state.cash < action.amount)
         return log(state, `Industriköp betalas kontant – du behöver ${msek(action.amount)}.`, "warn");
       const ratio = action.amount / Math.max(1, ref);
-      const accepted = ratio >= 1.25 || (ratio >= 1.1 && Math.random() < 0.7);
+      const accepted = ratio >= 1.25 || (ratio >= 1.1 && random01() < 0.7);
       if (!accepted)
         return log(state, `${comp.name} avböjde ditt bud på ${asset.name} (${msek(action.amount)}). Bjud minst 125 % av värdet (${msek(Math.round(ref * 1.25))}) för garanterat svar.`, "warn");
       const bought: IndustryAsset = {
@@ -2580,7 +2580,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           (c.agenda?.kind === "district" && c.agenda.district === a.district ? 0.75 : 0.3) -
           a.round * 0.12;
         const theirBid = Math.round((myBid * 1.08) / 10_000) * 10_000;
-        if (c.cash + (c.equity ?? 0) * 0.3 >= theirBid && Math.random() < aggression) {
+        if (c.cash + (c.equity ?? 0) * 0.3 >= theirBid && random01() < aggression) {
           if (!counter || theirBid > counter.bid) counter = { name: c.name, bid: theirBid };
         }
       }
