@@ -441,6 +441,36 @@ export function claimRandomParcel(
   return chosen;
 }
 
+/** Är allt redan korrekt placerat? Sant ⇒ placeCity blir en no-op och kan
+ *  hoppa direkt till `return state`. Konservativ: returnerar false vid minsta
+ *  osäkerhet (projektkvarter, oplacerat/dubblerat/ogiltigt objekt). */
+function isFullyPlaced(state: GameState): boolean {
+  if ((state.cityProjects ?? []).length || (state.signatureBlocks ?? []).length) return false;
+  const seenParcel = new Set<string>();
+  const seenSite = new Set<string>();
+  const okParcel = (o: { parcelId?: string }): boolean => {
+    if (!o.parcelId || !BY_ID.has(o.parcelId) || seenParcel.has(o.parcelId)) return false;
+    seenParcel.add(o.parcelId);
+    return true;
+  };
+  const okIndustry = (a: IndustryAsset): boolean => {
+    if (a.sector !== "energi") return okParcel(a);
+    // Energiparker: giltigt, unikt site-läge och ingen kvarleva på tomtruta.
+    if (a.parcelId || !a.siteId || seenSite.has(a.siteId)) return false;
+    if (!ENERGY_SITES.some((s) => s.id === a.siteId)) return false;
+    seenSite.add(a.siteId);
+    return true;
+  };
+  for (const p of state.portfolio) if (!okParcel(p)) return false;
+  for (const l of state.lots) if (!okParcel(l)) return false;
+  for (const p of state.listings) if (!okParcel(p)) return false;
+  for (const c of state.competitors) for (const p of c.portfolio ?? []) if (!okParcel(p)) return false;
+  for (const a of state.industryPortfolio ?? []) if (!okIndustry(a)) return false;
+  for (const a of state.industryListings ?? []) if (!okIndustry(a)) return false;
+  for (const c of state.competitors) for (const a of c.industries ?? []) if (!okIndustry(a)) return false;
+  return true;
+}
+
 /**
  * Placerar alla synliga objekt på tomtrutor. Idempotent: objekt med
  * giltig, ledig ruta behåller den; övriga får en ledig ruta i sitt
@@ -449,6 +479,12 @@ export function claimRandomParcel(
  * Världspoolen rörs aldrig – den är abstrakt tills objekt avslöjas.
  */
 export function placeCity(state: GameState): GameState {
+  // Snabb tidig-retur för det vanliga jämviktsläget: har alla objekt redan
+  // giltiga, unika rutor (energi: giltigt unikt site-läge) och finns inga
+  // projektkvarter att reservera, behöver inget flyttas – hoppa över de tunga
+  // set- och array-allokeringarna nedan. Konservativ: minsta tveksamhet faller
+  // igenom till den fulla, ordningssäkra placeringen.
+  if (isFullyPlaced(state)) return state;
   let anyChanged = false;
   const unlocked = new Set(state.unlockedBlocks ?? []);
   const grown = new Set(state.ambientGrown ?? []);
