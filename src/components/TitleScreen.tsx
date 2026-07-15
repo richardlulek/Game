@@ -122,21 +122,21 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
       <div style={frame}>
         {phase === "start" && (
           <>
-            <div style={overline}>· ETABLERAT 1925 ·</div>
-            <div style={title}>FASTIGHETS&shy;IMPERIUM</div>
+            <div style={overline}>· ESTABLISHED 1925 ·</div>
+            <div style={title}>PROPERTY&shy;EMPIRE</div>
             <div style={rule}>
               <span style={diamond}>◆</span>
             </div>
-            <div style={subtitle}>Res ett imperium kvarter för kvarter</div>
+            <div style={subtitle}>Build an empire block by block</div>
 
             <div style={btnRow}>
               {anySave && (
                 <button style={contBtn} onClick={() => setPhase("slots-continue")}>
-                  Fortsätt spela
+                  Continue
                 </button>
               )}
               <button style={newBtn} onClick={() => setPhase("slots-new")}>
-                {anySave ? "Nytt spel" : "Börja spela"}
+                {anySave ? "New game" : "Start playing"}
               </button>
             </div>
           </>
@@ -145,7 +145,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
         {(phase === "slots-continue" || phase === "slots-new") && (
           <>
             <div style={{ fontFamily: FONTS.heading, fontSize: 20, fontWeight: 700, color: C.brassBright, marginBottom: 16 }}>
-              {phase === "slots-continue" ? "Välj sparslot" : "Välj slot för nytt spel"}
+              {phase === "slots-continue" ? "Choose a save slot" : "Choose a slot for a new game"}
             </div>
             <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", justifyContent: "center" }}>
               {slots.map((sl) => (
@@ -179,24 +179,24 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                       {sl.equity !== undefined ? msek(sl.equity) : ""}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 11, color: C.brassDim, marginTop: 4 }}>Tom slot</div>
+                    <div style={{ fontSize: 11, color: C.brassDim, marginTop: 4 }}>Empty slot</div>
                   )}
                 </div>
               ))}
             </div>
             <div style={btnRow}>
-              <button style={contBtn} onClick={() => setPhase("start")}>← Tillbaka</button>
+              <button style={contBtn} onClick={() => setPhase("start")}>← Back</button>
               {phase === "slots-continue" ? (
                 <button
                   style={{ ...newBtn, opacity: slots.find(s => s.slot === selectedSlot)?.exists ? 1 : 0.4 }}
                   disabled={!slots.find(s => s.slot === selectedSlot)?.exists}
                   onClick={() => onContinue(selectedSlot)}
                 >
-                  Ladda spel
+                  Load game
                 </button>
               ) : (
                 <button style={newBtn} onClick={() => setPhase("scenario")}>
-                  Välj spelläge →
+                  Choose game mode →
                 </button>
               )}
             </div>
@@ -206,7 +206,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
         {phase === "scenario" && pickerView === "modes" && (
           <>
             <div style={{ fontFamily: FONTS.heading, fontSize: 22, fontWeight: 700, color: C.brassBright, marginBottom: 16 }}>
-              Välj spelläge (Slot {selectedSlot})
+              Choose game mode (Slot {selectedSlot})
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640, width: "100%", marginBottom: 14 }}>
               {/* 1. Berättelseläget */}
@@ -219,7 +219,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                     <div style={{ flex: 1 }}>
                       <div style={modeTitle}>
                         {sc.title}
-                        <span style={badge}>REKOMMENDERAS FÖRSTA GÅNGEN</span>
+                        <span style={badge}>RECOMMENDED FIRST TIME</span>
                       </div>
                       <div style={modeDesc}>{sc.desc}</div>
                     </div>
@@ -234,10 +234,10 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                   <div onClick={() => setSelectedId("sandbox")} style={modeCard(sel)}>
                     <div style={{ fontSize: 32 }}>∞</div>
                     <div style={{ flex: 1 }}>
-                      <div style={modeTitle}>Friläge</div>
+                      <div style={modeTitle}>Sandbox</div>
                       <div style={modeDesc}>
-                        Inget vinstmål – bygg fritt i din egen takt.
-                        {custom && <strong style={{ color: C.brassBright }}> · Anpassad</strong>}
+                        No win condition – build freely at your own pace.
+                        {custom && <strong style={{ color: C.brassBright }}> · Custom</strong>}
                       </div>
                       {sel && (
                         <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8 }}>
@@ -245,12 +245,12 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                             style={{ ...customToggle, color: showCustom ? C.brassBright : C.creamSoft }}
                             onClick={() => setShowCustom((v) => !v)}
                           >
-                            {showCustom ? "▲ Dölj anpassningar" : "⚙ Anpassa friläget"}
+                            {showCustom ? "▲ Hide options" : "⚙ Customize sandbox"}
                           </button>
                           {showCustom && (
                             <div style={customPanel}>
                               <label style={customLabel}>
-                                Startkapital: <strong style={{ color: C.brassBright }}>{msek(eff.cash)}</strong>
+                                Starting cash: <strong style={{ color: C.brassBright }}>{msek(eff.cash)}</strong>
                                 <input
                                   type="range" min={1_000_000} max={20_000_000} step={500_000}
                                   value={eff.cash}
@@ -259,17 +259,17 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                                 />
                               </label>
                               <label style={customLabel}>
-                                Ränteläge:
+                                Interest rate:
                                 <span style={pillRow}>
-                                  {([["Lågt", 1.5], ["Normalt", 2.5], ["Högt", 4.5]] as const).map(([lbl, r]) => (
+                                  {([["Low", 1.5], ["Normal", 2.5], ["High", 4.5]] as const).map(([lbl, r]) => (
                                     <button key={lbl} style={pill(eff.rate === r)} onClick={() => editCustom({ rate: r })}>
-                                      {lbl} {r.toFixed(1).replace(".", ",")} %
+                                      {lbl} {r.toFixed(1)}%
                                     </button>
                                   ))}
                                 </span>
                               </label>
                               <label style={customLabel}>
-                                Rivaler: <strong style={{ color: C.brassBright }}>{eff.rivals} st</strong>
+                                Rivals: <strong style={{ color: C.brassBright }}>{eff.rivals}</strong>
                                 <input
                                   type="range" min={0} max={AI_NAMES.length} step={1}
                                   value={eff.rivals}
@@ -278,9 +278,9 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                                 />
                               </label>
                               <label style={customLabel}>
-                                Rivalernas styrka:
+                                Rival strength:
                                 <span style={pillRow}>
-                                  {([["Snälla", 0.7], ["Normala", 1], ["Hungriga", 1.4]] as const).map(([lbl, v]) => (
+                                  {([["Gentle", 0.7], ["Normal", 1], ["Hungry", 1.4]] as const).map(([lbl, v]) => (
                                     <button key={lbl} style={pill(eff.strength === v)} onClick={() => editCustom({ strength: v })}>
                                       {lbl}
                                     </button>
@@ -290,16 +290,16 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                               <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                                 <label style={{ ...customLabel, flexDirection: "row", alignItems: "center", gap: 7, cursor: "pointer" }}>
                                   <input type="checkbox" checked={eff.calm} onChange={(e) => editCustom({ calm: e.target.checked })} style={{ accentColor: C.brass }} />
-                                  Lugnt läge (händelser & kriser av)
+                                  Calm mode (events & crises off)
                                 </label>
                                 <label style={{ ...customLabel, flexDirection: "row", alignItems: "center", gap: 7, cursor: "pointer" }}>
                                   <input type="checkbox" checked={eff.immortal} onChange={(e) => editCustom({ immortal: e.target.checked })} style={{ accentColor: C.brass }} />
-                                  Konkurs av
+                                  Bankruptcy off
                                 </label>
                               </div>
                               {custom && (
                                 <button style={{ ...customToggle, alignSelf: "flex-start" }} onClick={() => setCustom(null)}>
-                                  ↺ Återställ till {difficultyById(difficulty).label.toLowerCase()}
+                                  ↺ Reset to {difficultyById(difficulty).label.toLowerCase()}
                                 </button>
                               )}
                             </div>
@@ -315,11 +315,11 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
               <div onClick={() => setPickerView("folder")} style={modeCard(isChallenge(selectedId))}>
                 <div style={{ fontSize: 32 }}>🗂️</div>
                 <div style={{ flex: 1 }}>
-                  <div style={modeTitle}>Scenarier & utmaningar</div>
+                  <div style={modeTitle}>Scenarios & challenges</div>
                   <div style={modeDesc}>
                     {isChallenge(selectedId)
-                      ? <>Valt: <strong style={{ color: C.brassBright }}>{SCENARIOS.find((x) => x.id === selectedId)?.title}</strong> – klicka för att byta</>
-                      : `${SCENARIOS.filter((x) => isChallenge(x.id)).length} utmaningar med vinstmål – från Snabbstarten till Hotellkungen`}
+                      ? <>Selected: <strong style={{ color: C.brassBright }}>{SCENARIOS.find((x) => x.id === selectedId)?.title}</strong> – click to change</>
+                      : `${SCENARIOS.filter((x) => isChallenge(x.id)).length} challenges with win goals – from The Quick Start to The Hotel King`}
                   </div>
                 </div>
                 <div style={{ color: C.brassDim, fontSize: 20 }}>›</div>
@@ -329,7 +329,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
             {/* Svårighet (gäller Friläge & scenarier – Arvet har egen balans) */}
             {selectedId !== "arvet" && (
               <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <label style={{ fontSize: 11, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>SVÅRIGHET</label>
+                <label style={{ fontSize: 11, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>DIFFICULTY</label>
                 <div style={pillRow}>
                   {DIFFICULTIES.map((d) => (
                     <button key={d.id} style={pill(difficulty === d.id && !custom)} onClick={() => pickDifficulty(d.id)} title={d.desc}>
@@ -338,14 +338,14 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                   ))}
                   {custom && <span style={{ ...pill(true), cursor: "default" }}>⚙ Anpassad</span>}
                 </div>
-                <div style={{ fontSize: 11, color: C.creamSoft }}>{custom ? "Egna inställningar för friläget." : difficultyById(difficulty).desc}</div>
+                <div style={{ fontSize: 11, color: C.creamSoft }}>{custom ? "Custom sandbox settings." : difficultyById(difficulty).desc}</div>
               </div>
             )}
 
             {/* Bolagsnamn (arvet: namnet ärvs – byts i kapitel 6) */}
             <div style={{ marginBottom: 18, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, visibility: selectedId === "arvet" ? "hidden" : "visible" }}>
               <label style={{ fontSize: 12, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>
-                DITT BOLAGS NAMN
+                YOUR COMPANY NAME
               </label>
               <input
                 value={companyName}
@@ -356,13 +356,13 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
             </div>
             <div style={btnRow}>
               <button style={contBtn} onClick={() => setPhase("slots-new")}>
-                ← Tillbaka
+                ← Back
               </button>
               <button
                 style={newBtn}
                 onClick={() => onNew(selectedId, selectedSlot, companyName.trim() || DEFAULT_COMPANY_NAME, buildOptions())}
               >
-                {selectedId === "arvet" ? "📜 Öppna testamentet" : "Grunda bolaget"}
+                {selectedId === "arvet" ? "📜 Open the will" : "Found the company"}
               </button>
             </div>
           </>
@@ -371,10 +371,10 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
         {phase === "scenario" && pickerView === "folder" && (
           <>
             <div style={{ fontFamily: FONTS.heading, fontSize: 22, fontWeight: 700, color: C.brassBright, marginBottom: 6 }}>
-              🗂️ Scenarier & utmaningar
+              🗂️ Scenarios & challenges
             </div>
             <div style={{ fontSize: 12, color: C.creamSoft, marginBottom: 14 }}>
-              Spellägen med vinstmål – rivalerna tävlar mot samma mål. Välj ett för att gå tillbaka.
+              Game modes with win goals – rivals race for the same target. Pick one to go back.
             </div>
             <div style={{
               display: "grid",
@@ -409,7 +409,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
             </div>
             <div style={btnRow}>
               <button style={contBtn} onClick={() => setPickerView("modes")}>
-                ← Tillbaka till lägen
+                ← Back to modes
               </button>
             </div>
           </>

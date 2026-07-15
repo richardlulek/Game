@@ -62,69 +62,69 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
 
   return (
     <div style={S.statusBar}>
-      <NumChip label="Kassa" value={state.cash} format={msek} valueColor={state.cash < -200_000 ? "#f87a7a" : state.cash < 0 ? "#f5c842" : "#80e080"} />
+      <NumChip label="Cash" value={state.cash} format={msek} valueColor={state.cash < -200_000 ? "#f87a7a" : state.cash < 0 ? "#f5c842" : "#80e080"} />
       {state.portfolio.length > 0 && (
         <Chip
-          label="Fastigheter"
+          label="Properties"
           value={buildingHouses > 0 ? `${ownedHouses} 🏠 (+${buildingHouses} 🏗️)` : `${ownedHouses} 🏠`}
         />
       )}
-      <NumChip label="Eget kapital" value={equity} format={msek} />
-      <NumChip label="Skuld" value={state.debt} format={msek} />
+      <NumChip label="Equity" value={equity} format={msek} />
+      <NumChip label="Debt" value={state.debt} format={msek} />
       <Chip label="LTV" value={pct(ltv)} valueColor={ltvColor} />
       {state.debt > 0 && monthsToMaturity !== null && monthsToMaturity <= 12 && (
-        <Chip label="Lån förfaller" value={`${monthsToMaturity} mån`} valueColor={monthsToMaturity <= 6 ? "#f87a7a" : "#f5c842"} />
+        <Chip label="Loan due" value={`${monthsToMaturity} mo`} valueColor={monthsToMaturity <= 6 ? "#f87a7a" : "#f5c842"} />
       )}
-      <NumChip label="Kassaflöde/mån" value={cashFlow} format={kr} valueColor={cashFlow >= 0 ? "#80e080" : "#f87a7a"} />
-      <Chip label="Ränta" value={terms.rate + " %"} />
+      <NumChip label="Cash flow/mo" value={cashFlow} format={kr} valueColor={cashFlow >= 0 ? "#80e080" : "#f87a7a"} />
+      <Chip label="Rate" value={terms.rate + "%"} />
       <Chip label="Reputation" value={String(Math.round(state.reputation))} />
       <Chip label="Rank" value={`#${myRank}`} valueColor={rankColor} />
-      <Chip label="Bolag" value={`${tierForLevel(state.companyLevel ?? 1).icon} Nivå ${state.companyLevel ?? 1}`} />
+      <Chip label="Company" value={`${tierForLevel(state.companyLevel ?? 1).icon} Level ${state.companyLevel ?? 1}`} />
       {state.portfolio.length > 0 && (() => {
         const load = orgLoadOf(state);
         return (
           <Chip
-            label="Förvaltning"
+            label="Management"
             value={`${load.selfManaged}/${load.cap}`}
             valueColor={load.over > 0 ? "#f87a7a" : undefined}
           />
         );
       })()}
       {state.marketMod < 0.97 && (
-        <Chip label="Marknad" value={`${((state.marketMod - 1) * 100).toFixed(0)} %`} valueColor="#f87a7a" />
+        <Chip label="Market" value={`${((state.marketMod - 1) * 100).toFixed(0)}%`} valueColor="#f87a7a" />
       )}
       {state.marketMod > 1.03 && (
-        <Chip label="Marknad" value={`+${((state.marketMod - 1) * 100).toFixed(0)} %`} valueColor="#80e080" />
+        <Chip label="Market" value={`+${((state.marketMod - 1) * 100).toFixed(0)}%`} valueColor="#80e080" />
       )}
       {state.demandMod < 0.97 && (
-        <Chip label="Efterfrågan" value={`${((state.demandMod - 1) * 100).toFixed(0)} %`} valueColor="#f87a7a" />
+        <Chip label="Demand" value={`${((state.demandMod - 1) * 100).toFixed(0)}%`} valueColor="#f87a7a" />
       )}
       {(state.recessionMonthsLeft ?? 0) > 0 && (
-        <Chip label="Lågkonjunktur" value={`${state.recessionMonthsLeft} mån`} valueColor="#f87a7a" />
+        <Chip label="Recession" value={`${state.recessionMonthsLeft} mo`} valueColor="#f87a7a" />
       )}
       {state.marketCycle?.phase === "boom" && (
-        <Chip label="Konjunktur" value={`📈 BOOM (${state.marketCycle.monthsRemaining} mån)`} valueColor="#80e080" />
+        <Chip label="Cycle" value={`📈 BOOM (${state.marketCycle.monthsRemaining} mo)`} valueColor="#80e080" />
       )}
       {state.marketCycle?.phase === "bust" && (
-        <Chip label="Konjunktur" value={`📉 BUST (${state.marketCycle.monthsRemaining} mån)`} valueColor="#f87a7a" />
+        <Chip label="Cycle" value={`📉 BUST (${state.marketCycle.monthsRemaining} mo)`} valueColor="#f87a7a" />
       )}
       {(state.pendingRenewals ?? []).length > 0 && (
-        <Chip label="Förhandlingar" value={`⏰ ${state.pendingRenewals!.length} avtal`} valueColor="#f5c842" />
+        <Chip label="Renewals" value={`⏰ ${state.pendingRenewals!.length} leases`} valueColor="#f5c842" />
       )}
       {(state.totalTaxPaid ?? 0) > 0 && (
-        <Chip label="Skatt i år" value={kr(state.totalTaxPaid ?? 0)} />
+        <Chip label="Tax this year" value={kr(state.totalTaxPaid ?? 0)} />
       )}
       {state.ipoActive && (state.takeoverPressure ?? 0) > 30 && (
         <Chip
-          label="Uppköpstryck"
-          value={`${Math.round(state.takeoverPressure ?? 0)} %`}
+          label="Takeover pressure"
+          value={`${Math.round(state.takeoverPressure ?? 0)}%`}
           valueColor={(state.takeoverPressure ?? 0) >= 75 ? "#f87a7a" : "#f5c842"}
         />
       )}
       {(state.industryPortfolio ?? []).length > 0 && (() => {
         const noi = calcIndustryNOI(state);
         return (
-          <NumChip label="Industri NOI/mån" value={noi} format={kr} valueColor={noi >= 0 ? "#80e080" : "#f87a7a"} />
+          <NumChip label="Industry NOI/mo" value={noi} format={kr} valueColor={noi >= 0 ? "#80e080" : "#f87a7a"} />
         );
       })()}
     </div>

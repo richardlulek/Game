@@ -46,9 +46,9 @@ export function ClockControls() {
         style={{ ...C.play, ...(blocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
         disabled={blocked}
         onClick={() => setRunning(!running)}
-        title="Rullande tid: månaderna tickar av sig själva"
+        title="Rolling time: months tick by on their own"
       >
-        {running ? "❚❚ Paus" : "► Spela"}
+        {running ? "❚❚ Pause" : "► Play"}
       </button>
       {SPEEDS.map((v) => (
         <button

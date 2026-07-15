@@ -40,7 +40,7 @@ export function Toolbar({
   return (
     <div style={S.toolbar}>
       <div style={S.toolbarLogo}>
-        FASTIGHETS<span style={{ color: BURGUNDY }}>IMPERIUM</span>
+        PROPERTY<span style={{ color: BURGUNDY }}>EMPIRE</span>
       </div>
       <div style={S.toolbarDate}>
         {formatGameDate(state.day ?? 1, state.month, state.year)}
@@ -50,15 +50,15 @@ export function Toolbar({
         style={{ ...S.toolbarNextBtn, ...(blocked ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}
         disabled={blocked}
         onClick={() => { playClick(); rollToNextMonth(); }}
-        title="Spola fram till nästa månadsskifte – dagarna rullar synligt"
+        title="Fast-forward to the next month – days roll visibly"
       >
-        ⏭ Månad
+        ⏭ Month
       </button>
       <div style={{ flex: 1 }} />
       {state.portfolio.length > 0 && (
         <div
           style={{ ...S.toolbarMiniBtn, cursor: "default", color: "#ffd080" }}
-          title="Antal fastigheter du äger"
+          title="Number of properties you own"
         >
           🏠 {ownedHouses}{buildingHouses > 0 ? ` (+${buildingHouses})` : ""}
         </div>
@@ -67,13 +67,13 @@ export function Toolbar({
         <button
           style={{ ...S.toolbarMiniBtn, borderColor: BURGUNDY, color: "#ffd080" }}
           onClick={onOpenOffers}
-          title="Inkommande bud på dina fastigheter"
+          title="Incoming bids on your properties"
         >
           📨 {offersCount}
         </button>
       )}
       <button style={S.toolbarMiniBtn} onClick={onSave}>
-        {saved ? "✓ Sparat" : "Spara"}
+        {saved ? "✓ Saved" : "Save"}
       </button>
       <SettingsMenu
         state={state}
@@ -82,7 +82,7 @@ export function Toolbar({
         onToggleSound={onToggleSound}
       />
       {warnCount > 0 && (
-        <div style={S.toolbarWarn} title="Fastigheter som kräver åtgärd">
+        <div style={S.toolbarWarn} title="Properties needing attention">
           ⚠ {warnCount}
         </div>
       )}
@@ -125,10 +125,10 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
   const doImport = async (file: File) => {
     const imported = importSaveFile(await file.text());
     if (!imported) {
-      window.alert("Filen gick inte att läsa som en sparfil.");
+      window.alert("The file could not be read as a save file.");
       return;
     }
-    if (!window.confirm("Importera sparfilen? Den skriver över spelet i aktiv slot.")) return;
+    if (!window.confirm("Import the save file? It overwrites the game in the active slot.")) return;
     saveGame(imported); // in i aktiv slot …
     onLoad();           // … och ladda den direkt.
   };
@@ -146,7 +146,7 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
       <button
         style={{ ...S.toolbarMiniBtn, ...(open ? { borderColor: BURGUNDY, color: "#ffd080" } : {}) }}
         onClick={() => setOpen(!open)}
-        title="Inställningar: ljud, ladda och sparfiler"
+        title="Settings: sound, load and save files"
       >
         ⚙
       </button>
@@ -158,14 +158,14 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
           boxShadow: "0 10px 28px rgba(0,0,0,0.5)",
         }}>
           <div style={row}>
-            <span style={{ color: C.creamSoft }}>Ljud</span>
+            <span style={{ color: C.creamSoft }}>Sound</span>
             <button style={S.toolbarMiniBtn} onClick={onToggleSound}>
-              {soundOn ? "🔊 På" : "🔇 Av"}
+              {soundOn ? "🔊 On" : "🔇 Off"}
             </button>
           </div>
           {soundOn && (
             <div style={row}>
-              <span style={{ color: C.creamSoft }}>Volym</span>
+              <span style={{ color: C.creamSoft }}>Volume</span>
               <input
                 type="range"
                 min={0}
@@ -180,17 +180,17 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
           <div style={{ height: 1, background: `${C.brass}44`, margin: "6px 0" }} />
           <div style={row}>
             <button style={rowBtn} onClick={() => { setOpen(false); onLoad(); }}>
-              📂 Ladda sparat spel
+              📂 Load saved game
             </button>
           </div>
           <div style={row}>
-            <button style={rowBtn} onClick={doExport} title="Ladda ner en sparfil (JSON) som säkerhetskopia">
-              ⬇︎ Exportera sparfil
+            <button style={rowBtn} onClick={doExport} title="Download a save file (JSON) as a backup">
+              ⬇︎ Export save file
             </button>
           </div>
           <div style={row}>
-            <button style={rowBtn} onClick={() => fileRef.current?.click()} title="Läs in en tidigare exporterad sparfil">
-              ⬆︎ Importera sparfil
+            <button style={rowBtn} onClick={() => fileRef.current?.click()} title="Load a previously exported save file">
+              ⬆︎ Import save file
             </button>
           </div>
           <input

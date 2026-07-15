@@ -18,19 +18,19 @@ function deriveTutorialStep(state: GameState): number {
 
 const STEPS = [
   {
-    title: "Välkommen till Fastighetsimperium!",
+    title: "Welcome to Property Empire!",
     // Startkapitalet varierar med svårighet/anpassningar – fyll i vid render.
-    body: "Du startar med {CASH} i kassan. Gå till Marknad-fliken och köp din första fastighet — välj ett objekt som passar din budget och klicka Köp.",
+    body: "You start with {CASH} in the bank. Open the Market tab and buy your first property — pick one that fits your budget and click Buy.",
     icon: "🏠",
   },
   {
-    title: "Hyr ut fastigheten",
-    body: "Bra! Nu behöver du hyresgäster. Öppna fastighetskortet och klicka Uthyr för att fylla lediga platser — fler hyresgäster ger bättre kassaflöde.",
+    title: "Lease the property",
+    body: "Great! Now you need tenants. Open the property card and click Lease to fill vacant units — more tenants means better cash flow.",
     icon: "🤝",
   },
   {
-    title: "Kör första månaden",
-    body: "Klicka på Nästa Månad (▶) i verktygsfältet för att starta kassaflödet. Kolla sedan Finans-fliken för en genomgång av dina intäkter, räntor och skatter.",
+    title: "Run the first month",
+    body: "Click Next Month (▶) in the toolbar to start the cash flow. Then check the Finance tab for a rundown of your revenue, interest and taxes.",
     icon: "📅",
   },
 ];
@@ -62,7 +62,7 @@ export function OnboardingOverlay({ state, dispatch }: Props) {
         <button
           onClick={() => dispatch({ type: "DISMISS_TUTORIAL" })}
           style={{ background: "none", border: "none", cursor: "pointer", color: "#888", fontSize: 16, lineHeight: 1, padding: 0 }}
-          title="Stäng guiden"
+          title="Close the guide"
         >
           ×
         </button>

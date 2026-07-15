@@ -90,25 +90,25 @@ const TAB_GROUPS: string[][] = [
 ];
 
 const TABS = [
-  { id: "company",   label: "Bolag" },
+  { id: "company",   label: "Company" },
   { id: "policy",    label: "Policy" },
-  { id: "portfolio", label: "Portfölj" },
-  { id: "market",    label: "Marknad" },
-  { id: "build",     label: "Bygg" },
-  { id: "stocks",    label: "Börs" },
-  { id: "finance",   label: "Finans" },
-  { id: "research",  label: "Forskning" },
-  { id: "staff",     label: "Anställda" },
-  { id: "rivals",    label: "Topp" },
-  { id: "log",       label: "Logg" },
-  { id: "acquisition",  label: "Förvärv" },
-  { id: "districts",    label: "Distrikt" },
-  { id: "calendar",     label: "Kalender" },
-  { id: "tenants",      label: "Hyresgäster" },
-  { id: "nyheter",      label: "Nyheter" },
-  { id: "statistik",    label: "Statistik" },
-  { id: "industri",    label: "Industri" },
-  { id: "ind_marknad", label: "Ind. Marknad" },
+  { id: "portfolio", label: "Portfolio" },
+  { id: "market",    label: "Market" },
+  { id: "build",     label: "Build" },
+  { id: "stocks",    label: "Stocks" },
+  { id: "finance",   label: "Finance" },
+  { id: "research",  label: "Research" },
+  { id: "staff",     label: "Staff" },
+  { id: "rivals",    label: "Top" },
+  { id: "log",       label: "Log" },
+  { id: "acquisition",  label: "Acquisitions" },
+  { id: "districts",    label: "Districts" },
+  { id: "calendar",     label: "Calendar" },
+  { id: "tenants",      label: "Tenants" },
+  { id: "nyheter",      label: "News" },
+  { id: "statistik",    label: "Stats" },
+  { id: "industri",    label: "Industry" },
+  { id: "ind_marknad", label: "Ind. Market" },
 ];
 
 export default function FastighetsImperium() {
@@ -417,12 +417,12 @@ export default function FastighetsImperium() {
           borderBottom: `1px solid ${C.brass}`,
           display: "flex", justifyContent: "center", alignItems: "center", gap: 16,
         }}>
-          Spelet är slut — {state.year} år spelade
+          Game over — {state.year} years played
           <button
             style={{ ...S.toolbarNextBtn, padding: "5px 14px", fontSize: 13 }}
             onClick={() => dispatch({ type: "RESET" })}
           >
-            Spela igen
+            Play again
           </button>
         </div>
       )}
@@ -439,7 +439,7 @@ export default function FastighetsImperium() {
             ...(upgrade.qualified ? { color: "#ffd700" } : {}),
           }}
           onClick={() => (wins.includes("company") ? closeWindow("company") : openWindow("company"))}
-          title={upgrade.qualified ? "Bolaget är redo att expandera!" : "Öppna Bolag"}
+          title={upgrade.qualified ? "The company is ready to expand!" : "Open Company"}
         >
           {tierForLevel(companyLevel).icon} {state.companyName ?? "Mitt Fastighetsbolag"}
           {upgrade.qualified ? " ⬆" : ""}
@@ -474,7 +474,7 @@ export default function FastighetsImperium() {
                   key={id}
                   style={{ ...iconTabStyle, ...(open ? iconTabActiveStyle : {}) }}
                   onClick={() => (open ? closeWindow(id) : openWindow(id))}
-                  title={`${t.label}${count !== null ? ` (${count})` : ""} — ${open ? "stäng" : "öppna"}`}
+                  title={`${t.label}${count !== null ? ` (${count})` : ""} — ${open ? "close" : "open"}`}
                 >
                   {TAB_ICONS[id] ?? "▫️"}
                   {count !== null && count > 0 && <span style={iconBadgeStyle}>{count}</span>}
@@ -553,8 +553,8 @@ export default function FastighetsImperium() {
                   <div>
                     {state.portfolio.length === 0 ? (
                       <div style={S.empty}>
-                        Inga fastigheter ännu. Gå till <strong>Marknad</strong> eller{" "}
-                        <strong>Bygg</strong> – eller klicka på ett objekt med gul ring på kartan.
+                        No properties yet. Go to <strong>Market</strong> or{" "}
+                        <strong>Build</strong> – or click an object with a yellow ring on the map.
                       </div>
                     ) : (
                       <>
@@ -575,7 +575,7 @@ export default function FastighetsImperium() {
                                   border: `1px solid ${C.brassDim}`, background: C.wood, color: C.brassBright,
                                 }}
                               >
-                                <option value="value">Värde ↓</option>
+                                <option value="value">Value ↓</option>
                                 <option value="yield">Yield ↓</option>
                                 <option value="condition">Skick ↓</option>
                                 <option value="noi">NOI ↓</option>
@@ -594,7 +594,7 @@ export default function FastighetsImperium() {
                                   color: portfolioView === v ? C.brassBright : C.creamSoft,
                                 }}
                               >
-                                {v === "list" ? "☰ Lista" : "▦ Kort"}
+                                {v === "list" ? "☰ List" : "▦ Cards"}
                               </button>
                             ))}
                           </div>
@@ -698,7 +698,7 @@ export default function FastighetsImperium() {
                   ...(isTop ? { background: C.burgundy, color: C.brassBright } : {}),
                   ...(isMin ? { opacity: 0.55 } : {}),
                 }}
-                title={isMin ? "Återställ" : isTop ? "Minimera" : "Fokusera"}
+                title={isMin ? "Restore" : isTop ? "Minimize" : "Focus"}
                 onClick={() => {
                   if (isMin) openWindow(id);
                   else if (isTop) minimizeWindow(id);
@@ -744,7 +744,7 @@ export default function FastighetsImperium() {
           }}>
             <div style={{ fontSize: 52, marginBottom: 8 }}>🏆</div>
             <div style={{ fontFamily: FONTS.heading, fontSize: 26, fontWeight: 900, color: BURGUNDY, marginBottom: 6 }}>
-              Seger!
+              Victory!
             </div>
             {(() => {
               const sc = SCENARIOS.find((x) => x.id === state.scenarioId);
@@ -756,17 +756,17 @@ export default function FastighetsImperium() {
                   {sc && (
                     <div style={{ fontSize: 15, color: C.inkSoft, marginBottom: 12 }}>
                       {sc.title}: {sc.subtitle}<br />
-                      <span style={{ fontSize: 13 }}>Spelat klart {formatGameDate(state.day ?? 1, state.month, state.year)}</span>
+                      <span style={{ fontSize: 13 }}>Completed {formatGameDate(state.day ?? 1, state.month, state.year)}</span>
                     </div>
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18, textAlign: "left" }}>
                     {[
-                      ["Eget kapital", msek(equity)],
-                      ["Portföljvärde", msek(portfolioVal)],
-                      ["Fastigheter", `${state.portfolio.length} st`],
-                      ["Totalt i hyror", msek(totalRentEarned)],
+                      ["Equity", msek(equity)],
+                      ["Portfolio value", msek(portfolioVal)],
+                      ["Properties", `${state.portfolio.length}`],
+                      ["Total rent earned", msek(totalRentEarned)],
                       ["Reputation", `${Math.round(state.reputation)}`],
-                      ["Milstolpar", `${milestonesCount} / 10`],
+                      ["Milestones", `${milestonesCount} / 10`],
                     ].map(([label, val]) => (
                       <div key={label as string} style={{ background: "#e4eaf2", borderRadius: 4, padding: "8px 12px" }}>
                         <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
@@ -782,13 +782,13 @@ export default function FastighetsImperium() {
                 onClick={() => setShowVictory(false)}
                 style={{ padding: "10px 24px", borderRadius: 4, border: `1px solid ${C.brass}`, background: "transparent", color: C.ink, fontWeight: 700, cursor: "pointer" }}
               >
-                Fortsätt spela
+                Keep playing
               </button>
               <button
                 onClick={() => { setShowVictory(false); dispatch({ type: "RESET" }); setStarted(false); }}
                 style={{ padding: "10px 24px", borderRadius: 4, border: `1px solid ${C.brass}`, background: BURGUNDY, color: C.brassBright, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body }}
               >
-                Nytt spel
+                New game
               </button>
             </div>
           </div>
@@ -819,7 +819,7 @@ export default function FastighetsImperium() {
           }}
         >
           {cinematic.hint ?? "…"}{" "}
-          <span style={{ opacity: 0.55, fontSize: 11 }}>· klicka för att fortsätta</span>
+          <span style={{ opacity: 0.55, fontSize: 11 }}>· click to continue</span>
         </div>
       )}
       <OnboardingOverlay state={state} dispatch={dispatch} />
@@ -836,25 +836,25 @@ export default function FastighetsImperium() {
             boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
           }}>
             <div style={{ fontFamily: FONTS.heading, color: BURGUNDY, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>
-              ⚡ BUDKRIG PÅGÅR{cb.round && cb.round > 1 ? ` · RUNDA ${cb.round}` : ""}
+              ⚡ BIDDING WAR{cb.round && cb.round > 1 ? ` · ROUND ${cb.round}` : ""}
             </div>
             <div style={{ fontSize: 13, color: C.parchment, marginBottom: 12 }}>
-              {cb.rivalName} har lagt <strong style={{ color: C.gold }}>{(cb.amount / 1_000_000).toFixed(1)} MSEK</strong>
-              {listing ? ` på ${listing.typeLabel} i ${listing.districtName}` : ""}.
-              Höj budet 2 % för att pressa dem – de kan kontra i upp till tre rundor.
+              {cb.rivalName} bid <strong style={{ color: C.gold }}>{(cb.amount / 1_000_000).toFixed(1)} MSEK</strong>
+              {listing ? ` on ${listing.typeLabel} in ${listing.districtName}` : ""}.
+              Raise your bid 2% to push them – they can counter for up to three rounds.
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => dispatch({ type: "ACCEPT_COMPETING_BID" })}
                 style={{ flex: 1, padding: "9px", background: BURGUNDY, color: C.parchment, border: "none", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body, fontSize: 13 }}
               >
-                Höj budet ({((cb.amount * 1.02) / 1_000_000).toFixed(1)} MSEK)
+                Raise the bid ({((cb.amount * 1.02) / 1_000_000).toFixed(1)} MSEK)
               </button>
               <button
                 onClick={() => dispatch({ type: "PASS_COMPETING_BID" })}
                 style={{ padding: "9px 14px", background: "transparent", color: C.creamSoft, border: `1px solid ${C.brass}55`, borderRadius: 4, cursor: "pointer", fontFamily: FONTS.body, fontSize: 12 }}
               >
-                Låt dem köpa
+                Let them buy
               </button>
             </div>
           </div>
