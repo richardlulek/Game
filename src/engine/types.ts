@@ -778,6 +778,8 @@ export interface GameState {
   auction?: Auction | null;
   /** Senaste ESG-betyg (A–F) – för att upptäcka förändringar. */
   esgRating?: string;
+  /** Senaste publika hyresgästbetyg (A–F) – för att upptäcka bandbyten. */
+  tenantScoreLetter?: string;
   /** Distriktens nuvarande statusnivå (för att upptäcka byten). */
   districtTiers?: Record<string, string>;
   /** Bolagspolicy – portföljstandarder med per-fastighet-överstyrning. */

@@ -1,6 +1,7 @@
 import { formatMonthYear } from "../engine/date";
 import { equityOf } from "../engine/finance";
 import { articleTarget, editorNotes, marketForecast, upcomingHeadlines, type NavIntent } from "../engine/newsroom";
+import { tenantScoreOf } from "../engine/tenantScore";
 import { personaFor } from "../engine/rivalPersonas";
 import { cinematicPointFor } from "../engine/story";
 import type { GameState, LogEntry } from "../engine/types";
@@ -78,6 +79,7 @@ export function NewsFeedPanel({ state, onBuyPr }: Props) {
   const forecast = marketForecast(state);
   const notes = editorNotes(state).slice(0, 2);
   const upcoming = upcomingHeadlines(state);
+  const tenantScore = tenantScoreOf(state);
 
   // Köp-PR-knapp: kostnad skalar med bolagsnivå; cooldown 6 mån (speglar reducern).
   const prLevel = state.companyLevel ?? 1;
@@ -229,6 +231,7 @@ export function NewsFeedPanel({ state, onBuyPr }: Props) {
               <Row k="Policy rate" v={`${state.interestRate.toFixed(2)}%`} />
               <Row k="Your standing" v={`#${rank} of ${field}`} />
               <Row k="Reputation" v={`${Math.round(state.reputation)}/100`} />
+              <Row k="Tenant score" v={`${tenantScore.letter} · ${tenantScore.label}`} />
               <div style={{ borderTop: `1px solid ${rule}44`, marginTop: 6, paddingTop: 6, fontSize: 11, lineHeight: 1.35, color: "#5a3f10", fontStyle: "italic" }}>
                 <strong style={{ fontStyle: "normal", color: sepia }}>Forecast: </strong>{forecast}
               </div>

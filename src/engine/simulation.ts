@@ -30,6 +30,7 @@ import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
 import { makeScandal, scandalRisk } from "./newsroom";
+import { tenantScoreOf } from "./tenantScore";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
   ACTIVIST_TAKEOVER_AT,
@@ -1908,6 +1909,30 @@ export function advanceMonth(state: GameState): GameState {
     // Dålig hållbarhet göder aktivister efter börsnoteringen.
     if (s.ipoActive && rating.spreadDelta > 0)
       s.takeoverPressure = Math.min(100, (s.takeoverPressure ?? 0) + 1.5);
+  }
+
+  // ── Hyresgästbetyg: publikt rykte som andas långsamt ─────────────
+  // Väger samman nöjdhet/lojalitet/klagomål/vakans till ETT betyg (A–F).
+  // Höga betyg lyfter reputation långsamt, låga drar ned – hur du behandlar
+  // hyresgästerna blir en reputationsfråga, inte bara en siffra i en flik.
+  {
+    const ts = tenantScoreOf(s);
+    const hasTenants = s.portfolio.some((p) => p.tenants.length > 0);
+    if (hasTenants) {
+      if (ts.score >= 80) s.reputation = Math.min(100, +(s.reputation + 0.2).toFixed(1));
+      else if (ts.score < 35) s.reputation = Math.max(0, +(s.reputation - 0.3).toFixed(1));
+    }
+    const prev = s.tenantScoreLetter;
+    if (hasTenants && prev && prev !== ts.letter) {
+      const improved = ts.letter < prev; // "A" < "B" < … (bättre = tidigare bokstav)
+      events.push({
+        t: improved
+          ? `🌟 Tenant score up to ${ts.letter} — "${ts.label}". Word of a fair landlord spreads.`
+          : `📉 Tenant score slips to ${ts.letter} — "${ts.label}". Renters are grumbling.`,
+        kind: improved ? "income" : "warn",
+      });
+    }
+    if (hasTenants) s.tenantScoreLetter = ts.letter;
   }
 
   // ── Rivalagendor: utspel när målen närmar sig ────────────────────

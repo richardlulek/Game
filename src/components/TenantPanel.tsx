@@ -2,6 +2,7 @@ import { useState } from "react";
 import { makeTenant } from "../engine/generators";
 import { kr } from "../engine/format";
 import { propPotentialRent } from "../engine/property";
+import { tenantScoreOf } from "../engine/tenantScore";
 import type { GameAction, GameState, Property, Tenant } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
@@ -106,8 +107,31 @@ export function TenantPanel({ state, dispatch }: Props) {
     </th>
   );
 
+  const score = tenantScoreOf(state);
+
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
+
+      {/* Tenant score — public reputation with your renters */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, background: C.woodDark, border: `1px solid ${C.brass}33`, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: FONTS.heading, fontWeight: 900, fontSize: 22, color: "#fff",
+          background: ESG_COLOR[score.letter] ?? C.brass,
+        }}>
+          {score.letter}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5 }}>Tenant score</div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: C.gold }}>{score.score}/100 · {score.label}</div>
+          <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 2 }}>
+            {score.tenants === 0
+              ? "No tenants yet — your reputation with renters is unwritten."
+              : `Avg. satisfaction ${score.breakdown.avgSatisfaction}${score.breakdown.loyaltyBonus > 0 ? ` · loyalty +${score.breakdown.loyaltyBonus}` : ""}${score.breakdown.complaintPenalty > 0 ? ` · complaints −${score.breakdown.complaintPenalty}` : ""}${score.breakdown.vacancyPenalty > 0 ? ` · vacancy −${score.breakdown.vacancyPenalty}` : ""}`}
+          </div>
+        </div>
+      </div>
 
       {/* Pending renewals */}
       {pendingRenewals.length > 0 && (
