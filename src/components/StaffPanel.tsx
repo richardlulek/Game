@@ -9,9 +9,9 @@ interface Props {
 }
 
 const ADVISOR_DEFS = [
-  { id: "ekonom", name: "Ekonomisk rådgivare", repRequired: 60, effect: "Ger analysstöd och marknadsöversikter.", icon: "📊" },
-  { id: "jurist", name: "Juridisk rådgivare", repRequired: 80, effect: "Halverar omklasningstid för zon-ändringar.", icon: "⚖️" },
-  { id: "kapitalstrateg", name: "Kapitalstrateg", repRequired: 95, effect: "Sänker räntepåslag med 0,2 %.", icon: "💼" },
+  { id: "ekonom", name: "Economic advisor", repRequired: 60, effect: "Provides analytics support and market overviews.", icon: "📊" },
+  { id: "jurist", name: "Legal advisor", repRequired: 80, effect: "Halves rezoning time for zone changes.", icon: "⚖️" },
+  { id: "kapitalstrateg", name: "Capital strategist", repRequired: 95, effect: "Lowers the interest spread by 0.2%.", icon: "💼" },
 ];
 
 export function StaffPanel({ state, dispatch }: Props) {
@@ -21,12 +21,12 @@ export function StaffPanel({ state, dispatch }: Props) {
     <div>
       <div style={strip}>
         <div>
-          <div style={stripTitle}>LEDNINGSGRUPP</div>
-          <div style={stripSub}>Anställ chefer vars kompetens ger passiva fördelar.</div>
+          <div style={stripTitle}>MANAGEMENT TEAM</div>
+          <div style={stripSub}>Hire managers whose expertise grants passive benefits.</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 10, color: C.brassDim, textTransform: "uppercase", letterSpacing: 0.5 }}>Total lön</div>
-          <div style={{ fontFamily: FONTS.heading, color: C.brassBright, fontSize: 16 }}>{kr(salaries)}/mån</div>
+          <div style={{ fontSize: 10, color: C.brassDim, textTransform: "uppercase", letterSpacing: 0.5 }}>Total salary</div>
+          <div style={{ fontFamily: FONTS.heading, color: C.brassBright, fontSize: 16 }}>{kr(salaries)}/mo</div>
         </div>
       </div>
 
@@ -41,7 +41,7 @@ export function StaffPanel({ state, dispatch }: Props) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <span style={cardTitle}>{r.name}</span>
                 <span style={{ fontSize: 12, color: C.inkSoft }}>
-                  {level > 0 ? `${kr(r.baseSalary * level)}/mån` : "ej anställd"}
+                  {level > 0 ? `${kr(r.baseSalary * level)}/mo` : "not employed"}
                 </span>
               </div>
               <div style={{ fontSize: 12.5, color: C.inkSoft, margin: "6px 0", lineHeight: 1.4 }}>{r.desc}</div>
@@ -54,7 +54,7 @@ export function StaffPanel({ state, dispatch }: Props) {
                   </span>
                 ))}
                 <span style={{ fontSize: 11, color: C.inkSoft, alignSelf: "center", marginLeft: 4 }}>
-                  Nivå {level}/{r.maxLevel}
+                  Level {level}/{r.maxLevel}
                 </span>
               </div>
 
@@ -65,11 +65,11 @@ export function StaffPanel({ state, dispatch }: Props) {
                   disabled={!canHire}
                   onClick={() => dispatch({ type: "HIRE_STAFF", role: r.id })}
                 >
-                  {atMax ? "Högsta nivå" : level === 0 ? `Anställ · ${msek(fee)}` : `Befordra · ${msek(fee)}`}
+                  {atMax ? "Max level" : level === 0 ? `Hire · ${msek(fee)}` : `Promote · ${msek(fee)}`}
                 </button>
                 {level > 0 && (
                   <button style={fireBtn} onClick={() => dispatch({ type: "FIRE_STAFF", role: r.id })}>
-                    Avskeda
+                    Dismiss
                   </button>
                 )}
               </div>
@@ -80,8 +80,8 @@ export function StaffPanel({ state, dispatch }: Props) {
 
       {/* Advisory Board */}
       <div style={{ ...strip, marginTop: 20, flexDirection: "column", alignItems: "flex-start" }}>
-        <div style={stripTitle}>RÅDGIVARSTYRELSE</div>
-        <div style={{ ...stripSub, marginBottom: 12 }}>Låses upp automatiskt vid reputation-milstolpar. Ger passiva bolagsfördelar.</div>
+        <div style={stripTitle}>ADVISORY BOARD</div>
+        <div style={{ ...stripSub, marginBottom: 12 }}>Unlocked automatically at reputation milestones. Grants passive company benefits.</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 12, width: "100%" }}>
           {ADVISOR_DEFS.map((adv) => {
             const unlocked = (state.advisors ?? []).includes(adv.id);
@@ -96,11 +96,11 @@ export function StaffPanel({ state, dispatch }: Props) {
                 <div style={{ fontSize: 12, color: C.inkSoft, margin: "4px 0 6px" }}>{adv.effect}</div>
                 <div style={gold} />
                 {unlocked ? (
-                  <span style={{ ...effectChip, background: "#e2ecd9" }}>AKTIV</span>
+                  <span style={{ ...effectChip, background: "#e2ecd9" }}>ACTIVE</span>
                 ) : (
                   <span style={{ fontSize: 11, color: C.inkSoft }}>
-                    Kräver reputation {adv.repRequired}
-                    {" "}(nuvarande: {Math.round(state.reputation)})
+                    Requires reputation {adv.repRequired}
+                    {" "}(current: {Math.round(state.reputation)})
                   </span>
                 )}
               </div>

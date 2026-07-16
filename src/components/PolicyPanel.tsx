@@ -50,7 +50,7 @@ const chipStyle = (on: boolean): React.CSSProperties => ({
 function Gate({ ok, need }: { ok: boolean; need: string }) {
   return (
     <div style={{ ...P.gate, color: ok ? "#27660a" : "#b5542a" }}>
-      {ok ? `✓ ${need} verkställer policyn` : `🔒 Kräver ${need} — policyn ligger vilande tills du anställer`}
+      {ok ? `✓ ${need} enforces the policy` : `🔒 Requires ${need} — the policy stays dormant until you hire`}
     </div>
   );
 }
@@ -84,34 +84,34 @@ export function PolicyPanel({
   return (
     <div style={P.wrap}>
       <div style={P.intro}>
-        Policyn sätter standarder för hela portföljen — inställningar på enskilda fastigheter går
-        alltid före. Verkställighet kräver rätt chef i organisationen.
+        The policy sets defaults for the whole portfolio — settings on individual properties always
+        take precedence. Enforcement requires the right manager in the organization.
       </div>
 
       {/* ── Uthyrningspolicy ─────────────────────────────────────── */}
       <div style={P.card}>
-        <div style={P.cardTitle}>🏷️ Uthyrning</div>
-        <Gate ok={hasDirector} need="portföljdirektör (Hyresgäster → Direktör)" />
+        <div style={P.cardTitle}>🏷️ Leasing</div>
+        <Gate ok={hasDirector} need="portfolio director (Tenants → Director)" />
         <div style={P.row}>
-          <span style={P.label}>Standard utgångshyra</span>
+          <span style={P.label}>Default asking rent</span>
           <input
             type="range" min={80} max={130} step={5}
             value={Math.round((pol.askRentPct ?? 1) * 100)}
             onChange={(e) => set({ askRentPct: +e.target.value / 100 })}
             style={{ flex: 1, accentColor: BURGUNDY, minWidth: 120 }}
           />
-          <span style={P.value}>{Math.round((pol.askRentPct ?? 1) * 100)} %</span>
+          <span style={P.value}>{Math.round((pol.askRentPct ?? 1) * 100)}%</span>
         </div>
         <div style={P.row}>
-          <span style={P.label}>Acceptera ansökningar automatiskt</span>
+          <span style={P.label}>Accept applications automatically</span>
           <button style={toggleStyle(aa.enabled)} onClick={() => set({ autoAccept: { ...aa, enabled: !aa.enabled } })}>
-            {aa.enabled ? "PÅ" : "AV"}
+            {aa.enabled ? "ON" : "OFF"}
           </button>
         </div>
         {aa.enabled && (
           <>
             <div style={P.row}>
-              <span style={P.label}>… med kvalitet minst</span>
+              <span style={P.label}>… with quality at least</span>
               <input
                 type="range" min={80} max={115} step={5}
                 value={Math.round(aa.minQuality * 100)}
@@ -121,7 +121,7 @@ export function PolicyPanel({
               <span style={P.value}>{aa.minQuality.toFixed(2)}</span>
             </div>
             <div style={P.row}>
-              <span style={P.label}>… och kontraktspaket</span>
+              <span style={P.label}>… and contract package</span>
               {(["kort", "standard", "långt"] as const).map((c) => (
                 <button key={c} title={CONTRACTS[c].desc} style={chipStyle(aa.contract === c)}
                   onClick={() => set({ autoAccept: { ...aa, contract: c } })}>
@@ -132,44 +132,44 @@ export function PolicyPanel({
           </>
         )}
         <div style={P.row}>
-          <span style={P.label}>Avslå ansökningar under kvalitet</span>
+          <span style={P.label}>Reject applications below quality</span>
           {[0, 0.9, 0.95, 1.0].map((q) => (
             <button key={q} style={chipStyle((pol.rejectBelowQuality ?? 0) === q)}
               onClick={() => set({ rejectBelowQuality: q })}>
-              {q === 0 ? "Av" : q.toFixed(2)}
+              {q === 0 ? "Off" : q.toFixed(2)}
             </button>
           ))}
         </div>
         <div style={P.hint}>
-          Utgångshyran gäller fastigheter utan egen inställning. Auto-accept tar bästa sökande så
-          fort någon möter kravet — sätt högre krav för bättre mix, lägre för snabb uthyrning.
+          The asking rent applies to properties without their own setting. Auto-accept takes the best
+          applicant as soon as one meets the bar — set it higher for a better mix, lower for fast leasing.
         </div>
       </div>
 
       {/* ── Ekonomipolicy ────────────────────────────────────────── */}
       <div style={P.card}>
-        <div style={P.cardTitle}>💼 Ekonomi</div>
-        <Gate ok={hasCfo} need="Finanschef/CFO (Anställda)" />
+        <div style={P.cardTitle}>💼 Finance</div>
+        <Gate ok={hasCfo} need="Finance chief/CFO (Staff)" />
         <div style={P.row}>
-          <span style={P.label}>Amortera automatiskt mot mål-LTV</span>
+          <span style={P.label}>Amortize automatically toward target LTV</span>
           <button style={toggleStyle(am.enabled)} onClick={() => set({ autoAmort: { ...am, enabled: !am.enabled } })}>
-            {am.enabled ? "PÅ" : "AV"}
+            {am.enabled ? "ON" : "OFF"}
           </button>
         </div>
         {am.enabled && (
           <>
             <div style={P.row}>
-              <span style={P.label}>Mål-LTV</span>
+              <span style={P.label}>Target LTV</span>
               <input
                 type="range" min={30} max={80} step={5}
                 value={Math.round(am.ltvTarget * 100)}
                 onChange={(e) => set({ autoAmort: { ...am, ltvTarget: +e.target.value / 100 } })}
                 style={{ flex: 1, accentColor: BURGUNDY, minWidth: 120 }}
               />
-              <span style={P.value}>{Math.round(am.ltvTarget * 100)} %</span>
+              <span style={P.value}>{Math.round(am.ltvTarget * 100)}%</span>
             </div>
             <div style={P.row}>
-              <span style={P.label}>Behåll kassabuffert</span>
+              <span style={P.label}>Keep cash buffer</span>
               {[1, 2, 5, 10].map((m) => (
                 <button key={m} style={chipStyle(am.cashFloor === m * 1_000_000)}
                   onClick={() => set({ autoAmort: { ...am, cashFloor: m * 1_000_000 } })}>
@@ -183,12 +183,12 @@ export function PolicyPanel({
 
       {/* ── Skydds- och energipolicy ─────────────────────────────── */}
       <div style={P.card}>
-        <div style={P.cardTitle}>🛡️ Skydd & energi</div>
-        <Gate ok={hasOps} need="Förvaltningschef (Anställda)" />
+        <div style={P.cardTitle}>🛡️ Protection & energy</div>
+        <Gate ok={hasOps} need="Operations chief (Staff)" />
         <div style={P.row}>
-          <span style={P.label}>Försäkra automatiskt över värde</span>
+          <span style={P.label}>Insure automatically above value</span>
           <button style={toggleStyle(ai.enabled)} onClick={() => set({ autoInsure: { ...ai, enabled: !ai.enabled } })}>
-            {ai.enabled ? "PÅ" : "AV"}
+            {ai.enabled ? "ON" : "OFF"}
           </button>
           {ai.enabled && [5, 10, 20].map((m) => (
             <button key={m} style={chipStyle(ai.minValue === m * 1_000_000)}
@@ -198,49 +198,49 @@ export function PolicyPanel({
           ))}
         </div>
         <div style={P.row}>
-          <span style={P.label}>Energiuppgradera mot klass</span>
+          <span style={P.label}>Energy-upgrade toward class</span>
           <button style={toggleStyle(ae.enabled)} onClick={() => set({ autoEnergy: { ...ae, enabled: !ae.enabled } })}>
-            {ae.enabled ? "PÅ" : "AV"}
+            {ae.enabled ? "ON" : "OFF"}
           </button>
           {ae.enabled && (
             <>
               {(["B", "A"] as const).map((c) => (
                 <button key={c} style={chipStyle(ae.targetClass === c)}
                   onClick={() => set({ autoEnergy: { ...ae, targetClass: c } })}>
-                  Klass {c}
+                  Class {c}
                 </button>
               ))}
               {[3, 5, 10].map((m) => (
                 <button key={m} style={chipStyle(ae.cashFloor === m * 1_000_000)}
                   onClick={() => set({ autoEnergy: { ...ae, cashFloor: m * 1_000_000 } })}>
-                  buffert {m} M
+                  buffer {m} M
                 </button>
               ))}
             </>
           )}
         </div>
         <div style={P.hint}>
-          En energiuppgradering görs per månad (billigast först) så länge kassan ligger över
-          bufferten — vägen till grönt lån (ESG B+) utan mikroklick.
+          One energy upgrade is done per month (cheapest first) as long as cash stays above the
+          buffer — the path to a green loan (ESG B+) without micromanaging.
         </div>
       </div>
 
       {/* ── Förvaltning: portföljdirektören anlitas och styrs här ── */}
       <div style={{ ...P.card, background: "#eef2f6" }}>
-        <div style={P.cardTitle}>👔 Portföljdirektören (förvaltning & underhåll)</div>
+        <div style={P.cardTitle}>👔 The portfolio director (management & maintenance)</div>
         <div style={P.row}>
-          <span style={P.label}>Portföljdirektör</span>
+          <span style={P.label}>Portfolio director</span>
           <button style={toggleStyle(hasDirector)} onClick={() => setGm({ active: !hasDirector })}>
-            {hasDirector ? "ANLITAD" : "ANLITA"}
+            {hasDirector ? "HIRED" : "HIRE"}
           </button>
           <span style={{ fontSize: 11.5, color: "#777" }}>
             {hasDirector
-              ? `Arvode ${kr(gmFee)}/mån — sköter hela beståndet enligt instruktionerna nedan.`
-              : `Arvode ${kr(gmFee)}/mån (15 000 kr + 1 500 kr per fastighet). Utan direktör förvaltar du själv – gratis, men över kontorets kapacitet tillkommer merkostnad.`}
+              ? `Fee ${kr(gmFee)}/mo — manages the whole portfolio per the instructions below.`
+              : `Fee ${kr(gmFee)}/mo (15,000 kr + 1,500 kr per property). Without a director you manage yourself – free, but above the office capacity an extra cost applies.`}
           </span>
         </div>
         <div style={P.row}>
-          <span style={P.label}>Underhållströskel</span>
+          <span style={P.label}>Maintenance threshold</span>
           <input
             type="range" min={0} max={100} step={5}
             value={gmS.minCondition}
@@ -248,33 +248,33 @@ export function PolicyPanel({
             style={{ flex: 1, accentColor: BURGUNDY, minWidth: 120 }}
           />
           <span style={P.value}>
-            {gmS.minCondition === 100 ? "100 (alltid)" : gmS.minCondition === 0 ? "0 (aldrig)" : gmS.minCondition}
+            {gmS.minCondition === 100 ? "100 (always)" : gmS.minCondition === 0 ? "0 (never)" : gmS.minCondition}
           </span>
         </div>
         <div style={P.row}>
-          <span style={P.label}>Hyresmål vid förlängning</span>
+          <span style={P.label}>Rent target on renewal</span>
           <input
             type="range" min={80} max={130} step={5}
             value={Math.round(gmS.rentTargetPct * 100)}
             onChange={(e) => setGm({ rentTargetPct: +e.target.value / 100 })}
             style={{ flex: 1, accentColor: BURGUNDY, minWidth: 120 }}
           />
-          <span style={P.value}>{Math.round(gmS.rentTargetPct * 100)} %</span>
+          <span style={P.value}>{Math.round(gmS.rentTargetPct * 100)}%</span>
         </div>
         <div style={P.row}>
-          <span style={P.label}>Min. hyresgästkvalitet (autofyll)</span>
+          <span style={P.label}>Min. tenant quality (autofill)</span>
           {[0, 0.8, 0.9, 1.0].map((q) => (
             <button key={q} style={chipStyle(gmS.minTenantQuality === q)}
               onClick={() => setGm({ minTenantQuality: q })}>
-              {q === 0 ? "Alla" : q.toFixed(2)}
+              {q === 0 ? "All" : q.toFixed(2)}
             </button>
           ))}
         </div>
         <div style={P.hint}>
-          Underhåll beställs när skicket faller under tröskeln (+15 skick vid månadsskiftet, precis
-          som manuellt underhåll) — 100 håller alla hus i toppskick men kostar därefter. Fastigheter
-          med egen anställd förvaltare följer förvaltarens instruktioner i stället.
-          {hasDirector ? "" : " Instruktionerna sparas och gäller så fort direktören anlitas."}
+          Maintenance is ordered when condition falls below the threshold (+15 condition at month-end, just
+          like manual maintenance) — 100 keeps every building in top shape but costs accordingly. Properties
+          with their own employed manager follow that manager's instructions instead.
+          {hasDirector ? "" : " The instructions are saved and apply as soon as the director is hired."}
         </div>
       </div>
     </div>

@@ -17,10 +17,10 @@ export function ResearchPanel({ state, dispatch }: Props) {
     <div>
       <div style={strip}>
         <div>
-          <div style={stripTitle}>FORSKNING &amp; UTVECKLING</div>
-          <div style={stripSub}>Lås upp permanenta förbättringar för hela koncernen.</div>
+          <div style={stripTitle}>RESEARCH &amp; DEVELOPMENT</div>
+          <div style={stripSub}>Unlock permanent improvements for the whole group.</div>
         </div>
-        {active && <div style={{ fontFamily: FONTS.heading, color: C.brassBright, fontSize: 13 }}>1 projekt pågår</div>}
+        {active && <div style={{ fontFamily: FONTS.heading, color: C.brassBright, fontSize: 13 }}>1 project in progress</div>}
       </div>
 
       {active && activeDef && (
@@ -28,7 +28,7 @@ export function ResearchPanel({ state, dispatch }: Props) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <span style={cardTitle}>⏳ {activeDef.name}</span>
             <span style={{ fontSize: 12, color: C.inkSoft }}>
-              {active.monthsTotal - active.monthsLeft} av {active.monthsTotal} mån
+              {active.monthsTotal - active.monthsLeft} of {active.monthsTotal} mo
             </span>
           </div>
           <div style={progressWrap}>
@@ -47,17 +47,17 @@ export function ResearchPanel({ state, dispatch }: Props) {
             <div key={r.id} style={{ ...card, opacity: isDone ? 0.78 : 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <span style={cardTitle}>{r.name}</span>
-                {isDone && <span style={doneBadge}>✓ Utforskat</span>}
+                {isDone && <span style={doneBadge}>✓ Researched</span>}
               </div>
               <div style={{ fontSize: 12.5, color: C.inkSoft, margin: "6px 0", lineHeight: 1.4 }}>{r.desc}</div>
               <span style={effectChip}>{r.effect}</span>
               <div style={gold} />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.inkSoft, marginBottom: 8 }}>
-                <span>Kostnad: <strong style={{ color: C.ink, fontFamily: FONTS.heading }}>{msek(r.cost)}</strong></span>
-                <span>Tid: <strong style={{ color: C.ink, fontFamily: FONTS.heading }}>{r.months} mån</strong></span>
+                <span>Cost: <strong style={{ color: C.ink, fontFamily: FONTS.heading }}>{msek(r.cost)}</strong></span>
+                <span>Time: <strong style={{ color: C.ink, fontFamily: FONTS.heading }}>{r.months} mo</strong></span>
               </div>
               {isDone ? null : isActive ? (
-                <div style={{ textAlign: "center", color: C.brassDim, fontWeight: 700, fontSize: 13 }}>⏳ Pågår…</div>
+                <div style={{ textAlign: "center", color: C.brassDim, fontWeight: 700, fontSize: 13 }}>⏳ In progress…</div>
               ) : (
                 <>
                   <button
@@ -65,10 +65,10 @@ export function ResearchPanel({ state, dispatch }: Props) {
                     disabled={blocked}
                     onClick={() => dispatch({ type: "START_RESEARCH", id: r.id })}
                   >
-                    Starta forskning
+                    Start research
                   </button>
-                  {active && <div style={hint}>Ett projekt pågår redan</div>}
-                  {!active && state.cash < r.cost && <div style={hint}>Otillräcklig budget ({kr(r.cost - state.cash)} saknas)</div>}
+                  {active && <div style={hint}>A project is already in progress</div>}
+                  {!active && state.cash < r.cost && <div style={hint}>Insufficient budget ({kr(r.cost - state.cash)} short)</div>}
                 </>
               )}
             </div>

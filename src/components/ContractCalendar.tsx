@@ -68,10 +68,10 @@ export function ContractCalendar({ state }: Props) {
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
       <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 4 }}>
-        Kontraktskalender
+        Contract calendar
       </h2>
       <div style={{ fontSize: 12, color: C.creamSoft, marginBottom: 16 }}>
-        Kommande händelser de närmaste 12 månaderna
+        Upcoming events over the next 12 months
       </div>
 
       {/* ── Fixed rate ── */}
@@ -87,22 +87,22 @@ export function ContractCalendar({ state }: Props) {
           alignItems: "center",
         }}>
           <div>
-            <span style={{ fontWeight: 700, color: C.brassBright }}>🔒 Fast ränta</span>
+            <span style={{ fontWeight: 700, color: C.brassBright }}>🔒 Fixed rate</span>
             <span style={{ fontSize: 12, color: C.creamSoft, marginLeft: 8 }}>
-              {fixedExpiry.rate?.toFixed(2)} % låst
+              {fixedExpiry.rate?.toFixed(2)}% locked
             </span>
           </div>
           <span style={chip(urgentColor(fixedExpiry.monthsLeft))}>
-            {fixedExpiry.monthsLeft} mån kvar
+            {fixedExpiry.monthsLeft} mo left
           </span>
         </div>
       )}
 
       {/* ── Expiring contracts ── */}
-      <div style={sectionHead}>Utgående hyresavtal ({expiring.length})</div>
+      <div style={sectionHead}>Expiring leases ({expiring.length})</div>
       {expiring.length === 0 ? (
         <div style={{ fontSize: 13, color: C.creamSoft, marginBottom: 12 }}>
-          Inga avtal löper ut de närmaste 12 månaderna.
+          No leases expire over the next 12 months.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -118,13 +118,13 @@ export function ContractCalendar({ state }: Props) {
             }}>
               <div>
                 <span style={{ fontWeight: 600, color: C.parchment }}>{x.tenantName}</span>
-                {x.isAnchor && <span style={chip(C.gold)}>ANKARE</span>}
+                {x.isAnchor && <span style={chip(C.gold)}>ANCHOR</span>}
                 <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 2 }}>
-                  {x.propLabel} · {x.districtName} · {kr(x.rent)}/mån
+                  {x.propLabel} · {x.districtName} · {kr(x.rent)}/mo
                 </div>
               </div>
               <span style={chip(urgentColor(x.monthsLeft))}>
-                {x.monthsLeft} mån
+                {x.monthsLeft} mo
               </span>
             </div>
           ))}
@@ -132,10 +132,10 @@ export function ContractCalendar({ state }: Props) {
       )}
 
       {/* ── Constructions ── */}
-      <div style={sectionHead}>Pågående byggnation ({constructions.length})</div>
+      <div style={sectionHead}>Ongoing construction ({constructions.length})</div>
       {constructions.length === 0 ? (
         <div style={{ fontSize: 13, color: C.creamSoft, marginBottom: 12 }}>
-          Inga pågående byggen.
+          No ongoing construction.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -156,7 +156,7 @@ export function ContractCalendar({ state }: Props) {
                 </div>
               </div>
               <span style={chip(urgentColor(p.buildLeft))}>
-                {p.buildLeft} mån kvar
+                {p.buildLeft} mo left
               </span>
             </div>
           ))}
@@ -166,7 +166,7 @@ export function ContractCalendar({ state }: Props) {
       {/* ── Zone changes ── */}
       {zoneChanges.length > 0 && (
         <>
-          <div style={sectionHead}>Pågående omklassning ({zoneChanges.length})</div>
+          <div style={sectionHead}>Ongoing rezoning ({zoneChanges.length})</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {zoneChanges.map((p) => (
               <div key={p.id} style={{
@@ -186,7 +186,7 @@ export function ContractCalendar({ state }: Props) {
                   <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 2 }}>{p.districtName}</div>
                 </div>
                 <span style={chip(urgentColor(p.pzc.monthsLeft))}>
-                  {p.pzc.monthsLeft} mån kvar
+                  {p.pzc.monthsLeft} mo left
                 </span>
               </div>
             ))}
@@ -204,7 +204,7 @@ export function ContractCalendar({ state }: Props) {
           color: C.creamSoft,
           fontSize: 13,
         }}>
-          Inga kommande händelser att planera kring.
+          No upcoming events to plan around.
         </div>
       )}
     </div>

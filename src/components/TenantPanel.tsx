@@ -113,7 +113,7 @@ export function TenantPanel({ state, dispatch }: Props) {
       {pendingRenewals.length > 0 && (
         <div style={{ background: "#2a1a00", border: `2px solid ${C.gold}`, borderRadius: 8, padding: 14, marginBottom: 14 }}>
           <div style={{ fontFamily: FONTS.heading, color: C.gold, fontWeight: 800, fontSize: 14, marginBottom: 8 }}>
-            ⏰ Avtalsförnyelser ({pendingRenewals.length}) — besluta senast nästa tick
+            ⏰ Contract renewals ({pendingRenewals.length}) — decide by next tick
           </div>
           {pendingRenewals.map((r) => (
             <div
@@ -122,15 +122,15 @@ export function TenantPanel({ state, dispatch }: Props) {
             >
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{r.tenantName}</div>
-                <div style={{ fontSize: 11, color: C.creamSoft }}>{r.districtName} · {kr(r.currentRent)}/mån</div>
+                <div style={{ fontSize: 11, color: C.creamSoft }}>{r.districtName} · {kr(r.currentRent)}/mo</div>
               </div>
               <div style={{ display: "flex", gap: 5 }}>
                 {(
                   [
                     ["raise", "+10 %", "#27660a"],
-                    ["keep", "Behåll", "#444"],
+                    ["keep", "Keep", "#444"],
                     ["lower", "−10 %", "#3d54d8"],
-                    ["evict", "Avhys", "#7a0a0a"],
+                    ["evict", "Evict", "#7a0a0a"],
                   ] as const
                 ).map(([action, label, bg]) => (
                   <button
@@ -151,8 +151,8 @@ export function TenantPanel({ state, dispatch }: Props) {
       <div style={{ display: "flex", borderBottom: `2px solid ${C.brass}44`, marginBottom: 16 }}>
         {(
           [
-            ["vakanser", `🏚 Vakanser (${totalVacant})`],
-            ["kontrakt", `📋 Aktiva kontrakt (${allTenants.length})`],
+            ["vakanser", `🏚 Vacancies (${totalVacant})`],
+            ["kontrakt", `📋 Active contracts (${allTenants.length})`],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -178,13 +178,13 @@ export function TenantPanel({ state, dispatch }: Props) {
           {/* Summary + auto-manager */}
           <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 200, background: C.woodDark, borderRadius: 6, padding: "10px 14px", border: `1px solid ${C.brass}33` }}>
-              <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Totala vakanser</div>
+              <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Total vacancies</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: totalVacant > 0 ? C.negative : C.positive }}>
-                {totalVacant} platser
+                {totalVacant} units
               </div>
               {totalVacant > 0 && (
                 <div style={{ fontSize: 12, color: C.creamSoft, marginTop: 2 }}>
-                  Förlorad hyra: <strong style={{ color: C.negative }}>{kr(lostRent)}/mån</strong>
+                  Lost rent: <strong style={{ color: C.negative }}>{kr(lostRent)}/mo</strong>
                 </div>
               )}
             </div>
@@ -194,22 +194,22 @@ export function TenantPanel({ state, dispatch }: Props) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
-                    👔 Portföljdirektör
+                    👔 Portfolio director
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: gm?.active ? C.positive : C.creamSoft }}>
-                    {gm?.active ? "Aktiv — fyller vakanser och förnyar kontrakt" : "Inaktiv"}
+                    {gm?.active ? "Active — fills vacancies and renews contracts" : "Inactive"}
                   </div>
                   <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 2 }}>
                     {gm?.active
-                      ? `Min. kvalitet ${((gm.minTenantQuality ?? 0.8) * 100).toFixed(0)} % · hyresmål ${Math.round((gm.rentTargetPct ?? 1) * 100)} %`
-                      : "Sköter uthyrning och underhåll för hela beståndet."}
+                      ? `Min. quality ${((gm.minTenantQuality ?? 0.8) * 100).toFixed(0)}% · rent target ${Math.round((gm.rentTargetPct ?? 1) * 100)}%`
+                      : "Handles leasing and maintenance for the whole portfolio."}
                   </div>
                 </div>
                 <button
                   onClick={() => requestOpen("policy")}
                   style={{ padding: "7px 14px", background: BURGUNDY, color: C.brassBright, border: "none", borderRadius: 4, fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
                 >
-                  Styr i Policy →
+                  Manage in Policy →
                 </button>
               </div>
             </div>
@@ -218,8 +218,8 @@ export function TenantPanel({ state, dispatch }: Props) {
           {vacantProps.length === 0 ? (
             <div style={{ textAlign: "center", padding: 48, color: C.creamSoft, background: C.woodDark, borderRadius: 8 }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-              <div style={{ fontWeight: 700, color: C.brassBright }}>Alla platser uthyrda!</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>Inga vakanser just nu. Håll koll på kommande kontraktsutgångar.</div>
+              <div style={{ fontWeight: 700, color: C.brassBright }}>All units rented!</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>No vacancies right now. Keep an eye on upcoming contract expirations.</div>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
@@ -255,8 +255,8 @@ export function TenantPanel({ state, dispatch }: Props) {
                     {/* Capacity bar */}
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.creamSoft, marginBottom: 4 }}>
-                        <span>{p.tenants.length}/{p.capacity} uthyrda</span>
-                        <span style={{ color: BURGUNDY, fontWeight: 700 }}>{vacant} ledig{vacant !== 1 ? "a" : ""}</span>
+                        <span>{p.tenants.length}/{p.capacity} rented</span>
+                        <span style={{ color: BURGUNDY, fontWeight: 700 }}>{vacant} vacant</span>
                       </div>
                       <div style={{ height: 6, background: C.wood, borderRadius: 3, overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${(p.tenants.length / p.capacity) * 100}%`, background: C.positive, borderRadius: 3 }} />
@@ -264,7 +264,7 @@ export function TenantPanel({ state, dispatch }: Props) {
                     </div>
 
                     <div style={{ fontSize: 12, color: C.creamSoft }}>
-                      Potential: <strong style={{ color: C.gold }}>{kr(potRent)}/mån per enhet</strong>
+                      Potential: <strong style={{ color: C.gold }}>{kr(potRent)}/mo per unit</strong>
                     </div>
 
                     {/* Existing tenants (compact) */}
@@ -272,7 +272,7 @@ export function TenantPanel({ state, dispatch }: Props) {
                       <div style={{ fontSize: 11, color: C.creamSoft }}>
                         {p.tenants.map((t) => (
                           <span key={t.id} style={{ display: "inline-block", marginRight: 6, background: C.wood, padding: "1px 6px", borderRadius: 4 }}>
-                            {t.name} · {kr(t.rent)}/mån
+                            {t.name} · {kr(t.rent)}/mo
                           </span>
                         ))}
                       </div>
@@ -282,7 +282,7 @@ export function TenantPanel({ state, dispatch }: Props) {
                     {searching && candidates.length > 0 && (
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: C.brassBright, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                          Kandidater
+                          Candidates
                         </div>
                         {candidates.map((c) => (
                           <div
@@ -292,16 +292,16 @@ export function TenantPanel({ state, dispatch }: Props) {
                             <div>
                               <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</div>
                               <div style={{ fontSize: 11, color: C.creamSoft }}>
-                                {c.profileName ?? c.profile} · {c.termTotal} mån · {(c.quality * 100).toFixed(0)} % kval.
+                                {c.profileName ?? c.profile} · {c.termTotal} mo · {(c.quality * 100).toFixed(0)}% qual.
                               </div>
                             </div>
                             <div style={{ textAlign: "right" }}>
-                              <div style={{ fontWeight: 800, fontSize: 13, color: C.positive }}>{kr(c.rent)}/mån</div>
+                              <div style={{ fontWeight: 800, fontSize: 13, color: C.positive }}>{kr(c.rent)}/mo</div>
                               <button
                                 onClick={() => hireTenant(p.id, c)}
                                 style={{ marginTop: 3, padding: "3px 10px", background: BURGUNDY, color: C.brassBright, border: "none", borderRadius: 4, fontWeight: 700, fontSize: 12, cursor: "pointer" }}
                               >
-                                Hyr ut
+                                Lease
                               </button>
                             </div>
                           </div>
@@ -310,7 +310,7 @@ export function TenantPanel({ state, dispatch }: Props) {
                           onClick={() => searchFor(p.id)}
                           style={{ fontSize: 11, color: C.creamSoft, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: "2px 0" }}
                         >
-                          Ny sökning
+                          New search
                         </button>
                       </div>
                     )}
@@ -326,7 +326,7 @@ export function TenantPanel({ state, dispatch }: Props) {
                         borderRadius: 4, fontWeight: 700, fontSize: 13, cursor: "pointer",
                       }}
                     >
-                      {searching ? "Dölj kandidater" : `Sök hyresgäster (${vacant} plats${vacant !== 1 ? "er" : ""})`}
+                      {searching ? "Hide candidates" : `Find tenants (${vacant} unit${vacant !== 1 ? "s" : ""})`}
                     </button>
                   </div>
                 );
@@ -341,18 +341,18 @@ export function TenantPanel({ state, dispatch }: Props) {
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
             <div style={{ fontSize: 13, color: C.creamSoft }}>
-              Totalt: <strong style={{ color: C.positive }}>{kr(totalRent)}/mån</strong>
+              Total: <strong style={{ color: C.positive }}>{kr(totalRent)}/mo</strong>
               <span style={{ marginLeft: 12, fontSize: 12 }}>
                 {allTenants.filter(t => t.monthsLeft <= 3).length > 0 && (
                   <span style={{ color: C.negative, fontWeight: 700 }}>
-                    ⚠ {allTenants.filter(t => t.monthsLeft <= 3).length} kontrakt löper ut inom 3 mån
+                    ⚠ {allTenants.filter(t => t.monthsLeft <= 3).length} contracts expire within 3 mo
                   </span>
                 )}
               </span>
             </div>
             <input
               type="text"
-              placeholder="Filtrera namn eller distrikt…"
+              placeholder="Filter name or district…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               style={{
@@ -364,19 +364,19 @@ export function TenantPanel({ state, dispatch }: Props) {
 
           {sorted.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: C.creamSoft }}>
-              Inga hyresgäster matchar filtret.
+              No tenants match the filter.
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <Th label="Hyresgäst" k="district" />
-                    <Th label="Distrikt" k="district" />
-                    <Th label="Hyra/mån" k="rent" />
-                    <Th label="Mån kvar" k="monthsLeft" />
-                    <Th label="Lojalitet" k="consecutive" />
-                    <Th label="Kvalitet" k="quality" />
+                    <Th label="Tenant" k="district" />
+                    <Th label="District" k="district" />
+                    <Th label="Rent/mo" k="rent" />
+                    <Th label="Mo left" k="monthsLeft" />
+                    <Th label="Loyalty" k="consecutive" />
+                    <Th label="Quality" k="quality" />
                     <th style={{ padding: "8px 10px", background: C.wood, color: C.creamSoft, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Status</th>
                   </tr>
                 </thead>
@@ -395,24 +395,24 @@ export function TenantPanel({ state, dispatch }: Props) {
                           <span style={{ color: moColor, fontWeight: 700 }}>{t.monthsLeft}</span>
                         </td>
                         <td style={{ padding: "8px 10px", color: C.creamSoft }}>
-                          {(t.consecutiveMonths ?? 0) > 0 ? `${t.consecutiveMonths} mån` : "—"}
+                          {(t.consecutiveMonths ?? 0) > 0 ? `${t.consecutiveMonths} mo` : "—"}
                         </td>
                         <td style={{ padding: "8px 10px" }}>
                           <span style={{ color: t.quality >= 1.1 ? C.positive : t.quality >= 1.0 ? C.gold : C.negative }}>
-                            {(t.quality * 100).toFixed(0)} %
+                            {(t.quality * 100).toFixed(0)}%
                           </span>
                         </td>
                         <td style={{ padding: "8px 10px" }}>
                           {t.isAnchor && (
                             <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: C.gold + "22", border: `1px solid ${C.gold}55`, padding: "2px 6px", borderRadius: 8, marginRight: 4 }}>
-                              ANKARE
+                              ANCHOR
                             </span>
                           )}
                           {(t.consecutiveMonths ?? 0) >= 24 && !t.isAnchor && (
-                            <span style={{ fontSize: 10, color: C.positive }}>Lojal</span>
+                            <span style={{ fontSize: 10, color: C.positive }}>Loyal</span>
                           )}
                           {t.monthsLeft <= 3 && (
-                            <span style={{ fontSize: 10, fontWeight: 700, color: C.negative, marginLeft: 2 }}>SNART UT</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: C.negative, marginLeft: 2 }}>EXPIRING</span>
                           )}
                         </td>
                       </tr>
@@ -421,8 +421,8 @@ export function TenantPanel({ state, dispatch }: Props) {
                 </tbody>
                 <tfoot>
                   <tr style={{ background: C.woodDark }}>
-                    <td colSpan={2} style={{ padding: "8px 10px", fontWeight: 700, color: C.brassBright }}>Totalt</td>
-                    <td style={{ padding: "8px 10px", fontWeight: 800, color: C.positive }}>{kr(totalRent)}/mån</td>
+                    <td colSpan={2} style={{ padding: "8px 10px", fontWeight: 700, color: C.brassBright }}>Total</td>
+                    <td style={{ padding: "8px 10px", fontWeight: 800, color: C.positive }}>{kr(totalRent)}/mo</td>
                     <td colSpan={4} />
                   </tr>
                 </tfoot>
