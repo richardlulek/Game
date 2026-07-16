@@ -27,11 +27,11 @@ const SECTOR_COLOR: Record<Sector, string> = {
   industri: C.inkSoft,
 };
 const SECTOR_LABEL: Record<Sector, string> = {
-  fastighet: "Fastighet",
+  fastighet: "Real estate",
   bank: "Bank",
-  bygg: "Bygg",
-  handel: "Handel",
-  industri: "Industri",
+  bygg: "Construction",
+  handel: "Retail",
+  industri: "Industry",
 };
 
 const STRATEGY_LABEL: Record<string, string> = {
@@ -133,7 +133,7 @@ function RatingBadge({ rating }: { rating: NonNullable<Stock["analystRating"]> }
   return (
     <span style={{
       fontSize: 10, fontWeight: 700,
-      background: rating === "Köp" ? C.green : rating === "Sälj" ? C.negative : C.wood,
+      background: rating === "Buy" ? C.green : rating === "Sell" ? C.negative : C.wood,
       color: C.creamText,
       padding: "2px 7px", borderRadius: 10,
     }}>

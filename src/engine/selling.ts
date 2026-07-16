@@ -134,7 +134,7 @@ export function pickStrategicSale(
     return {
       index: wornIdx,
       price: Math.round(value * (0.82 + random01() * 0.08)),
-      motive: "säljer renoveringsobjekt",
+      motive: "selling a renovation opportunity",
     };
   }
   // 3) Högkonjunktur: värdebolagen realiserar vinster i toppen.
@@ -145,12 +145,12 @@ export function pickStrategicSale(
     );
     const value = propMarketValue(pf[idx], s);
     const premium = phase === "boom" ? 1.02 + random01() * 0.1 : 0.97 + random01() * 0.08;
-    return { index: idx, price: Math.round(value * premium), motive: phase === "boom" ? "tar hem vinsten i högkonjunkturen" : "frigör kapital" };
+    return { index: idx, price: Math.round(value * premium), motive: phase === "boom" ? "taking profit in the boom" : "freeing up capital" };
   }
   // 4) Annars: trimma det svagaste innehavet (lägst skick).
   const idx = pf.reduce((worst, p, i) => (p.condition < pf[worst].condition ? i : worst), 0);
   const value = propMarketValue(pf[idx], s);
-  return { index: idx, price: Math.round(value * (0.94 + random01() * 0.08)), motive: "trimmar portföljen" };
+  return { index: idx, price: Math.round(value * (0.94 + random01() * 0.08)), motive: "trimming the portfolio" };
 }
 
 /** Säljbenägenhet per månad: strategi × konjunkturfas. */

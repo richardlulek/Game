@@ -65,7 +65,7 @@ function resolveAuction(state: GameState, a: Auction): GameState {
       ...state,
       auction: null,
       log: [
-        { t: `🔨 Detaljplaneauktionen i ${a.districtName} avslutades utan bud – marken förblir oplanerad.`, kind: "info" },
+        { t: `🔨 The plan auction in ${a.districtName} ended without bids – the land stays unzoned.`, kind: "info" },
         ...state.log,
       ],
     };
@@ -92,7 +92,7 @@ function resolveAuction(state: GameState, a: Auction): GameState {
       reputation: Math.min(100, state.reputation + 3),
       log: [
         {
-          t: `🏛️ DETALJPLAN VUNNEN! Du köpte ${parcels.length} byggklara tomter i ${a.districtName} för ${msek(a.currentBid)} (rep +3). Staden växer – öppna Bygg!`,
+          t: `🏛️ PLAN WON! You bought ${parcels.length} build-ready lots in ${a.districtName} for ${msek(a.currentBid)} (rep +3). The city grows – open Build!`,
           kind: "buy",
         },
         ...state.log,
@@ -125,7 +125,7 @@ function resolveAuction(state: GameState, a: Auction): GameState {
     ),
     log: [
       {
-        t: `🏛️ ${winner} vann detaljplaneauktionen i ${a.districtName} för ${msek(a.currentBid)} och exploaterar kvarteret direkt.`,
+        t: `🏛️ ${winner} won the plan auction in ${a.districtName} for ${msek(a.currentBid)} and develops the block right away.`,
         kind: "event",
       },
       ...state.log,
@@ -181,7 +181,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "BUY": {
       const p = state.listings.find((x) => x.id === action.id);
       if (!p) return state;
-      if (districtLocked(state, p.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
+      if (districtLocked(state, p.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
       const { maxLtv } = loanTerms(state);
       const down = p.askPrice * (1 - maxLtv);
       // Konkurrensverket: dominans i distriktet → förvärvsprövning med avgift.
@@ -190,11 +190,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (state.cash < down + reviewFee)
         return log(
           state,
-          `För lite kontanter. Handpenning ${msek(down)}${reviewFee > 0 ? ` + prövningsavgift ${msek(reviewFee)} (dominans i ${p.districtName})` : ""} krävs (LTV ${pct(maxLtv)}).`,
+          `Not enough cash. A down payment of ${msek(down)}${reviewFee > 0 ? ` + review fee ${msek(reviewFee)} (dominance in ${p.districtName})` : ""} is required (LTV ${pct(maxLtv)}).`,
           "warn",
         );
       const loan = p.askPrice - down;
-      const txEntry = { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: "Spelaren" };
+      const txEntry = { type: "bought" as const, price: p.askPrice, month: state.month, year: state.year, party: "You" };
       return {
         ...state,
         cash: state.cash - down - reviewFee,
@@ -206,7 +206,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         competingBid: state.competingBid?.listingId === p.id ? undefined : state.competingBid,
         log: [
           {
-            t: `Köpte ${p.typeLabel} i ${p.districtName} för ${msek(p.askPrice)} (lån ${msek(loan)})${reviewFee > 0 ? ` · Konkurrensverkets prövningsavgift ${msek(reviewFee)}` : ""}.`,
+            t: `Bought ${p.typeLabel} in ${p.districtName} for ${msek(p.askPrice)} (loan ${msek(loan)})${reviewFee > 0 ? ` · competition review fee ${msek(reviewFee)}` : ""}.`,
             kind: "buy",
           },
           ...state.log,
@@ -216,25 +216,25 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "PLACE_BID": {
       const p = state.listings.find((x) => x.id === action.id);
       if (!p) return state;
-      if (districtLocked(state, p.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
+      if (districtLocked(state, p.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
       // Budspam-spärr: efter ett avvisat bud överväger säljaren inga nya bud
       // från dig på två månader. Utan spärren kunde man spamma lågbud tills
       // slumpen sa ja och systematiskt handla under marknadsvärdet.
       const nowAbs = state.year * 12 + state.month;
       if ((p.bidRejectedAbs ?? -99) + 2 > nowAbs)
-        return log(state, `Säljaren av ${p.typeLabel} i ${p.districtName} överväger inte nya bud från dig ännu – vänta eller köp till utpris.`, "warn");
+        return log(state, `The seller of ${p.typeLabel} in ${p.districtName} won't consider new bids from you yet – wait or buy at the ask price.`, "warn");
       const { maxLtv } = loanTerms(state);
       const bid = Math.max(0, Math.round(action.amount));
       const down = bid * (1 - maxLtv);
       if (state.cash < down)
-        return log(state, `För lite kontanter. Handpenning ${msek(down)} krävs för budet.`, "warn");
+        return log(state, `Not enough cash. A down payment of ${msek(down)} is required for the bid.`, "warn");
       const ratio = bid / p.askPrice;
       const baseProb =
         ratio >= 0.97 ? 0.92 : ratio >= 0.92 ? 0.62 : ratio >= 0.85 ? 0.34 : ratio >= 0.78 ? 0.13 : 0.03;
       const acceptProb = Math.min(0.98, baseProb + bidBonus(state));
       if (random01() < acceptProb) {
         const loan = bid - down;
-        const txEntry = { type: "köp" as const, price: bid, month: state.month, year: state.year, party: "Spelaren" };
+        const txEntry = { type: "bought" as const, price: bid, month: state.month, year: state.year, party: "You" };
         return {
           ...state,
           cash: state.cash - down,
@@ -245,7 +245,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           competingBid: state.competingBid?.listingId === p.id ? undefined : state.competingBid,
           log: [
             {
-              t: `✓ Bud accepterat! Köpte ${p.typeLabel} i ${p.districtName} för ${msek(bid)} (under utpris ${msek(p.askPrice)}).`,
+              t: `✓ Bid accepted! Bought ${p.typeLabel} in ${p.districtName} for ${msek(bid)} (below ask ${msek(p.askPrice)}).`,
               kind: "buy",
             },
             ...state.log,
@@ -260,7 +260,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             x.id === p.id ? { ...x, bidRejectedAbs: nowAbs } : x,
           ),
           log: [
-            { t: `Ditt bud på ${p.typeLabel} i ${p.districtName} (${msek(bid)}) avvisades. Säljaren vill inte se fler lågbud på ett par månader.`, kind: "warn" },
+            { t: `Your bid on ${p.typeLabel} in ${p.districtName} (${msek(bid)}) was rejected. The seller won't consider more low bids for a couple of months.`, kind: "warn" },
             ...state.log,
           ],
         };
@@ -283,7 +283,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...(rival ? {} : { parcelId: undefined }),
         txHistory: [
           ...(p.txHistory ?? []),
-          { type: "köp" as const, price: paid, month: state.month, year: state.year, party: rival?.name ?? "Okänd köpare" },
+          { type: "bought" as const, price: paid, month: state.month, year: state.year, party: rival?.name ?? "Unknown buyer" },
         ],
       };
       return {
@@ -301,8 +301,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [
           {
             t: rival
-              ? `🏢 ${rival.name} vann budgivningen om ${p.typeLabel} i ${p.districtName} (${msek(paid)}) – ditt bud på ${msek(bid)} räckte inte.`
-              : `Ditt bud på ${p.typeLabel} i ${p.districtName} avvisades – säljaren tog ett annat bud.`,
+              ? `🏢 ${rival.name} won the bidding for ${p.typeLabel} in ${p.districtName} (${msek(paid)}) – your bid of ${msek(bid)} wasn't enough.`
+              : `Your bid on ${p.typeLabel} in ${p.districtName} was rejected – the seller took another bid.`,
             kind: "warn",
           },
           ...state.log,
@@ -316,12 +316,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p) return state;
       // Villkor 7b i morfars testamente: huset får inte säljas under kampanjen.
       if (p.storyTag === "arvet" && state.story && !state.story.done)
-        return log(state, "Villkor 7b: morfars hus får inte säljas. Ekelöf fakturerar 900 kr för påminnelsen. (ingick)", "warn");
+        return log(state, "Clause 7b: Grandpa's house may not be sold. Ekelöf bills 900 kr for the reminder. (included)", "warn");
       const value = propMarketValue(p, state);
       const salePrice = Math.round(value * QUICK_SALE_FACTOR);
       const payoff = Math.min(state.debt, (p.purchasePrice || salePrice) * 0.6);
       const born = state.year * 12 + state.month;
-      const sellTx = { type: "sälj" as const, price: salePrice, month: state.month, year: state.year, party: "Spelaren (snabbförsäljning)" };
+      const sellTx = { type: "sold" as const, price: salePrice, month: state.month, year: state.year, party: "You (quick sale)" };
       const relisted = {
         ...p,
         owned: false,
@@ -350,7 +350,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
           log: [
             {
-              t: `⚡ Snabbförsäljning: ${p.typeLabel} i ${p.districtName} för ${msek(salePrice)} (−15 % mot värdet, netto ${msek(salePrice - payoff)}).`,
+              t: `⚡ Quick sale: ${p.typeLabel} in ${p.districtName} for ${msek(salePrice)} (−15% vs. value, net ${msek(salePrice - payoff)}).`,
               kind: "sell",
             },
             ...state.log,
@@ -363,7 +363,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status !== "klar" || p.forSale) return state;
       if (p.storyTag === "arvet" && state.story && !state.story.done)
-        return log(state, "Villkor 7b: morfars hus får inte annonseras ut. Morfar förutsåg det här. Han förutsåg allt.", "warn");
+        return log(state, "Clause 7b: Grandpa's house may not be listed. Grandpa foresaw this. He foresaw everything.", "warn");
       const ask = Math.max(10_000, Math.round(action.ask));
       return {
         ...state,
@@ -371,7 +371,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           x.id === p.id ? { ...x, forSale: { ask, listedAbs: state.year * 12 + state.month } } : x,
         ),
         log: [
-          { t: `🏷️ ${p.typeLabel} i ${p.districtName} utannonserad för ${msek(ask)} – inväntar köpare.`, kind: "info" },
+          { t: `🏷️ ${p.typeLabel} in ${p.districtName} listed for ${msek(ask)} – awaiting a buyer.`, kind: "info" },
           ...state.log,
         ],
       };
@@ -383,18 +383,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, forSale: undefined } : x)),
         offers: (state.offers ?? []).filter((o) => o.kind !== "listing" || o.propId !== p.id),
-        log: [{ t: `${p.typeLabel} i ${p.districtName} togs bort från marknaden.`, kind: "info" }, ...state.log],
+        log: [{ t: `${p.typeLabel} in ${p.districtName} was removed from the market.`, kind: "info" }, ...state.log],
       };
     }
     case "LIST_PACKAGE": {
       const props = state.portfolio.filter(
         (p) => action.ids.includes(p.id) && p.status === "klar" && !p.forSale,
       );
-      if (props.length < 2) return log(state, "Ett säljpaket kräver minst två lediga fastigheter.", "warn");
+      if (props.length < 2) return log(state, "A sale package requires at least two available properties.", "warn");
       const id = Math.max(0, ...(state.salePackages ?? []).map((x) => x.id)) + 1;
       const ask = Math.max(10_000, Math.round(action.ask));
       const listedAbs = state.year * 12 + state.month;
-      const pkg = { id, name: `Portfölj ${String.fromCharCode(64 + ((id - 1) % 26) + 1)}`, propertyIds: props.map((p) => p.id), ask, listedAbs };
+      const pkg = { id, name: `Portfolio ${String.fromCharCode(64 + ((id - 1) % 26) + 1)}`, propertyIds: props.map((p) => p.id), ask, listedAbs };
       return {
         ...state,
         salePackages: [...(state.salePackages ?? []), pkg],
@@ -402,7 +402,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           pkg.propertyIds.includes(x.id) ? { ...x, forSale: { ask: 0, listedAbs, packageId: id } } : x,
         ),
         log: [
-          { t: `📦 Säljpaketet ${pkg.name} (${props.length} fastigheter) utannonserat för ${msek(ask)}.`, kind: "info" },
+          { t: `📦 The sale package ${pkg.name} (${props.length} properties) listed for ${msek(ask)}.`, kind: "info" },
           ...state.log,
         ],
       };
@@ -417,7 +417,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           pkg.propertyIds.includes(x.id) ? { ...x, forSale: undefined } : x,
         ),
         offers: (state.offers ?? []).filter((o) => o.packageId !== pkg.id),
-        log: [{ t: `Säljpaketet ${pkg.name} återkallades från marknaden.`, kind: "info" }, ...state.log],
+        log: [{ t: `The sale package ${pkg.name} was withdrawn from the market.`, kind: "info" }, ...state.log],
       };
     }
     case "UPGRADE": {
@@ -426,7 +426,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p || !u || p.status === "bygger") return state;
       if (p.upgrades.includes(u.id) || pendingWork(p, "uppgradering", u.id)) return state;
       const cost = propMarketValue(p, state) * u.cost;
-      if (state.cash < cost) return log(state, "För lite kontanter för åtgärden.", "warn");
+      if (state.cash < cost) return log(state, "Not enough cash for the action.", "warn");
       // Betala nu – hantverkarna behöver tid. Effekten landar via
       // pendingWorks vid månadsskiftet; hyresgästerna bor kvar under tiden.
       const months = u.months ?? 1;
@@ -440,7 +440,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - cost,
         portfolio: state.portfolio.map((x) => (x.id === p.id ? np : x)),
         log: [
-          { t: `${u.name} beställd på ${p.typeLabel} i ${p.districtName} (${msek(cost)}) – klar om ${months} mån.`, kind: "upg" },
+          { t: `${u.name} ordered for ${p.typeLabel} in ${p.districtName} (${msek(cost)}) – done in ${months} mo.`, kind: "upg" },
           ...state.log,
         ],
       };
@@ -451,10 +451,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.tenants.length >= p.capacity || p.status === "bygger") return state;
       if (pendingWork(p, "ändrad_användning"))
-        return log(state, "Ombyggnad till ny användning pågår – inga nya kontrakt förrän den är klar.", "warn");
+        return log(state, "A conversion to a new use is in progress – no new contracts until it's done.", "warn");
       const app = bestApplication(p);
       if (!app)
-        return log(state, `Inga ansökningar till ${p.typeLabel} i ${p.districtName} ännu – justera utgångshyran eller anlita mäklare.`, "info");
+        return log(state, `No applications for ${p.typeLabel} in ${p.districtName} yet – adjust the asking rent or hire a broker.`, "info");
       const tenant = signContract(app.tenant, "standard");
       return {
         ...state,
@@ -465,7 +465,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `Tecknade hyresavtal: ${tenant.name} i ${p.districtName}, ${tenant.termTotal} mån, ${kr(tenant.rent)}/mån.`,
+            t: `Signed lease: ${tenant.name} in ${p.districtName}, ${tenant.termTotal} mo, ${kr(tenant.rent)}/mo.`,
             kind: "buy",
           },
           ...state.log,
@@ -477,9 +477,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status === "bygger") return state;
       if (pendingWork(p, "ändrad_användning"))
-        return log(state, "Ombyggnad till ny användning pågår – inga nya kontrakt förrän den är klar.", "warn");
+        return log(state, "A conversion to a new use is in progress – no new contracts until it's done.", "warn");
       if (p.tenants.length >= p.capacity)
-        return log(state, "Fastigheten är fullbelagd – bygg om för fler lokaler.", "warn");
+        return log(state, "The property is fully occupied – convert it for more units.", "warn");
       const app = (p.applications ?? []).find((a) => a.id === action.applicationId);
       if (!app) return state;
       if (action.contract === "ankare" && !app.anchorEligible)
@@ -494,7 +494,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `${action.contract === "ankare" ? "⭐ Ankaravtal" : "Hyresavtal"} signerat: ${tenant.name} i ${p.districtName} (${CONTRACTS[action.contract].label}, ${tenant.termTotal} mån, ${kr(tenant.rent)}/mån).`,
+            t: `${action.contract === "ankare" ? "⭐ Anchor lease" : "Lease"} signed: ${tenant.name} in ${p.districtName} (${CONTRACTS[action.contract].label}, ${tenant.termTotal} mo, ${kr(tenant.rent)}/mo).`,
             kind: "buy",
           },
           ...state.log,
@@ -526,7 +526,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // U6: bostadskön – reglerad hyra, noll vakans, goodwill.
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.type !== "bostad")
-        return log(state, "Bostadskön gäller bara bostadsfastigheter.", "warn");
+        return log(state, "The housing queue only applies to residential properties.", "warn");
       const on = !p.regulated;
       return {
         ...state,
@@ -536,8 +536,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [
           {
             t: on
-              ? `🏛️ ${p.typeLabel} i ${p.districtName} ansluten till bostadskön: hyra −20 %, kön fyller vakanser direkt, +goodwill.`
-              : `${p.typeLabel} i ${p.districtName} lämnar bostadskön – marknadshyra och ansökningsflöde gäller.`,
+              ? `🏛️ ${p.typeLabel} in ${p.districtName} joined the housing queue: rent −20%, the queue fills vacancies directly, +goodwill.`
+              : `${p.typeLabel} in ${p.districtName} leaves the housing queue – market rent and application flow apply.`,
             kind: "info",
           },
           ...state.log,
@@ -557,8 +557,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [
           {
             t: on
-              ? `🤝 Mäklaruppdrag för ${p.typeLabel} i ${p.districtName}: ${kr(BROKER_FEE)}/mån vid vakans, garanterade kvalificerade sökande.`
-              : `Mäklaruppdraget för ${p.typeLabel} i ${p.districtName} avslutat.`,
+              ? `🤝 Broker mandate for ${p.typeLabel} in ${p.districtName}: ${kr(BROKER_FEE)}/mo on vacancy, guaranteed qualified applicants.`
+              : `The broker mandate for ${p.typeLabel} in ${p.districtName} ended.`,
             kind: "info",
           },
           ...state.log,
@@ -576,7 +576,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const buyout = tenant.rent * (residential ? 3 : 1);
       const repHit = residential ? 3 : 1;
       if (state.cash < buyout)
-        return log(state, `Uppsägningen kräver ${kr(buyout)} i ${residential ? "avflyttningsersättning (besittningsskydd)" : "kompensation"}.`, "warn");
+        return log(state, `The termination requires ${kr(buyout)} in ${residential ? "relocation compensation (tenancy protection)" : "compensation"}.`, "warn");
       return {
         ...state,
         cash: state.cash - buyout,
@@ -587,7 +587,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id && r.tenantId === action.tenantId),
         log: [
           {
-            t: `Sade upp ${tenant.name} i ${p.districtName}: ${kr(buyout)} i ${residential ? "avflyttningsersättning" : "kompensation"} (rep −${repHit}).`,
+            t: `Terminated ${tenant.name} in ${p.districtName}: ${kr(buyout)} in ${residential ? "relocation compensation" : "compensation"} (rep −${repHit}).`,
             kind: "warn",
           },
           ...state.log,
@@ -613,7 +613,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id && r.tenantId === action.tenantId),
         log: [
           {
-            t: `Förnyade avtal med ${tenant.name} i ${p.districtName}: ${kr(newRent)}/mån, ${renewed.monthsLeft} mån.`,
+            t: `Renewed the lease with ${tenant.name} in ${p.districtName}: ${kr(newRent)}/mo, ${renewed.monthsLeft} mo.`,
             kind: "buy",
           },
           ...state.log,
@@ -624,9 +624,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status === "bygger") return state;
       if (pendingWork(p, "underhåll"))
-        return log(state, `Underhåll pågår redan på ${p.typeLabel} i ${p.districtName} – klart vid månadsskiftet.`, "info");
+        return log(state, `Maintenance is already in progress on ${p.typeLabel} in ${p.districtName} – done at month-end.`, "info");
       const cost = Math.round(propMarketValue(p, state) * 0.02);
-      if (state.cash < cost) return log(state, "För lite kontanter för underhåll.", "warn");
+      if (state.cash < cost) return log(state, "Not enough cash for maintenance.", "warn");
       // Betalas nu, +15 skick när månaden gått – hyran flyter under tiden.
       return {
         ...state,
@@ -642,7 +642,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `🔧 Underhåll beställt på ${p.typeLabel} i ${p.districtName} (${msek(cost)}) – +15 skick vid månadsskiftet.`,
+            t: `🔧 Maintenance ordered for ${p.typeLabel} in ${p.districtName} (${msek(cost)}) – +15 condition at month-end.`,
             kind: "upg",
           },
           ...state.log,
@@ -670,10 +670,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
         return np;
       });
       if (signed === 0)
-        return log(state, "Inga ansökningar att acceptera – justera utgångshyror eller anlita mäklare.", "info");
+        return log(state, "No applications to accept – adjust asking rents or hire a broker.", "info");
       return log(
         { ...state, portfolio },
-        `🏠 Accepterade ${signed} ansökningar – bästa sökande fick kontrakt i hela portföljen.`,
+        `🏠 Accepted ${signed} applications – the best applicants got contracts across the whole portfolio.`,
         "buy",
       );
     }
@@ -697,10 +697,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
         };
       });
       if (fixed === 0)
-        return log(state, `Inget att underhålla under skick ${action.threshold} (eller kassan räcker inte).`, "info");
+        return log(state, `Nothing to maintain below condition ${action.threshold} (or the cash is insufficient).`, "info");
       return log(
         { ...state, cash, portfolio },
-        `🔧 Underhållsrond: ${fixed} jobb beställda (${msek(totalCost)}) – +15 skick vid månadsskiftet.`,
+        `🔧 Maintenance round: ${fixed} jobs ordered (${msek(totalCost)}) – +15 condition at month-end.`,
         "upg",
       );
     }
@@ -724,7 +724,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         return changed ? { ...p, tenants } : p;
       });
       if (renewed === 0)
-        return log(state, `Inga kontrakt löper ut inom ${action.monthsLeft} månader.`, "info");
+        return log(state, `No contracts expire within ${action.monthsLeft} months.`, "info");
       return log(
         {
           ...state,
@@ -733,7 +733,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           pendingRenewals: dropRenewals(state, (r) => renewedIds.has(r.tenantId)),
           reputation: Math.min(100, state.reputation + 1),
         },
-        `📄 Förnyade ${renewed} hyreskontrakt till marknadshyra (reputation +1).`,
+        `📄 Renewed ${renewed} leases at market rent (reputation +1).`,
         "buy",
       );
     }
@@ -745,23 +745,23 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return log(
         { ...state, portfolio },
         action.managed
-          ? "👔 Förvaltare anlitade på samtliga fastigheter."
-          : "👔 Förvaltare avslutade på samtliga fastigheter.",
+          ? "👔 Managers hired on all properties."
+          : "👔 Managers ended on all properties.",
         "info",
       );
     }
     case "BUY_LOT": {
       const lot = state.lots.find((x) => x.id === action.id);
       if (!lot) return state;
-      if (districtLocked(state, lot.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
-      if (state.cash < lot.price) return log(state, "För lite kontanter för tomten.", "warn");
+      if (districtLocked(state, lot.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
+      if (state.cash < lot.price) return log(state, "Not enough cash for the lot.", "warn");
       return {
         ...state,
         cash: state.cash - lot.price,
         lots: state.lots.map((x) => (x.id === lot.id ? { ...x, owned: true } : x)),
         log: [
           {
-            t: `Köpte tomt i ${lot.districtName} (${lot.area} m²) för ${msek(lot.price)}.`,
+            t: `Bought a lot in ${lot.districtName} (${lot.area} m²) for ${msek(lot.price)}.`,
             kind: "buy",
           },
           ...state.log,
@@ -777,7 +777,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const { maxLtv } = loanTerms(state);
       const down = cost * (1 - maxLtv);
       if (state.cash < down)
-        return log(state, `Bygget kräver ${msek(down)} kontant (resten lån).`, "warn");
+        return log(state, `The build requires ${msek(down)} in cash (the rest is a loan).`, "warn");
       const d = DISTRICTS.find((x) => x.id === lot.district)!;
       const value = lot.area * d.base * 1.1 * state.marketMod;
       const newProp: Property = {
@@ -806,7 +806,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         buildLeft,
         energyClass: "A",
         builtYear: state.year,
-        txHistory: [{ type: "nybygg", price: Math.round(cost), month: state.month, year: state.year, party: "Spelaren" }],
+        txHistory: [{ type: "built", price: Math.round(cost), month: state.month, year: state.year, party: "You" }],
       };
       return {
         ...state,
@@ -818,7 +818,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         worldTotal: (state.worldTotal ?? 0) + 1,
         log: [
           {
-            t: `Påbörjade nyproduktion (${t.label}) i ${lot.districtName}. Klart om ${buildLeft} mån. Världen utökas till ${(state.worldTotal ?? 0) + 1} fastigheter.`,
+            t: `Started new construction (${t.label}) in ${lot.districtName}. Done in ${buildLeft} mo. The world expands to ${(state.worldTotal ?? 0) + 1} properties.`,
             kind: "upg",
           },
           ...state.log,
@@ -840,19 +840,19 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Fastighetskris: refinansieringsfönstret är stängt – bankerna
       // lånar inte ut mot fallande säkerheter.
       if ((state.crisisMonthsLeft ?? 0) > 0)
-        return log(state, "🏦 Kreditmarknaden är stängd under krisen — ingen ny belåning förrän marknaden stabiliserats.", "warn");
+        return log(state, "🏦 The credit market is closed during the crisis — no new leverage until the market stabilizes.", "warn");
       const { maxLtv } = loanTerms(state);
       const portVal = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
       const maxDebt = Math.floor(portVal * maxLtv);
       const draw = Math.min(action.amount, Math.max(0, maxDebt - state.debt));
-      if (draw <= 0) return log(state, "Inga ytterligare låneutrymme inom nuvarande LTV.", "warn");
+      if (draw <= 0) return log(state, "No further borrowing capacity within the current LTV.", "warn");
       return {
         ...state,
         cash: state.cash + draw,
         debt: state.debt + draw,
         reputation: Math.max(0, state.reputation - 1),
         log: [
-          { t: `Belånade portföljen: +${msek(draw)} (reputation −1).`, kind: "income" },
+          { t: `Leveraged the portfolio: +${msek(draw)} (reputation −1).`, kind: "income" },
           ...state.log,
         ],
       };
@@ -868,7 +868,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `Tecknade hyresavtal: ${action.tenant.name} i ${p.districtName}, ${action.tenant.termTotal} mån, ${kr(action.tenant.rent)}/mån.`,
+            t: `Signed lease: ${action.tenant.name} in ${p.districtName}, ${action.tenant.termTotal} mo, ${kr(action.tenant.rent)}/mo.`,
             kind: "buy",
           },
           ...state.log,
@@ -897,7 +897,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ),
           log: [
             {
-              t: `${tenant.name} i ${p.districtName} accepterade hyreshöjning +${action.increasePercent}% → ${kr(newRent)}/mån.`,
+              t: `${tenant.name} in ${p.districtName} accepted a rent increase +${action.increasePercent}% → ${kr(newRent)}/mo.`,
               kind: "income",
             },
             ...state.log,
@@ -912,7 +912,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `${tenant.name} i ${p.districtName} avvisade hyreshöjningen och lämnade (reputation −1).`,
+            t: `${tenant.name} in ${p.districtName} rejected the rent increase and left (reputation −1).`,
             kind: "warn",
           },
           ...state.log,
@@ -935,7 +935,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `${tenant.name} i ${p.districtName}: hyra sänkt −${action.decreasePercent}% → ${kr(newRent)}/mån (reputation +0,5).`,
+            t: `${tenant.name} in ${p.districtName}: rent cut −${action.decreasePercent}% → ${kr(newRent)}/mo (reputation +0.5).`,
             kind: "info",
           },
           ...state.log,
@@ -956,8 +956,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [
           {
             t: managed
-              ? `Anställde förvaltare för ${p.typeLabel} i ${p.districtName}.`
-              : `Avslutade förvaltning av ${p.typeLabel} i ${p.districtName}.`,
+              ? `Hired a manager for ${p.typeLabel} in ${p.districtName}.`
+              : `Ended management of ${p.typeLabel} in ${p.districtName}.`,
             kind: managed ? "buy" : "info",
           },
           ...state.log,
@@ -970,10 +970,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status !== "klar") return state;
       if (suppressOrganicApplications(state, p))
-        return log(state, "🎬 Lugn – berättelsen ordnar sökande till morfars hus. Spara annonspengarna.", "info");
+        return log(state, "🎬 Relax – the story arranges applicants for Grandpa's house. Save the ad money.", "info");
       if (pendingWork(p, "kampanj"))
-        return log(state, `En annonskampanj pågår redan för ${p.typeLabel} i ${p.districtName}.`, "info");
-      if (state.cash < 25000) return log(state, "För lite kontanter för annonskampanj.", "warn");
+        return log(state, `An ad campaign is already running for ${p.typeLabel} in ${p.districtName}.`, "info");
+      if (state.cash < 25000) return log(state, "Not enough cash for an ad campaign.", "warn");
       return {
         ...state,
         cash: state.cash - 25000,
@@ -984,7 +984,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `📣 Annonskampanj startad för ${p.typeLabel} i ${p.districtName} (25 000 kr) – ansökningar väntas vid månadsskiftet.`,
+            t: `📣 Ad campaign started for ${p.typeLabel} in ${p.districtName} (25,000 kr) – applications expected at month-end.`,
             kind: "upg",
           },
           ...state.log,
@@ -994,14 +994,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "HIRE_BROKER": {
       const BROKER_FEE = 75_000;
       if (state.cash < BROKER_FEE)
-        return log(state, "Mäklararvodet är 75 000 kr – för lite kontanter.", "warn");
+        return log(state, "The broker fee is 75,000 kr – not enough cash.", "warn");
       const extra = genListing(state);
       return {
         ...state,
         cash: state.cash - BROKER_FEE,
         listings: [...state.listings, extra],
         log: [
-          { t: `Anlitade mäklare (75 000 kr). Nytt off-market objekt: ${extra.typeLabel} i ${extra.districtName}.`, kind: "buy" },
+          { t: `Hired a broker (75,000 kr). New off-market property: ${extra.typeLabel} in ${extra.districtName}.`, kind: "buy" },
           ...state.log,
         ],
       };
@@ -1009,14 +1009,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "HIRE_BROKER_LOTS": {
       const BROKER_FEE = 75_000;
       if (state.cash < BROKER_FEE)
-        return log(state, "Mäklararvodet är 75 000 kr – för lite kontanter.", "warn");
+        return log(state, "The broker fee is 75,000 kr – not enough cash.", "warn");
       const extra = genLot(state);
       return {
         ...state,
         cash: state.cash - BROKER_FEE,
         lots: [...state.lots, extra],
         log: [
-          { t: `Anlitade markmäklare (75 000 kr). Ny off-market tomt i ${extra.districtName} hittades.`, kind: "buy" },
+          { t: `Hired a land broker (75,000 kr). A new off-market lot was found in ${extra.districtName}.`, kind: "buy" },
           ...state.log,
         ],
       };
@@ -1091,7 +1091,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         managerSettings: undefined,
         txHistory: [
           ...(x.txHistory ?? []),
-          { type: "sälj" as const, price, month: state.month, year: state.year, party: offer.from },
+          { type: "sold" as const, price, month: state.month, year: state.year, party: offer.from },
         ],
       });
       const settle = (s: GameState, sold: Property[], amount: number): GameState => {
@@ -1133,7 +1133,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
               pendingRenewals: dropRenewals(state, (r) => soldIds.includes(r.propertyId)),
               log: [
                 {
-                  t: `📦 Paketaffär! Sålde ${props.length} fastigheter till ${offer.from} för ${msek(offer.amount)} (netto ${msek(offer.amount - payoff)}).`,
+                  t: `📦 Package deal! Sold ${props.length} properties to ${offer.from} for ${msek(offer.amount)} (net ${msek(offer.amount - payoff)}).`,
                   kind: "sell",
                 },
                 ...state.log,
@@ -1160,7 +1160,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
             log: [
               {
-                t: `Accepterade bud: sålde ${p.typeLabel} i ${p.districtName} till ${offer.from} för ${msek(offer.amount)}.`,
+                t: `Accepted a bid: sold ${p.typeLabel} in ${p.districtName} to ${offer.from} for ${msek(offer.amount)}.`,
                 kind: "sell",
               },
               ...state.log,
@@ -1195,7 +1195,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         const bumped: GameState = {
           ...state,
           offers: (state.offers ?? []).map((o) => (o.id === offer.id ? { ...o, amount } : o)),
-          log: [{ t: `🤝 ${offer.from} gick med på ditt motbud ${msek(amount)}.`, kind: "sell" }, ...state.log],
+          log: [{ t: `🤝 ${offer.from} agreed to your counter-offer ${msek(amount)}.`, kind: "sell" }, ...state.log],
         };
         return reducer(bumped, { type: "ACCEPT_OFFER", offerId: offer.id });
       }
@@ -1203,7 +1203,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         offers: (state.offers ?? []).filter((o) => o.id !== offer.id),
         log: [
-          { t: `🚪 ${offer.from} drog sig ur affären efter ditt motbud på ${msek(amount)}.`, kind: "warn" },
+          { t: `🚪 ${offer.from} pulled out of the deal after your counter-offer of ${msek(amount)}.`, kind: "warn" },
           ...state.log,
         ],
       };
@@ -1215,7 +1215,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         offers: state.offers.filter((o) => o.id !== offer.id),
         log: [
-          { t: `Avböjde ${offer.from}s bud på ${offer.propLabel} i ${offer.districtName}.`, kind: "info" },
+          { t: `Declined ${offer.from}'s bid on ${offer.propLabel} in ${offer.districtName}.`, kind: "info" },
           ...state.log,
         ],
       };
@@ -1229,7 +1229,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (qty <= 0) return state;
       const cost = qty * st.price * (1 + COURTAGE);
       if (state.cash < cost)
-        return log(state, `För lite kontanter. ${qty} aktier i ${st.name} kostar ${msek(cost)}.`, "warn");
+        return log(state, `Not enough cash. ${qty} shares in ${st.name} cost ${msek(cost)}.`, "warn");
       const newOwned = st.owned + qty;
       const newAvg = (st.owned * st.avgCost + qty * st.price) / newOwned;
       return {
@@ -1239,7 +1239,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           x.id === st.id ? { ...x, owned: newOwned, avgCost: +newAvg.toFixed(2) } : x,
         ),
         log: [
-          { t: `Köpte ${qty.toLocaleString("sv-SE")} aktier i ${st.name} för ${msek(cost)}.`, kind: "buy" },
+          { t: `Bought ${qty.toLocaleString("en-US")} shares in ${st.name} for ${msek(cost)}.`, kind: "buy" },
           ...state.log,
         ],
       };
@@ -1258,7 +1258,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           x.id === st.id ? { ...x, owned: newOwned, avgCost: newOwned === 0 ? 0 : x.avgCost } : x,
         ),
         log: [
-          { t: `Sålde ${qty.toLocaleString("sv-SE")} aktier i ${st.name} för ${msek(proceeds)}.`, kind: "sell" },
+          { t: `Sold ${qty.toLocaleString("en-US")} shares in ${st.name} for ${msek(proceeds)}.`, kind: "sell" },
           ...state.log,
         ],
       };
@@ -1268,7 +1268,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!st || !st.competitorName) return state;
       const ownPct = st.owned / st.sharesOutstanding;
       if (ownPct <= 0.5)
-        return log(state, `Du behöver majoritet (>50 %) i ${st.name} för att förvärva bolaget.`, "warn");
+        return log(state, `You need a majority (>50%) in ${st.name} to acquire the company.`, "warn");
       // Uppköpsdrama (feature 9): premien beror på om budet är vänligt eller
       // fientligt. Med en bred majoritet (>75 %) rekommenderar styrelsen budet
       // och premien är låg; ett fientligt bud (50–75 %) möter styrelsemotstånd
@@ -1280,7 +1280,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (state.cash < cost)
         return log(
           state,
-          `${friendly ? "Vänligt" : "Fientligt"} bud på ${st.name} kräver ${msek(cost)} för resterande aktier (premie ${Math.round(premium * 100)} %).`,
+          `${friendly ? "A friendly" : "A hostile"} bid on ${st.name} requires ${msek(cost)} for the remaining shares (premium ${Math.round(premium * 100)}%).`,
           "warn",
         );
       const comp = state.competitors.find((c) => c.name === st.competitorName);
@@ -1294,7 +1294,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         purchasePrice: p.askPrice,
         txHistory: [
           ...(p.txHistory ?? []),
-          { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: `Förvärv av ${st.name}` },
+          { type: "bought" as const, price: p.askPrice, month: state.month, year: state.year, party: `Acquisition of ${st.name}` },
         ],
       }));
       // Egen blankning i bolaget stängs till kurs vid avnoteringen.
@@ -1304,8 +1304,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const cashIn = Math.round(comp?.cash ?? 0) + shortSettle;
       const repDelta = friendly ? 4 : -3;
       const dramaLog = friendly
-        ? `🏛️ FÖRVÄRV: Styrelsen i ${st.name} rekommenderade ditt bud. Du köpte upp bolaget för ${msek(cost)} (premie 15 %) – ${acquired.length} fastigheter och ${msek(Math.round(comp?.cash ?? 0))} i kassa fusioneras in i koncernen.`
-        : `🏛️ FIENTLIGT FÖRVÄRV: Trots styrelsens giftpiller vann du budstriden om ${st.name} för ${msek(cost)} (premie 30 %) – ${acquired.length} fastigheter och ${msek(Math.round(comp?.cash ?? 0))} i kassa fusioneras in. Rykte −3.`;
+        ? `🏛️ ACQUISITION: The board of ${st.name} recommended your bid. You bought the company for ${msek(cost)} (premium 15%) – ${acquired.length} properties and ${msek(Math.round(comp?.cash ?? 0))} in cash are merged into the group.`
+        : `🏛️ HOSTILE ACQUISITION: Despite the board's poison pills you won the bidding war for ${st.name} for ${msek(cost)} (premium 30%) – ${acquired.length} properties and ${msek(Math.round(comp?.cash ?? 0))} in cash are merged in. Reputation −3.`;
       return {
         ...state,
         cash: state.cash - cost + cashIn,
@@ -1325,13 +1325,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p || !t || p.status === "bygger") return state;
       if (p.type === action.propType) return state;
       if (p.tenants.length > 0)
-        return log(state, "Fastigheten måste vara vakant för att ändra användning.", "warn");
+        return log(state, "The property must be vacant to change its use.", "warn");
       if (pendingWork(p, "ändrad_användning"))
-        return log(state, "En ombyggnad till ny användning pågår redan.", "warn");
+        return log(state, "A conversion to a new use is already in progress.", "warn");
       const value = propMarketValue(p, state);
       const cost = Math.round(value * 0.15);
       if (state.cash < cost)
-        return log(state, `Ändrad användning kostar ${msek(cost)} (ombyggnad).`, "warn");
+        return log(state, `Changing the use costs ${msek(cost)} (conversion).`, "warn");
       // Ombyggnaden tar tre månader; typ/hyra/skick ändras när den är klar.
       return {
         ...state,
@@ -1350,24 +1350,24 @@ export function reducer(state: GameState, action: GameAction): GameState {
             : x,
         ),
         log: [
-          { t: `Ombyggnad beställd i ${p.districtName}: ${p.typeLabel} → ${t.label} (${msek(cost)}) – klar om 3 mån.`, kind: "upg" },
+          { t: `Conversion ordered in ${p.districtName}: ${p.typeLabel} → ${t.label} (${msek(cost)}) – done in 3 mo.`, kind: "upg" },
           ...state.log,
         ],
       };
     }
     case "START_RESEARCH": {
-      if (state.activeResearch) return log(state, "Ett forskningsprojekt pågår redan.", "warn");
+      if (state.activeResearch) return log(state, "A research project is already in progress.", "warn");
       if ((state.researchDone ?? []).includes(action.id)) return state;
       const def = RESEARCH.find((r) => r.id === action.id);
       if (!def) return state;
       if (state.cash < def.cost)
-        return log(state, `${def.name} kräver ${msek(def.cost)} i forskningsbudget.`, "warn");
+        return log(state, `${def.name} requires ${msek(def.cost)} in research budget.`, "warn");
       return {
         ...state,
         cash: state.cash - def.cost,
         activeResearch: { id: def.id, monthsLeft: def.months, monthsTotal: def.months },
         log: [
-          { t: `🔬 Startade forskning: ${def.name} (klar om ${def.months} mån).`, kind: "upg" },
+          { t: `🔬 Started research: ${def.name} (done in ${def.months} mo).`, kind: "upg" },
           ...state.log,
         ],
       };
@@ -1376,11 +1376,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const role = STAFF_ROLES.find((r) => r.id === action.role);
       if (!role) return state;
       const cur = state.staff?.[action.role] ?? 0;
-      if (cur >= role.maxLevel) return log(state, `${role.name} är redan på högsta nivå.`, "warn");
+      if (cur >= role.maxLevel) return log(state, `${role.name} is already at the top level.`, "warn");
       const nextLevel = cur + 1;
       const fee = hireFee(action.role, nextLevel);
       if (state.cash < fee)
-        return log(state, `Rekrytering av ${role.name} kostar ${msek(fee)} i ingångsarvode.`, "warn");
+        return log(state, `Recruiting ${role.name} costs ${msek(fee)} in an initial fee.`, "warn");
       return {
         ...state,
         cash: state.cash - fee,
@@ -1388,8 +1388,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [
           {
             t: cur === 0
-              ? `Anställde ${role.name} (lön ${kr(role.baseSalary)}/mån).`
-              : `Befordrade ${role.name} till nivå ${nextLevel}.`,
+              ? `Hired ${role.name} (salary ${kr(role.baseSalary)}/mo).`
+              : `Promoted ${role.name} to level ${nextLevel}.`,
             kind: "buy",
           },
           ...state.log,
@@ -1404,7 +1404,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         staff,
-        log: [{ t: `Avslutade anställningen av ${role.name}.`, kind: "info" }, ...state.log],
+        log: [{ t: `Ended the employment of ${role.name}.`, kind: "info" }, ...state.log],
       };
     }
     case "SELL_SUBSIDIARY": {
@@ -1418,7 +1418,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         subsidiaries: state.subsidiaries.filter((s) => s.name !== action.name),
         log: [
           {
-            t: `Sålde dotterbolaget ${sub.name} för ${msek(salePrice)} (${kr(sub.monthlyIncome)}/mån × 12 / 6 % × 80 %).`,
+            t: `Sold the subsidiary ${sub.name} for ${msek(salePrice)} (${kr(sub.monthlyIncome)}/mo × 12 / 6% × 80%).`,
             kind: "sell",
           },
           ...state.log,
@@ -1444,7 +1444,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         stockOrders: [...(state.stockOrders ?? []), newOrder],
         log: [
           {
-            t: `Limitorder lagd: ${action.side === "buy" ? "Köp" : "Sälj"} ${qty.toLocaleString("sv-SE")} aktier i ${st.name} @ ${kr(limitPrice)}.`,
+            t: `Limit order placed: ${action.side === "buy" ? "Buy" : "Sell"} ${qty.toLocaleString("en-US")} shares in ${st.name} @ ${kr(limitPrice)}.`,
             kind: "info",
           },
           ...state.log,
@@ -1455,7 +1455,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         stockOrders: (state.stockOrders ?? []).filter((o) => o.id !== action.orderId),
-        log: [{ t: "Limitorder avbröts.", kind: "info" }, ...state.log],
+        log: [{ t: "Limit order cancelled.", kind: "info" }, ...state.log],
       };
     }
     case "OFFER_TO_RIVAL": {
@@ -1469,17 +1469,17 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const { maxLtv } = loanTerms(state);
       const down = action.amount * (1 - maxLtv);
       if (state.cash < down)
-        return log(state, `Du behöver ${msek(down)} i handpenning för att köpa av ${action.competitorName}.`, "warn");
+        return log(state, `You need ${msek(down)} as a down payment to buy from ${action.competitorName}.`, "warn");
       const accepted = ratio >= 1.25 || (ratio >= 1.1 && random01() < 0.70);
       if (!accepted) {
         return log(
           state,
-          `${action.competitorName} avböjde ditt bud på ${msek(action.amount)} för ${prop.typeLabel} i ${prop.districtName}. Lägg ett högre bud.`,
+          `${action.competitorName} declined your bid of ${msek(action.amount)} for ${prop.typeLabel} in ${prop.districtName}. Place a higher bid.`,
           "warn",
         );
       }
       const loan = action.amount - down;
-      const txEntry = { type: "köp" as const, price: action.amount, month: state.month, year: state.year, party: `${action.competitorName} (direktköp)` };
+      const txEntry = { type: "bought" as const, price: action.amount, month: state.month, year: state.year, party: `${action.competitorName} (direct buy)` };
       const boughtProp: Property = { ...prop, owned: true, purchasePrice: action.amount, txHistory: [...(prop.txHistory ?? []), txEntry] };
       const newCompPortfolio = comp.portfolio.filter((_, i) => i !== propIdx);
       return {
@@ -1495,7 +1495,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `✅ ${action.competitorName} accepterade ditt bud! Du köpte ${prop.typeLabel} i ${prop.districtName} för ${msek(action.amount)} (lån ${msek(loan)}).`,
+            t: `✅ ${action.competitorName} accepted your bid! You bought ${prop.typeLabel} in ${prop.districtName} for ${msek(action.amount)} (loan ${msek(loan)}).`,
             kind: "buy",
           },
           ...state.log,
@@ -1506,18 +1506,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         selectedLender: action.lenderId === state.selectedLender ? undefined : action.lenderId,
-        log: [{ t: `Bytte långivare.`, kind: "info" }, ...state.log],
+        log: [{ t: `Switched lender.`, kind: "info" }, ...state.log],
       };
     }
     case "BID_OFFMARKET": {
       const prop = (state.worldPool ?? []).find((p) => p.id === action.propertyId);
       if (!prop) return state;
-      if (districtLocked(state, prop.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
+      if (districtLocked(state, prop.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
       const ref = prop.askPrice;
       const { maxLtv } = loanTerms(state);
       const down = action.amount * (1 - maxLtv);
       if (state.cash < down)
-        return log(state, `Du behöver ${msek(down)} i handpenning för off-market köpet.`, "warn");
+        return log(state, `You need ${msek(down)} as a down payment for the off-market purchase.`, "warn");
       // Accepteras garanterat vid ≥110 %, 50 % chans vid 105–110 %
       const accepted =
         action.amount >= ref * 1.10 ||
@@ -1525,12 +1525,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!accepted) {
         return log(
           state,
-          `Fastighetsägaren avböjde budet ${msek(action.amount)}. Höj till minst ${msek(Math.round(ref * 1.10))} (+10 %) för garanterat svar.`,
+          `The property owner declined the bid ${msek(action.amount)}. Raise to at least ${msek(Math.round(ref * 1.10))} (+10%) for a guaranteed answer.`,
           "warn",
         );
       }
       const loan = action.amount - down;
-      const txEntry = { type: "köp" as const, price: action.amount, month: state.month, year: state.year, party: "Spelaren (off-market)" };
+      const txEntry = { type: "bought" as const, price: action.amount, month: state.month, year: state.year, party: "You (off-market)" };
       const boughtProp: Property = { ...prop, owned: true, purchasePrice: action.amount, txHistory: [...(prop.txHistory ?? []), txEntry] };
       return {
         ...state,
@@ -1541,7 +1541,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         worldPool: (state.worldPool ?? []).filter((p) => p.id !== action.propertyId),
         log: [
           {
-            t: `🤝 Off-market köp: ${prop.typeLabel} i ${prop.districtName} för ${msek(action.amount)} (premie +${pct(action.amount / ref - 1)}, lån ${msek(loan)}).`,
+            t: `🤝 Off-market purchase: ${prop.typeLabel} in ${prop.districtName} for ${msek(action.amount)} (premium +${pct(action.amount / ref - 1)}, loan ${msek(loan)}).`,
             kind: "buy",
           },
           ...state.log,
@@ -1575,7 +1575,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...s,
           reputation: Math.min(100, s.reputation + 3),
           log: [
-            { t: "📔 Alla morfars minneslappar hittade – fotoalbumet är komplett (reputation +3). Han hade gillat att du letade.", kind: "income" as const },
+            { t: "📔 All of Grandpa's memory notes found – the photo album is complete (reputation +3). He'd have liked that you looked.", kind: "income" as const },
             ...s.log,
           ],
         };
@@ -1589,10 +1589,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const rival = state.competitors.find((c) => c.name === action.competitorName);
       if (!rival) return state;
       if ((rival.portfolio ?? []).length === 0)
-        return log(state, `${rival.name} äger inga fastigheter att förvärva.`, "warn");
+        return log(state, `${rival.name} owns no properties to acquire.`, "warn");
       const minPrice = Math.round((rival.equity ?? 0) * 1.3);
       if (action.amount < minPrice)
-        return log(state, `Minimipris för förvärv är ${msek(minPrice)} (130 % av eget kapital).`, "warn");
+        return log(state, `The minimum acquisition price is ${msek(minPrice)} (130% of equity).`, "warn");
       // Din befintliga aktiepost i bolaget räknas av – du köper bara resten.
       const stock = state.stocks.find((x) => x.competitorName === rival.name);
       const ownFrac = stock && stock.sharesOutstanding > 0
@@ -1601,7 +1601,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const price = Math.round(action.amount * (1 - ownFrac));
       const down = Math.round(price * 0.25);
       if (state.cash < down)
-        return log(state, `Otillräcklig kassa – behöver minst ${msek(down)} (25 % handpenning).`, "warn");
+        return log(state, `Insufficient cash – you need at least ${msek(down)} (25% down payment).`, "warn");
       const loan = price - down;
       const acquired = (rival.portfolio ?? []).map((p) => ({
         ...p,
@@ -1609,7 +1609,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         purchasePrice: p.askPrice,
         txHistory: [
           ...(p.txHistory ?? []),
-          { type: "köp" as const, price: p.askPrice, month: state.month, year: state.year, party: `Förvärv av ${rival.name}` },
+          { type: "bought" as const, price: p.askPrice, month: state.month, year: state.year, party: `Acquisition of ${rival.name}` },
         ],
       }));
       // Egen blankning i bolaget stängs till kurs vid avnoteringen. Något
@@ -1633,7 +1633,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, state.reputation + 8),
         log: [
           {
-            t: `🏢 FÖRVÄRV: ${rival.name} fusioneras in i koncernen för ${msek(price)}${ownFrac > 0 ? ` (din aktiepost ${pct(ownFrac)} räknades av)` : ""} – ${acquired.length} fastigheter och ${msek(Math.round(rival.cash ?? 0))} i kassa tillförs!${rivalQuote(rival.name, "uppköpt", state.month) ? " " + rivalQuote(rival.name, "uppköpt", state.month) : ""}`,
+            t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} – ${acquired.length} properties and ${msek(Math.round(rival.cash ?? 0))} in cash added!${rivalQuote(rival.name, "uppköpt", state.month) ? " " + rivalQuote(rival.name, "uppköpt", state.month) : ""}`,
             kind: "buy",
           },
           ...state.log,
@@ -1648,7 +1648,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         pendingDecision: null,
         reputation: Math.max(0, +(state.reputation - 2).toFixed(1)),
-        log: [{ t: `⏸ Sköt upp beslutet "${state.pendingDecision.title}". Reputation −2.`, kind: "warn" }, ...state.log],
+        log: [{ t: `⏸ Postponed the decision "${state.pendingDecision.title}". Reputation −2.`, kind: "warn" }, ...state.log],
       };
     }
     case "SET_SCENARIO": {
@@ -1657,11 +1657,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "BUY_INSURANCE": {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p) return state;
-      if (p.insurance) return log(state, "Fastigheten är redan försäkrad.", "warn");
+      if (p.insurance) return log(state, "The property is already insured.", "warn");
       return {
         ...state,
         portfolio: state.portfolio.map((x) => x.id === action.id ? { ...x, insurance: true } : x),
-        log: [{ t: `🛡️ Försäkring tecknad för ${p.typeLabel} i ${p.districtName} (2 000 kr/mån).`, kind: "info" }, ...state.log],
+        log: [{ t: `🛡️ Insurance taken out for ${p.typeLabel} in ${p.districtName} (2,000 kr/mo).`, kind: "info" }, ...state.log],
       };
     }
     case "CANCEL_INSURANCE": {
@@ -1670,23 +1670,23 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         portfolio: state.portfolio.map((x) => x.id === action.id ? { ...x, insurance: false } : x),
-        log: [{ t: `Försäkring avslutad för ${p.typeLabel} i ${p.districtName}.`, kind: "info" }, ...state.log],
+        log: [{ t: `Insurance ended for ${p.typeLabel} in ${p.districtName}.`, kind: "info" }, ...state.log],
       };
     }
     case "ISSUE_BOND": {
       // Obligationsprogrammet styrs av kreditbetyget: bättre betyg ger
       // lägre kupong och ett större program (andel av eget kapital).
       if ((state.crisisMonthsLeft ?? 0) > 0)
-        return log(state, "📜 Obligationsmarknaden är fryst under krisen — inga emissioner.", "warn");
+        return log(state, "📜 The bond market is frozen during the crisis — no issues.", "warn");
       const info = creditRatingOf(state);
       if (info.bondCap <= 0)
-        return log(state, `📜 Betyget ${info.rating} stänger obligationsmarknaden — stärk balansräkningen först.`, "warn");
+        return log(state, `📜 Rating ${info.rating} closes the bond market — strengthen the balance sheet first.`, "warn");
       const outstanding = (state.bonds ?? []).reduce((a, b) => a + b.amount, 0);
       const room = info.bondCap - outstanding;
       if (room < 1_000_000)
-        return log(state, `📜 Obligationsprogrammet är fullt (${msek(outstanding)} av ${msek(info.bondCap)} vid betyg ${info.rating}). Lös in eller förbättra betyget.`, "warn");
+        return log(state, `📜 The bond program is full (${msek(outstanding)} of ${msek(info.bondCap)} at rating ${info.rating}). Redeem or improve the rating.`, "warn");
       const amount = Math.min(action.amount, room);
-      if (amount < 1_000_000) return log(state, "Minsta obligation är 1 MSEK.", "warn");
+      if (amount < 1_000_000) return log(state, "The minimum bond is 1 MSEK.", "warn");
       const rate = bondRateFor(state, info.rating);
       const matureAbs = state.year * 12 + state.month + action.years * 12;
       const newBond = { id: String(Date.now()), amount, rate, matureAbs };
@@ -1694,18 +1694,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash + amount,
         bonds: [...(state.bonds ?? []), newBond],
-        log: [{ t: `📜 Obligationsemission (betyg ${info.rating}): ${msek(amount)} till ${rate.toFixed(2)} % kupong, ${action.years} år. Program: ${msek(outstanding + amount)} av ${msek(info.bondCap)}.`, kind: "income" }, ...state.log],
+        log: [{ t: `📜 Bond issue (rating ${info.rating}): ${msek(amount)} at ${rate.toFixed(2)}% coupon, ${action.years} yr. Program: ${msek(outstanding + amount)} of ${msek(info.bondCap)}.`, kind: "income" }, ...state.log],
       };
     }
     case "REPAY_BOND": {
       const bond = (state.bonds ?? []).find((b) => b.id === action.bondId);
       if (!bond) return state;
-      if (state.cash < bond.amount) return log(state, `Otillräcklig kassa. Behöver ${msek(bond.amount)}.`, "warn");
+      if (state.cash < bond.amount) return log(state, `Insufficient cash. You need ${msek(bond.amount)}.`, "warn");
       return {
         ...state,
         cash: state.cash - bond.amount,
         bonds: (state.bonds ?? []).filter((b) => b.id !== action.bondId),
-        log: [{ t: `🏦 Obligation på ${msek(bond.amount)} återbetalad i förtid.`, kind: "info" }, ...state.log],
+        log: [{ t: `🏦 Bond of ${msek(bond.amount)} repaid early.`, kind: "info" }, ...state.log],
       };
     }
     case "SALE_LEASEBACK": {
@@ -1714,7 +1714,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const salePrice = Math.round(propMarketValue(p, state) * 1.0);
       const monthlyLease = Math.round(salePrice * 0.065 / 12);
       const payoff = Math.min(state.debt, (p.purchasePrice ?? salePrice) * 0.6);
-      const lbTenant = { id: newId(), profile: "stat", name: "Originalägaren (SLB)", profileName: "Sale-Leaseback", quality: 1.1, defaultRisk: 0.001, monthsLeft: 120, termTotal: 120, rent: monthlyLease };
+      const lbTenant = { id: newId(), profile: "stat", name: "Original owner (SLB)", profileName: "Sale-leaseback", quality: 1.1, defaultRisk: 0.001, monthsLeft: 120, termTotal: 120, rent: monthlyLease };
       return {
         ...state,
         cash: state.cash + salePrice - payoff,
@@ -1722,7 +1722,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         portfolio: state.portfolio.filter((x) => x.id !== action.id),
         listings: [...state.listings, { ...p, owned: false, askPrice: salePrice, tenants: [lbTenant], listedMonth: state.year * 12 + state.month, expiresMonth: state.year * 12 + state.month + 3, poolAskPrice: undefined, poolBaseRent: undefined }],
         pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id),
-        log: [{ t: `🔄 Sale-Leaseback: ${p.typeLabel} i ${p.districtName} såld för ${msek(salePrice)}, hyrt tillbaka till ${kr(monthlyLease)}/mån i 10 år.`, kind: "income" }, ...state.log],
+        log: [{ t: `🔄 Sale-leaseback: ${p.typeLabel} in ${p.districtName} sold for ${msek(salePrice)}, leased back at ${kr(monthlyLease)}/mo for 10 years.`, kind: "income" }, ...state.log],
       };
     }
     case "ACCEPT_COMPETING_BID": {
@@ -1737,7 +1737,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const { maxLtv } = loanTerms(state);
       const down = myBid * (1 - maxLtv);
       if (state.cash < down)
-        return log(state, `Behöver ${msek(down)} i handpenning för att höja budet till ${msek(myBid)}.`, "warn");
+        return log(state, `You need ${msek(down)} as a down payment to raise the bid to ${msek(myBid)}.`, "warn");
       const round = cb.round ?? 1;
       const response = nextBidRound(myBid, round);
       if (!response.fold) {
@@ -1746,7 +1746,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...state,
           competingBid: { ...cb, amount: response.amount, round: round + 1, expiresAbs: state.year * 12 + state.month + 1 },
           log: [
-            { t: `🔥 BUDKRIG (runda ${round + 1}): ${cb.rivalName} kontrar med ${msek(response.amount)} på ${listing.typeLabel} i ${listing.districtName}. Höj igen eller släpp taget.`, kind: "warn" },
+            { t: `🔥 BIDDING WAR (round ${round + 1}): ${cb.rivalName} counters with ${msek(response.amount)} on ${listing.typeLabel} in ${listing.districtName}. Raise again or let go.`, kind: "warn" },
             ...state.log,
           ],
         };
@@ -1761,7 +1761,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         portfolio: [...state.portfolio, { ...listing, owned: true, purchasePrice: myBid }],
         listings: state.listings.filter((p) => p.id !== listing.id),
         competingBid: undefined,
-        log: [{ t: `✅ Du vann budkriget! ${listing.typeLabel} i ${listing.districtName} köpt för ${msek(myBid)} efter ${round} ${round === 1 ? "runda" : "rundor"}.${rivalQuote(cb.rivalName, "förlust", round) ? " " + rivalQuote(cb.rivalName, "förlust", round) : ""}`, kind: "buy" }, ...state.log],
+        log: [{ t: `✅ You won the bidding war! ${listing.typeLabel} in ${listing.districtName} bought for ${msek(myBid)} after ${round} ${round === 1 ? "round" : "rounds"}.${rivalQuote(cb.rivalName, "förlust", round) ? " " + rivalQuote(cb.rivalName, "förlust", round) : ""}`, kind: "buy" }, ...state.log],
       };
     }
     case "PASS_COMPETING_BID": {
@@ -1774,7 +1774,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const CLASSES = ["F", "E", "D", "C", "B", "A"] as const;
       const curClass = (p.energyClass ?? "D") as (typeof CLASSES)[number];
       const curIdx = CLASSES.indexOf(curClass);
-      if (curIdx >= 5) return log(state, "Fastigheten har redan energiklass A — maximalt möjlig.", "warn");
+      if (curIdx >= 5) return log(state, "The property already has energy class A — the maximum possible.", "warn");
       if (pendingWork(p, "energi")) return state;
       const COSTS: Record<string, number> = { F: 80_000, E: 120_000, D: 180_000, C: 250_000, B: 350_000 };
       const cost = COSTS[curClass] ?? 150_000;
@@ -1793,7 +1793,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
               }
             : x,
         ),
-        log: [{ t: `⚡ Energiuppgradering beställd: ${p.typeLabel} i ${p.districtName} → klass ${nextClass} (−${kr(cost)}) – klar vid månadsskiftet.`, kind: "upg" }, ...state.log],
+        log: [{ t: `⚡ Energy upgrade ordered: ${p.typeLabel} in ${p.districtName} → class ${nextClass} (−${kr(cost)}) – done at month-end.`, kind: "upg" }, ...state.log],
       };
     }
     case "NEGOTIATE_RENEWAL": {
@@ -1818,7 +1818,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       }
       const mult = action.action === "raise" ? 1.10 : action.action === "lower" ? 0.90 : 1.0;
       const newRent = Math.round(renewal.currentRent * mult);
-      const label = action.action === "raise" ? "+10 %" : action.action === "lower" ? "−10 %" : "oförändrad";
+      const label = action.action === "raise" ? "+10%" : action.action === "lower" ? "−10%" : "unchanged";
       return {
         ...state,
         pendingRenewals: remaining,
@@ -1827,7 +1827,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             ? { ...p, tenants: p.tenants.map((t) => t.id === tenantId ? { ...t, rent: newRent, monthsLeft: renewal.termTotal } : t) }
             : p,
         ),
-        log: [{ t: `📄 Avtal förnyat med ${renewal.tenantName} i ${renewal.districtName}: ${kr(newRent)}/mån (${label}).`, kind: "income" }, ...state.log],
+        log: [{ t: `📄 Lease renewed with ${renewal.tenantName} in ${renewal.districtName}: ${kr(newRent)}/mo (${label}).`, kind: "income" }, ...state.log],
       };
     }
     case "DISMISS_TUTORIAL": {
@@ -1840,25 +1840,25 @@ export function reducer(state: GameState, action: GameAction): GameState {
         const nowAbs = state.year * 12 + state.month;
         const fee = Math.round(state.debt * 0.005);
         if (state.cash < fee)
-          return log(state, `Fast ränta kräver ${kr(fee)} i uppläggningsavgift.`, "warn");
+          return log(state, `A fixed rate requires ${kr(fee)} in a setup fee.`, "warn");
         return {
           ...state,
           cash: state.cash - fee,
           rateMode: "fixed",
           fixedRate: rate,
           fixedUntilAbs: nowAbs + months,
-          log: [{ t: `🔒 Fast ränta ${rate} % låst i ${months} månader (avgift ${kr(fee)}).`, kind: "info" }, ...state.log],
+          log: [{ t: `🔒 Fixed rate ${rate}% locked for ${months} months (fee ${kr(fee)}).`, kind: "info" }, ...state.log],
         };
       }
       return { ...state, rateMode: "variable", fixedRate: undefined, fixedUntilAbs: undefined,
-        log: [{ t: "Bytt till rörlig ränta.", kind: "info" }, ...state.log] };
+        log: [{ t: "Switched to a variable rate.", kind: "info" }, ...state.log] };
     }
     case "DRAW_REVOLVING": {
       const rev = state.revolving;
       if (!rev) return log(state, "Ingen revolverande kredit aktiv.", "warn");
       const avail = rev.limit - rev.used;
       const amt = Math.min(action.amount, avail);
-      if (amt <= 0) return log(state, "Kreditgränsen är uppnådd.", "warn");
+      if (amt <= 0) return log(state, "The credit limit has been reached.", "warn");
       return {
         ...state,
         cash: state.cash + amt,
@@ -1868,19 +1868,19 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "REPAY_REVOLVING": {
       const rev = state.revolving;
-      if (!rev || rev.used <= 0) return log(state, "Inget att återbetala.", "warn");
+      if (!rev || rev.used <= 0) return log(state, "Nothing to repay.", "warn");
       const amt = Math.min(action.amount, rev.used, state.cash);
-      if (amt <= 0) return log(state, "För lite kassa för återbetalning.", "warn");
+      if (amt <= 0) return log(state, "Not enough cash for repayment.", "warn");
       return {
         ...state,
         cash: state.cash - amt,
         revolving: { ...rev, used: Math.max(0, rev.used - amt) },
-        log: [{ t: `Återbetalat ${kr(amt)} på revolverande kredit.`, kind: "info" }, ...state.log],
+        log: [{ t: `Repaid ${kr(amt)} on revolving credit.`, kind: "info" }, ...state.log],
       };
     }
     case "PAY_DIVIDEND": {
       const amt = Math.min(action.amount, state.cash);
-      if (amt <= 100000) return log(state, "Minsta utdelning är 100 000 kr.", "warn");
+      if (amt <= 100000) return log(state, "The minimum dividend is 100,000 kr.", "warn");
       // Utdelningen hamnar i ägarens privata förmögenhet (Bolag → Arv)
       // och blidkar kapitalmarknaden om en aktivistfond bygger position.
       const relief = dividendRelief(amt, equityOf(state));
@@ -1890,7 +1890,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         dividendsPaid: (state.dividendsPaid ?? 0) + amt,
         ownerWealth: (state.ownerWealth ?? 0) + amt,
         takeoverPressure: Math.max(0, (state.takeoverPressure ?? 0) - relief),
-        log: [{ t: `💰 Utdelning: ${msek(amt)} till ägaren${relief >= 1 ? ` – aktivistfonden lugnas (−${Math.round(relief)} pe)` : ""}.`, kind: "income" }, ...state.log],
+        log: [{ t: `💰 Dividend: ${msek(amt)} to the owner${relief >= 1 ? ` – the activist fund is calmed (−${Math.round(relief)} bp)` : ""}.`, kind: "income" }, ...state.log],
       };
     }
     case "START_MEGA": {
@@ -1900,13 +1900,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const proj = MEGA_PROJECTS.find((m) => m.id === action.projectId);
       if (!proj) return state;
       if ((state.megaCompleted ?? []).includes(proj.id) || (state.megaActive ?? []).some((m) => m.projectId === proj.id))
-        return log(state, `${proj.name} är redan ${state.megaCompleted?.includes(proj.id) ? "byggd" : "under uppförande"}.`, "info");
+        return log(state, `${proj.name} is already ${state.megaCompleted?.includes(proj.id) ? "built" : "under construction"}.`, "info");
       if ((state.companyLevel ?? 1) < 4)
-        return log(state, "Megaprojekt kräver ett etablerat bolag (nivå 4).", "warn");
+        return log(state, "Megaprojects require an established company (level 4).", "warn");
       if (state.reputation < 60)
-        return log(state, `Staden anförtror bara megaprojekt åt aktörer med gott rykte (60+, du har ${Math.round(state.reputation)}).`, "warn");
+        return log(state, `The city only entrusts megaprojects to players with a good reputation (60+, you have ${Math.round(state.reputation)}).`, "warn");
       if (state.cash < proj.cost)
-        return log(state, `${proj.name} kostar ${msek(proj.cost)} — kassan räcker inte.`, "warn");
+        return log(state, `${proj.name} costs ${msek(proj.cost)} — insufficient cash.`, "warn");
       return {
         ...state,
         cash: state.cash - proj.cost,
@@ -1916,7 +1916,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ],
         reputation: Math.min(100, state.reputation + 2),
         log: [
-          { t: `${proj.icon} MEGAPROJEKT: ${proj.name} byggstartar (${msek(proj.cost)}, klart om ~${proj.months} mån). Staden häpnar.`, kind: "event" },
+          { t: `${proj.icon} MEGAPROJECT: ${proj.name} breaks ground (${msek(proj.cost)}, done in ~${proj.months} mo). The city is amazed.`, kind: "event" },
           ...state.log,
         ],
       };
@@ -1928,14 +1928,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const profile = cityProfileById(action.profile);
       if (!profile) return state;
       const info = blockInfo(action.blockId);
-      if (!info) return log(state, "Stadsdelsprojekt kräver ett slutet kvarter med flera tomter (stenstaden).", "warn");
+      if (!info) return log(state, "A district project requires a closed block with several lots (the stone city).", "warn");
       if ((state.companyLevel ?? 1) < CITY_PROJECT_MIN_LEVEL)
-        return log(state, `Staden släpper bara fram kvartersbyggen för etablerade bolag (bolagsnivå ${CITY_PROJECT_MIN_LEVEL}).`, "warn");
+        return log(state, `The city only allows block builds for established companies (company level ${CITY_PROJECT_MIN_LEVEL}).`, "warn");
       if (!eligibleCityBlocks(state, fullyOwnedBlocks(state)).includes(action.blockId))
-        return log(state, "Kvarteret är inte helägt eller används redan av ett projekt.", "warn");
+        return log(state, "The block isn't wholly owned or is already used by a project.", "warn");
       const cost = cityProjectCost(action.blockId, profile, state);
       if (state.cash < cost)
-        return log(state, `${profile.name} på kvarteret kostar ${msek(cost)} — kassan räcker inte.`, "warn");
+        return log(state, `${profile.name} on the block costs ${msek(cost)} — insufficient cash.`, "warn");
       const blockParcelIds = new Set(info.parcels.map((p) => p.id));
       const demolished = state.portfolio.filter((p) => p.parcelId && blockParcelIds.has(p.parcelId));
       const demolishedIds = new Set(demolished.map((p) => p.id));
@@ -1966,7 +1966,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, state.reputation + 2),
         log: [
           {
-            t: `${profile.icon} STADSDELSPROJEKT: ${profile.name} byggstartar i ${blockDistrictName(action.blockId)} — ${demolished.length} hus rivs, ${msek(cost)} investeras, klart om ~${profile.months} mån. Staden har aldrig sett något liknande.`,
+            t: `${profile.icon} DISTRICT PROJECT: ${profile.name} breaks ground in ${blockDistrictName(action.blockId)} — ${demolished.length} buildings demolished, ${msek(cost)} invested, done in ~${profile.months} mo. The city has never seen anything like it.`,
             kind: "event",
           },
           ...state.log,
@@ -1978,9 +1978,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const lux = LUXURIES.find((l) => l.id === action.luxuryId);
       if (!lux) return state;
       if ((state.ownerLuxuries ?? []).includes(lux.id))
-        return log(state, `${lux.name} ägs redan.`, "info");
+        return log(state, `${lux.name} is already owned.`, "info");
       if ((state.ownerWealth ?? 0) < lux.cost)
-        return log(state, `${lux.name} kostar ${msek(lux.cost)} — dela ut mer vinst till ägaren först.`, "warn");
+        return log(state, `${lux.name} costs ${msek(lux.cost)} — pay more profit to the owner first.`, "warn");
       return {
         ...state,
         ownerWealth: (state.ownerWealth ?? 0) - lux.cost,
@@ -1995,18 +1995,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // inga hus ersätts. Ägaren säljer mot premie (se landDeals.ts).
       const parcel = parcelById(action.parcelId);
       if (!parcel) return state;
-      if (districtLocked(state, parcel.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
+      if (districtLocked(state, parcel.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
       const grown = new Set(state.ambientGrown ?? []);
       if (!hasAmbientBuilding(parcel, grown))
-        return log(state, "Tomten bär inget privatägt hus.", "warn");
+        return log(state, "The lot bears no privately owned building.", "warn");
       if (occupiedParcelIds(state).has(parcel.id))
-        return log(state, "Fastigheten ägs redan av ett bolag.", "warn");
+        return log(state, "The property is already owned by a company.", "warn");
       const deal = ambientAsk(parcel, state);
       const prof = ambientProfile(parcel);
       const { maxLtv } = loanTerms(state);
       const down = deal.ask * (1 - maxLtv);
       if (state.cash < down)
-        return log(state, `Ägaren begär ${msek(deal.ask)} — handpenning ${msek(down)} saknas.`, "warn");
+        return log(state, `The owner asks ${msek(deal.ask)} — down payment ${msek(down)} is missing.`, "warn");
       const loan = deal.ask - down;
       const d = DISTRICTS.find((x) => x.id === parcel.district)!;
       // Hyran räknas på substansvärdet (utan områdespremie), likt marknadsobjekt.
@@ -2039,7 +2039,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         parcelId: parcel.id,
         energyClass: energyClassFor(prof.condition),
         builtYear: builtYearFor(prof.condition, state.year),
-        txHistory: [{ type: "köp", price: deal.ask, month: state.month, year: state.year, party: "Privat ägare" }],
+        txHistory: [{ type: "bought", price: deal.ask, month: state.month, year: state.year, party: "Private owner" }],
       };
       return {
         ...state,
@@ -2048,7 +2048,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         portfolio: [...state.portfolio, prop],
         log: [
           {
-            t: `🤝 OFF MARKET: Köpte ${prof.typeLabel.toLowerCase()} i ${d.name} av privat ägare för ${msek(deal.ask)} (${Math.round((deal.premium - 1) * 100)} % över värdet${deal.holdout ? " – en riktig nejsägare" : ""}).`,
+            t: `🤝 OFF MARKET: Bought ${prof.typeLabel.toLowerCase()} in ${d.name} from a private owner for ${msek(deal.ask)} (${Math.round((deal.premium - 1) * 100)}% over value${deal.holdout ? " – a real holdout" : ""}).`,
             kind: "buy",
           },
           ...state.log,
@@ -2061,18 +2061,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const def = expansionByBlock(action.blockId);
       if (!def || def.kind !== "plan") return state;
       if ((state.unlockedBlocks ?? []).includes(def.blockId))
-        return log(state, "Området är redan planlagt.", "info");
+        return log(state, "The area is already zoned.", "info");
       if ((state.ownedPlanAreas ?? []).includes(def.blockId))
-        return log(state, "Du äger redan råmarken.", "info");
+        return log(state, "You already own the raw land.", "info");
       const price = rawLandPrice(def.blockId, state);
       if (state.cash < price)
-        return log(state, `Råmarken kostar ${msek(price)} — kassan räcker inte (råmark belånas inte).`, "warn");
+        return log(state, `The raw land costs ${msek(price)} — insufficient cash (raw land can't be leveraged).`, "warn");
       return {
         ...state,
         cash: state.cash - price,
         ownedPlanAreas: [...(state.ownedPlanAreas ?? []), def.blockId],
         log: [
-          { t: `🌾 Köpte råmarken vid ${DISTRICTS.find((x) => x.id === def.district)?.name} för ${msek(price)}. Starta detaljplan för att göra den byggbar.`, kind: "buy" },
+          { t: `🌾 Bought the raw land at ${DISTRICTS.find((x) => x.id === def.district)?.name} for ${msek(price)}. Start a zoning plan to make it buildable.`, kind: "buy" },
           ...state.log,
         ],
       };
@@ -2081,12 +2081,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const def = expansionByBlock(action.blockId);
       if (!def || def.kind !== "plan") return state;
       if (!(state.ownedPlanAreas ?? []).includes(def.blockId))
-        return log(state, "Köp råmarken först.", "warn");
+        return log(state, "Buy the raw land first.", "warn");
       if ((state.planProcesses ?? []).some((p) => p.blockId === def.blockId))
-        return log(state, "Planprocessen pågår redan.", "info");
+        return log(state, "The plan process is already in progress.", "info");
       const fee = planFee(def.blockId);
       if (state.cash < fee)
-        return log(state, `Planavgift och utredningar kostar ${msek(fee)} — kassan räcker inte.`, "warn");
+        return log(state, `The plan fee and studies cost ${msek(fee)} — insufficient cash.`, "warn");
       const proc = newPlanProcess(def.blockId, state);
       return {
         ...state,
@@ -2094,7 +2094,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         planProcesses: [...(state.planProcesses ?? []), proc],
         log: [
           {
-            t: `📋 DETALJPLAN PÅBÖRJAD: Planansökan för ${proc.districtName} inlämnad (${msek(fee)}). Samråd inleds — klart om ~${proc.totalMonths} mån om allt går vägen.`,
+            t: `📋 ZONING PLAN STARTED: Plan application for ${proc.districtName} submitted (${msek(fee)}). Consultation begins — done in ~${proc.totalMonths} mo if all goes well.`,
             kind: "event",
           },
           ...state.log,
@@ -2103,7 +2103,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "TOGGLE_SHORT_TERM": {
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || p.type !== "bostad") return log(state, "Korttidsuthyrning är bara möjlig för bostadsfastigheter.", "warn");
+      if (!p || p.type !== "bostad") return log(state, "Short-term rentals are only possible for residential properties.", "warn");
       const nowShort = !p.shortTerm;
       return {
         ...state,
@@ -2114,7 +2114,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [{
           t: nowShort
-            ? `🏖️ ${p.typeLabel} i ${p.districtName} ställd om till korttidsuthyrning (+30 % hyra, +60 % vakans).`
+            ? `🏖️ ${p.typeLabel} in ${p.districtName} switched to short-term rental (+30% rent, +60% vacancy).`
             : `🏠 ${p.typeLabel} i ${p.districtName} tillbaka till ordinarie uthyrning.`,
           kind: "info",
         }, ...state.log],
@@ -2123,7 +2123,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "APPLY_ZONE_CHANGE": {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status === "bygger") return log(state, "Kan ej omklassa fastighet under byggnation.", "warn");
-      if (p.pendingZoneChange) return log(state, "Omklassning pågår redan.", "warn");
+      if (p.pendingZoneChange) return log(state, "Rezoning is already in progress.", "warn");
       const cost = 500_000;
       if (state.cash < cost) return log(state, `Omklassning kostar ${kr(cost)}.`, "warn");
       const months = state.staff?.["jurist"] ? 2 : 5;
@@ -2134,14 +2134,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
           x.id === action.id ? { ...x, pendingZoneChange: { targetType: action.targetType, monthsLeft: months } } : x,
         ),
         log: [{
-          t: `📋 Omklassning av ${p.typeLabel} i ${p.districtName} → ${action.targetType} startad (${months} månader, ${kr(cost)}).`,
+          t: `📋 Rezoning of ${p.typeLabel} in ${p.districtName} → ${action.targetType} started (${months} months, ${kr(cost)}).`,
           kind: "upg",
         }, ...state.log],
       };
     }
     case "INVEST_DISTRICT": {
       const amount = Math.max(500_000, Math.min(action.amount, state.cash));
-      if (state.cash < amount) return log(state, "För lite kassa.", "warn");
+      if (state.cash < amount) return log(state, "Not enough cash.", "warn");
       // Områdessatsningen får effekt när den STÅR KLAR (6–9 mån) och i rimlig
       // proportion: +1 % områdesutveckling per 25 Msek, max +5 % per satsning.
       // Tidigare gav 10 Msek +10 % OMEDELBART – den som ägde mycket i
@@ -2156,7 +2156,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...(state.infraProjects ?? []),
           {
             id: newId(),
-            name: "Privat områdessatsning",
+            name: "Private area investment",
             district: action.districtId,
             districtName: d?.name ?? action.districtId,
             monthsLeft: months,
@@ -2165,17 +2165,17 @@ export function reducer(state: GameState, action: GameAction): GameState {
           },
         ],
         log: [{
-          t: `🏗 Områdessatsning i ${d?.name ?? action.districtId}: ${msek(amount)} investeras – områdesutveckling +${(boost * 100).toFixed(1)} % när den står klar om ~${months} mån.`,
+          t: `🏗 Area investment in ${d?.name ?? action.districtId}: ${msek(amount)} invested – area development +${(boost * 100).toFixed(1)}% when it's complete in ~${months} mo.`,
           kind: "upg",
         }, ...state.log],
       };
     }
     case "DO_IPO": {
-      if (state.ipoActive) return log(state, "Bolaget är redan börsnoterat.", "warn");
+      if (state.ipoActive) return log(state, "The company is already listed.", "warn");
       // Noteringen baseras på aktuellt marknadsvärde, inte historiska utpriser.
       const portVal = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
       const raised = Math.round(portVal * 0.20);
-      if (raised < 1_000_000) return log(state, "Portföljvärdet är för lågt för en börsnotering.", "warn");
+      if (raised < 1_000_000) return log(state, "The portfolio value is too low for a stock listing.", "warn");
       const TOTAL_SHARES = 10_000_000;
       const sharePrice = Math.max(0.01, equityOf(state) / TOTAL_SHARES);
       const playerStock: Stock = {
@@ -2206,7 +2206,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ? state.stocks
           : [...state.stocks, playerStock],
         log: [{
-          t: `🎉 IPO genomförd! ${msek(raised)} insamlat (20 % av portföljvärde). 10 M aktier emitterade, 3 M i publik handel @ ${sharePrice.toFixed(2)} kr/aktie. Reputation +10.`,
+          t: `🎉 IPO completed! ${msek(raised)} raised (20% of portfolio value). 10M shares issued, 3M in public trading @ ${sharePrice.toFixed(2)} kr/share. Reputation +10.`,
           kind: "income",
         }, ...state.log],
       };
@@ -2218,7 +2218,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const COURTAGE = 0.003;
       if (action.side === "buy") {
         const cost = Math.round(st.price * action.qty * (1 + COURTAGE));
-        if (state.cash < cost) return log(state, "Inte tillräckligt med kapital för köpet.", "warn");
+        if (state.cash < cost) return log(state, "Not enough capital for the purchase.", "warn");
         const newOwned = st.owned + action.qty;
         const newAvg = (st.avgCost * st.owned + st.price * action.qty) / newOwned;
         return {
@@ -2227,10 +2227,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
           stocks: state.stocks.map((s) =>
             s.id === action.stockId ? { ...s, owned: newOwned, avgCost: newAvg } : s,
           ),
-          log: [{ t: `📈 Marknadsorder: köpte ${action.qty} aktier i ${st.name} @ ${st.price.toFixed(2)} kr. Totalt ${kr(cost)}.`, kind: "income" }, ...state.log],
+          log: [{ t: `📈 Market order: bought ${action.qty} shares in ${st.name} @ ${st.price.toFixed(2)} kr. Total ${kr(cost)}.`, kind: "income" }, ...state.log],
         };
       } else {
-        if (st.owned < action.qty) return log(state, "Inte tillräckligt med aktier att sälja.", "warn");
+        if (st.owned < action.qty) return log(state, "Not enough shares to sell.", "warn");
         const proceeds = Math.round(st.price * action.qty * (1 - COURTAGE));
         return {
           ...state,
@@ -2238,7 +2238,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           stocks: state.stocks.map((s) =>
             s.id === action.stockId ? { ...s, owned: s.owned - action.qty } : s,
           ),
-          log: [{ t: `📉 Marknadsorder: sålde ${action.qty} aktier i ${st.name} @ ${st.price.toFixed(2)} kr. Erhöll ${kr(proceeds)}.`, kind: "expense" }, ...state.log],
+          log: [{ t: `📉 Market order: sold ${action.qty} shares in ${st.name} @ ${st.price.toFixed(2)} kr. Received ${kr(proceeds)}.`, kind: "expense" }, ...state.log],
         };
       }
     }
@@ -2248,7 +2248,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (st.competitorName === "__player__") return log(state, "Kan inte blanka ditt eget bolag.", "warn");
       if (action.qty <= 0) return state;
       const collateral = Math.round(st.price * action.qty * 1.5); // 150% marginal
-      if (state.cash < collateral) return log(state, `Otillräckligt kapital för blankning. Kräver ${kr(collateral)} (150 % marginal).`, "warn");
+      if (state.cash < collateral) return log(state, `Insufficient capital for short selling. Requires ${kr(collateral)} (150% margin).`, "warn");
       const existingShort = st.shortQty ?? 0;
       const existingAvg = st.shortAvgPrice ?? st.price;
       const newQty = existingShort + action.qty;
@@ -2261,12 +2261,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
             ? { ...s, shortQty: newQty, shortAvgPrice: Math.round(newAvg * 100) / 100 }
             : s,
         ),
-        log: [{ t: `📉 Blankning: Sålde ${action.qty} aktier i ${st.name} kort @ ${kr(st.price)}. Marginal: ${kr(collateral)}.`, kind: "warn" }, ...state.log],
+        log: [{ t: `📉 Short sale: Sold ${action.qty} shares in ${st.name} short @ ${kr(st.price)}. Margin: ${kr(collateral)}.`, kind: "warn" }, ...state.log],
       };
     }
     case "COVER_SHORT": {
       const st = state.stocks.find((s) => s.id === action.stockId);
-      if (!st || !(st.shortQty ?? 0)) return log(state, "Ingen blankningsposition att täcka.", "warn");
+      if (!st || !(st.shortQty ?? 0)) return log(state, "No short position to cover.", "warn");
       const qty = st.shortQty!;
       const avgShortPrice = st.shortAvgPrice ?? st.price;
       const pnl = Math.round(qty * (avgShortPrice - st.price)); // positive if price fell
@@ -2281,7 +2281,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             : s,
         ),
         log: [{
-          t: `✅ Täckte blankning i ${st.name}: ${qty} aktier @ ${kr(st.price)} (snitt ${kr(avgShortPrice)}). Resultat: ${pnl >= 0 ? "+" : ""}${kr(pnl)}.`,
+          t: `✅ Covered short in ${st.name}: ${qty} shares @ ${kr(st.price)} (avg ${kr(avgShortPrice)}). Result: ${pnl >= 0 ? "+" : ""}${kr(pnl)}.`,
           kind: pnl >= 0 ? "income" : "expense",
         }, ...state.log],
       };
@@ -2296,14 +2296,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!comp || !asset) return state;
       const ref = industryAssetValue(asset, state);
       if (state.cash < action.amount)
-        return log(state, `Industriköp betalas kontant – du behöver ${msek(action.amount)}.`, "warn");
+        return log(state, `Industry purchases are paid in cash – you need ${msek(action.amount)}.`, "warn");
       const ratio = action.amount / Math.max(1, ref);
       const accepted = ratio >= 1.25 || (ratio >= 1.1 && random01() < 0.7);
       if (!accepted)
-        return log(state, `${comp.name} avböjde ditt bud på ${asset.name} (${msek(action.amount)}). Bjud minst 125 % av värdet (${msek(Math.round(ref * 1.25))}) för garanterat svar.`, "warn");
+        return log(state, `${comp.name} declined your bid on ${asset.name} (${msek(action.amount)}). Bid at least 125% of value (${msek(Math.round(ref * 1.25))}) for a guaranteed answer.`, "warn");
       const bought: IndustryAsset = {
         ...asset,
-        txHistory: [{ type: "köp", price: action.amount, month: state.month, year: state.year, party: comp.name }, ...(asset.txHistory ?? [])],
+        txHistory: [{ type: "bought", price: action.amount, month: state.month, year: state.year, party: comp.name }, ...(asset.txHistory ?? [])],
         purchasePrice: action.amount,
       };
       return {
@@ -2317,7 +2317,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         reputation: Math.min(100, state.reputation + 2),
         log: [
-          { t: `🤝 ${comp.name} sålde ${asset.name} till dig för ${msek(action.amount)} (premie ${pct(ratio - 1)}).`, kind: "buy" },
+          { t: `🤝 ${comp.name} sold ${asset.name} to you for ${msek(action.amount)} (premium ${pct(ratio - 1)}).`, kind: "buy" },
           ...state.log,
         ],
       };
@@ -2325,16 +2325,16 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "BUY_INDUSTRY": {
       const asset = (state.industryListings ?? []).find((a) => a.id === action.id);
       if (!asset) return state;
-      if (districtLocked(state, asset.district)) return log(state, "🔒 Området är låst – berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas det.", "warn");
-      if (state.cash < asset.purchasePrice) return log(state, "❌ Otillräckliga medel.", "warn");
-      const bought: IndustryAsset = { ...asset, txHistory: [{ type: "köp", price: asset.purchasePrice, month: state.month, year: state.year, party: "Spelare" }, ...(asset.txHistory ?? [])] };
+      if (districtLocked(state, asset.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
+      if (state.cash < asset.purchasePrice) return log(state, "❌ Insufficient funds.", "warn");
+      const bought: IndustryAsset = { ...asset, txHistory: [{ type: "bought", price: asset.purchasePrice, month: state.month, year: state.year, party: "Player" }, ...(asset.txHistory ?? [])] };
       return {
         ...state,
         cash: state.cash - asset.purchasePrice,
         industryPortfolio: [...(state.industryPortfolio ?? []), bought],
         industryListings: (state.industryListings ?? []).filter((a) => a.id !== action.id),
         reputation: Math.min(100, state.reputation + 1),
-        log: [{ t: `🏢 Köpte ${asset.name} för ${msek(asset.purchasePrice)}.`, kind: "buy" }, ...state.log],
+        log: [{ t: `🏢 Bought ${asset.name} for ${msek(asset.purchasePrice)}.`, kind: "buy" }, ...state.log],
       };
     }
 
@@ -2347,7 +2347,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash + salePrice,
         industryPortfolio: (state.industryPortfolio ?? []).filter((a) => a.id !== action.id),
         reputation: Math.min(100, state.reputation + 0.5),
-        log: [{ t: `💰 Sålde ${asset.name} för ${msek(salePrice)}.`, kind: "sell" }, ...state.log],
+        log: [{ t: `💰 Sold ${asset.name} for ${msek(salePrice)}.`, kind: "sell" }, ...state.log],
       };
     }
 
@@ -2357,7 +2357,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!asset || !upg) return state;
       if (asset.upgrades.includes(action.upg)) return log(state, "❌ Uppgradering redan installerad.", "warn");
       const cost = Math.round(industryAssetValue(asset, state) * upg.cost);
-      if (state.cash < cost) return log(state, `❌ Saknar ${msek(cost)} för uppgraderingen.`, "warn");
+      if (state.cash < cost) return log(state, `❌ Missing ${msek(cost)} for the upgrade.`, "warn");
       const newCond = upg.condBoost ? Math.min(100, asset.condition + upg.condBoost) : asset.condition;
       return {
         ...state,
@@ -2373,14 +2373,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
       if (!asset) return state;
       const cost = Math.round(industryAssetValue(asset, state) * 0.02);
-      if (state.cash < cost) return log(state, `❌ Saknar ${msek(cost)} för underhåll.`, "warn");
+      if (state.cash < cost) return log(state, `❌ Missing ${msek(cost)} for maintenance.`, "warn");
       return {
         ...state,
         cash: state.cash - cost,
         industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
           a.id === action.id ? { ...a, condition: Math.min(100, a.condition + 15) } : a,
         ),
-        log: [{ t: `🔧 Underhåll på ${asset.name}: skick +15 (${msek(cost)}).`, kind: "expense" }, ...state.log],
+        log: [{ t: `🔧 Maintenance on ${asset.name}: condition +15 (${msek(cost)}).`, kind: "expense" }, ...state.log],
       };
     }
 
@@ -2394,7 +2394,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             ? { ...a, energyMeta: { ...a.energyMeta, ppaContracts: [...a.energyMeta.ppaContracts, action.contract] } }
             : a,
         ),
-        log: [{ t: `⚡ PPA-avtal tecknat med ${action.contract.clientName} för ${asset.name}.`, kind: "income" }, ...state.log],
+        log: [{ t: `⚡ PPA contract signed with ${action.contract.clientName} for ${asset.name}.`, kind: "income" }, ...state.log],
       };
     }
 
@@ -2408,7 +2408,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             ? { ...a, energyMeta: { ...a.energyMeta, ppaContracts: a.energyMeta.ppaContracts.filter((c) => c.id !== action.contractId) } }
             : a,
         ),
-        log: [{ t: `❌ PPA-kontrakt annullerat för ${asset.name}.`, kind: "info" }, ...state.log],
+        log: [{ t: `❌ PPA contract cancelled for ${asset.name}.`, kind: "info" }, ...state.log],
       };
     }
 
@@ -2422,7 +2422,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             ? { ...a, logisticsMeta: { ...a.logisticsMeta, throughputContracts: [...a.logisticsMeta.throughputContracts, action.contract] } }
             : a,
         ),
-        log: [{ t: `📦 Logistikkontrakt tecknat med ${action.contract.clientName} för ${asset.name}.`, kind: "income" }, ...state.log],
+        log: [{ t: `📦 Logistics contract signed with ${action.contract.clientName} for ${asset.name}.`, kind: "income" }, ...state.log],
       };
     }
 
@@ -2436,7 +2436,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
             ? { ...a, hotelMeta: { ...a.hotelMeta, bookingChannels: action.channels } }
             : a,
         ),
-        log: [{ t: `🏨 Bokningskanaler uppdaterade för ${asset.name}.`, kind: "info" }, ...state.log],
+        log: [{ t: `🏨 Booking channels updated for ${asset.name}.`, kind: "info" }, ...state.log],
       };
     }
 
@@ -2448,7 +2448,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
           a.id === action.id ? { ...a, managed: !a.managed } : a,
         ),
-        log: [{ t: `${!asset.managed ? "✅ Förvaltare aktiverad" : "🔴 Förvaltare inaktiverad"} för ${asset.name}.`, kind: "info" }, ...state.log],
+        log: [{ t: `${!asset.managed ? "✅ Manager activated" : "🔴 Manager deactivated"} for ${asset.name}.`, kind: "info" }, ...state.log],
       };
     }
 
@@ -2460,7 +2460,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
           a.id === action.id ? { ...a, insurance: !a.insurance } : a,
         ),
-        log: [{ t: `${!asset.insurance ? "🛡️ Försäkring tecknad" : "❌ Försäkring avslutad"} för ${asset.name}.`, kind: "info" }, ...state.log],
+        log: [{ t: `${!asset.insurance ? "🛡️ Insurance taken out" : "❌ Insurance ended"} for ${asset.name}.`, kind: "info" }, ...state.log],
       };
     }
 
@@ -2486,13 +2486,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
         if (target === p.capacity)
           return log(state, "Fastigheten har redan det antalet lokaler.", "info");
         if (p.tenants.length > target)
-          return log(state, `Ombyggnad till ${target} ${target === 1 ? "lokal" : "lokaler"} kräver att högst ${target} är uthyrda – säg upp eller vänta ut kontrakt.`, "warn");
+          return log(state, `Converting to ${target} ${target === 1 ? "unit" : "units"} requires at most ${target} to be rented – terminate or wait out contracts.`, "warn");
         cost = Math.max(150_000, Math.round(value * 0.04 * Math.abs(target - p.capacity)));
         months = 3;
         renovation = { kind: "lokalanpassning", targetCapacity: target };
       } else {
         if (p.tenants.length > 0)
-          return log(state, "Fastigheten måste vara vakant för ett utvecklingsprojekt.", "warn");
+          return log(state, "The property must be vacant for a development project.", "warn");
         const total = action.kind === "totalrenovering";
         cost = Math.round(value * (total ? 0.18 : 0.3));
         months = total ? 6 : 10;
@@ -2514,14 +2514,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
                 applications: [],
                 txHistory: [
                   ...(x.txHistory ?? []),
-                  { type: "nybygg" as const, price: cost, month: state.month, year: state.year, party: `Projekt: ${action.kind}` },
+                  { type: "built" as const, price: cost, month: state.month, year: state.year, party: `Project: ${action.kind}` },
                 ],
               }
             : x,
         ),
         log: [
           {
-            t: `🏗️ Utvecklingsprojekt startat: ${action.kind} av ${p.typeLabel} i ${p.districtName} (${msek(cost)}, klart om ${months} mån).`,
+            t: `🏗️ Development project started: ${action.kind} of ${p.typeLabel} in ${p.districtName} (${msek(cost)}, done in ${months} mo).`,
             kind: "upg",
           },
           ...state.log,
@@ -2534,12 +2534,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.portfolio.find((x) => x.id === action.id);
       if (!p || p.status !== "klar") return state;
       if (p.tenants.length > 0)
-        return log(state, "Fastigheten måste vara vakant för rivning & nybyggnation.", "warn");
+        return log(state, "The property must be vacant for demolition & rebuild.", "warn");
       const t = PROP_TYPES[p.type];
       const cost = Math.round(p.area * t.buildCostM2 * buildCostMult(state) * 1.1);
       const months = Math.max(5, t.buildMonths + buildMonthsDelta(state));
       if (state.cash < cost)
-        return log(state, `Rivning & nybyggnation kostar ${msek(cost)} (fastigheten måste vara vakant).`, "warn");
+        return log(state, `Demolition & rebuild costs ${msek(cost)} (the property must be vacant).`, "warn");
       return {
         ...state,
         cash: state.cash - cost,
@@ -2554,13 +2554,13 @@ export function reducer(state: GameState, action: GameAction): GameState {
                 applications: [],
                 txHistory: [
                   ...(x.txHistory ?? []),
-                  { type: "nybygg" as const, price: cost, month: state.month, year: state.year, party: "Rivning & nybyggnation" },
+                  { type: "built" as const, price: cost, month: state.month, year: state.year, party: "Demolition & rebuild" },
                 ],
               }
             : x,
         ),
         log: [
-          { t: `🏗️ Rivning & nybyggnation startad: ${p.typeLabel} i ${p.districtName} (${msek(cost)}, klart om ${months} mån).`, kind: "upg" },
+          { t: `🏗️ Demolition & rebuild started: ${p.typeLabel} in ${p.districtName} (${msek(cost)}, done in ${months} mo).`, kind: "upg" },
           ...state.log,
         ],
       };
@@ -2572,7 +2572,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!a) return state;
       const myBid = Math.round((a.leader ? a.currentBid * 1.08 : a.minBid) / 10_000) * 10_000;
       if (state.cash < myBid)
-        return log(state, `Kassan räcker inte för budet ${msek(myBid)}.`, "warn");
+        return log(state, `Insufficient cash for the bid ${msek(myBid)}.`, "warn");
       // AI-motbud: sannolikheten sjunker per runda, agenda-distrikt trippel.
       let counter: { name: string; bid: number } | null = null;
       for (const c of state.competitors) {
@@ -2589,7 +2589,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...state,
           auction: { ...a, currentBid: counter.bid, leader: counter.name, round: a.round + 1 },
           log: [
-            { t: `⚡ ${counter.name} bjuder över: ${msek(counter.bid)} för detaljplanen i ${a.districtName}.`, kind: "warn" },
+            { t: `⚡ ${counter.name} outbids: ${msek(counter.bid)} for the zoning plan in ${a.districtName}.`, kind: "warn" },
             ...state.log,
           ],
         };
@@ -2599,7 +2599,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         auction: { ...a, currentBid: myBid, leader: "player", round: a.round + 1 },
         log: [
-          { t: `🔨 Ditt bud ${msek(myBid)} står högst i detaljplaneauktionen (${a.districtName}).`, kind: "info" },
+          { t: `🔨 Your bid ${msek(myBid)} is highest in the plan auction (${a.districtName}).`, kind: "info" },
           ...state.log,
         ],
       };
@@ -2614,19 +2614,19 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Expansion är ett aktivt val: kraven ska vara uppfyllda och det
       // kostar pengar (nytt kontor, rekrytering, jurister).
       const next = nextTier(state.companyLevel ?? 1);
-      if (!next) return log(state, "Bolaget är redan på högsta nivån.", "info");
+      if (!next) return log(state, "The company is already at the top level.", "info");
       if (next.requiresIpo && !state.ipoActive)
-        return log(state, `${next.name} kräver en genomförd börsnotering (IPO) – se Finans.`, "warn");
+        return log(state, `${next.name} requires a completed stock listing (IPO) – see Finance.`, "warn");
       if (!qualifiesFor(state, next))
         return log(
           state,
-          `Kraven för ${next.name} är inte uppfyllda: ${msek(next.minEquity)} eget kapital och ${next.minUnits} färdiga fastigheter.`,
+          `The requirements for ${next.name} are not met: ${msek(next.minEquity)} equity and ${next.minUnits} completed properties.`,
           "warn",
         );
       if (state.cash < next.upgradeCost)
-        return log(state, `Expansionen kostar ${msek(next.upgradeCost)} (nytt kontor och organisation).`, "warn");
+        return log(state, `The expansion costs ${msek(next.upgradeCost)} (new office and organization).`, "warn");
       const nyheter =
-        next.unlocks.length > 0 ? " Nya funktioner har låsts upp!" : "";
+        next.unlocks.length > 0 ? " New features have been unlocked!" : "";
       return {
         ...state,
         cash: state.cash - next.upgradeCost,
@@ -2634,7 +2634,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, state.reputation + 4),
         log: [
           {
-            t: `${next.icon} EXPANSION: ${state.companyName ?? "Bolaget"} är nu ${next.name.toLowerCase()}! ${next.desc}${nyheter} (Reputation +4)`,
+            t: `${next.icon} EXPANSION: ${state.companyName ?? "The Company"} is now ${next.name.toLowerCase()}! ${next.desc}${nyheter} (Reputation +4)`,
             kind: "income",
           },
           ...state.log,

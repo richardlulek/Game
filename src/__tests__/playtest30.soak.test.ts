@@ -33,22 +33,22 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
         if (l.t.includes("RIKSBANKEN")) bump("riksbank-drag");
         if (l.t.includes("BUDKRIG")) bump("budkrig-rundor");
         if (l.t.includes("vann budkriget")) bump("budkrig-vinst");
-        if (l.t.includes("bygger nytt") || l.t.includes("färdigställde sitt nybygge")) bump("rival-nybygge");
-        if (l.t.includes("bygger på sitt hus")) bump("rival-påbyggnad");
-        if (l.t.includes("INVIGT")) bump("infra-invigt");
+        if (l.t.includes("bygger nytt") || l.t.includes("completed its new build")) bump("rival-nybygge");
+        if (l.t.includes("is extending its building")) bump("rival-påbyggnad");
+        if (l.t.includes("OPENED")) bump("infra-invigt");
         if (l.t.includes("BYGGSTART")) bump("infra-byggstart");
-        if (l.t.includes("Staden växer")) bump("stad-växer-notis");
-        if (l.t.includes("KONJUNKTURUPPGÅNG")) bump("boom");
-        if (l.t.includes("KONJUNKTURNEDGÅNG")) bump("bust");
+        if (l.t.includes("The city grows")) bump("stad-växer-notis");
+        if (l.t.includes("UPTURN")) bump("boom");
+        if (l.t.includes("DOWNTURN")) bump("bust");
         if (l.t.includes("Nybyggnation klar")) bump("egen-nybyggnation");
-        if (l.t.includes("Påbyggnad klar")) bump("egen-påbyggnad");
+        if (l.t.includes("Extension done")) bump("egen-påbyggnad");
         if (l.t.includes("Totalrenovering klar")) bump("egen-totalrenovering");
         if (l.t.includes("DETALJPLANEAUKTION")) bump("auktion-släppt");
-        if (l.t.includes("KONKURS")) bump("konkurs");
-        if (l.t.includes("MÅL UPPNÅTT")) bump("vinst");
-        if (l.t.includes("skadehändelse") || l.t.includes("Skadehändelse")) bump("skada");
+        if (l.t.includes("BANKRUPTCY")) bump("konkurs");
+        if (l.t.includes("GOAL REACHED")) bump("vinst");
+        if (l.t.includes("damage event") || l.t.includes("Damage event")) bump("skada");
         if (l.t.includes("FUSION")) bump("rival-fusion");
-        if (l.t.includes("Nödförsäljning")) bump("nödförsäljning");
+        if (l.t.includes("Distress sale")) bump("nödförsäljning");
       }
     };
 
@@ -116,7 +116,7 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
           .filter((p) => p.status === "klar" && canSpend(p.askPrice * (1 - terms.maxLtv)))
           .filter((p) => propPotentialRent(p, s) - propAnnualOpex(p, s) > p.askPrice * terms.maxLtv * (terms.rate / 100));
         // Försiktig investerare: föredra objekt med sittande hyresgäster (kassaflöde
-        // nu) framför tomma renoveringsobjekt som blöder tills de rustas.
+        // nu) framför tomma renovation opportunity som blöder tills de rustas.
         const buy = affordable.filter((p) => p.tenants.length > 0).sort((a, b) => a.askPrice - b.askPrice)[0]
           ?? affordable.sort((a, b) => a.askPrice - b.askPrice)[0];
         if (buy) R({ type: "BUY", id: buy.id });

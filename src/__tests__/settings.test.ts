@@ -88,7 +88,7 @@ describe("konkurs av", () => {
   it("kassa under −1 MSEK ger ingen gameOver när noBankruptcy är satt", () => {
     const s = advanceMonth(makeState({ cash: -1_050_000, settings: { difficulty: "custom", noBankruptcy: true } }));
     expect(s.gameOver).toBe(false);
-    expect(s.log.some((l) => l.t.includes("konkurs är avstängd"))).toBe(true);
+    expect(s.log.some((l) => l.t.includes("bankruptcy is disabled"))).toBe(true);
   });
 
   it("utan inställningen gäller konkurs som vanligt", () => {

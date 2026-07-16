@@ -349,7 +349,7 @@ export default function FastighetsImperium() {
     if (bid && !p.bid) playAlert();
     const logTop = state.log[0]?.t ?? "";
     if (logTop && logTop !== p.logTop &&
-        /Påbörjade nyproduktion|Utvecklingsprojekt startat|Rivning & nybyggnation startad/.test(logTop)) {
+        /Started new construction|Development project started|Demolition & rebuild started/.test(logTop)) {
       playBuild();
     }
     sfxPrev.current = { level, ms, ipo, bid, logTop };

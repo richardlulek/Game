@@ -54,7 +54,7 @@ export function Toasts({ log }: { log: LogEntry[] }) {
 
     const fresh = log
       .slice(0, idx)
-      .filter((e) => TOAST_KINDS.has(e.kind) && !e.t.startsWith("Månad "))
+      .filter((e) => TOAST_KINDS.has(e.kind))
       .slice(0, 3)
       .reverse(); // äldst först → nyast hamnar nederst i stacken
     if (fresh.length === 0) return;

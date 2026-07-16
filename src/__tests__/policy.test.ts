@@ -91,7 +91,7 @@ describe("policy: CFO amorterar mot mål-LTV", () => {
     const without = advanceMonth(mk({}));
     expect(withCfo.debt).toBeLessThan(without.debt);
     expect(withCfo.cash).toBeGreaterThanOrEqual(2_000_000 - 100_000); // buffert respekteras (± månadsflöden)
-    expect(withCfo.log.some((l) => l.t.includes("CFO-policyn"))).toBe(true);
+    expect(withCfo.log.some((l) => l.t.includes("The CFO policy"))).toBe(true);
   });
 });
 
@@ -105,7 +105,7 @@ describe("policy: förvaltningschefens skydd och energi", () => {
     });
     const s1 = advanceMonth(s0);
     expect(s1.portfolio[0].insurance).toBe(true);
-    expect(s1.log.some((l) => l.t.includes("Skyddspolicyn"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("The protection policy"))).toBe(true);
   });
 
   it("energiuppgraderar en fastighet per månad mot målklassen", () => {

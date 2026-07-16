@@ -45,9 +45,9 @@ describe("A1: helkvartersbonus", () => {
     const s0 = makeState({ portfolio: ownWholeBlock(), ownedBlocks: [] });
     const s1 = advanceMonth(s0);
     expect(s1.ownedBlocks).toContain("centrum-kv0");
-    expect(s1.log.some((l) => l.t.includes("HELKVARTER"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("WHOLE BLOCK"))).toBe(true);
     const s2 = advanceMonth({ ...s1, log: [] });
-    expect(s2.log.some((l) => l.t.includes("HELKVARTER"))).toBe(false);
+    expect(s2.log.some((l) => l.t.includes("WHOLE BLOCK"))).toBe(false);
   });
 });
 
@@ -169,7 +169,7 @@ describe("C8: ESG och gröna lån", () => {
     });
     const s1 = advanceMonth(s0);
     expect(s1.esgRating).toBe("A");
-    expect(s1.log.some((l) => l.t.includes("grönt lån") || l.t.includes("ESG"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("green loan") || l.t.includes("ESG"))).toBe(true);
   });
 });
 
@@ -191,9 +191,9 @@ describe("C9: rivalagendor", () => {
     };
     const s1 = advanceMonth(makeState({ competitors: [rival] }));
     expect(s1.competitors[0].agenda?.announced).toBe(true);
-    expect(s1.log.some((l) => l.t.includes("nått sitt mål"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("reached its goal"))).toBe(true);
     const s2 = advanceMonth({ ...s1, log: [] });
-    expect(s2.log.some((l) => l.t.includes("nått sitt mål"))).toBe(false);
+    expect(s2.log.some((l) => l.t.includes("reached its goal"))).toBe(false);
   });
 });
 

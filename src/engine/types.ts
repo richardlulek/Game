@@ -340,7 +340,7 @@ export interface PlanProcess {  blockId: string;
 
 /** En transaktion i fastighetens historik. */
 export interface TxRecord {
-  type: "köp" | "sälj" | "nybygg";
+  type: "bought" | "sold" | "built";
   price: number;
   month: number;
   year: number;
@@ -563,7 +563,7 @@ export interface Stock {
   history: number[];       // senaste (månads-)priserna
   competitorName?: string; // länk till en Competitor om det är en rival
   eps?: number;          // earnings per share (quarterly)
-  analystRating?: "Köp" | "Behåll" | "Sälj";
+  analystRating?: "Buy" | "Hold" | "Sell";
   targetKurs?: number;   // analytikernas riktkurs
   shortQty?: number;     // player's short position (shares)
   shortAvgPrice?: number;

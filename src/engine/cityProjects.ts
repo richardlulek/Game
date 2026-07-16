@@ -47,9 +47,9 @@ export interface CityProjectProfile {
 export const CITY_PROJECT_PROFILES: CityProjectProfile[] = [
   {
     id: "kontorskluster",
-    name: "Kontorskluster",
+    name: "Office cluster",
     icon: "🏙️",
-    desc: "Tre glastorn kring ett upphöjt torg. Högst hyra – stadens nya maktadress.",
+    desc: "Three glass towers around a raised plaza. Highest rent – the city's new power address.",
     type: "kontor",
     floors: 20,
     costM2: 48_000,
@@ -62,9 +62,9 @@ export const CITY_PROJECT_PROFILES: CityProjectProfile[] = [
   },
   {
     id: "bostadskvarter",
-    name: "Bostadskvarter",
+    name: "Residential block",
     icon: "🏘️",
-    desc: "Kringbyggd gård med trädgård. Stabil uthyrning och en stad som tackar dig.",
+    desc: "An enclosed courtyard with a garden. Stable leasing and a city that thanks you.",
     type: "bostad",
     floors: 8,
     costM2: 42_000,
@@ -77,9 +77,9 @@ export const CITY_PROJECT_PROFILES: CityProjectProfile[] = [
   },
   {
     id: "kulturstråk",
-    name: "Kulturstråk",
+    name: "Cultural quarter",
     icon: "🎭",
-    desc: "Saluhall, scener och gallerier under sågtandstak. Lägst yield – störst avtryck.",
+    desc: "A market hall, stages and galleries under a sawtooth roof. Lowest yield – biggest mark.",
     type: "butik",
     floors: 5,
     costM2: 52_000,

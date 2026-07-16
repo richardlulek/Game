@@ -54,7 +54,7 @@ describe("stadsdelsprojekt – start", () => {
     const { s, blockId } = readyState({ companyLevel: CITY_PROJECT_MIN_LEVEL - 1 });
     const s1 = reducer(s, { type: "START_CITY_PROJECT", blockId, profile: "kontorskluster" });
     expect(s1.cityProjects ?? []).toHaveLength(0);
-    expect(s1.log[0].t).toContain("bolagsnivå");
+    expect(s1.log[0].t).toContain("company level");
   });
 
   it("kräver helägt kvarter och tillräcklig kassa", () => {
@@ -68,7 +68,7 @@ describe("stadsdelsprojekt – start", () => {
     const { s, blockId: b2 } = readyState({ cash: 1_000_000 });
     const utanKassa = reducer(s, { type: "START_CITY_PROJECT", blockId: b2, profile: "kontorskluster" });
     expect(utanKassa.cityProjects ?? []).toHaveLength(0);
-    expect(utanKassa.log[0].t).toContain("kassan räcker inte");
+    expect(utanKassa.log[0].t).toContain("insufficient cash");
   });
 
   it("river kvarterets hus, drar kostnaden och startar projektet", () => {
@@ -118,7 +118,7 @@ describe("stadsdelsprojekt – invigning", () => {
     // Distriktet lyfts permanent och loggen firar.
     const district = blockInfo(blockId)!.district;
     expect(done.districtDev![district] ?? 1).toBeGreaterThan(s.districtDev?.[district] ?? 1);
-    expect(done.log.some((l) => l.t.includes("INVIGNING"))).toBe(true);
+    expect(done.log.some((l) => l.t.includes("OPENING"))).toBe(true);
     // Dynastipoäng för signaturkvarteret.
     expect(dynastyScore(done).stadsdelar).toBe(cityProfileById("kontorskluster")!.dynasty);
   });

@@ -75,6 +75,6 @@ describe("advanceMonth – konkurs", () => {
   it("sätter gameOver när kassan går under −2 MSEK", () => {
     const next = advanceMonth(makeState({ cash: -3_000_000, debt: 0 }));
     expect(next.gameOver).toBe(true);
-    expect(next.log[0].t).toContain("KONKURS");
+    expect(next.log[0].t).toContain("BANKRUPTCY");
   });
 });

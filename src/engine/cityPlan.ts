@@ -94,12 +94,12 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
       p.challenges.push("samråd");
       if (state.reputation >= 70) {
         p.monthsLeft = Math.max(1, p.monthsLeft - 2);
-        events.push({ t: `🗣️ Samrådet i ${p.districtName} gick din väg – grannarna litar på ${state.companyName ?? "bolaget"} (−2 mån).`, kind: "income" });
+        events.push({ t: `🗣️ The consultation in ${p.districtName} went your way – the neighbors trust ${state.companyName ?? "the company"} (−2 mo).`, kind: "income" });
       } else if (state.reputation < 45) {
         p.monthsLeft += 3;
-        events.push({ t: `🗣️ Protester i samrådet: grannarna misstror planerna i ${p.districtName} (+3 mån). Bättre anseende hade hjälpt.`, kind: "warn" });
+        events.push({ t: `🗣️ Protests at the consultation: the neighbors distrust the plans in ${p.districtName} (+3 mo). A better reputation would have helped.`, kind: "warn" });
       } else {
-        events.push({ t: `🗣️ Samrådet i ${p.districtName} avklarat – planen går till granskning.`, kind: "info" });
+        events.push({ t: `🗣️ The consultation in ${p.districtName} is done – the plan goes to review.`, kind: "info" });
       }
     }
 
@@ -109,7 +109,7 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
       const parcels = PARCELS.filter((x) => x.blockId === p.blockId);
       const park = parcels[parcels.length - 1];
       p.parkParcels = [...(p.parkParcels ?? []), park.id];
-      events.push({ t: `🌊 Strandskydd: länsstyrelsen kräver fri passage längs vattnet – en tomt i ${p.districtName} avstås som strandpark.`, kind: "warn" });
+      events.push({ t: `🌊 Shoreline protection: the county board requires free passage along the water – a lot in ${p.districtName} is ceded as a shoreline park.`, kind: "warn" });
     }
   }
 
@@ -122,29 +122,29 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
       return {
         proc: p,
         done: false,
-        events: [{ t: `⚖️ ÖVERKLAGAT: Grannföreningen tar detaljplanen i ${p.districtName} till mark- och miljödomstolen (+7 mån).`, kind: "warn" }],
+        events: [{ t: `⚖️ APPEALED: The neighborhood association takes the zoning plan in ${p.districtName} to the land and environment court (+7 mo).`, kind: "warn" }],
         decision: {
           id: `plan_appeal_${p.blockId}`,
-          title: "Detaljplanen överklagad",
-          text: `Grannföreningen har överklagat din detaljplan i ${p.districtName} till mark- och miljödomstolen. Juristerna ser två vägar.`,
+          title: "Zoning plan appealed",
+          text: `The neighborhood association has appealed your zoning plan in ${p.districtName} to the land and environment court. The lawyers see two paths.`,
           options: [
             {
-              label: "Förlikning med grannarna",
-              detail: "1,5 MSEK · −5 mån · rep +2",
+              label: "Settle with the neighbors",
+              detail: "1.5 MSEK · −5 mo · rep +2",
               effect: {
                 cash: -1_500_000,
                 reputation: 2,
                 planSettle: { blockId: p.blockId, monthsDelta: -5 },
-                log: `🤝 Förlikning: grannföreningen drar tillbaka överklagandet i ${p.districtName} mot bullerplank och en lekplats.`,
+                log: `🤝 Settlement: the neighborhood association withdraws the appeal in ${p.districtName} in exchange for a noise barrier and a playground.`,
                 logKind: "info",
               },
             },
             {
-              label: "Avvakta domstolen",
-              detail: "0 kr · full väntetid",
+              label: "Await the court",
+              detail: "0 kr · full wait",
               effect: {
                 planSettle: { blockId: p.blockId, monthsDelta: 0 },
-                log: `⚖️ Du inväntar mark- och miljödomstolens dom i ${p.districtName}.`,
+                log: `⚖️ You await the land and environment court's ruling in ${p.districtName}.`,
                 logKind: "info",
               },
             },
@@ -157,7 +157,7 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
       p.challenges.push("arkeologi");
       p.monthsLeft += 4;
       cost += 800_000;
-      events.push({ t: `🏺 Arkeologiska fynd i ${p.districtName}! Utgrävning krävs innan planen kan antas (+4 mån, 0,8 MSEK).`, kind: "warn" });
+      events.push({ t: `🏺 Archaeological finds in ${p.districtName}! An excavation is required before the plan can be adopted (+4 mo, 0.8 MSEK).`, kind: "warn" });
     }
   }
 
@@ -167,7 +167,7 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
 
   // Laga kraft!
   events.push({
-    t: `📜 LAGA KRAFT: Din detaljplan i ${p.districtName} är antagen! ${PARCELS.filter((x) => x.blockId === p.blockId).length - (p.parkParcels?.length ?? 0)} byggklara tomter är dina – öppna Bygg.`,
+    t: `📜 LEGALLY BINDING: Your zoning plan in ${p.districtName} is adopted! ${PARCELS.filter((x) => x.blockId === p.blockId).length - (p.parkParcels?.length ?? 0)} build-ready lots are yours – open Build.`,
     kind: "buy",
   });
   return { proc: p, done: true, events, cost };

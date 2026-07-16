@@ -58,7 +58,7 @@ export function creditRatingOf(s: GameState): RatingInfo {
   drivers.push(`Belåningsgrad ${(ltv * 100).toFixed(0)} %`);
   // Räntetäckning: ICR ≥ 4 ger full pott.
   const icrScore = Math.max(0, Math.min(30, (icr / 4) * 30));
-  drivers.push(`Räntetäckning ${icr >= 99 ? "∞" : icr.toFixed(1)}×`);
+  drivers.push(`Interest coverage ${icr >= 99 ? "∞" : icr.toFixed(1)}×`);
   // Storlek: större balansräkning tål mer (log-skala upp till 20 p).
   const eq = Math.max(1, equityOf(s));
   const sizeScore = Math.max(0, Math.min(20, (Math.log10(eq) - 6.5) * 8));
@@ -103,6 +103,6 @@ export function covenantBreach(info: RatingInfo): string | null {
   if (info.ltv > 0.75 && info.icr < 1.5)
     return `Belåningsgrad ${(info.ltv * 100).toFixed(0)} % och räntetäckning ${info.icr.toFixed(1)}× bryter lånevillkoren`;
   if (info.ltv > 0.8) return `Belåningsgrad ${(info.ltv * 100).toFixed(0)} % bryter lånevillkoren`;
-  if (info.icr < 1.1) return `Räntetäckning ${info.icr.toFixed(1)}× bryter lånevillkoren`;
+  if (info.icr < 1.1) return `Interest coverage ${info.icr.toFixed(1)}× breaches the loan covenants`;
   return null;
 }

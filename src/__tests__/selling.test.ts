@@ -121,21 +121,21 @@ describe("rivalernas strategiska försäljningar", () => {
     expect(sale!.motive).toContain("renodlar");
   });
 
-  it("slitna hus säljs som renoveringsobjekt med rabatt", () => {
+  it("slitna hus säljs som renovation opportunity med rabatt", () => {
     const c = rival({ strategy: "tillväxt" });
     c.portfolio[1] = makeProperty({ id: 12, condition: 25 });
     const s = makeState({});
     const sale = pickStrategicSale(c, s, "stable");
     expect(sale!.index).toBe(1);
     expect(sale!.price).toBeLessThan(propMarketValue(c.portfolio[1], s));
-    expect(sale!.motive).toContain("renoveringsobjekt");
+    expect(sale!.motive).toContain("renovation opportunity");
   });
 
   it("boom höjer säljbenägenheten – vinsthemtagning i toppen", () => {
     const c = rival({ strategy: "värde" });
     expect(rivalSellChance(c, "boom")).toBeGreaterThan(rivalSellChance(c, "stable"));
     const sale = pickStrategicSale(c, makeState({}), "boom");
-    expect(sale!.motive).toContain("vinsten");
+    expect(sale!.motive).toContain("profit");
   });
 
   it("för små portföljer säljer inte (behåller minst 2 hus)", () => {

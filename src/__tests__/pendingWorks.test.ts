@@ -90,7 +90,7 @@ describe("ändrad användning blockerar nya kontrakt under ombyggnaden", () => {
     const p = makeProperty({ id: 1, type: "bostad", tenants: [], applications: [] });
     let s = reducer(makeState({ cash: 50e6, portfolio: [p] }), { type: "CHANGE_USE", id: 1, propType: "kontor" });
     const blocked = reducer(s, { type: "LEASE", id: 1 });
-    expect(blocked.log[0].t).toContain("Ombyggnad");
+    expect(blocked.log[0].t).toContain("conversion");
     for (let i = 0; i < 3; i++) s = advanceMonth(s);
     expect(s.portfolio[0].type).toBe("kontor");
   });

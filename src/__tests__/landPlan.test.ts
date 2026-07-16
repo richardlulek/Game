@@ -145,7 +145,7 @@ describe("råmark & detaljplan", () => {
     expect(s.ownedPlanAreas).toHaveLength(0);
     const mina = s.lots.filter((l) => l.owned && l.parcelId?.startsWith(PLAN_ID));
     expect(mina).toHaveLength(8); // dubblad planmark ger fler byggklara tomter
-    expect(s.log.some((l) => l.t.includes("LAGA KRAFT"))).toBe(true);
+    expect(s.log.some((l) => l.t.includes("LEGALLY BINDING"))).toBe(true);
   });
 });
 
@@ -157,9 +157,9 @@ describe("planprocessens utmaningar", () => {
     vi.restoreAllMocks();
     vi.spyOn(Math, "random").mockReturnValue(0.99); // inga slumputmaningar
     const dålig = planTick({ ...proc }, makeState({ reputation: 30 }), Math.random);
-    expect(dålig.events.some((e) => e.t.includes("Protester"))).toBe(true);
+    expect(dålig.events.some((e) => e.t.includes("Protests"))).toBe(true);
     const bra = planTick({ ...proc }, makeState({ reputation: 80 }), Math.random);
-    expect(bra.events.some((e) => e.t.includes("gick din väg"))).toBe(true);
+    expect(bra.events.some((e) => e.t.includes("went your way"))).toBe(true);
     expect(bra.proc.monthsLeft).toBeLessThan(dålig.proc.monthsLeft);
   });
 
@@ -186,7 +186,7 @@ describe("planprocessens utmaningar", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const res = planTick(proc, makeState({ reputation: 50 }), Math.random);
     expect(res.proc.parkParcels).toHaveLength(1);
-    expect(res.events.some((e) => e.t.includes("Strandskydd"))).toBe(true);
+    expect(res.events.some((e) => e.t.includes("Shoreline protection"))).toBe(true);
   });
 });
 
@@ -214,7 +214,7 @@ describe("naturlig tillväxt", () => {
     const s0 = makeState({ month: 2, year: 3, portfolio: props }); // absM % 30 ≠ 0
     const s1 = advanceMonth(s0);
     expect(s1.auction).toBeTruthy();
-    expect(s1.log.some((l) => l.t.includes("tidigarelägga"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("bring forward"))).toBe(true);
   });
 
   it("nyproduktion väljer bara distrikt med ledig mark", () => {

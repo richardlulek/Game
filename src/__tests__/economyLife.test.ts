@@ -34,7 +34,7 @@ describe("1. Riksbanken", () => {
     const s0 = makeState({ month: 1, marketCycle: { phase: "stable", monthsRemaining: 10 } });
     const s1 = advanceMonth(s0); // month 1 % 3 === 1 → besked (mål 3,25 vid stabilt)
     expect(s1.interestRate).toBe(3.75);
-    expect(s1.log.some((l) => l.t.includes("Riksbanken sänker"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("central bank cuts"))).toBe(true);
   });
 
   it("räntan andas i värdena: låg ränta lyfter, hög trycker", () => {
@@ -59,7 +59,7 @@ describe("3. Rivalerna bygger", () => {
     const bygge = makeProperty({ id: 77, status: "bygger", buildLeft: 1 });
     const s1 = advanceMonth(makeState({ competitors: [rival({ portfolio: [bygge] })] }));
     expect(s1.competitors[0].portfolio[0].status).toBe("klar");
-    expect(s1.log.some((l) => l.t.includes("färdigställde sitt nybygge"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("completed its new build"))).toBe(true);
   });
 });
 
@@ -102,14 +102,14 @@ describe("5. Budkrig och motbud", () => {
     const s1 = reducer(offered(), { type: "COUNTER_OFFER", offerId: 1, amount: 10_500_000 });
     expect(s1.portfolio).toHaveLength(0);
     expect(s1.cash).toBe(10_500_000);
-    expect(s1.log.some((l) => l.t.includes("gick med på ditt motbud"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("agreed to your counter-offer"))).toBe(true);
   });
 
   it("girigt motbud får köparen att dra sig ur", () => {
     const s1 = reducer(offered(), { type: "COUNTER_OFFER", offerId: 1, amount: 15_000_000 });
     expect(s1.portfolio).toHaveLength(1);
     expect(s1.offers).toHaveLength(0);
-    expect(s1.log.some((l) => l.t.includes("drog sig ur"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("pulled out"))).toBe(true);
   });
 });
 
@@ -143,7 +143,7 @@ describe("7. Kommunala infraprojekt", () => {
     // Andra system knuffar districtDev marginellt – boosten ska synas tydligt.
     expect(s1.districtDev?.["hamnen"]).toBeGreaterThanOrEqual(1.1);
     expect(s1.infraProjects).toHaveLength(0);
-    expect(s1.log.some((l) => l.t.includes("INVIGT"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("OPENED"))).toBe(true);
   });
 });
 
@@ -157,7 +157,7 @@ describe("synliga hus försvinner aldrig från kartan", () => {
     expect(hosRival).toBeDefined();
     expect(hosRival!.parcelId).toBe("centrum-x");
     expect((s1.worldPool ?? []).find((p) => p.id === 5)).toBeUndefined();
-    expect(s1.log.some((l) => l.t.includes("plockade upp"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("picked up"))).toBe(true);
   });
 });
 

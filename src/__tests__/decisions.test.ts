@@ -90,7 +90,7 @@ describe("PLACE_BID (utgående bud på marknadsobjekt)", () => {
     // Nytt bud direkt: blockeras utan slumpdrag.
     const s2 = reducer(s1, { type: "PLACE_BID", id: 7, amount: 3_200_000 });
     expect(s2.portfolio).toHaveLength(0);
-    expect(s2.log[0].t).toContain("överväger inte nya bud");
+    expect(s2.log[0].t).toContain("won't consider new bids");
     // Två månader senare går det bra igen (accept vid låg roll).
     vi.spyOn(Math, "random").mockReturnValue(0.0);
     const s3 = reducer({ ...s1, month: 5 }, { type: "PLACE_BID", id: 7, amount: 3_600_000 });

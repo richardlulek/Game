@@ -17,10 +17,10 @@ export interface DistrictTier {
 
 /** Nivåerna i stigande ordning. */
 export const DISTRICT_TIERS: DistrictTier[] = [
-  { id: "eftersatt", name: "Eftersatt", icon: "🚧", min: 0 },
-  { id: "stabilt", name: "Stabilt", icon: "🏘️", min: 0.93 },
-  { id: "uppatgaende", name: "Uppåtgående", icon: "📈", min: 1.1 },
-  { id: "exklusivt", name: "Exklusivt", icon: "✨", min: 1.3 },
+  { id: "eftersatt", name: "Neglected", icon: "🚧", min: 0 },
+  { id: "stabilt", name: "Stable", icon: "🏘️", min: 0.93 },
+  { id: "uppatgaende", name: "Rising", icon: "📈", min: 1.1 },
+  { id: "exklusivt", name: "Exclusive", icon: "✨", min: 1.3 },
 ];
 
 export function tierOfDev(dev: number): DistrictTier {

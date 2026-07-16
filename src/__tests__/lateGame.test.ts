@@ -36,7 +36,7 @@ describe("institutionella fonder", () => {
     expect(funds).toHaveLength(2);
     expect(funds.map((f) => f.name)).toContain("Meridian Global Partners");
     expect(funds.every((f) => f.cash > 100_000_000)).toBe(true);
-    expect(s1.log.some((l) => l.t.includes("INTERNATIONELLT KAPITAL"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("INTERNATIONAL CAPITAL"))).toBe(true);
   });
 
   it("hålls kapitaliserade i nivå med spelaren (kapitalinjektion)", () => {
@@ -85,7 +85,7 @@ describe("aktivistfonden", () => {
     const s1 = advanceMonth(s0);
     expect(s1.takeoverPressure).toBeGreaterThanOrEqual(ACTIVIST_TAKEOVER_AT);
     expect(s1.gameOver).toBe(true);
-    expect(s1.log.some((l) => l.t.includes("FIENTLIGT ÖVERTAGANDE"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("HOSTILE TAKEOVER"))).toBe(true);
   });
 
   it("PAY_DIVIDEND fyller ägarens plånbok och lugnar aktivisten", () => {
@@ -115,7 +115,7 @@ describe("konkurrensverket", () => {
     expect(districtShareOf(stort, "centrum")).toBeCloseTo(5 / 6);
   });
 
-  it("dominans utlöser prövningsavgift på 5 % vid köp", () => {
+  it("dominans utlöser review fee på 5 % vid köp", () => {
     const listing = centrumHus(99, { owned: false, askPrice: 10_000_000 });
     const dominant = makeState({
       cash: 20_000_000,
@@ -125,7 +125,7 @@ describe("konkurrensverket", () => {
     const down = listing.askPrice * (1 - loanTerms(dominant).maxLtv);
     const s1 = reducer(dominant, { type: "BUY", id: 99 });
     expect(s1.cash).toBe(dominant.cash - down - 500_000); // + 5 % avgift
-    expect(s1.log[0].t).toContain("prövningsavgift");
+    expect(s1.log[0].t).toContain("review fee");
 
     // Utan dominans (liten marknad) → ingen avgift.
     const liten = makeState({ cash: 20_000_000, portfolio: [centrumHus(1)], listings: [listing] });
@@ -140,7 +140,7 @@ describe("konkurrensverket", () => {
       portfolio: [1, 2, 3, 4, 5, 6].map((i) => centrumHus(i)),
     });
     const s1 = advanceMonth(s0);
-    expect(s1.log.some((l) => l.t.includes("Tillsynsavgift"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("Supervision fee"))).toBe(true);
   });
 });
 
@@ -173,11 +173,11 @@ describe("fastighetskrisen", () => {
     const s1 = reducer(s0, { type: "REFINANCE", amount: 1_000_000 });
     expect(s1.debt).toBe(0);
     expect(s1.cash).toBe(1_000_000);
-    expect(s1.log[0].t).toContain("Kreditmarknaden är stängd");
+    expect(s1.log[0].t).toContain("credit market is closed");
 
     const s2 = reducer(s0, { type: "ISSUE_BOND", amount: 5_000_000, years: 5 });
     expect(s2.bonds ?? []).toHaveLength(0);
-    expect(s2.log[0].t).toContain("Obligationsmarknaden är fryst");
+    expect(s2.log[0].t).toContain("bond market is frozen");
 
     // Kontroll: samma emission går igenom utan kris.
     const s3 = reducer({ ...s0, crisisMonthsLeft: 0 }, { type: "ISSUE_BOND", amount: 5_000_000, years: 5 });
@@ -192,7 +192,7 @@ describe("megaprojekt", () => {
     const s0 = makeState({ cash: 400_000_000, reputation: 40, companyLevel: 4 });
     const s1 = reducer(s0, { type: "START_MEGA", projectId: "arena" });
     expect(s1.megaActive ?? []).toHaveLength(0);
-    expect(s1.log[0].t).toContain("rykte");
+    expect(s1.log[0].t).toContain("reputation");
   });
 
   it("byggstartar som landmärke och invigs när tiden gått", () => {
@@ -210,7 +210,7 @@ describe("megaprojekt", () => {
     expect(klar.megaActive ?? []).toHaveLength(0);
     expect(klar.megaCompleted).toContain("arena");
     expect(klar.districtDev![arena.site.district]).toBeGreaterThan(s0.districtDev![arena.site.district] ?? 1);
-    expect(klar.log.some((l) => l.t.includes("INVIGNING"))).toBe(true);
+    expect(klar.log.some((l) => l.t.includes("OPENING"))).toBe(true);
   });
 
   it("samma projekt kan inte startas två gånger", () => {

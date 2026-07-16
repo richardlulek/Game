@@ -43,7 +43,7 @@ export function initState(opts?: InitOptions): GameState {
     log: [
       {
         t: `Du startar med ${(startCash / 1e6).toLocaleString("sv-SE")} MSEK eget kapital${
-          opts?.difficulty && opts.difficulty !== "normal" ? ` (svårighet: ${opts.difficulty})` : ""
+          opts?.difficulty && opts.difficulty !== "normal" ? ` (difficulty: ${opts.difficulty})` : ""
         }. Lycka till!`,
         kind: "info",
       },
@@ -218,15 +218,15 @@ export function agendaFor(
         kind: "district",
         district: preferredDistrict,
         target: 12,
-        label: `vill dominera ${d?.name ?? "sitt distrikt"} (12 fastigheter)`,
+        label: `wants to dominate ${d?.name ?? "its district"} (12 properties)`,
       };
     }
     case "tillväxt":
-      return { kind: "units", target: 25, label: "vill äga 25 fastigheter" };
+      return { kind: "units", target: 25, label: "wants to own 25 properties" };
     case "värde":
-      return { kind: "equity", target: 120_000_000, label: "jagar 120 MSEK i eget kapital" };
+      return { kind: "equity", target: 120_000_000, label: "chasing 120 MSEK in equity" };
     default:
-      return { kind: "equity", target: 80_000_000, label: "bygger kassaflöde mot 80 MSEK" };
+      return { kind: "equity", target: 80_000_000, label: "building cash flow toward 80 MSEK" };
   }
 }
 

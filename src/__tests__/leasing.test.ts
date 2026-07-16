@@ -126,7 +126,7 @@ describe("U3: nöjdhet", () => {
     const p2 = makeProperty({ id: 2, condition: 15, tenants: [t2] });
     const s2 = advanceMonth(makeState({ portfolio: [p2] }));
     expect(s2.portfolio[0].tenants).toHaveLength(0);
-    expect(s2.log.some((l) => l.t.includes("missnöjd"))).toBe(true);
+    expect(s2.log.some((l) => l.t.includes("dissatisfied"))).toBe(true);
   });
 });
 
@@ -215,6 +215,6 @@ describe("Lokalanpassning: single/multi-tenant", () => {
       type: "START_RENOVATION", id: 1, kind: "lokalanpassning", targetCapacity: 1,
     });
     expect(s.portfolio[0].status).toBe("klar");
-    expect(s.log[0].t).toContain("uthyrda");
+    expect(s.log[0].t).toContain("rented");
   });
 });

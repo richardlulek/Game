@@ -533,7 +533,7 @@ export function makeInheritedHouse(fresh: GameState): Property {
     energyClass: energyClassFor(condition),
     builtYear: builtYearFor(condition, fresh.year),
     storyTag: "arvet",
-    txHistory: [{ type: "köp", price: 0, month: fresh.month, year: fresh.year, party: "Arv efter morfar Gunnar" }],
+    txHistory: [{ type: "bought", price: 0, month: fresh.month, year: fresh.year, party: "Inheritance from Grandpa Gunnar" }],
   };
 }
 

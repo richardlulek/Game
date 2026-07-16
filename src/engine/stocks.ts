@@ -13,11 +13,11 @@ const COURTAGE = 0.003; // 0,3 % avgift per affär
 export const STOCK_CAP_RATE = 0.06; // för att kapitalisera dotterbolagsintäkt
 
 const SECTOR_LABELS: Record<Sector, string> = {
-  fastighet: "Fastighet",
+  fastighet: "Real estate",
   bank: "Bank",
-  bygg: "Bygg",
-  handel: "Handel",
-  industri: "Industri",
+  bygg: "Construction",
+  handel: "Retail",
+  industri: "Industry",
 };
 
 // ── Bolagsspecifika nyhetshändelser ───────────────────────────────────
@@ -26,18 +26,18 @@ interface NewsTemplate {
   impact: [number, number]; // [min mult, max mult] på aktiekursen
 }
 const STOCK_NEWS: NewsTemplate[] = [
-  { text: "{n}: vinst bättre än väntat – aktien stiger", impact: [1.05, 1.13] },
-  { text: "{n}: vinst sämre än väntat – aktien faller", impact: [0.87, 0.95] },
-  { text: "{n}: analytiker höjer riktkurs", impact: [1.03, 1.09] },
-  { text: "{n}: analytiker sänker riktkurs", impact: [0.91, 0.97] },
-  { text: "{n}: storkontrakt vunnet", impact: [1.06, 1.15] },
-  { text: "{n}: VD avgår oväntat", impact: [0.84, 0.93] },
-  { text: "{n}: Finansinspektionen inleder granskning", impact: [0.79, 0.90] },
-  { text: "{n}: förvärvsrykte stiger", impact: [1.08, 1.18] },
-  { text: "{n}: utdelningen sänks", impact: [0.87, 0.93] },
-  { text: "{n}: aktieåterköpsprogram annonseras", impact: [1.04, 1.10] },
-  { text: "{n}: rekordutdelning höjer aktien", impact: [1.06, 1.12] },
-  { text: "{n}: strejkhot tynger bolaget", impact: [0.91, 0.97] },
+  { text: "{n}: profit beats expectations – the stock rises", impact: [1.05, 1.13] },
+  { text: "{n}: profit misses expectations – the stock falls", impact: [0.87, 0.95] },
+  { text: "{n}: analysts raise price target", impact: [1.03, 1.09] },
+  { text: "{n}: analysts cut price target", impact: [0.91, 0.97] },
+  { text: "{n}: major contract won", impact: [1.06, 1.15] },
+  { text: "{n}: CEO resigns unexpectedly", impact: [0.84, 0.93] },
+  { text: "{n}: the regulator opens an investigation", impact: [0.79, 0.90] },
+  { text: "{n}: acquisition rumor rises", impact: [1.08, 1.18] },
+  { text: "{n}: the dividend is cut", impact: [0.87, 0.93] },
+  { text: "{n}: share buyback program announced", impact: [1.04, 1.10] },
+  { text: "{n}: record dividend lifts the stock", impact: [1.06, 1.12] },
+  { text: "{n}: strike threat weighs on the company", impact: [0.91, 0.97] },
 ];
 
 /** Datumstämpel för nyhetshistoriken. */
@@ -65,14 +65,14 @@ export function applyStockNews(
   const text = tmpl.text.replace("{n}", target.name);
   const dir: "up" | "down" | "flat" = mult > 1.01 ? "up" : mult < 0.99 ? "down" : "flat";
   // Determine analyst rating change from news text
-  let newRating: "Köp" | "Behåll" | "Sälj" | undefined = undefined;
-  if (tmpl.text.includes("höjer riktkurs") || tmpl.text.includes("Köp")) newRating = "Köp";
-  else if (tmpl.text.includes("sänker riktkurs") || tmpl.text.includes("Finansinspektionen") || tmpl.text.includes("sämre än väntat")) newRating = "Sälj";
-  else if (tmpl.text.includes("bättre än väntat") || tmpl.text.includes("storkontrakt") || tmpl.text.includes("förvärvsrykte") || tmpl.text.includes("aktieåterköp") || tmpl.text.includes("rekordutdelning")) newRating = "Köp";
+  let newRating: "Buy" | "Hold" | "Sell" | undefined = undefined;
+  if (tmpl.text.includes("raise price target")) newRating = "Buy";
+  else if (tmpl.text.includes("cut price target") || tmpl.text.includes("regulator") || tmpl.text.includes("misses expectations")) newRating = "Sell";
+  else if (tmpl.text.includes("beats expectations") || tmpl.text.includes("major contract") || tmpl.text.includes("acquisition rumor") || tmpl.text.includes("buyback") || tmpl.text.includes("record dividend")) newRating = "Buy";
   // Update EPS based on earnings beat/miss
   let epsMultiplier = 1.0;
-  if (tmpl.text.includes("vinst bättre än väntat")) epsMultiplier = 1 + (random01() * 0.12 + 0.05);
-  if (tmpl.text.includes("vinst sämre än väntat")) epsMultiplier = 1 - (random01() * 0.12 + 0.05);
+  if (tmpl.text.includes("profit beats expectations")) epsMultiplier = 1 + (random01() * 0.12 + 0.05);
+  if (tmpl.text.includes("profit misses expectations")) epsMultiplier = 1 - (random01() * 0.12 + 0.05);
 
   return {
     stocks: stocks.map((s) =>
@@ -83,8 +83,8 @@ export function applyStockNews(
             targetPrice: newPrice,
             eps: s.eps !== undefined ? Math.max(0.01, Math.round(s.eps * epsMultiplier * 100) / 100) : s.eps,
             analystRating: newRating ?? s.analystRating,
-            targetKurs: newRating === "Köp" ? Math.round(newPrice * 1.15 * 100) / 100
-                      : newRating === "Sälj" ? Math.round(newPrice * 0.90 * 100) / 100
+            targetKurs: newRating === "Buy" ? Math.round(newPrice * 1.15 * 100) / 100
+                      : newRating === "Sell" ? Math.round(newPrice * 0.90 * 100) / 100
                       : s.targetKurs,
             history: [...s.history, newPrice].slice(-32),
             newsHistory: pushNews(s, text, dir, date),
@@ -118,16 +118,16 @@ export function rivalNews(
     let dir: "up" | "down" | "flat" = "flat";
     let mult = 1;
     if (c.units > prevUnits) {
-      text = `${c.name} expanderar beståndet till ${c.units} objekt`;
+      text = `${c.name} expands its portfolio to ${c.units} assets`;
       dir = "up"; mult = rnd(1.02, 1.06);
     } else if (prevNOI > 0 && curNOI < prevNOI * 0.90) {
-      text = `${c.name}: driftnettot pressas av vakanser`;
+      text = `${c.name}: net operating income pressured by vacancies`;
       dir = "down"; mult = rnd(0.93, 0.98);
     } else if (prevNOI > 0 && curNOI > prevNOI * 1.12) {
-      text = `${c.name}: starkt driftnetto lyfter aktien`;
+      text = `${c.name}: strong net operating income lifts the stock`;
       dir = "up"; mult = rnd(1.02, 1.05);
     } else if (c.lastBuy && random01() < 0.25) {
-      text = `${c.name} förvärvade ${c.lastBuy}`;
+      text = `${c.name} acquired ${c.lastBuy}`;
       dir = "up"; mult = rnd(1.005, 1.02);
     }
     const updated: Stock = { ...st, rivalPrevUnits: c.units, rivalPrevNOI: curNOI };
@@ -181,13 +181,13 @@ export function maybeListingEvents(
         avgCost: 0,
         history: [price],
         eps: d.eps ?? Math.round(price * 0.07),
-        analystRating: "Behåll",
+        analystRating: "Hold",
         listedYear: date.year,
         listedMonth: date.month,
-        newsHistory: [{ text: `${d.name} börsintroduceras`, dir: "up", ...date }],
+        newsHistory: [{ text: `${d.name} goes public`, dir: "up", ...date }],
       };
       next = [...next, stock];
-      events.push(`🔔 Nynotering: ${d.name} (${SECTOR_LABELS[d.sector]}) debuterar på börsen @ ${kr(price)}.`);
+      events.push(`🔔 New listing: ${d.name} (${SECTOR_LABELS[d.sector]}) debuts on the exchange @ ${kr(price)}.`);
     }
   }
 
@@ -203,9 +203,9 @@ export function maybeListingEvents(
         next = next
           .filter((s) => s.id !== targ.id)
           .map((s) => s.id === acquirer.id
-            ? { ...s, price: bumped, targetPrice: bumped, newsHistory: pushNews(s, `${acquirer.name} förvärvar ${targ.name}`, "up", date) }
+            ? { ...s, price: bumped, targetPrice: bumped, newsHistory: pushNews(s, `${acquirer.name} acquires ${targ.name}`, "up", date) }
             : s);
-        events.push(`🤝 Samgående: ${acquirer.name} köper upp ${targ.name} — synergier lyfter aktien.`);
+        events.push(`🤝 Merger: ${acquirer.name} buys out ${targ.name} — synergies lift the stock.`);
       }
     }
   }
@@ -216,7 +216,7 @@ export function maybeListingEvents(
     if (weak.length > 0) {
       const gone = weak[Math.floor(random01() * weak.length)];
       next = next.filter((s) => s.id !== gone.id);
-      events.push(`⚠️ Avnotering: ${gone.name} lämnar börsen efter svag utveckling.`);
+      events.push(`⚠️ Delisting: ${gone.name} leaves the exchange after weak performance.`);
     }
   }
 
@@ -239,21 +239,21 @@ interface CompanyDef {
 
 const OTHER_COMPANIES: CompanyDef[] = [
   { id: "handelsbk", name: "Handelsbanken",  sector: "bank",     price: 112, sharesOutstanding: 2_000_000, dividendYield: 0.052, beta: 1.15, drift: 0.0030, volatility: 0.035, eps: 9.80 },
-  { id: "skanska",   name: "Skanska Bygg",   sector: "bygg",     price: 168, sharesOutstanding: 1_400_000, dividendYield: 0.040, beta: 1.40, drift: 0.0035, volatility: 0.050, eps: 12.60 },
-  { id: "ica",       name: "ICA Gruppen",    sector: "handel",   price: 240, sharesOutstanding: 1_000_000, dividendYield: 0.030, beta: 0.80, drift: 0.0030, volatility: 0.028, eps: 16.80 },
+  { id: "skanska",   name: "Skanska Construction",   sector: "bygg",     price: 168, sharesOutstanding: 1_400_000, dividendYield: 0.040, beta: 1.40, drift: 0.0035, volatility: 0.050, eps: 12.60 },
+  { id: "ica",       name: "ICA Group",    sector: "handel",   price: 240, sharesOutstanding: 1_000_000, dividendYield: 0.030, beta: 0.80, drift: 0.0030, volatility: 0.028, eps: 16.80 },
   { id: "sandvik",   name: "Sandvik",        sector: "industri", price: 196, sharesOutstanding: 1_600_000, dividendYield: 0.028, beta: 1.10, drift: 0.0040, volatility: 0.042, eps: 14.20 },
-  { id: "sbb",       name: "SBB Norden",     sector: "fastighet",price: 88,  sharesOutstanding: 2_200_000, dividendYield: 0.045, beta: 1.30, drift: 0.0025, volatility: 0.055, eps: 5.50 },
+  { id: "sbb",       name: "SBB Nordic",     sector: "fastighet",price: 88,  sharesOutstanding: 2_200_000, dividendYield: 0.045, beta: 1.30, drift: 0.0025, volatility: 0.055, eps: 5.50 },
   { id: "volvo",     name: "Volvo Group",    sector: "industri", price: 154, sharesOutstanding: 1_800_000, dividendYield: 0.035, beta: 1.05, drift: 0.0038, volatility: 0.040, eps: 12.80 },
 ];
 
 /** Pool av fiktiva bolag som kan nyintroduceras på börsen (feature 10). */
 const IPO_POOL: Omit<CompanyDef, "id">[] = [
-  { name: "Nordbygg Entreprenad", sector: "bygg",      price: 95,  sharesOutstanding: 1_200_000, dividendYield: 0.030, beta: 1.35, drift: 0.0040, volatility: 0.055, eps: 6.40 },
-  { name: "Svea Detaljhandel",    sector: "handel",    price: 128, sharesOutstanding: 900_000,   dividendYield: 0.028, beta: 0.85, drift: 0.0032, volatility: 0.030, eps: 8.60 },
-  { name: "Baltic Industri",      sector: "industri",  price: 142, sharesOutstanding: 1_100_000, dividendYield: 0.026, beta: 1.20, drift: 0.0042, volatility: 0.048, eps: 9.90 },
-  { name: "Kronan Fastigheter",   sector: "fastighet", price: 76,  sharesOutstanding: 1_800_000, dividendYield: 0.048, beta: 1.25, drift: 0.0026, volatility: 0.050, eps: 4.80 },
-  { name: "Första Sparbanken",    sector: "bank",      price: 88,  sharesOutstanding: 1_600_000, dividendYield: 0.050, beta: 1.05, drift: 0.0028, volatility: 0.032, eps: 7.20 },
-  { name: "Mälaren Logistik",     sector: "industri",  price: 110, sharesOutstanding: 1_000_000, dividendYield: 0.024, beta: 1.15, drift: 0.0044, volatility: 0.046, eps: 7.80 },
+  { name: "Nordbygg Contracting", sector: "bygg",      price: 95,  sharesOutstanding: 1_200_000, dividendYield: 0.030, beta: 1.35, drift: 0.0040, volatility: 0.055, eps: 6.40 },
+  { name: "Svea Retail",    sector: "handel",    price: 128, sharesOutstanding: 900_000,   dividendYield: 0.028, beta: 0.85, drift: 0.0032, volatility: 0.030, eps: 8.60 },
+  { name: "Baltic Industries",      sector: "industri",  price: 142, sharesOutstanding: 1_100_000, dividendYield: 0.026, beta: 1.20, drift: 0.0042, volatility: 0.048, eps: 9.90 },
+  { name: "Kronan Properties",   sector: "fastighet", price: 76,  sharesOutstanding: 1_800_000, dividendYield: 0.048, beta: 1.25, drift: 0.0026, volatility: 0.050, eps: 4.80 },
+  { name: "First Savings Bank",    sector: "bank",      price: 88,  sharesOutstanding: 1_600_000, dividendYield: 0.050, beta: 1.05, drift: 0.0028, volatility: 0.032, eps: 7.20 },
+  { name: "Malmo Logistics",     sector: "industri",  price: 110, sharesOutstanding: 1_000_000, dividendYield: 0.024, beta: 1.15, drift: 0.0044, volatility: 0.046, eps: 7.80 },
   { name: "Aurora Data",          sector: "handel",    price: 64,  sharesOutstanding: 1_400_000, dividendYield: 0.005, beta: 1.75, drift: 0.0070, volatility: 0.090, eps: 1.20 },
   { name: "Optimus Telekom",      sector: "handel",    price: 158, sharesOutstanding: 1_300_000, dividendYield: 0.010, beta: 1.60, drift: 0.0060, volatility: 0.080, eps: 3.40 },
 ];
@@ -281,7 +281,7 @@ export function initStocks(competitors: Competitor[]): Stock[] {
       history: [price],
       competitorName: c.name,
       eps: Math.round(price * 0.07 * 100) / 100,
-      analystRating: "Behåll" as const,
+      analystRating: "Hold" as const,
       targetKurs: Math.round(price * 1.05 * 100) / 100,
       rivalPrevUnits: c.units,
       rivalPrevNOI: c.monthlyNOI ?? 0,
@@ -296,7 +296,7 @@ export function initStocks(competitors: Competitor[]): Stock[] {
     avgCost: 0,
     history: [d.price],
     eps: d.eps ?? Math.round(d.price * 0.07),
-    analystRating: "Behåll" as const,
+    analystRating: "Hold" as const,
     targetKurs: Math.round(d.price * 1.05 * 100) / 100,
   }));
   return [...compStocks, ...others];
@@ -457,7 +457,7 @@ export function executeLimitOrders(
       const qty = Math.min(order.qty, available);
       const cost = qty * stock.price * (1 + COURTAGE);
       if (s.cash < cost || qty <= 0) {
-        fills.push(`⚠️ Limitorder avbröts – kunde ej köpa ${order.stockName}: otillräcklig kassa.`);
+        fills.push(`⚠️ Limit order cancelled – couldn't buy ${order.stockName}: insufficient cash.`);
         continue;
       }
       const newOwned = stock.owned + qty;
@@ -472,12 +472,12 @@ export function executeLimitOrders(
         ),
       };
       fills.push(
-        `✅ Limitorder utförd: Köpte ${qty.toLocaleString("sv-SE")} aktier i ${order.stockName} @ ${kr(stock.price)}.`,
+        `✅ Limit order executed: Bought ${qty.toLocaleString("en-US")} shares in ${order.stockName} @ ${kr(stock.price)}.`,
       );
     } else {
       const qty = Math.min(order.qty, stock.owned);
       if (qty <= 0) {
-        fills.push(`⚠️ Limitorder avbröts – inga aktier att sälja i ${order.stockName}.`);
+        fills.push(`⚠️ Limit order cancelled – no shares to sell in ${order.stockName}.`);
         continue;
       }
       const proceeds = qty * stock.price * (1 - COURTAGE);
@@ -492,7 +492,7 @@ export function executeLimitOrders(
         ),
       };
       fills.push(
-        `✅ Limitorder utförd: Sålde ${qty.toLocaleString("sv-SE")} aktier i ${order.stockName} @ ${kr(stock.price)}.`,
+        `✅ Limit order executed: Sold ${qty.toLocaleString("en-US")} shares in ${order.stockName} @ ${kr(stock.price)}.`,
       );
     }
   }
@@ -524,11 +524,11 @@ export function quarterlyEarnings(
     const newEps = st.eps !== undefined
       ? Math.max(0.01, Math.round(st.eps * (beat ? rnd(1.02, 1.10) : rnd(0.90, 0.98)) * 100) / 100)
       : st.eps;
-    const newRating: "Köp" | "Behåll" | "Sälj" = beat
-      ? (surprise > 1.10 ? "Köp" : "Behåll")
-      : (surprise < 0.92 ? "Sälj" : "Behåll");
+    const newRating: "Buy" | "Hold" | "Sell" = beat
+      ? (surprise > 1.10 ? "Buy" : "Hold")
+      : (surprise < 0.92 ? "Sell" : "Hold");
     const notable = Math.abs(surprise - 1) > 0.08;
-    const headline = `${st.name}: ${beat ? "slog" : "missade"} kvartalsprognosen (${beat ? "+" : ""}${((surprise - 1) * 100).toFixed(0)} %)`;
+    const headline = `${st.name}: ${beat ? "beat" : "missed"} the quarterly forecast (${beat ? "+" : ""}${((surprise - 1) * 100).toFixed(0)}%)`;
     if (notable) events.push(`📊 ${headline}.`);
     return {
       ...st,
@@ -536,8 +536,8 @@ export function quarterlyEarnings(
       targetPrice: newPrice,
       eps: newEps,
       analystRating: newRating,
-      targetKurs: newRating === "Köp" ? Math.round(newPrice * 1.15 * 100) / 100
-                : newRating === "Sälj" ? Math.round(newPrice * 0.90 * 100) / 100
+      targetKurs: newRating === "Buy" ? Math.round(newPrice * 1.15 * 100) / 100
+                : newRating === "Sell" ? Math.round(newPrice * 0.90 * 100) / 100
                 : st.targetKurs,
       history: [...st.history, newPrice].slice(-32),
       newsHistory: notable ? pushNews(st, headline, beat ? "up" : "down", date) : st.newsHistory,

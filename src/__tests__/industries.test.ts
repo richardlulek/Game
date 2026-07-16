@@ -324,7 +324,7 @@ describe("symbios stad ↔ industri", () => {
     const utan = esgRatingOf(makeState({ portfolio: props, energyOwnedMW: 0 }));
     const med = esgRatingOf(makeState({ portfolio: props, energyOwnedMW: 25 }));
     expect(med.score).toBeGreaterThan(utan.score);
-    expect(med.letter).toBe("B"); // C-bestånd + 25 MW ⇒ grönt lånebetyg
+    expect(med.letter).toBe("B"); // C-bestånd + 25 MW ⇒ green loanebetyg
   });
 });
 

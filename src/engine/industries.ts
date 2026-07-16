@@ -128,7 +128,7 @@ export function tickHotel(asset: IndustryAsset, state: GameState): [number, numb
 
   // Reputationspoäng: dålig review om dåligt skick
   if (meta.reputationScore < 30 && asset.condition < 40) {
-    events.push({ t: `⭐ Dålig recension för ${asset.name} — lågt skick påverkar kundupplevelsen.`, kind: "warn" });
+    events.push({ t: `⭐ Bad review for ${asset.name} — low condition hurts the guest experience.`, kind: "warn" });
   }
 
   // Beläggningsgrad för hotelKing-scenario
@@ -208,7 +208,7 @@ export function tickEnergy(asset: IndustryAsset, state: GameState): [number, num
   // PPA-förfallokontroll: om monthsLeft === 0 → ta bort (simulationsloopen dekrementerar)
   const expiredPPA = meta.ppaContracts.filter((c) => c.monthsLeft <= 1);
   for (const c of expiredPPA) {
-    events.push({ t: `⚡ PPA-kontrakt med ${c.clientName} löper ut för ${asset.name}.`, kind: "warn" });
+    events.push({ t: `⚡ PPA contract with ${c.clientName} expires for ${asset.name}.`, kind: "warn" });
   }
 
   return [revenue, opex, events];
@@ -298,7 +298,7 @@ export function tickLogistik(asset: IndustryAsset, state: GameState): [number, n
   // Förfallokontroll
   const expiredContracts = updatedContracts.filter((c) => c.monthsLeft <= 1);
   for (const c of expiredContracts) {
-    events.push({ t: `📋 Logistikkontrakt med ${c.clientName} löper ut för ${asset.name}.`, kind: "info" });
+    events.push({ t: `📋 Logistics contract with ${c.clientName} expires for ${asset.name}.`, kind: "info" });
   }
 
   return [revenue, opex, events];
@@ -337,7 +337,7 @@ export function synergySummary(state: GameState): string[] {
   const mw = state.energyOwnedMW ?? 0;
   if (mw > 0) {
     const cut = Math.round((1 - energySynergyMult(state)) * 100);
-    out.push(`⚡ ${mw} MW egen el: −${cut} % driftkostnad i hela beståndet, +${Math.min(1, mw / 25).toFixed(1)} p ESG-betyg`);
+    out.push(`⚡ ${mw} MW of own power: −${cut}% operating cost across the portfolio, +${Math.min(1, mw / 25).toFixed(1)} pt ESG rating`);
   }
   const byDistrict = new Map<string, { stars: number; name: string }>();
   for (const a of state.industryPortfolio ?? []) {
@@ -347,7 +347,7 @@ export function synergySummary(state: GameState): string[] {
     byDistrict.set(a.district, e);
   }
   for (const [, e] of byDistrict)
-    out.push(`🏨 Hotell i ${e.name}: +${Math.min(8, e.stars)} % butikshyra i distriktet (gästflöden)`);
+    out.push(`🏨 Hotel in ${e.name}: +${Math.min(8, e.stars)}% retail rent in the district (guest flows)`);
   const terminals = new Map<string, { n: number; name: string }>();
   for (const a of state.industryPortfolio ?? []) {
     if (a.sector !== "logistik" || a.status !== "klar") continue;

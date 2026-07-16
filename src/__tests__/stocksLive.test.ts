@@ -84,7 +84,7 @@ describe("kausala rivalnyheter (rivalNews)", () => {
     const comp = mkComp({ units: 8, monthlyNOI: 100_000 });
     const { stocks, events } = rivalNews([stock], [comp], DATE);
     expect(events.length).toBe(1);
-    expect(events[0]).toContain("expanderar");
+    expect(events[0]).toContain("expands");
     expect(stocks[0].price).toBeGreaterThan(100);
     expect(stocks[0].newsHistory?.[0].dir).toBe("up");
     expect(stocks[0].rivalPrevUnits).toBe(8);
@@ -94,7 +94,7 @@ describe("kausala rivalnyheter (rivalNews)", () => {
     const stock = mkStock({ sector: "fastighet", competitorName: "Rival AB", rivalPrevUnits: 5, rivalPrevNOI: 100_000 });
     const comp = mkComp({ units: 5, monthlyNOI: 70_000 });
     const { stocks, events } = rivalNews([stock], [comp], DATE);
-    expect(events[0]).toContain("pressas");
+    expect(events[0]).toContain("pressured");
     expect(stocks[0].price).toBeLessThan(100);
   });
 });
@@ -113,7 +113,7 @@ describe("dynamisk marknad (maybeListingEvents)", () => {
       .mockReturnValueOnce(0.99); // avnotering → nej
     const { stocks, events } = maybeListingEvents(base, DATE);
     expect(stocks.length).toBe(before + 1);
-    expect(events[0]).toContain("Nynotering");
+    expect(events[0]).toContain("New listing");
     const fresh = stocks[stocks.length - 1];
     expect(fresh.listedYear).toBe(DATE.year);
   });

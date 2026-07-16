@@ -31,14 +31,14 @@ describe("LEASE_ALL", () => {
     expect(s.portfolio[0].tenants).toHaveLength(3); // två ansökningar accepterade
     expect(s.portfolio[1].tenants).toHaveLength(1); // en ansökan fanns
     expect(s.portfolio[2].tenants).toHaveLength(0); // byggen rörs ej
-    expect(s.log[0].t).toContain("3 ansökningar");
+    expect(s.log[0].t).toContain("3 applications");
   });
 
   it("gör inget när inga ansökningar finns", () => {
     const vacant = makeProperty({ id: 1, capacity: 2, tenants: [], applications: [] });
     const s = reducer(makeState({ portfolio: [vacant] }), { type: "LEASE_ALL" });
     expect(s.portfolio[0].tenants).toHaveLength(0);
-    expect(s.log[0].t).toContain("Inga ansökningar");
+    expect(s.log[0].t).toContain("No applications");
   });
 });
 
@@ -81,7 +81,7 @@ describe("RENEW_ALL", () => {
     expect(t1.monthsLeft).toBe(24); // förnyat
     expect(t1.rent).toBeGreaterThanOrEqual(5_000);
     expect(t2.monthsLeft).toBe(20); // orört
-    expect(s.log[0].t).toContain("Förnyade 1");
+    expect(s.log[0].t).toContain("Renewed 1");
   });
 });
 

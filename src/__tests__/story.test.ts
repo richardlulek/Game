@@ -66,7 +66,7 @@ describe("start av berättelseläget", () => {
     const house = heirloomOf(s)!;
     const afterSell = reducer(s, { type: "SELL", id: house.id });
     expect(heirloomOf(afterSell)).toBeDefined();
-    expect(afterSell.log[0].t).toContain("Villkor 7b");
+    expect(afterSell.log[0].t).toContain("Clause 7b");
     const afterList = reducer(s, { type: "LIST_FOR_SALE", id: house.id, ask: 99_000_000 });
     expect(heirloomOf(afterList)!.forSale).toBeUndefined();
   });
@@ -270,7 +270,7 @@ describe("morfars minneslappar", () => {
     for (const n of MEMORY_NOTES) s = reducer(s, { type: "FOUND_NOTE", id: n.id });
     // 6 × (+1) + bonus +3
     expect(s.reputation).toBe(Math.min(100, repBefore + MEMORY_NOTES.length + 3));
-    expect(s.log[0].t).toContain("fotoalbumet");
+    expect(s.log[0].t).toContain("photo album");
   });
 
   it("lapparna sitter vid sina landmärken (inte gamla positioner)", () => {
@@ -346,11 +346,11 @@ describe("distriktsupplåsning", () => {
 
     const afterBuy = reducer(s, { type: "BUY", id: 777 });
     expect(afterBuy.portfolio.some((p) => p.id === 777)).toBe(false);
-    expect(afterBuy.log[0].t).toContain("🔒 Området är låst");
+    expect(afterBuy.log[0].t).toContain("🔒 The area is locked");
 
     const afterBid = reducer(s, { type: "PLACE_BID", id: 777, amount: 19_000_000 });
     expect(afterBid.portfolio.some((p) => p.id === 777)).toBe(false);
-    expect(afterBid.log[0].t).toContain("🔒 Området är låst");
+    expect(afterBid.log[0].t).toContain("🔒 The area is locked");
   });
 
   it("köp i upplåst distrikt går igenom som vanligt", () => {
@@ -437,7 +437,7 @@ describe("skriptade hyresgäster äger scenen (kap 0–2)", () => {
     // Annonskampanj på huset avböjs vänligt under scenen.
     const boost = reducer(s, { type: "MARKET_BOOST", id: heirloomOf(s)!.id });
     expect(boost.cash).toBe(s.cash);
-    expect(boost.log[0].t).toContain("berättelsen ordnar sökande");
+    expect(boost.log[0].t).toContain("the story arranges applicants");
   });
 
   it("från kapitel 3 öppnar det vanliga ansökningsflödet igen", () => {

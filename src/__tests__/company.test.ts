@@ -81,10 +81,10 @@ describe("expansion är ett aktivt val", () => {
     });
     const s1 = advanceMonth(s0);
     expect(s1.companyLevel).toBe(1);
-    expect(s1.log.some((l) => l.t.includes("uppfyller kraven"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("meets the requirements"))).toBe(true);
     // Hinten upprepas inte nästa månad
     const s2 = advanceMonth({ ...s1, log: [] });
-    expect(s2.log.some((l) => l.t.includes("uppfyller kraven"))).toBe(false);
+    expect(s2.log.some((l) => l.t.includes("meets the requirements"))).toBe(false);
   });
 
   it("UPGRADE_COMPANY höjer nivån, drar kostnaden och ger reputation", () => {
@@ -108,7 +108,7 @@ describe("expansion är ett aktivt val", () => {
       { type: "UPGRADE_COMPANY" },
     );
     expect(broke.companyLevel).toBe(2);
-    expect(broke.log[0].t).toContain("Expansionen kostar");
+    expect(broke.log[0].t).toContain("The expansion costs");
   });
 
   it("nivån sjunker aldrig även om kapitalet rasar", () => {
@@ -145,13 +145,13 @@ describe("kontorskostnad och överbelastning", () => {
     const diff = advanceMonth(mk(2)).cash - advanceMonth(mk(1)).cash;
     expect(diff).toBe(2 * OVERLOAD_COST_PER_PROP - tierForLevel(2).monthlyOverhead);
     const s1 = advanceMonth({ ...mk(1), month: 3 }); // månad 3 → varningslogg
-    expect(s1.log.some((l) => l.t.includes("överbelastad"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("overloaded"))).toBe(true);
   });
 
   it("kontorskostnaden dras på högre nivåer", () => {
     const s0 = makeState({ cash: 10_000_000, companyLevel: 3, month: 3 });
     const s1 = advanceMonth(s0);
-    expect(s1.log.some((l) => l.t.includes("Kontorskostnad"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("Office cost"))).toBe(true);
   });
 });
 
