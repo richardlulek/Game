@@ -25,7 +25,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
 
         {offers.length === 0 ? (
           <div style={{ color: C.inkSoft, fontSize: 14, padding: "20px 0", textAlign: "center" }}>
-            Inga aktiva bud just nu. Rivaler lägger ibland bud på dina fastigheter över marknadsvärde.
+            No active bids right now. Rivals sometimes bid on your properties above market value.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -43,7 +43,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                     <span style={{ fontWeight: 700, fontSize: 14 }}>
                       {o.propLabel} · {o.districtName}
                     </span>
-                    <span style={{ fontSize: 11, color: C.inkSoft }}>löper ut om {o.expiresIn} mån</span>
+                    <span style={{ fontSize: 11, color: C.inkSoft }}>expires in {o.expiresIn} mo</span>
                   </div>
                   <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 3 }}>
                     {o.from} bjuder
@@ -55,7 +55,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                     </span>
                   </div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 1 }}>
-                    Marknadsvärde: {kr(market)}
+                    Market value: {kr(market)}
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                     <button
@@ -65,13 +65,13 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                         dispatch({ type: "ACCEPT_OFFER", offerId: o.id });
                       }}
                     >
-                      Acceptera & sälj
+                      Accept & sell
                     </button>
                     {[1.05, 1.12].map((m) => (
                       <button
                         key={m}
                         style={{ ...declineBtn, borderColor: "#4757c8", color: "#4757c8" }}
-                        title="Begär mer – köparen kan gå med på priset eller dra sig ur"
+                        title="Ask for more – the buyer may accept the price or walk away"
                         onClick={() =>
                           dispatch({ type: "COUNTER_OFFER", offerId: o.id, amount: Math.round((o.amount * m) / 10_000) * 10_000 })
                         }
@@ -83,7 +83,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                       style={declineBtn}
                       onClick={() => dispatch({ type: "DECLINE_OFFER", offerId: o.id })}
                     >
-                      Avböj
+                      Decline
                     </button>
                   </div>
                 </div>

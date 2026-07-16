@@ -77,8 +77,8 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
             </div>
             <div style={{ fontSize: 12, color: "#888", marginTop: 3, display: "flex", gap: 12, flexWrap: "wrap" }}>
               <span>{c.units} objekt</span>
-              {c.monthlyNOI !== undefined && <span>NOI: {kr(c.monthlyNOI)}/mån</span>}
-              {c.lastBuy && <span>Senaste köp: {c.lastBuy}</span>}
+              {c.monthlyNOI !== undefined && <span>NOI: {kr(c.monthlyNOI)}/mo</span>}
+              {c.lastBuy && <span>Latest purchase: {c.lastBuy}</span>}
               {!c.me && c.strategy && (
                 <span style={{ fontWeight: 700, color: "#7b5a2e" }}>
                   Strategi: {c.strategy}{c.preferredDistrict ? ` (${c.preferredDistrict})` : ""}
@@ -101,7 +101,7 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
                 const pctDone = Math.min(100, Math.round(progress * 100));
                 return (
                   <span style={{ color: pctDone >= 80 ? "#c0392b" : "#4757c8", fontWeight: 600 }}>
-                    🎯 Agenda: {ag.label} — {pctDone} %{ag.announced ? " ✓ UPPNÅTT" : ""}
+                    🎯 Agenda: {ag.label} — {pctDone}%{ag.announced ? " ✓ ACHIEVED" : ""}
                   </span>
                 );
               })()}
@@ -120,7 +120,7 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
         ))}
       </div>
       <div style={{ fontSize: 13, color: "#888", marginTop: 10 }}>
-        Konkurrenterna växer varje månad och kan köpa objekt före dig. Slå dem genom högre eget
+        Competitors grow every month and can buy properties before you. Beat them with higher
         kapital.
       </div>
     </div>

@@ -31,7 +31,7 @@ function Chart({ title, series }: {
       <div style={card}>
         <div style={head}>{title}</div>
         <div style={{ fontSize: 12, color: "#888", padding: "24px 0", textAlign: "center" }}>
-          Spela några månader så växer kurvan fram.
+          Play a few months and the curve grows.
         </div>
       </div>
     );
@@ -87,17 +87,17 @@ export function StatsPanel({ state }: { state: GameState }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <Chart title="Eget kapital mot bästa rival" series={[
+      <Chart title="Equity vs. best rival" series={[
         { label: "Du", values: eq, color: BURGUNDY },
-        { label: "Bästa rival", values: rival, color: "#3d6db3" },
+        { label: "Best rival", values: rival, color: "#3d6db3" },
       ]} />
-      <Chart title="Driftnetto per månad" series={[{ label: "NOI", values: noi, color: "#22a06b" }]} />
+      <Chart title="Net operating income per month" series={[{ label: "NOI", values: noi, color: "#22a06b" }]} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <Chart title="Kassa" series={[{ label: "Kassa", values: cash, color: "#c07f16" }]} />
-        <Chart title="Portföljvärde" series={[{ label: "Fastigheter", values: port, color: "#4757c8" }]} />
+        <Chart title="Portfolio value" series={[{ label: "Properties", values: port, color: "#4757c8" }]} />
       </div>
       <div style={card}>
-        <div style={head}>Områdesutveckling per distrikt</div>
+        <div style={head}>Area development per district</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
           {dev.map(({ d, v }) => (
             <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
@@ -110,7 +110,7 @@ export function StatsPanel({ state }: { state: GameState }) {
           ))}
         </div>
         <div style={{ fontSize: 11, color: "#888", marginTop: 8 }}>
-          Kurvorna täcker de senaste {hist.length} månaderna.
+          The curves cover the last {hist.length} months.
         </div>
       </div>
     </div>

@@ -106,7 +106,7 @@ export function FloatingWindow({
               —
             </button>
           )}
-          <button onClick={onClose} title="Stäng (Esc)" style={winBtn}>
+          <button onClick={onClose} title="Close (Esc)" style={winBtn}>
             ✕
           </button>
         </span>

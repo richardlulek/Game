@@ -83,23 +83,23 @@ export function AuctionModal({
       <div style={A.box}>
         <div style={A.title}>🏛️ Detaljplaneauktion — {a.districtName}</div>
         <div style={A.sub}>
-          Kommunen släpper ett nytt kvarter med {a.parcels}{" "}
-          {a.parcels === 1 ? "byggklar tomt" : "byggklara tomter"}. Vinnaren äger marken.
+          The municipality releases a new block with {a.parcels}{" "}
+          {a.parcels === 1 ? "build-ready lot" : "build-ready lots"}. The winner owns the land.
           Budrunda {a.round + 1} · utrop {msek(a.minBid)} · din kassa {msek(state.cash)}.
         </div>
         <div style={A.bidRow}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: 1, color: "#8a8272" }}>HÖGSTA BUD</div>
+            <div style={{ fontSize: 11, letterSpacing: 1, color: "#8a8272" }}>HIGHEST BID</div>
             <div style={A.bid}>{a.leader ? msek(a.currentBid) : "–"}</div>
           </div>
           <div style={{ ...A.leader, color: playerLeads ? "#27660a" : "#8a4a3a" }}>
-            {a.leader === null ? "Inga bud än" : playerLeads ? "DU leder budgivningen" : `${a.leader} leder`}
+            {a.leader === null ? "No bids yet" : playerLeads ? "YOU lead the bidding" : `${a.leader} leads`}
           </div>
         </div>
         <div style={A.btnRow}>
           {playerLeads ? (
             <button style={A.bidBtn} onClick={() => dispatch({ type: "AUCTION_PASS" })}>
-              🔨 Klubba — vinn för {msek(a.currentBid)}
+              🔨 Gavel — win for {msek(a.currentBid)}
             </button>
           ) : (
             <>
@@ -111,7 +111,7 @@ export function AuctionModal({
                 Bjud {msek(nextBid)}
               </button>
               <button style={A.passBtn} onClick={() => dispatch({ type: "AUCTION_PASS" })}>
-                {a.leader ? `Avstå — släpp till ${a.leader}` : "Avstå auktionen"}
+                {a.leader ? `Pass — concede to ${a.leader}` : "Pass on the auction"}
               </button>
             </>
           )}

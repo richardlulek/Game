@@ -66,8 +66,8 @@ export function IndustryPanel({ state, dispatch }: Props) {
   if (portfolio.length === 0) {
     return (
       <div style={S.empty}>
-        Inga industritillgångar ännu. Gå till <strong>Ind. Marknad</strong> för att förvärva hotell,
-        energianläggningar eller logistikcenter.
+        No industry assets yet. Go to <strong>Ind. Market</strong> to acquire hotels,
+        energy plants or logistics centers.
       </div>
     );
   }
@@ -86,7 +86,7 @@ export function IndustryPanel({ state, dispatch }: Props) {
         borderRadius: 6,
       }}>
         {[
-          { label: "Total NOI/mån", val: totalNOI },
+          { label: "Total NOI/mo", val: totalNOI },
           { label: "🏨 Hotell",     val: hotelNOI },
           { label: "⚡ Energi",     val: energiNOI },
           { label: "📦 Logistik",   val: logistikNOI },
@@ -108,7 +108,7 @@ export function IndustryPanel({ state, dispatch }: Props) {
           background: "rgba(201,164,92,0.08)",
         }}>
           <div style={{ fontSize: 10, color: C.inkSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
-            Aktiva synergier med fastighetsbeståndet
+            Active synergies with the property portfolio
           </div>
           {synergySummary(state).map((row) => (
             <div key={row} style={{ fontSize: 12.5, padding: "2px 0", color: C.ink }}>{row}</div>
@@ -131,7 +131,7 @@ export function IndustryPanel({ state, dispatch }: Props) {
       {/* Kort */}
       <div style={S.grid}>
         {filtered.length === 0 && (
-          <div style={S.empty}>Inga tillgångar i den sektorn.</div>
+          <div style={S.empty}>No assets in that sector.</div>
         )}
         {filtered.map((a) => (
           <IndustryCard key={a.id} asset={a} state={state} dispatch={dispatch} />

@@ -12,9 +12,9 @@ interface Props {
 }
 
 function demandLabel(demand: number): string {
-  if (demand >= 1.0) return "Hög";
-  if (demand >= 0.85) return "Medel";
-  return "Låg";
+  if (demand >= 1.0) return "High";
+  if (demand >= 0.85) return "Medium";
+  return "Low";
 }
 
 export function DistrictPanel({ state, dispatch }: Props) {
@@ -23,7 +23,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
       <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 20 }}>
-        Distriktsöversikt
+        District overview
       </h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
         {DISTRICTS.map((d) => {
@@ -115,12 +115,12 @@ export function DistrictPanel({ state, dispatch }: Props) {
 
               {/* Key metrics */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: 12, marginBottom: 12 }}>
-                <span style={{ color: C.creamSoft }}>Tillväxt:</span>
+                <span style={{ color: C.creamSoft }}>Growth:</span>
                 <span style={{ fontWeight: 700, color: d.growth >= 1.1 ? C.positive : C.parchment }}>
                   {(d.growth * 100).toFixed(0)} %
                 </span>
 
-                <span style={{ color: C.creamSoft }}>Efterfrågan:</span>
+                <span style={{ color: C.creamSoft }}>Demand:</span>
                 <span style={{ fontWeight: 700 }}>
                   {demandLabel(d.demand)}
                 </span>
@@ -128,7 +128,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                 <span style={{ color: C.creamSoft }}>Prestige:</span>
                 <span style={{ fontWeight: 700 }}>{"★".repeat(Math.round(d.prestige * 2)).slice(0, 5)}</span>
 
-                <span style={{ color: C.creamSoft }}>Områdesutveckling:</span>
+                <span style={{ color: C.creamSoft }}>Area development:</span>
                 <span style={{ fontWeight: 700, color: devScore >= 1.1 ? C.positive : devScore >= 1.0 ? C.gold : C.negative }}>
                   {(devScore * 100).toFixed(1)} %
                 </span>
@@ -187,7 +187,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
               {/* Invest in district */}
               <div style={{ borderTop: `1px solid ${C.brass}44`, paddingTop: 10, marginTop: 8 }}>
                 <div style={{ fontSize: 11, color: C.creamSoft, marginBottom: 6 }}>
-                  Områdessatsning: +1 % utveckling per 25 Msek (max +5 %), klar om 6–9 mån
+                  Area investment: +1% development per 25 MSEK (max +5%), done in 6–9 mo
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input

@@ -20,8 +20,8 @@ const HUB_TABS = [
   { id: "bolaget", label: "Bolaget", icon: "🏠" },
   { id: "bokslut", label: "Bokslut", icon: "📒" },
   { id: "arv", label: "Arv", icon: "👑" },
-  { id: "milestones", label: "Milstolpar", icon: "🏅" },
-  { id: "overview", label: "Översikt", icon: "📊" },
+  { id: "milestones", label: "Milestones", icon: "🏅" },
+  { id: "overview", label: "Overview", icon: "📊" },
   { id: "kpi", label: "KPI", icon: "📐" },
   { id: "group", label: "Koncern", icon: "🏛️" },
 ] as const;
@@ -59,7 +59,7 @@ export function CompanyHub({
                   color: C.creamSoft, opacity: 0.4, fontFamily: FONTS.heading,
                   fontSize: 13.5, cursor: "default", whiteSpace: "nowrap",
                 }}
-                title={`🔒 ${t.label} – låses upp på nivå ${req.level}: ${req.name}`}
+                title={`🔒 ${t.label} – unlocks at level ${req.level}: ${req.name}`}
               >
                 🔒 {t.label}
               </button>

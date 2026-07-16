@@ -18,14 +18,14 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
       <div style={S.marketBar}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span>Tomter till salu ({state.lots.filter((l) => !l.owned).length})</span>
-          <span style={{ fontSize: 10, color: C.inkSoft }}>Nya tomter tillkommer varje månad</span>
+          <span style={{ fontSize: 10, color: C.inkSoft }}>New lots appear every month</span>
         </div>
         <button
           style={{ ...S.smallBtn, ...(state.cash < 75_000 ? S.btnDisabled : {}), fontSize: 12 }}
           disabled={state.cash < 75_000}
           onClick={() => dispatch({ type: "HIRE_BROKER_LOTS" })}
         >
-          🔍 Anlita markmäklare · {msek(75_000)}
+          🔍 Hire land broker · {msek(75_000)}
         </button>
       </div>
       <div style={S.grid}>
@@ -51,7 +51,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
                   fontWeight: 700,
                   border: `1px solid ${monthsLeft <= 1 ? C.negative + "44" : "transparent"}`,
                 }}>
-                  {monthsLeft <= 0 ? "Utgår snart!" : `Utgår om ${monthsLeft} mån`}
+                  {monthsLeft <= 0 ? "Expiring soon!" : `Expires in ${monthsLeft} mo`}
                 </div>
               )}
               <div style={S.cardRow}>
@@ -63,7 +63,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
                 disabled={state.cash < l.price}
                 onClick={() => dispatch({ type: "BUY_LOT", id: l.id })}
               >
-                Köp tomt
+                Buy lot
               </button>
             </div>
             );
@@ -72,7 +72,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
       <h3 style={{ ...S.h3, marginTop: 24 }}>Mina tomter</h3>
       <div style={S.grid}>
         {state.lots.filter((l) => l.owned).length === 0 && (
-          <div style={S.empty}>Inga tomter ännu. Köp en ovan för att bygga.</div>
+          <div style={S.empty}>No lots yet. Buy one above to build.</div>
         )}
         {state.lots
           .filter((l) => l.owned)
@@ -103,33 +103,33 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
                   ))}
                 </select>
                 <div style={S.cardRow}>
-                  <span>Byggkostnad</span>
+                  <span>Build cost</span>
                   <strong>{msek(cost)}</strong>
                 </div>
                 <div style={S.cardRow}>
-                  <span>Byggtid</span>
-                  <strong>{months} mån</strong>
+                  <span>Build time</span>
+                  <strong>{months} mo</strong>
                 </div>
                 <div style={S.cardRow}>
-                  <span>Typisk direktavk.</span>
+                  <span>Typical cap rate</span>
                   <strong style={{ color: "#27660a" }}>
-                    {chosen === "bostad" ? "~5 %" : chosen === "kontor" ? "~6 %" : chosen === "butik" ? "~7 %" : "~5,5 %"}
+                    {chosen === "bostad" ? "~5%" : chosen === "kontor" ? "~6%" : chosen === "butik" ? "~7%" : "~5.5%"}
                   </strong>
                 </div>
                 <div style={S.cardRow}>
-                  <span>Vakansrisk</span>
+                  <span>Vacancy risk</span>
                   <strong>
-                    {chosen === "bostad" ? "Låg 4 %" : chosen === "kontor" ? "Hög 10 %" : chosen === "butik" ? "Hög 13 %" : "Låg 7 %"}
+                    {chosen === "bostad" ? "Low 4%" : chosen === "kontor" ? "High 10%" : chosen === "butik" ? "High 13%" : "Low 7%"}
                   </strong>
                 </div>
                 <div style={{ fontSize: 11, color: "#27660a", margin: "4px 0 8px", padding: "5px 8px", background: "#eef5ee", borderRadius: 6 }}>
-                  Vid färdigställande: Reputation +5 · 20 % lägre vakans
+                  On completion: Reputation +5 · 20% lower vacancy
                 </div>
                 <button
                   style={S.buyBtn}
                   onClick={() => dispatch({ type: "BUILD", id: l.id, propType: chosen })}
                 >
-                  Påbörja bygge
+                  Start construction
                 </button>
               </div>
             );

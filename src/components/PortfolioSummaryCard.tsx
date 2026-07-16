@@ -46,7 +46,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
           borderRadius: 8, color: C.ink,
           boxShadow: `0 0 0 2px ${BURGUNDY}55, 0 4px 12px rgba(0,0,0,0.3)`,
         }}
-        title="Klicka för att stänga förvaltningen"
+        title="Click to close management"
       >
         <span style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
           <span style={{
@@ -78,13 +78,13 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
 
   // Statusflaggor – bara det som kräver uppmärksamhet.
   const flags: { label: string; color: string }[] = [];
-  if (building) flags.push({ label: `🏗️ ${p.buildLeft} mån`, color: "#7a5c2a" });
+  if (building) flags.push({ label: `🏗️ ${p.buildLeft} mo`, color: "#7a5c2a" });
   if (!building && vacant > 0) flags.push({ label: `${vacant} ledig${vacant > 1 ? "a" : ""}`, color: "#b5542a" });
-  if (!building && soonest !== null && soonest <= 3) flags.push({ label: `⏰ ${soonest} mån`, color: "#c0392b" });
-  else if (!building && soonest !== null && soonest <= 12) flags.push({ label: `⏰ ${soonest} mån`, color: "#c07f16" });
+  if (!building && soonest !== null && soonest <= 3) flags.push({ label: `⏰ ${soonest} mo`, color: "#c0392b" });
+  else if (!building && soonest !== null && soonest <= 12) flags.push({ label: `⏰ ${soonest} mo`, color: "#c07f16" });
   if (!building && p.condition < 50) flags.push({ label: `🔧 skick ${p.condition}`, color: "#c0392b" });
   if (p.forSale) flags.push({ label: "🏷️ till salu", color: "#3d54d8" });
-  if (p.managed) flags.push({ label: "🤝 förvaltad", color: "#27660a" });
+  if (p.managed) flags.push({ label: "🤝 managed", color: "#27660a" });
   if (p.regulated) flags.push({ label: "🏛️ reglerad", color: "#2a4a8a" });
 
   const yieldColor = yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#c07f16" : "#c0392b";
@@ -97,7 +97,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
         borderRadius: 8, color: C.ink, cursor: "pointer", overflow: "hidden",
         boxShadow: open ? `0 0 0 2px ${BURGUNDY}55, 0 6px 18px rgba(0,0,0,0.35)` : `${THEME.insetGold}, 0 4px 12px rgba(0,0,0,0.28)`,
       }}
-      title="Klicka för att öppna full förvaltning"
+      title="Click to open full management"
     >
       {/* Miniatyr med typ + distrikt */}
       <div style={{ position: "relative", height: 84, borderBottom: `2px solid ${C.brass}` }}>
@@ -133,7 +133,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
           <span style={{ fontSize: 21, fontWeight: 800, fontFamily: FONTS.heading }}>{msek(value)}</span>
           {!building && (
             p.tenants.length === 0 ? (
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.inkSoft }} title="Yield visas när första kontraktet är tecknat">
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.inkSoft }} title="Yield shows once the first contract is signed">
                 — vakant
               </span>
             ) : (
@@ -146,7 +146,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
 
         {/* Skick + platser */}
         {building ? (
-          <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 6 }}>🏗️ Färdig om {p.buildLeft} mån</div>
+          <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 6 }}>🏗️ Ready in {p.buildLeft} mo</div>
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 6px" }}>
@@ -155,7 +155,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.inkSoft }}>
               <span>{p.tenants.length}/{p.capacity} uthyrt</span>
-              <span style={{ color: noi >= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>{kr(Math.round(noi / 12))}/mån</span>
+              <span style={{ color: noi >= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>{kr(Math.round(noi / 12))}/mo</span>
             </div>
             {/* Uthyrningsprickar */}
             <div style={{ display: "flex", gap: 3, marginTop: 6 }}>

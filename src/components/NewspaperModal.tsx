@@ -92,23 +92,23 @@ export function NewspaperModal({
   onClose: () => void;
 }) {
   const tier = tierForLevel(level ?? state.companyLevel ?? 1);
-  const name = state.companyName ?? "Bolaget";
+  const name = state.companyName ?? "The Company";
   const headline = front?.headline ?? tier.headline.replace("{n}", name);
   const sub = front?.sub ?? tier.desc;
   const icon = front?.icon ?? tier.icon;
-  const caption = front?.caption ?? "Bolagets nya huvudkontor.";
+  const caption = front?.caption ?? "The company's new headquarters.";
   const units = state.portfolio.filter((p) => p.status === "klar").length;
 
   return (
     <div style={N.overlay} onClick={onClose}>
       <div style={N.paper} onClick={(e) => e.stopPropagation()}>
         <div style={N.masthead}>
-          <div style={N.mastheadTitle}>STADSBLADET</div>
+          <div style={N.mastheadTitle}>THE CITY HERALD</div>
         </div>
         <div style={N.dateline}>
           <span>{formatMonthYear(state.month, state.year)}</span>
-          <span>Näringsliv</span>
-          <span>Pris 2 kr</span>
+          <span>Business</span>
+          <span>Price 2 kr</span>
         </div>
         <div style={N.headline}>{headline}</div>
         <div style={N.sub}>{sub}</div>
@@ -120,22 +120,22 @@ export function NewspaperModal({
           <div style={{ ...N.columns, columnCount: 1, flex: 1 }}>
             {front
               ? front.body
-              : `Med ett eget kapital om ${msek(equityOf(state))} och ${units} fastigheter i beståndet tar ${name} nu steget till att bli ${tier.name.toLowerCase()}. Grannar och konkurrenter höjer på ögonbrynen när bolagets skylt monteras på det nya huvudkontoret.`}
+              : `With equity of ${msek(equityOf(state))} and ${units} properties in its portfolio, ${name} now takes the step to become ${tier.name.toLowerCase()}. Neighbors and competitors raise their eyebrows as the company's sign goes up on the new headquarters.`}
           </div>
         </div>
         {!front && (
           <div style={N.columns}>
-            "Vi har bara börjat", säger bolagets grundare i en kommentar och pekar
-            mot stadskärnan. Analytiker noterar att bolaget vuxit metodiskt genom
-            uthyrning, förvärv och underhåll — och att organisationen nu rustas för
-            nästa steg. Stadsbladet har sökt konkurrenterna, som avböjer att
-            kommentera uppstickarens frammarsch. Hyresgästföreningen välkomnar
-            beskedet men påminner om ansvaret som följer med ett växande bestånd.
+            "We've only just begun," says the company's founder in a comment, pointing
+            toward the city center. Analysts note that the company has grown methodically through
+            leasing, acquisitions and maintenance — and that the organization is now gearing up for
+            the next step. The City Herald has reached out to the competitors, who decline to
+            comment on the upstart's advance. The tenants' association welcomes
+            the news but reminds everyone of the responsibility that comes with a growing portfolio.
           </div>
         )}
         <div style={N.btnRow}>
           <button style={N.btn} onClick={onClose}>
-            FORTSÄTT ▸
+            CONTINUE ▸
           </button>
         </div>
       </div>

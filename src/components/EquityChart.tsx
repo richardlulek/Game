@@ -38,7 +38,7 @@ export function EquityChart({ history }: EquityChartProps) {
         <polyline points={pts.join(" ")} fill="none" stroke={C.brass} strokeWidth="2.5" />
       </svg>
       <div style={{ fontSize: 12, color: C.inkSoft }}>
-        Eget kapital över tid · senaste:{" "}
+        Equity over time · latest:{" "}
         <strong style={{ fontFamily: FONTS.heading, color: BURGUNDY }}>{msek(vals[vals.length - 1])}</strong>
       </div>
     </div>

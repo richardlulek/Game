@@ -184,7 +184,7 @@ export function Sparkline({ data, width = 92, height = 26, color }: { data: numb
 }
 
 /** Områdesgraf med fylld yta (detaljvyer). */
-export function AreaChart({ data, height = 120, color, empty = "För lite historik ännu." }: { data: number[]; height?: number; color: string; empty?: string }) {
+export function AreaChart({ data, height = 120, color, empty = "Not enough history yet." }: { data: number[]; height?: number; color: string; empty?: string }) {
   const width = 520;
   if (!data || data.length < 2) return <div style={{ width: "100%", height, color: C.inkSoft, fontSize: 12 }}>{empty}</div>;
   const pad = 6;

@@ -46,7 +46,7 @@ describe("ui-bibliotek", () => {
 
   it("Sparkline/AreaChart hanterar för lite data", () => {
     expect(renderToStaticMarkup(<Sparkline data={[]} color="#000" />)).not.toContain("NaN");
-    expect(renderToStaticMarkup(<AreaChart data={[1]} color="#000" />)).toContain("För lite historik");
+    expect(renderToStaticMarkup(<AreaChart data={[1]} color="#000" />)).toContain("Not enough history yet.");
   });
 
   it("EmptyState visar innehåll", () => {

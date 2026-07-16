@@ -38,7 +38,7 @@ const STRATEGY_LABEL: Record<string, string> = {
   tillväxt: "Growth",
   utdelning: "Dividend",
   värde: "Value",
-  distrikt: "Distriktsfokus",
+  distrikt: "District focus",
 };
 
 // ── Gemensamma stilar ──────────────────────────────────────────────────
@@ -233,13 +233,13 @@ function LimitOrderForm({
             disabled={!isValid}
             onClick={() => { dispatch({ type: "PLACE_LIMIT_ORDER", stockId: stock.id, qty, limitPrice: price, side }); onClose(); }}
           >
-            Lägg order
+            Place order
           </button>
           <button style={secondaryBtn} onClick={onClose}>Cancel</button>
         </div>
       </div>
       <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-        Nu: {kr(stock.price)} · Order exekveras automatiskt nästa månad om kursen når ditt mål.
+        Now: {kr(stock.price)} · The order executes automatically next month if the price reaches your target.
       </div>
     </div>
   );
@@ -357,12 +357,12 @@ function StockDetail({ stock, state, dispatch }: { stock: Stock; state: GameStat
           </div>
           {linkedComp.agenda && (
             <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 6 }}>
-              🎯 Rivalens mål: <span style={{ fontWeight: 700, color: C.ink }}>{linkedComp.agenda.label}</span>
+              🎯 Rival's goal: <span style={{ fontWeight: 700, color: C.ink }}>{linkedComp.agenda.label}</span>
             </div>
           )}
           {linkedComp.lastBuy && (
             <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
-              Senaste förvärv: {linkedComp.lastBuy}
+              Latest acquisition: {linkedComp.lastBuy}
             </div>
           )}
 
@@ -444,7 +444,7 @@ function StockDetail({ stock, state, dispatch }: { stock: Stock; state: GameStat
                   {shortQty.toLocaleString("en-US")} shares shorted @ {stock.shortAvgPrice ? kr(stock.shortAvgPrice) : "—"}
                 </span>
                 <button style={{ ...primaryBtn, background: shortPnl >= 0 ? C.green : "#b83030" }} onClick={() => dispatch({ type: "COVER_SHORT", stockId: stock.id })}>
-                  Täck blankning ({shortPnl >= 0 ? "+" : ""}{kr(shortPnl)})
+                  Cover short ({shortPnl >= 0 ? "+" : ""}{kr(shortPnl)})
                 </button>
               </>
             )}

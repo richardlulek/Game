@@ -11,12 +11,12 @@ interface LogPanelProps {
 const KIND_LABELS: Record<LogKind, string> = {
   info:    "Info",
   warn:    "Varning",
-  buy:     "Köp",
-  sell:    "Sälj",
+  buy:     "Buy",
+  sell:    "Sell",
   upg:     "Uppgradering",
-  income:  "Intäkt",
+  income:  "Income",
   expense: "Kostnad",
-  event:   "Händelse",
+  event:   "Event",
 };
 
 const ALL_KINDS: LogKind[] = ["buy", "sell", "income", "expense", "event", "warn", "upg", "info"];
@@ -54,7 +54,7 @@ export function LogPanel({ log }: LogPanelProps) {
       <div style={S.logBox}>
         {filtered.length === 0 ? (
           <div style={{ padding: 20, color: C.inkSoft, textAlign: "center", fontFamily: FONTS.body }}>
-            Inga händelser för vald kategori.
+            No events for the selected category.
           </div>
         ) : (
           filtered.map((l, i) => (

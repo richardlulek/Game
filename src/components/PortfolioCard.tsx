@@ -709,7 +709,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             <div style={detailBox}>
               <div style={sectionLabel}>Maintenance threshold</div>
               <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
-                Förvaltaren underhåller automatiskt när skicket sjunker under denna nivå.
+                The manager maintains automatically when condition drops below this level.
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                 <input
@@ -740,7 +740,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
 
               <div style={sectionLabel}>Rent target on renewal</div>
               <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
-                Andel av marknadshyran som förvaltaren siktar på. Mål&nbsp;&gt;&nbsp;110 % ökar risken att hyresgästen lämnar.
+                Share of market rent the manager aims for. A target&nbsp;&gt;&nbsp;110% raises the risk the tenant leaves.
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <input
@@ -777,7 +777,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
 
               <div style={{ ...sectionLabel, marginTop: 14 }}>Min. tenant quality</div>
               <div style={{ fontSize: 11, color: C.inkSoft, marginBottom: 8 }}>
-                Förvaltaren signerar bara ansökningar med minst denna kvalitet.
+                The manager only signs applications of at least this quality.
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {[0, 0.8, 0.9, 1.0].map((q) => {
@@ -984,7 +984,7 @@ function StatBar({ label, c, nextC }: { label: string; c: number; nextC?: number
       <div style={statLabel}>{label}</div>
       <CondBar c={c} />
       {nextC !== undefined && nextC < c - 0.5 && (
-        <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 1 }}>~{nextC} om 3 mån</div>
+        <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 1 }}>~{nextC} in 3 mo</div>
       )}
     </div>
   );

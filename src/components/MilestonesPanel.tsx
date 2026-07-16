@@ -14,9 +14,9 @@ export function MilestonesPanel({ state }: Props) {
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, margin: 0 }}>Milstolpar</h2>
+        <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, margin: 0 }}>Milestones</h2>
         <div style={{ fontSize: 13, color: C.creamSoft }}>
-          {completed.length} / {MILESTONES.length} uppnådda
+          {completed.length} / {MILESTONES.length} achieved
         </div>
       </div>
 
@@ -34,7 +34,7 @@ export function MilestonesPanel({ state }: Props) {
       {/* Remaining */}
       {remaining.length > 0 && (
         <>
-          <h3 style={{ fontFamily: FONTS.heading, fontSize: 14, color: C.brassBright, marginBottom: 10 }}>Nästa mål</h3>
+          <h3 style={{ fontFamily: FONTS.heading, fontSize: 14, color: C.brassBright, marginBottom: 10 }}>Next goals</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 20 }}>
             {remaining.map((ms) => {
               const isNext = ms.check(state);
@@ -51,11 +51,11 @@ export function MilestonesPanel({ state }: Props) {
                       🎯 {ms.title}
                     </span>
                     {isNext && (
-                      <span style={{ fontSize: 10, color: C.positive, fontWeight: 700 }}>UPPNÅDD NÄSTA TICK</span>
+                      <span style={{ fontSize: 10, color: C.positive, fontWeight: 700 }}>ACHIEVED NEXT TICK</span>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: C.creamSoft, marginBottom: 6 }}>{ms.desc}</div>
-                  <div style={{ fontSize: 11, color: C.gold }}>Belöning: {ms.reward}</div>
+                  <div style={{ fontSize: 11, color: C.gold }}>Reward: {ms.reward}</div>
                 </div>
               );
             })}
