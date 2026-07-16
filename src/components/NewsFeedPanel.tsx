@@ -1,7 +1,10 @@
 import { formatMonthYear } from "../engine/date";
 import { equityOf } from "../engine/finance";
+import { articleTarget, editorNotes, marketForecast, type NavIntent } from "../engine/newsroom";
 import { personaFor } from "../engine/rivalPersonas";
+import { cinematicPointFor } from "../engine/story";
 import type { GameState, LogEntry } from "../engine/types";
+import { useUiStore } from "../store/uiStore";
 import { FONTS } from "../styles/tokens";
 import { logColor } from "./logColor";
 import { RivalCard } from "./RivalCard";
@@ -38,6 +41,24 @@ const rule = "#2a1a00";
 
 export function NewsFeedPanel({ state }: Props) {
   const { month, year, log } = state;
+  const select = useUiStore((s) => s.select);
+  const requestFocus = useUiStore((s) => s.requestFocus);
+  const requestFocusPoint = useUiStore((s) => s.requestFocusPoint);
+  const requestOpen = useUiStore((s) => s.requestOpen);
+
+  /** Utför en navigeringsavsikt: fokusera hus/distrikt eller öppna ett fönster. */
+  const go = (intent: NavIntent | null) => {
+    if (!intent) return;
+    if (intent.type === "parcel") {
+      select(intent.parcelId);
+      requestFocus(intent.parcelId, 70);
+    } else if (intent.type === "district") {
+      const p = cinematicPointFor(intent.district);
+      requestFocusPoint(p.x, p.z, 420);
+    } else {
+      requestOpen(intent.window);
+    }
+  };
 
   const recent = log.slice(0, 40);
   const leadIdx = recent.findIndex((l) => HEADLINE_KINDS.has(l.kind));
@@ -52,6 +73,8 @@ export function NewsFeedPanel({ state }: Props) {
     [...state.competitors.map((c) => c.equity), myEq].sort((a, b) => b - a).indexOf(myEq) + 1;
   const field = state.competitors.length + 1;
   const cycle = state.marketCycle;
+  const forecast = marketForecast(state);
+  const notes = editorNotes(state).slice(0, 2);
 
   const Kicker = ({ e }: { e: LogEntry }) => (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "baseline", fontSize: 9.5, letterSpacing: 2, fontWeight: 800 }}>
@@ -59,6 +82,24 @@ export function NewsFeedPanel({ state }: Props) {
       {e.at && <span style={{ color: sepia, fontWeight: 600, letterSpacing: 0.5 }}>· {e.at}</span>}
     </span>
   );
+
+  // Klickbar artikel: en osynlig knapp runt rubriken som navigerar dit den pekar.
+  const Article = ({ e, children }: { e: LogEntry; children: React.ReactNode }) => {
+    const intent = articleTarget(e, state);
+    if (!intent) return <>{children}</>;
+    return (
+      <button
+        onClick={() => go(intent)}
+        title="Read more →"
+        style={{
+          all: "unset", cursor: "pointer", display: "block", width: "100%",
+          textAlign: "left",
+        }}
+      >
+        {children}
+      </button>
+    );
+  };
 
   return (
     <div style={{
@@ -102,12 +143,14 @@ export function NewsFeedPanel({ state }: Props) {
                 {lead.rival && personaFor(lead.rival) && (
                   <div style={{ marginBottom: 8 }}><RivalCard company={lead.rival} variant="inline" size={34} /></div>
                 )}
-                <div style={{
-                  fontFamily: FONTS.display ?? FONTS.heading, fontSize: 27, fontWeight: 900,
-                  lineHeight: 1.12, color: ink, marginBottom: 6,
-                }}>
-                  {headlineText(lead.t)}
-                </div>
+                <Article e={lead}>
+                  <div style={{
+                    fontFamily: FONTS.display ?? FONTS.heading, fontSize: 27, fontWeight: 900,
+                    lineHeight: 1.12, color: ink, marginBottom: 6,
+                  }}>
+                    {headlineText(lead.t)}
+                  </div>
+                </Article>
                 <div style={{ fontSize: 12, color: sepia, fontStyle: "italic" }}>
                   {cycle?.phase === "boom" ? "Market on the rise — buyers circle every listing."
                     : cycle?.phase === "bust" ? "Market under pressure — the cautious hold their cash."
@@ -124,12 +167,43 @@ export function NewsFeedPanel({ state }: Props) {
                   {e.rival && personaFor(e.rival) && (
                     <div style={{ marginBottom: 4 }}><RivalCard company={e.rival} variant="inline" size={26} /></div>
                   )}
-                  <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 13.5, lineHeight: 1.25, color: ink }}>
-                    {headlineText(e.t)}
-                  </div>
+                  <Article e={e}>
+                    <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 13.5, lineHeight: 1.25, color: ink }}>
+                      {headlineText(e.t)}
+                    </div>
+                  </Article>
                 </div>
               ))}
             </div>
+
+            {/* The Post's View — editorial advisor */}
+            {notes.length > 0 && (
+              <div style={{ marginTop: 6, borderTop: `2px solid ${rule}`, paddingTop: 10 }}>
+                <div style={{ fontFamily: FONTS.heading, fontWeight: 900, fontSize: 12.5, letterSpacing: 1.5, marginBottom: 8, color: ink }}>
+                  THE POST’S VIEW <span style={{ color: sepia, fontWeight: 600, fontStyle: "italic", letterSpacing: 0 }}>— editorial</span>
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {notes.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => go(n.district ? { type: "district", district: n.district } : n.target ? { type: "open", window: n.target } : null)}
+                      title="Act on this →"
+                      style={{
+                        all: "unset", cursor: n.target || n.district ? "pointer" : "default",
+                        display: "block", borderLeft: `3px solid ${sepia}`, paddingLeft: 10,
+                      }}
+                    >
+                      <div style={{ fontSize: 9.5, letterSpacing: 2, fontWeight: 800, color: sepia, marginBottom: 2 }}>
+                        {n.kicker.toUpperCase()}
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.4, color: ink, fontStyle: "italic" }}>
+                        {n.text}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Sidebar ─────────────────────────────────────── */}
@@ -144,6 +218,9 @@ export function NewsFeedPanel({ state }: Props) {
               <Row k="Policy rate" v={`${state.interestRate.toFixed(2)}%`} />
               <Row k="Your standing" v={`#${rank} of ${field}`} />
               <Row k="Reputation" v={`${Math.round(state.reputation)}/100`} />
+              <div style={{ borderTop: `1px solid ${rule}44`, marginTop: 6, paddingTop: 6, fontSize: 11, lineHeight: 1.35, color: "#5a3f10", fontStyle: "italic" }}>
+                <strong style={{ fontStyle: "normal", color: sepia }}>Forecast: </strong>{forecast}
+              </div>
             </div>
 
             {/* In brief */}
@@ -155,7 +232,7 @@ export function NewsFeedPanel({ state }: Props) {
                 {briefs.map((e, i) => (
                   <div key={i} style={{ fontSize: 11, color: ink, lineHeight: 1.4, marginBottom: 7, display: "flex", gap: 6 }}>
                     <span style={{ color: logColor(e.kind), flexShrink: 0 }}>▪</span>
-                    <span>{headlineText(e.t)}</span>
+                    <Article e={e}><span>{headlineText(e.t)}</span></Article>
                   </div>
                 ))}
               </>
