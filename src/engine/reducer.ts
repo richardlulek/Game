@@ -21,6 +21,7 @@ import { equityOf, loanTerms } from "./finance";
 import { ambientAsk, ambientProfile, ambientValue } from "./landDeals";
 import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
 import { kr, msek, pct } from "./format";
+import { adjustStanding } from "./standing";
 import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
 import {
@@ -586,6 +587,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.max(0, state.reputation - repHit),
         // Vräkningar värmer pressen – bostadsvräkningar och notabla mest.
         pressHeat: Math.min(20, (state.pressHeat ?? 0) + (residential ? 2 : 1) + (notable ? 2 : 0)),
+        // Kommunen ogillar vräkningar (bostäder tyngst).
+        standing: adjustStanding(state.standing, { kind: "city" }, residential ? -2 : -1),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
         ),
@@ -1496,6 +1499,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - down,
         debt: state.debt + loan,
         reputation: Math.min(100, state.reputation + 2),
+        // En affär på schysta villkor bygger goodwill med rivalen.
+        standing: adjustStanding(state.standing, { kind: "rival", name: action.competitorName }, 3),
         portfolio: [...state.portfolio, boughtProp],
         competitors: state.competitors.map((c) =>
           c.name === action.competitorName
@@ -1627,11 +1632,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const shortSettle = stock && (stock.shortQty ?? 0) > 0
         ? Math.max(0, Math.round((stock.shortAvgPrice ?? stock.price) * stock.shortQty! * 1.5) + Math.round(stock.shortQty! * ((stock.shortAvgPrice ?? stock.price) - stock.price)))
         : 0;
+      // Ett fientligt uppköp skrämmer de överlevande rivalerna – deras
+      // standing sjunker (de fruktar nästa drag).
+      let acqStanding = state.standing;
+      for (const c of state.competitors) {
+        if (c.name !== action.competitorName) acqStanding = adjustStanding(acqStanding, { kind: "rival", name: c.name }, -6);
+      }
       return {
         ...state,
         // Bolagets kassa följer med köpet – du köper hela bolaget, inte bara husen.
         cash: state.cash - down + Math.round(rival.cash ?? 0) + shortSettle,
         debt: state.debt + loan,
+        standing: acqStanding,
         portfolio: [...state.portfolio, ...acquired],
         // Rivalens industrier (hotell, parker, terminaler) följer med fusionen.
         industryPortfolio: [...(state.industryPortfolio ?? []), ...(rival.industries ?? [])],
@@ -2018,8 +2030,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - cost,
         reputation: Math.min(100, state.reputation + 4),
         lastPrMonth: abs,
-        // En kampanj dämpar också en pågående mediestorm.
+        // En kampanj dämpar också en pågående mediestorm och bygger goodwill i stan.
         pressHeat: Math.max(0, (state.pressHeat ?? 0) - 2),
+        standing: adjustStanding(state.standing, { kind: "city" }, 2),
         log: [
           { t: `📰 Commissioned a flattering feature in The Property Post — reputation +4 (${msek(cost)}).`, kind: "event" },
           ...state.log,

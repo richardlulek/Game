@@ -9,6 +9,7 @@ import { propMarketValue } from "./property";
 import { spreadDelta } from "./progression";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
 import { industryAssetValue } from "./industries";
+import { bankStandingTerms } from "./standing";
 import type { GameState, Lender, LoanTerms } from "./types";
 
 export const LENDERS: Lender[] = [
@@ -47,11 +48,13 @@ export function loanTerms(state: GameState): LoanTerms {
   const advisorBonus = (state.advisors ?? []).includes("kapitalstrateg") ? 0.2 : 0;
   const esg = esgRatingOf(state).spreadDelta;
   const rating = creditRatingOf(state).spreadDelta;
-  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating);
+  // Bankrelationen (standing) böjer både ränta och belåningsgrad.
+  const bank = bankStandingTerms(state);
+  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating + bank.rateDelta);
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;
-  const ltvAdj = lender?.ltvBonus ?? 0;
+  const ltvAdj = (lender?.ltvBonus ?? 0) + bank.ltvDelta;
   const maxLtv = Math.max(0.5, Math.min(0.85, baseLtv + ltvAdj));
   return {
     rate: +(state.interestRate + spread + rateAdj).toFixed(2),

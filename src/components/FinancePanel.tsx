@@ -4,6 +4,7 @@ import { LENDERS, amortInfoOf, loanTerms } from "../engine/finance";
 import { bondRateFor, creditRatingOf } from "../engine/rating";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
+import { bankStanding, standingLabel } from "../engine/standing";
 import type { GameAction, GameState, LoanTerms } from "../engine/types";
 import { S } from "../styles/styles";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
@@ -103,6 +104,17 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
         </h3>
         <Line l="Interest spread" v={"+" + terms.spread + "%"} />
         <Line l="Maximum loan-to-value" v={pct(terms.maxLtv)} />
+        {(() => {
+          const bs = bankStanding(state);
+          const sl = standingLabel(bs);
+          return (
+            <Line
+              l="Bank relationship"
+              v={`${sl.label}${bs !== 0 ? ` (${bs > 0 ? "+" : ""}${Math.round(bs)})` : ""}`}
+              accent={bs >= 25 ? "#27660a" : bs <= -25 ? "#c0392b" : undefined}
+            />
+          );
+        })()}
         {(() => {
           const esg = esgRatingOf(state);
           return (

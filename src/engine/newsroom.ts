@@ -13,6 +13,7 @@ import { equityOf, loanTerms, ltvOf } from "./finance";
 import { msek } from "./format";
 import { orgLoadOf } from "./company";
 import { DOMINANCE_REVIEW_SHARE, districtShareOf } from "./lateGame";
+import { cityScandalMult } from "./standing";
 import type { GameState, PendingDecision } from "./types";
 import type { LogEntry } from "./types";
 
@@ -335,9 +336,10 @@ function scandalSignal(state: GameState): { kind: ScandalKind; weight: number } 
   return ranked[0];
 }
 
-/** Sammanlagd skandalrisk 0–1 – simuleringen jämför mot en tröskel. */
+/** Sammanlagd skandalrisk 0–1 – simuleringen jämför mot en tröskel.
+ *  Kommunens välvilja (city standing) dämpar eller göder risken. */
 export function scandalRisk(state: GameState): number {
-  return scandalSignal(state).weight;
+  return Math.min(1, scandalSignal(state).weight * cityScandalMult(state));
 }
 
 /**

@@ -31,6 +31,7 @@ import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDist
 import { makeDecision } from "./decisions";
 import { makeScandal, scandalRisk } from "./newsroom";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
+import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
@@ -238,7 +239,19 @@ export function advanceMonth(state: GameState): GameState {
     } else {
       s.reputation = Math.max(0, s.reputation - 10);
       cashflow(s, -bond.amount * 0.5, "obligation nödlöst i förtid");
+      // En missad obligation bränner bankrelationen hårt.
+      s.standing = adjustStanding(s.standing, { kind: "bank" }, -15);
       events.push({ t: `⚠️ Bond of ${msek(bond.amount)} could not be repaid! Reputation −10.`, kind: "warn" });
+    }
+  }
+  // Bankrelationen (standing) driftar långsamt mot ett mål satt av ryktet:
+  // gott rykte bygger förtroende hos bankerna, dåligt naggar det i kanten.
+  {
+    const target = Math.max(-100, Math.min(100, (s.reputation - 55) * 1.6));
+    const cur = s.standing?.bank ?? 0;
+    const diff = target - cur;
+    if (Math.abs(diff) >= 0.1) {
+      s.standing = adjustStanding(s.standing, { kind: "bank" }, Math.sign(diff) * Math.min(0.5, Math.abs(diff)));
     }
   }
   s.bonds = (s.bonds ?? []).filter((b) => b.matureAbs > nowAbsBond);

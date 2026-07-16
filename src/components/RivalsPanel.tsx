@@ -1,5 +1,6 @@
 import { competitorLevel, tierForLevel } from "../engine/company";
 import { kr, msek, pct } from "../engine/format";
+import { rivalStanding, standingLabel } from "../engine/standing";
 import type { GameState } from "../engine/types";
 import { S } from "../styles/styles";
 import { BURGUNDY, C } from "../styles/tokens";
@@ -83,6 +84,18 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
               Strategy: {c.strategy}{c.preferredDistrict ? ` (${c.preferredDistrict})` : ""}
             </span>
           )}
+          {!c.me && (() => {
+            const v = rivalStanding(state, c.name);
+            const sl = standingLabel(v);
+            return (
+              <span
+                title={`Standing ${v > 0 ? "+" : ""}${v} — relations you build or burn`}
+                style={{ fontWeight: 700, color: sl.color, background: sl.color + "1e", border: `1px solid ${sl.color}55`, padding: "1px 7px", borderRadius: 8 }}
+              >
+                {sl.label}{v !== 0 ? ` ${v > 0 ? "+" : ""}${Math.round(v)}` : ""}
+              </span>
+            );
+          })()}
         </div>
         {(() => {
           if (c.me || !comp?.agenda) return null;

@@ -602,6 +602,15 @@ export interface LimitOrder {
   createdMonth: number;
 }
 
+/** Bestående relationer (favör ↔ agg, −100…100) till rivaler, banker
+ *  och kommunen. Neutralt (0/utelämnat) är utgångsläget. */
+export interface Standing {
+  /** Per rivalbolag (nyckel = konkurrentens namn). */
+  rivals?: Record<string, number>;
+  bank?: number;
+  city?: number;
+}
+
 /** En rad i händelseloggen. */
 export interface LogEntry {
   t: string;
@@ -783,6 +792,8 @@ export interface GameState {
   esgRating?: string;
   /** Senaste publika hyresgästbetyg (A–F) – för att upptäcka bandbyten. */
   tenantScoreLetter?: string;
+  /** Bestående relationer till rivaler, banker och kommunen. */
+  standing?: Standing;
   /** Distriktens nuvarande statusnivå (för att upptäcka byten). */
   districtTiers?: Record<string, string>;
   /** Bolagspolicy – portföljstandarder med per-fastighet-överstyrning. */
