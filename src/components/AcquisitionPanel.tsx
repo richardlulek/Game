@@ -51,33 +51,33 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
       <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 20 }}>
-        Förvärvsflöde
+        Acquisition flow
       </h2>
 
       {/* ── Köpkalkylator ─────────────────────────────────────────── */}
       <section style={{ ...sectionStyle, background: "#1a1208", border: `1px solid ${C.brass}` }}>
-        <h3 style={sectionHeadStyle}>Köpkalkylator</h3>
+        <h3 style={sectionHeadStyle}>Purchase calculator</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px", fontSize: 13 }}>
           <div>
-            <label style={{ fontSize: 11, color: C.creamSoft }}>Köppris: {msek(calcPrice)}</label>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Purchase price: {msek(calcPrice)}</label>
             <input type="range" min={500000} max={100_000_000} step={500000}
               value={calcPrice} onChange={(e) => setCalcPrice(+e.target.value)}
               style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: C.creamSoft }}>Månadshy. (per enhet): {kr(calcRent)}</label>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Monthly rent (per unit): {kr(calcRent)}</label>
             <input type="range" min={2000} max={200_000} step={1000}
               value={calcRent} onChange={(e) => setCalcRent(+e.target.value)}
               style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: C.creamSoft }}>Driftkostnad: {calcOpex} %</label>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Operating cost: {calcOpex}%</label>
             <input type="range" min={5} max={40} step={1}
               value={calcOpex} onChange={(e) => setCalcOpex(+e.target.value)}
               style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: C.creamSoft }}>Vakans: {calcVacancy} %</label>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Vacancy: {calcVacancy}%</label>
             <input type="range" min={0} max={30} step={1}
               value={calcVacancy} onChange={(e) => setCalcVacancy(+e.target.value)}
               style={{ width: "100%", accentColor: C.brass, marginTop: 4 }} />
@@ -85,10 +85,10 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 14 }}>
           {[
-            { l: "Handpenning", v: msek(calcDown), c: C.negative },
-            { l: "NOI / år", v: kr(calcNOI), c: calcNOI > 0 ? C.positive : C.negative },
-            { l: "Direktavk.", v: `${calcYield.toFixed(1)} %`, c: calcYield >= 5 ? C.positive : C.gold },
-            { l: "Kassa-avk.", v: `${calcCashOnCash.toFixed(1)} %`, c: calcCashflow > 0 ? C.positive : C.negative },
+            { l: "Down payment", v: msek(calcDown), c: C.negative },
+            { l: "NOI / yr", v: kr(calcNOI), c: calcNOI > 0 ? C.positive : C.negative },
+            { l: "Cap rate", v: `${calcYield.toFixed(1)}%`, c: calcYield >= 5 ? C.positive : C.gold },
+            { l: "Cash-on-cash", v: `${calcCashOnCash.toFixed(1)}%`, c: calcCashflow > 0 ? C.positive : C.negative },
           ].map(({ l, v, c }) => (
             <div key={l} style={{ background: "#0e0b06", border: `1px solid ${C.brass}44`, borderRadius: 5, padding: "8px 10px", textAlign: "center" }}>
               <div style={{ fontSize: 10, color: C.creamSoft, marginBottom: 3 }}>{l}</div>
@@ -100,10 +100,10 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
 
       {/* ── Sektion 1: Deal flow ─────────────────────────────────── */}
       <section style={sectionStyle}>
-        <h3 style={sectionHeadStyle}>Off-market möjligheter</h3>
+        <h3 style={sectionHeadStyle}>Off-market opportunities</h3>
         {poolScored.length === 0 ? (
           <p style={{ color: C.creamSoft, fontSize: 13 }}>
-            Inga off-market objekt tillgängliga just nu. Världspoolen fylls på när fastigheter förfaller från marknaden.
+            No off-market properties available right now. The world pool refills as properties expire from the market.
           </p>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
@@ -115,15 +115,15 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                     {p.typeLabel} · {p.districtName}
                   </div>
                   <div style={{ fontSize: 12, color: C.creamSoft, marginTop: 4 }}>
-                    {p.area} m² · Skick {Math.round(p.condition)}
+                    {p.area} m² · Condition {Math.round(p.condition)}
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12 }}>
-                    <span>Utpris: <strong>{msek(p.askPrice)}</strong></span>
+                    <span>Ask: <strong>{msek(p.askPrice)}</strong></span>
                     <span style={{ color: C.gold }}>Yield: ~{pct(score)}</span>
                   </div>
                   <div style={{ marginTop: 10 }}>
                     <label style={{ fontSize: 11, color: C.creamSoft }}>
-                      Bud: {msek(currentBid)}
+                      Bid: {msek(currentBid)}
                     </label>
                     <input
                       type="range"
@@ -139,7 +139,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                     onClick={() => dispatch({ type: "BID_OFFMARKET", propertyId: p.id, amount: currentBid })}
                     style={btnPrimaryStyle}
                   >
-                    Lägg off-market bud
+                    Place off-market bid
                   </button>
                 </div>
               );
@@ -150,9 +150,9 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
 
       {/* ── Sektion 2: Rival portföljer ──────────────────────────── */}
       <section style={sectionStyle}>
-        <h3 style={sectionHeadStyle}>Rival portföljer</h3>
+        <h3 style={sectionHeadStyle}>Rival portfolios</h3>
         {state.competitors.length === 0 ? (
-          <p style={{ color: C.creamSoft, fontSize: 13 }}>Inga aktiva konkurrenter.</p>
+          <p style={{ color: C.creamSoft, fontSize: 13 }}>No active competitors.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {state.competitors.map((comp) => {
@@ -185,15 +185,15 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       </span>
                     </span>
                     <span style={{ fontSize: 12, color: C.creamSoft, display: "flex", gap: 16 }}>
-                      <span>{comp.portfolio.length} fastigheter{(comp.industries ?? []).length > 0 ? ` · ${(comp.industries ?? []).length} industrier` : ""}</span>
-                      <span>Strategi: {comp.strategy ?? "okänd"}</span>
+                      <span>{comp.portfolio.length} properties{(comp.industries ?? []).length > 0 ? ` · ${(comp.industries ?? []).length} industries` : ""}</span>
+                      <span>Strategy: {comp.strategy ?? "unknown"}</span>
                       <span style={{ color: C.brass }}>{open ? "▲" : "▼"}</span>
                     </span>
                   </button>
                   {open && (
                     <div style={{ background: C.felt, padding: 12 }}>
                       {comp.portfolio.length === 0 ? (
-                        <p style={{ color: C.creamSoft, fontSize: 12 }}>Konkurrenten har inga fastigheter.</p>
+                        <p style={{ color: C.creamSoft, fontSize: 12 }}>The competitor has no properties.</p>
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                           {comp.portfolio.map((p) => {
@@ -209,11 +209,11 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                   <span style={{ color: C.creamSoft }}>{msek(p.askPrice)}</span>
                                 </div>
                                 <div style={{ fontSize: 11, color: C.creamSoft, marginTop: 3 }}>
-                                  {p.area} m² · Skick {Math.round(p.condition)}
+                                  {p.area} m² · Condition {Math.round(p.condition)}
                                 </div>
                                 <div style={{ marginTop: 8 }}>
                                   <label style={{ fontSize: 11, color: C.creamSoft }}>
-                                    Bud: {msek(curBid)} ({pct(curBid / p.askPrice - 1)} premie)
+                                    Bid: {msek(curBid)} ({pct(curBid / p.askPrice - 1)} premium)
                                   </label>
                                   <input
                                     type="range"
@@ -234,7 +234,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                   })}
                                   style={btnSecondaryStyle}
                                 >
-                                  Köp av rival
+                                  Buy from rival
                                 </button>
                               </div>
                             );
@@ -244,28 +244,28 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       {(comp.industries ?? []).length > 0 && (
                         <div style={{ marginTop: 10 }}>
                           <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
-                            Industrier
+                            Industries
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             {(comp.industries ?? []).map((a) => {
-                              const värde = industryAssetValue(a, state);
-                              const bud = Math.round(värde * 1.25);
-                              const råd = state.cash >= bud;
+                              const value = industryAssetValue(a, state);
+                              const bidAmt = Math.round(value * 1.25);
+                              const canAfford = state.cash >= bidAmt;
                               return (
                                 <div key={a.id} style={{ ...cardStyle, background: C.feltLight }}>
                                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                                     <span style={{ fontWeight: 600, color: C.parchment }}>
                                       {a.sector === "hotell" ? "🏨" : a.sector === "energi" ? "⚡" : "📦"} {a.name} · {a.districtName}
                                     </span>
-                                    <span style={{ color: C.creamSoft }}>värde {msek(värde)}</span>
+                                    <span style={{ color: C.creamSoft }}>value {msek(value)}</span>
                                   </div>
                                   <button
-                                    onClick={() => dispatch({ type: "BUY_INDUSTRY_FROM_RIVAL", competitorName: comp.name, industryId: a.id, amount: bud })}
-                                    disabled={!råd}
-                                    style={{ ...btnSecondaryStyle, opacity: råd ? 1 : 0.5, cursor: råd ? "pointer" : "default" }}
-                                    title={råd ? "" : `Kontantköp – kassan räcker inte (${msek(bud)})`}
+                                    onClick={() => dispatch({ type: "BUY_INDUSTRY_FROM_RIVAL", competitorName: comp.name, industryId: a.id, amount: bidAmt })}
+                                    disabled={!canAfford}
+                                    style={{ ...btnSecondaryStyle, opacity: canAfford ? 1 : 0.5, cursor: canAfford ? "pointer" : "default" }}
+                                    title={canAfford ? "" : `Cash purchase – insufficient cash (${msek(bidAmt)})`}
                                   >
-                                    Bjud {msek(bud)} (125 % – garanterat svar)
+                                    Bid {msek(bidAmt)} (125% – guaranteed answer)
                                   </button>
                                 </div>
                               );
@@ -284,10 +284,10 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
 
       {/* ── Sektion 3: Förvärva hela bolag (M&A) ─────────────────── */}
       <section style={sectionStyle}>
-        <h3 style={sectionHeadStyle}>Förvärva hela bolag</h3>
+        <h3 style={sectionHeadStyle}>Acquire entire companies</h3>
         {state.competitors.filter((c) => (c.portfolio ?? []).length > 0).length === 0 ? (
           <p style={{ color: C.creamSoft, fontSize: 13 }}>
-            Inga konkurrenter med fastigheter att förvärva.
+            No competitors with properties to acquire.
           </p>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
@@ -308,20 +308,20 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       {comp.name}
                     </div>
                     <div style={{ fontSize: 12, color: C.creamSoft, marginTop: 4 }}>
-                      Strategi: {comp.strategy ?? "okänd"}
+                      Strategy: {comp.strategy ?? "unknown"}
                       {comp.preferredDistrict ? ` (${comp.preferredDistrict})` : ""}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 10, fontSize: 12 }}>
-                      <div style={{ color: C.creamSoft }}>Fastigheter:</div>
-                      <div style={{ fontWeight: 700 }}>{comp.portfolio.length} st</div>
-                      <div style={{ color: C.creamSoft }}>Eget kapital:</div>
+                      <div style={{ color: C.creamSoft }}>Properties:</div>
+                      <div style={{ fontWeight: 700 }}>{comp.portfolio.length}</div>
+                      <div style={{ color: C.creamSoft }}>Equity:</div>
                       <div style={{ fontWeight: 700 }}>{msek(comp.equity)}</div>
-                      <div style={{ color: C.creamSoft }}>Synergivärde:</div>
+                      <div style={{ color: C.creamSoft }}>Synergy value:</div>
                       <div style={{ fontWeight: 700, color: C.gold }}>{msek(synergyValue)}</div>
                     </div>
                     <div style={{ marginTop: 12 }}>
                       <label style={{ fontSize: 11, color: C.creamSoft }}>
-                        Förvärvspris: {msek(curPrice)} (Lägst möjligt: 130 % av eget kapital)
+                        Acquisition price: {msek(curPrice)} (Lowest possible: 130% of equity)
                       </label>
                       <input
                         type="range"
@@ -342,14 +342,14 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       fontSize: 12,
                     }}>
                       <div style={{ color: C.creamSoft }}>
-                        25 % kontant handpenning krävs:{" "}
+                        25% cash down payment required:{" "}
                         <strong style={{ color: canAfford ? C.positive : C.negative }}>
                           {msek(downPayment)}
                         </strong>
                       </div>
                       {!canAfford && (
                         <div style={{ color: C.negative, marginTop: 3 }}>
-                          Saknar {msek(downPayment - state.cash)} i kassa.
+                          Short {msek(downPayment - state.cash)} in cash.
                         </div>
                       )}
                     </div>
@@ -368,7 +368,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                         marginTop: 12,
                       }}
                     >
-                      Förvärva {comp.name}
+                      Acquire {comp.name}
                     </button>
                   </div>
                 );

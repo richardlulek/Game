@@ -16,18 +16,18 @@ interface ListingCardProps {
 }
 
 const TYPE_GUIDE: Record<string, { yield: string; risk: string; color: string }> = {
-  bostad:   { yield: "~5 %",   risk: "Låg risk",   color: C.positive },
-  kontor:   { yield: "~6 %",   risk: "Medel risk", color: "#9a6a10" },
-  butik:    { yield: "~7 %",   risk: "Hög risk",   color: "#a8431f" },
-  industri: { yield: "~5,5 %", risk: "Låg–medel",  color: C.green },
+  bostad:   { yield: "~5%",    risk: "Low risk",    color: C.positive },
+  kontor:   { yield: "~6%",    risk: "Medium risk", color: "#9a6a10" },
+  butik:    { yield: "~7%",    risk: "High risk",   color: "#a8431f" },
+  industri: { yield: "~5.5%",  risk: "Low–medium",  color: C.green },
 };
 
 function bidEstimate(ratio: number): { label: string; color: string } {
-  if (ratio >= 0.97) return { label: "Mycket trolig", color: C.positive };
-  if (ratio >= 0.92) return { label: "Trolig",        color: C.positive };
-  if (ratio >= 0.85) return { label: "Osäker",        color: "#9a6a10" };
-  if (ratio >= 0.78) return { label: "Låg chans",     color: "#a8431f" };
-  return { label: "Mycket låg", color: C.negative };
+  if (ratio >= 0.97) return { label: "Very likely", color: C.positive };
+  if (ratio >= 0.92) return { label: "Likely",        color: C.positive };
+  if (ratio >= 0.85) return { label: "Uncertain",     color: "#9a6a10" };
+  if (ratio >= 0.78) return { label: "Low chance",    color: "#a8431f" };
+  return { label: "Very low", color: C.negative };
 }
 
 const ageChipStyle = (monthsLeft: number | null): React.CSSProperties => ({
@@ -81,10 +81,10 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
 
       {monthsOnMkt !== null && (
         <div style={ageChipStyle(monthsLeft)}>
-          <span>{monthsOnMkt === 0 ? "Ny idag" : `${monthsOnMkt} mån på marknaden`}</span>
+          <span>{monthsOnMkt === 0 ? "New today" : `${monthsOnMkt} mo on market`}</span>
           {monthsLeft !== null && monthsLeft <= 2 && (
             <span style={{ fontWeight: 700 }}>
-              {monthsLeft <= 0 ? "Utgår snart!" : `Utgår om ${monthsLeft} mån`}
+              {monthsLeft <= 0 ? "Expiring soon!" : `Expires in ${monthsLeft} mo`}
             </span>
           )}
         </div>
@@ -93,7 +93,7 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
       {p.txHistory && p.txHistory.length > 0 && (
         <div style={{ marginBottom: 8, padding: "6px 8px", background: "#f7f3e8", borderRadius: 4, border: "1px solid #e8dfc5" }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: "#7b5a2e", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
-            Transaktionshistorik
+            Transaction history
           </div>
           {[...p.txHistory].reverse().slice(0, 3).map((tx, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#666", lineHeight: 1.6 }}>
@@ -105,32 +105,32 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
       )}
 
       <div style={S.cardRow}>
-        <span>Yta</span>
+        <span>Area</span>
         <strong style={strong}>{p.area} m²</strong>
       </div>
       <div style={S.cardRow}>
-        <span>Skick</span>
+        <span>Condition</span>
         <CondBar c={p.condition} />
       </div>
       <div style={S.cardRow}>
-        <span>Kapacitet</span>
+        <span>Capacity</span>
         <strong style={strong}>
           {p.tenants.length > 0
-            ? `${p.tenants.length} av ${p.capacity} uthyrd${p.tenants.length > 1 ? "a" : ""}`
-            : `${p.capacity} platser, vakant`}
+            ? `${p.tenants.length} of ${p.capacity} rented`
+            : `${p.capacity} units, vacant`}
         </strong>
       </div>
 
       {/* ── Lönsamhetsindikator ─────────────────────────────── */}
       <div style={profitBox(monthlyCF >= 0)}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: C.inkSoft }}>Est. kassaflöde/mån (vid {pct(terms.maxLtv)} LTV)</span>
+          <span style={{ fontSize: 11, color: C.inkSoft }}>Est. cash flow/mo (at {pct(terms.maxLtv)} LTV)</span>
           <span style={{ fontWeight: 800, fontSize: 14, fontFamily: FONTS.heading, color: monthlyCF >= 0 ? C.positive : C.negative }}>
             {monthlyCF >= 0 ? "+" : ""}{kr(Math.round(monthlyCF))}
           </span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
-          <span style={{ fontSize: 11, color: C.inkSoft }}>Direktavkastning (NOI)</span>
+          <span style={{ fontSize: 11, color: C.inkSoft }}>Cap rate (NOI)</span>
           <span style={{ fontSize: 11, fontWeight: 700, color: yld >= 0.05 ? C.positive : "#9a6a10" }}>
             {pct(yld)}
           </span>
@@ -140,22 +140,22 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
       {guide && (
         <div style={guideBox}>
           <span style={{ fontSize: 11, color: guide.color, fontWeight: 700 }}>
-            {p.typeLabel}: typ {guide.yield} direktavk.
+            {p.typeLabel}: ~{guide.yield} cap rate
           </span>
           <span style={{ fontSize: 11, color: guide.color, marginLeft: 6 }}>· {guide.risk}</span>
         </div>
       )}
 
       <div style={S.cardRow}>
-        <span>Handpenning</span>
+        <span>Down payment</span>
         <strong style={strong}>{msek(down)}</strong>
       </div>
       <div style={S.cardRow}>
-        <span>Lån</span>
+        <span>Loan</span>
         <strong style={strong}>{msek(loan)}</strong>
       </div>
       <div style={S.cardRow}>
-        <span>Ränta/mån</span>
+        <span>Interest/mo</span>
         <strong style={{ ...strong, color: C.negative }}>−{kr(Math.round(monthlyInterest))}</strong>
       </div>
 
@@ -166,14 +166,14 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
           disabled={!ok}
           onClick={() => dispatch({ type: "BUY", id: p.id })}
         >
-          {!ok && state.cash < down ? "För dyrt" : "Köp till utpris"}
+          {!ok && state.cash < down ? "Too expensive" : "Buy at ask price"}
         </button>
         <button
           style={bidToggle(bidding)}
           disabled={state.gameOver}
           onClick={() => setBidding((b) => !b)}
         >
-          {bidding ? "✕" : "Lägg bud"}
+          {bidding ? "✕" : "Place bid"}
         </button>
       </div>
 
@@ -181,7 +181,7 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
         <div style={bidPanel}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <span style={{ fontSize: 11, color: C.inkSoft, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
-              Ditt bud
+              Your bid
             </span>
             <span style={{ fontFamily: FONTS.heading, fontWeight: 800, fontSize: 17, color: BURGUNDY }}>
               {msek(bid)}
@@ -197,18 +197,18 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
             style={{ width: "100%", accentColor: BURGUNDY, margin: "6px 0" }}
           />
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.inkSoft }}>
-            <span>Acceptchans: <strong style={{ color: est.color }}>{est.label}</strong></span>
-            <span>Handpenning {msek(bidDown)}</span>
+            <span>Accept chance: <strong style={{ color: est.color }}>{est.label}</strong></span>
+            <span>Down payment {msek(bidDown)}</span>
           </div>
           <button
             style={{ ...S.buyBtn, width: "100%", ...(canBid ? {} : S.btnDisabled) }}
             disabled={!canBid}
             onClick={() => { dispatch({ type: "PLACE_BID", id: p.id, amount: bid }); setBidding(false); }}
           >
-            Lägg bud {msek(bid)}
+            Place bid {msek(bid)}
           </button>
           <div style={{ fontSize: 10, color: C.inkSoft, marginTop: 5, textAlign: "center" }}>
-            Lägre bud sparar pengar men kan avvisas av säljaren.
+            A lower bid saves money but may be rejected by the seller.
           </div>
         </div>
       )}

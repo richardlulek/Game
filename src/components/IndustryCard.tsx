@@ -64,18 +64,18 @@ function HotelSection({ asset, state, dispatch }: { asset: IndustryAsset; state:
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <Stars n={meta.starRating} />
-        <span style={{ fontSize: 12, color: C.inkSoft }}>{meta.totalRooms} rum</span>
+        <span style={{ fontSize: 12, color: C.inkSoft }}>{meta.totalRooms} rooms</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-        <div><div style={label}>Intäkt/mån</div><div style={{ ...value, color: "#2f6b4a" }}>{kr(rev)}</div></div>
-        <div><div style={label}>Opex/mån</div><div style={value}>{kr(opex)}</div></div>
-        <div><div style={label}>NOI/mån</div><div style={{ ...value, color: noi >= 0 ? C.positive : "#b83030" }}>{kr(noi)}</div></div>
-        <div><div style={label}>Beläggning</div><div style={{ ...value, color: occ >= 80 ? C.positive : occ >= 60 ? "#c9a45c" : "#b83030" }}>{occ} %</div></div>
-        <div><div style={label}>ADR bas</div><div style={value}>{kr(meta.baseAdr)}</div></div>
-        <div><div style={label}>Streak</div><div style={value}>{meta.highOccStreak ?? 0} mån</div></div>
+        <div><div style={label}>Revenue/mo</div><div style={{ ...value, color: "#2f6b4a" }}>{kr(rev)}</div></div>
+        <div><div style={label}>Opex/mo</div><div style={value}>{kr(opex)}</div></div>
+        <div><div style={label}>NOI/mo</div><div style={{ ...value, color: noi >= 0 ? C.positive : "#b83030" }}>{kr(noi)}</div></div>
+        <div><div style={label}>Occupancy</div><div style={{ ...value, color: occ >= 80 ? C.positive : occ >= 60 ? "#c9a45c" : "#b83030" }}>{occ}%</div></div>
+        <div><div style={label}>ADR base</div><div style={value}>{kr(meta.baseAdr)}</div></div>
+        <div><div style={label}>Streak</div><div style={value}>{meta.highOccStreak ?? 0} mo</div></div>
       </div>
       <div style={{ marginBottom: 10 }}>
-        <div style={{ ...label, marginBottom: 4 }}>Bokningskanaler</div>
+        <div style={{ ...label, marginBottom: 4 }}>Booking channels</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {HOTEL_BOOKING_CHANNELS.map((ch) => {
             const active = meta.bookingChannels.includes(ch.id as typeof meta.bookingChannels[number]);
@@ -104,24 +104,24 @@ function EnergySection({ asset, state }: { asset: IndustryAsset; state: GameStat
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 16 }}>{meta.subType === "sol" ? "☀️" : "💨"}</span>
-        <span style={{ fontWeight: 700, fontSize: 13 }}>{meta.installedMW} MW {meta.subType === "sol" ? "sol" : "vind"}</span>
-        {meta.subsidyActive && <span style={{ ...sectorBadge("energi"), background: "#1a5a2a" }}>Elcertifikat</span>}
+        <span style={{ fontWeight: 700, fontSize: 13 }}>{meta.installedMW} MW {meta.subType === "sol" ? "solar" : "wind"}</span>
+        {meta.subsidyActive && <span style={{ ...sectorBadge("energi"), background: "#1a5a2a" }}>Green certificate</span>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-        <div><div style={label}>Intäkt/mån</div><div style={{ ...value, color: "#2f6b4a" }}>{kr(rev)}</div></div>
-        <div><div style={label}>Opex/mån</div><div style={value}>{kr(opex)}</div></div>
-        <div><div style={label}>NOI/mån</div><div style={{ ...value, color: noi >= 0 ? C.positive : "#b83030" }}>{kr(noi)}</div></div>
-        <div><div style={label}>MWh/mån</div><div style={value}>{mwh.toLocaleString("sv-SE")}</div></div>
-        <div><div style={label}>Degradering</div><div style={{ ...value, color: meta.degradationPct > 10 ? "#b83030" : C.inkSoft }}>{meta.degradationPct.toFixed(1)} %</div></div>
-        <div><div style={label}>PPA-avtal</div><div style={value}>{meta.ppaContracts.length} st</div></div>
+        <div><div style={label}>Revenue/mo</div><div style={{ ...value, color: "#2f6b4a" }}>{kr(rev)}</div></div>
+        <div><div style={label}>Opex/mo</div><div style={value}>{kr(opex)}</div></div>
+        <div><div style={label}>NOI/mo</div><div style={{ ...value, color: noi >= 0 ? C.positive : "#b83030" }}>{kr(noi)}</div></div>
+        <div><div style={label}>MWh/mo</div><div style={value}>{mwh.toLocaleString("en-US")}</div></div>
+        <div><div style={label}>Degradation</div><div style={{ ...value, color: meta.degradationPct > 10 ? "#b83030" : C.inkSoft }}>{meta.degradationPct.toFixed(1)}%</div></div>
+        <div><div style={label}>PPA contracts</div><div style={value}>{meta.ppaContracts.length}</div></div>
       </div>
       {meta.ppaContracts.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ ...label, marginBottom: 4 }}>Aktiva PPA-kontrakt</div>
+          <div style={{ ...label, marginBottom: 4 }}>Active PPA contracts</div>
           {meta.ppaContracts.map((c) => (
             <div key={c.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.inkSoft, padding: "2px 0", borderBottom: `1px solid ${C.brassDim}33` }}>
               <span>{c.clientName}</span>
-              <span>{c.mwh} MWh · {kr(c.pricePerMwh)}/MWh · {c.monthsLeft} mån</span>
+              <span>{c.mwh} MWh · {kr(c.pricePerMwh)}/MWh · {c.monthsLeft} mo</span>
             </div>
           ))}
         </div>
@@ -137,29 +137,29 @@ function LogisticsSection({ asset, state }: { asset: IndustryAsset; state: GameS
   const rev = logisticsMonthlyRevenue(asset, state);
   const opex = logisticsMonthlyOpex(asset, state);
   const noi = rev - opex;
-  const autoLabel = ["Manuell", "Halvautomatisk", "Fullautomat", "AI-drivet"][meta.automationLevel];
+  const autoLabel = ["Manual", "Semi-automatic", "Fully automated", "AI-driven"][meta.automationLevel];
 
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 16 }}>🏭</span>
-        <span style={{ fontWeight: 700, fontSize: 13 }}>{meta.totalBays} lossningsbryggor</span>
+        <span style={{ fontWeight: 700, fontSize: 13 }}>{meta.totalBays} loading bays</span>
         <span style={{ ...sectorBadge("logistik"), background: "#1a3a6b" }}>Auto: {autoLabel}</span>
         {meta.peakSurchargeActive && <span style={{ ...sectorBadge("hotell"), background: "#8b4513" }}>Q4 PEAK</span>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-        <div><div style={label}>Intäkt/mån</div><div style={{ ...value, color: "#2f6b4a" }}>{kr(rev)}</div></div>
-        <div><div style={label}>Opex/mån</div><div style={value}>{kr(opex)}</div></div>
-        <div><div style={label}>NOI/mån</div><div style={{ ...value, color: noi >= 0 ? C.positive : "#b83030" }}>{kr(noi)}</div></div>
-        <div><div style={label}>Kontrakt</div><div style={value}>{meta.throughputContracts.length} st</div></div>
+        <div><div style={label}>Revenue/mo</div><div style={{ ...value, color: "#2f6b4a" }}>{kr(rev)}</div></div>
+        <div><div style={label}>Opex/mo</div><div style={value}>{kr(opex)}</div></div>
+        <div><div style={label}>NOI/mo</div><div style={{ ...value, color: noi >= 0 ? C.positive : "#b83030" }}>{kr(noi)}</div></div>
+        <div><div style={label}>Contracts</div><div style={value}>{meta.throughputContracts.length}</div></div>
       </div>
       {meta.throughputContracts.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ ...label, marginBottom: 4 }}>Aktiva kontrakt</div>
+          <div style={{ ...label, marginBottom: 4 }}>Active contracts</div>
           {meta.throughputContracts.map((c) => (
             <div key={c.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.inkSoft, padding: "2px 0", borderBottom: `1px solid ${C.brassDim}33` }}>
               <span>{c.clientName}</span>
-              <span>{c.guaranteedM3.toLocaleString("sv-SE")} m³ · {kr(c.ratePerM3)}/m³ · {c.monthsLeft} mån</span>
+              <span>{c.guaranteedM3.toLocaleString("en-US")} m³ · {kr(c.ratePerM3)}/m³ · {c.monthsLeft} mo</span>
             </div>
           ))}
         </div>
@@ -176,7 +176,7 @@ function UpgradesSection({ asset, state, dispatch }: { asset: IndustryAsset; sta
 
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={{ ...label, marginBottom: 6 }}>Uppgraderingar</div>
+      <div style={{ ...label, marginBottom: 6 }}>Upgrades</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {available.map((upg) => {
           const installed = asset.upgrades.includes(upg.id);
@@ -206,7 +206,7 @@ export function IndustryCard({ asset, state, dispatch }: { asset: IndustryAsset;
   const marketValue = asset.status === "klar" ? industryAssetValue(asset, state) : Math.round(asset.purchasePrice * 0.5);
   const totalReturn = asset.purchasePrice > 0 ? ((marketValue - asset.purchasePrice) / asset.purchasePrice) * 100 : 0;
 
-  const sectorName = { hotell: "Hotell", energi: "Förnybar energi", logistik: "Logistik" }[asset.sector];
+  const sectorName = { hotell: "Hotel", energi: "Renewable energy", logistik: "Logistics" }[asset.sector];
   const sectorIcon = { hotell: "🏨", energi: "⚡", logistik: "📦" }[asset.sector];
 
   if (asset.status === "bygger") {
@@ -218,7 +218,7 @@ export function IndustryCard({ asset, state, dispatch }: { asset: IndustryAsset;
         <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 15, color: BURGUNDY, marginBottom: 6 }}>{asset.name}</div>
         <div style={{ fontSize: 12, color: C.inkSoft }}>{asset.districtName}</div>
         <div style={{ marginTop: 12, padding: "10px", background: "#e4eaf244", borderRadius: 4, textAlign: "center", color: C.inkSoft }}>
-          🏗️ Under byggnation — {asset.buildLeft} månader kvar
+          🏗️ Under construction — {asset.buildLeft} months left
         </div>
       </div>
     );
@@ -232,7 +232,7 @@ export function IndustryCard({ asset, state, dispatch }: { asset: IndustryAsset;
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{msek(marketValue)}</div>
           <div style={{ fontSize: 10, color: totalReturn >= 0 ? C.positive : "#b83030" }}>
-            {totalReturn >= 0 ? "+" : ""}{totalReturn.toFixed(1)} %
+            {totalReturn >= 0 ? "+" : ""}{totalReturn.toFixed(1)}%
           </div>
         </div>
       </div>
@@ -243,7 +243,7 @@ export function IndustryCard({ asset, state, dispatch }: { asset: IndustryAsset;
       {/* Skickindikator */}
       <div style={{ marginBottom: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ ...label }}>Skick</span>
+          <span style={{ ...label }}>Condition</span>
           <span style={{ fontSize: 11, color: asset.condition > 70 ? C.positive : asset.condition > 40 ? "#c9a45c" : "#b83030" }}>{Math.round(asset.condition)} / 100</span>
         </div>
         <CondBar value={asset.condition} />
@@ -260,13 +260,13 @@ export function IndustryCard({ asset, state, dispatch }: { asset: IndustryAsset;
       {/* Åtgärder */}
       <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
         <button style={btn} onClick={() => dispatch({ type: "MAINTAIN_INDUSTRY", id: asset.id })}>
-          🔧 Underhåll
+          🔧 Maintain
         </button>
         <button style={{ ...btn, background: asset.insurance ? "#1a6b3a" : C.wood }} onClick={() => dispatch({ type: "BUY_INDUSTRY_INSURANCE", id: asset.id })}>
-          {asset.insurance ? "🛡️ Försäkrad" : "🔓 Försäkra"}
+          {asset.insurance ? "🛡️ Insured" : "🔓 Insure"}
         </button>
         <button style={btnRed} onClick={() => dispatch({ type: "SELL_INDUSTRY", id: asset.id })}>
-          💰 Sälj
+          💰 Sell
         </button>
       </div>
     </div>

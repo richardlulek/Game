@@ -22,11 +22,11 @@ interface MarketPanelProps {
 type SortKey = "age" | "price_asc" | "price_desc" | "condition" | "yield";
 
 const SORT_LABELS: Record<SortKey, string> = {
-  age:        "Äldst först",
-  price_asc:  "Pris ↑",
-  price_desc: "Pris ↓",
-  condition:  "Bäst skick",
-  yield:      "Direktavk.",
+  age:        "Oldest first",
+  price_asc:  "Price ↑",
+  price_desc: "Price ↓",
+  condition:  "Best condition",
+  yield:      "Cap rate",
 };
 
 const filterBtn = (active: boolean): React.CSSProperties => ({
@@ -99,9 +99,9 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
           fontSize: 12,
         }}>
           {[
-            { label: "Dina",          value: playerOwned, color: C.green },
-            { label: "Till salu",     value: onMarket,    color: C.gold },
-            { label: "Konkurrenter",  value: rivalOwned,  color: C.burgundy },
+            { label: "Yours",         value: playerOwned, color: C.green },
+            { label: "For sale",      value: onMarket,    color: C.gold },
+            { label: "Competitors",   value: rivalOwned,  color: C.burgundy },
             { label: "Off-market",    value: offMarket,   color: C.inkSoft },
           ].map((seg) => (
             <div key={seg.label} style={{
@@ -124,7 +124,7 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
               {worldTotal}
             </div>
             <div style={{ color: C.creamSoft, fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
-              Totalt
+              Total
             </div>
           </div>
         </div>
@@ -134,11 +134,11 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
       <div style={S.marketBar}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>
-            Objekt till salu ({state.listings.length})
+            Properties for sale ({state.listings.length})
           </span>
           {urgentCount > 0 && (
             <span style={{ fontSize: 11, color: C.negative, fontWeight: 700 }}>
-              ⚠ {urgentCount} objekt utgår inom 1 månad
+              ⚠ {urgentCount} listings expire within 1 month
             </span>
           )}
         </div>
@@ -155,10 +155,10 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
             disabled={!canBroker}
             onClick={() => dispatch({ type: "HIRE_BROKER" })}
           >
-            🔍 Anlita mäklare · {msek(75_000)}
+            🔍 Hire broker · {msek(75_000)}
           </button>
           <span style={{ fontSize: 10, color: C.inkSoft }}>
-            Off-market objekt · betalas direkt
+            Off-market listings · paid immediately
           </span>
         </div>
       </div>
@@ -173,7 +173,7 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
       }}>
         {/* Distriktsfilter */}
         <button style={filterBtn(districtFilter === "alla")} onClick={() => setDistrictFilter("alla")}>
-          Alla distrikt
+          All districts
         </button>
         {DISTRICTS.map((d) => (
           <button
@@ -221,15 +221,15 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
       {/* ── Nyhetsflöde-tips ─────────────────────────────────── */}
       {state.listings.length === 0 && (
         <EmptyState icon="🏙️">
-          Inga objekt på marknaden just nu — nya objekt trillar in varje månad, eller{" "}
-          anlita en mäklare för att hitta off-market affärer.
+          No properties on the market right now — new listings drop in every month, or{" "}
+          hire a broker to find off-market deals.
         </EmptyState>
       )}
 
       {/* ── Objektkort ───────────────────────────────────────── */}
       {filtered.length === 0 && state.listings.length > 0 && (
         <EmptyState icon="🔍">
-          Inga objekt matchar ditt filter. Prova att ändra distrikt eller typ.
+          No properties match your filter. Try changing district or type.
         </EmptyState>
       )}
 
@@ -250,12 +250,12 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
         color: C.inkSoft,
         lineHeight: 1.6,
       }}>
-        <strong style={{ color: C.ink }}>Hur marknaden fungerar:</strong>{" "}
-        Nya objekt tillkommer varje månad och säljs automatiskt om de inte köps i tid.
-        Objekt markerade med varning utgår snart.
-        Anlita en mäklare (75 000 kr) för att få tillgång till off-market objekt som{" "}
-        inte syns för konkurrenterna. Alternativt, lägg ett lägre bud med "Lägg bud"-knappen
-        på varje kort.
+        <strong style={{ color: C.ink }}>How the market works:</strong>{" "}
+        New properties appear every month and sell automatically if not bought in time.
+        Listings flagged with a warning expire soon.
+        Hire a broker (75,000 kr) to access off-market properties that{" "}
+        competitors can't see. Alternatively, place a lower bid with the "Place bid" button
+        on each card.
       </div>
     </div>
   );

@@ -9,10 +9,10 @@ import { msek, kr } from "../engine/format";
 import { C, FONTS, THEME, BURGUNDY } from "../styles/tokens";
 
 const SECTOR_FILTERS: { id: IndustrySectorKey | "alla"; label: string }[] = [
-  { id: "alla",     label: "Alla" },
-  { id: "hotell",   label: "🏨 Hotell" },
-  { id: "energi",   label: "⚡ Energi" },
-  { id: "logistik", label: "📦 Logistik" },
+  { id: "alla",     label: "All" },
+  { id: "hotell",   label: "🏨 Hotel" },
+  { id: "energi",   label: "⚡ Energy" },
+  { id: "logistik", label: "📦 Logistics" },
 ];
 
 const sectorColor: Record<IndustrySectorKey, string> = {
@@ -95,31 +95,31 @@ function sectorKpi(asset: IndustryAsset): { label: string; value: string }[] {
     const m = asset.hotelMeta;
     const stars = "★".repeat(m.starRating) + "☆".repeat(5 - m.starRating);
     return [
-      { label: "Stjärnor",  value: stars },
-      { label: "Rum",       value: `${m.totalRooms} st` },
-      { label: "ADR bas",   value: kr(m.baseAdr) },
-      { label: "Skick",     value: `${Math.round(asset.condition)} / 100` },
+      { label: "Stars",     value: stars },
+      { label: "Rooms",     value: `${m.totalRooms}` },
+      { label: "ADR base",  value: kr(m.baseAdr) },
+      { label: "Condition", value: `${Math.round(asset.condition)} / 100` },
     ];
   }
   if (asset.sector === "energi" && asset.energyMeta) {
     const m = asset.energyMeta;
-    const typeLabel = m.subType === "sol" ? "☀️ Sol" : "💨 Vind";
+    const typeLabel = m.subType === "sol" ? "☀️ Solar" : "💨 Wind";
     const cf = m.subType === "sol" ? 0.13 : 0.28;
     const mwh = Math.round(m.installedMW * cf * 730);
     return [
-      { label: "Typ",          value: typeLabel },
-      { label: "Installerad",  value: `${m.installedMW} MW` },
-      { label: "Est. MWh/mån", value: mwh.toLocaleString("sv-SE") },
-      { label: "Skick",        value: `${Math.round(asset.condition)} / 100` },
+      { label: "Type",         value: typeLabel },
+      { label: "Installed",    value: `${m.installedMW} MW` },
+      { label: "Est. MWh/mo",  value: mwh.toLocaleString("en-US") },
+      { label: "Condition",    value: `${Math.round(asset.condition)} / 100` },
     ];
   }
   if (asset.sector === "logistik" && asset.logisticsMeta) {
     const m = asset.logisticsMeta;
     return [
-      { label: "Bryggor",      value: `${m.totalBays} st` },
-      { label: "Automation",   value: ["Manuell", "Halvautomatisk", "Fullautomat", "AI-drivet"][m.automationLevel] },
-      { label: "Kontrakt",     value: `${m.throughputContracts.length} aktiva` },
-      { label: "Skick",        value: `${Math.round(asset.condition)} / 100` },
+      { label: "Bays",         value: `${m.totalBays}` },
+      { label: "Automation",   value: ["Manual", "Semi-automatic", "Fully automated", "AI-driven"][m.automationLevel] },
+      { label: "Contracts",    value: `${m.throughputContracts.length} active` },
+      { label: "Condition",    value: `${Math.round(asset.condition)} / 100` },
     ];
   }
   return [];
@@ -133,7 +133,7 @@ interface ListingCardProps {
 
 function ListingCard({ asset, state, dispatch }: ListingCardProps) {
   const canAfford  = state.cash >= asset.purchasePrice && !state.gameOver;
-  const sectorName = { hotell: "Hotell", energi: "Förnybar energi", logistik: "Logistik" }[asset.sector];
+  const sectorName = { hotell: "Hotel", energi: "Renewable energy", logistik: "Logistics" }[asset.sector];
   const sectorIcon = { hotell: "🏨", energi: "⚡", logistik: "📦" }[asset.sector];
   const kpis = sectorKpi(asset);
   const alreadyOwned = (state.industryPortfolio ?? []).some((a) => a.id === asset.id);
@@ -154,7 +154,7 @@ function ListingCard({ asset, state, dispatch }: ListingCardProps) {
       {/* Konditionsstapel */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.inkSoft, marginBottom: 2 }}>
-          <span>SKICK</span>
+          <span>CONDITION</span>
           <span>{Math.round(asset.condition)} / 100</span>
         </div>
         <div style={{ height: 5, background: "#d5c9a8", borderRadius: 3, overflow: "hidden" }}>
@@ -179,14 +179,14 @@ function ListingCard({ asset, state, dispatch }: ListingCardProps) {
 
       {/* Köpknapp */}
       {alreadyOwned ? (
-        <div style={{ ...buyBtnDisabled, textAlign: "center", opacity: 0.6 }}>✓ Redan ägd</div>
+        <div style={{ ...buyBtnDisabled, textAlign: "center", opacity: 0.6 }}>✓ Already owned</div>
       ) : (
         <button
           style={canAfford ? buyBtn : buyBtnDisabled}
           disabled={!canAfford}
           onClick={() => dispatch({ type: "BUY_INDUSTRY", id: asset.id })}
         >
-          {canAfford ? `Förvärva — ${msek(asset.purchasePrice)}` : "Ej råd"}
+          {canAfford ? `Acquire — ${msek(asset.purchasePrice)}` : "Can't afford"}
         </button>
       )}
     </div>
@@ -208,20 +208,20 @@ function SectorInfo() {
       lineHeight: 1.6,
     }}>
       <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: BURGUNDY, marginBottom: 8 }}>
-        Tre nya sektorer — djup industriell expansion
+        Three new sectors — deep industrial expansion
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
         <div>
-          <div style={{ fontWeight: 700, color: "#7b4a20", marginBottom: 2 }}>🏨 Hotell</div>
-          RevPAR-modell: ADR × beläggning. Uppgradera med spa, PMS och restaurang. Välj bokningskanaler strategiskt.
+          <div style={{ fontWeight: 700, color: "#7b4a20", marginBottom: 2 }}>🏨 Hotel</div>
+          RevPAR model: ADR × occupancy. Upgrade with spa, PMS and restaurant. Choose booking channels strategically.
         </div>
         <div>
-          <div style={{ fontWeight: 700, color: "#1a6b3a", marginBottom: 2 }}>⚡ Förnybar energi</div>
-          Sol- och vindkraft. Teckna PPA-kontrakt för stabil intäkt eller ta spot-priset. Elcertifikat ger +85 kr/MWh.
+          <div style={{ fontWeight: 700, color: "#1a6b3a", marginBottom: 2 }}>⚡ Renewable energy</div>
+          Solar and wind power. Sign PPA contracts for stable income or take the spot price. Green certificates give +85 kr/MWh.
         </div>
         <div>
-          <div style={{ fontWeight: 700, color: "#1a3a7b", marginBottom: 2 }}>📦 Logistik</div>
-          Genomflödeskontrakt med garanterad m³. Q4-topptillägg +28 %. Automatisera för lägre driftkostnader.
+          <div style={{ fontWeight: 700, color: "#1a3a7b", marginBottom: 2 }}>📦 Logistics</div>
+          Throughput contracts with guaranteed m³. Q4 peak surcharge +28%. Automate for lower operating costs.
         </div>
       </div>
     </div>
@@ -250,7 +250,7 @@ export function IndustryMarket({ state, dispatch }: Props) {
 
       {/* Kassa */}
       <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 13, color: C.inkSoft }}>Tillgänglig kassa:</span>
+        <span style={{ fontSize: 13, color: C.inkSoft }}>Available cash:</span>
         <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 16, color: state.cash >= 0 ? C.positive : "#b83030" }}>
           {msek(state.cash)}
         </span>
@@ -277,7 +277,7 @@ export function IndustryMarket({ state, dispatch }: Props) {
           fontSize: 13,
           fontFamily: FONTS.body,
         }}>
-          Inga tillgångar till salu just nu. Marknaden uppdateras varje månad.
+          No assets for sale right now. The market updates every month.
         </div>
       ) : (
         <div style={{
