@@ -78,3 +78,41 @@ describe("advanceMonth – konkurs", () => {
     expect(next.log[0].t).toContain("BANKRUPTCY");
   });
 });
+
+describe("insolvens vs. illikviditet (rekonstruktion före konkurs)", () => {
+  it("djupt negativ kassa MEN tillgångar → förvaltaren tvångssäljer, bolaget överlever", () => {
+    const p = makeProperty({ id: 1, tenants: [] });
+    const s = makeState({ portfolio: [p], cash: -3_000_000, debt: 0 });
+    const next = advanceMonth(s);
+    expect(next.gameOver).toBe(false);
+    expect(next.cash).toBeGreaterThan(0); // likviditeten återställd
+    expect(next.portfolio.length).toBe(0); // huset tvångssåldes
+    expect(next.listings.some((l) => (l.txHistory ?? []).some((tx) => tx.party.includes("Receiver")))).toBe(true);
+    expect(next.standing?.bank ?? 0).toBeLessThan(0); // banken tappar förtroende vid en rekonstruktion
+  });
+
+  it("djupt negativ kassa OCH inga tillgångar → konkurs (game over)", () => {
+    const s = makeState({ portfolio: [], cash: -2_000_000, debt: 0 });
+    const next = advanceMonth(s);
+    expect(next.gameOver).toBe(true);
+  });
+
+  it("noBankruptcy: kassan kan gå djupt negativt utan konkurs eller tvångsförsäljning", () => {
+    const p = makeProperty({ id: 1, tenants: [] });
+    const s = makeState({
+      portfolio: [p], cash: -3_000_000, debt: 0,
+      settings: { difficulty: "custom", noBankruptcy: true },
+    });
+    const next = advanceMonth(s);
+    expect(next.gameOver).toBe(false);
+    expect(next.portfolio.length).toBe(1); // inget tvångssålt
+  });
+
+  it("kassa mellan varning och golv → ingen tvångsförsäljning, inget game over", () => {
+    const p = makeProperty({ id: 1, tenants: [] });
+    const s = makeState({ portfolio: [p], cash: -500_000, debt: 0 });
+    const next = advanceMonth(s);
+    expect(next.gameOver).toBe(false);
+    expect(next.portfolio.length).toBe(1);
+  });
+});

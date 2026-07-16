@@ -63,7 +63,7 @@ import { attractiveness, interestChance, offerAmount, packageOfferAmount, packag
 import { applyStockNews, executeLimitOrders, maybeListingEvents, priceStocks, quarterlyEarnings, rivalNews, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { INDUSTRY_TEMPLATES } from "./industryData";
-import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
+import type { GameState, InfraProject, LogEntry, Offer, Property, Tenant } from "./types";
 
 /**
  * Enda kanalen för att ändra spelarens kassa i månadssimuleringen. Ett positivt
@@ -2409,17 +2409,69 @@ export function advanceMonth(state: GameState): GameState {
     },
   ].slice(-120);
 
-  if (s.cash < -200_000 && s.cash >= -1_000_000 && !s.gameOver) {
-    s.log = [{ t: `🚨 KASSAVARNING: Kassan ${kr(s.cash)}. Konkurs vid −1 000 000 kr!`, kind: "warn" }, ...s.log];
+  // ── Illikviditet vs. insolvens ───────────────────────────────────
+  // En djupt negativ kassa betyder inte längre automatisk konkurs: har du
+  // TILLGÅNGAR går bolaget i företagsrekonstruktion och en förvaltare
+  // tvångsförsäljer fastigheter till stökpris (−35 %) tills likviditeten är
+  // återställd. Konkurs (game over) inträffar bara när kassan är djupt negativ
+  // OCH ingen tillgång kan säljas för ett positivt netto – bolaget är då
+  // verkligt insolvent (skulderna överstiger tillgångarna).
+  const CASH_WARN = -200_000;
+  const BANKRUPTCY_FLOOR = -1_000_000;
+  if (s.cash < CASH_WARN && s.cash >= BANKRUPTCY_FLOOR && !s.gameOver) {
+    s.log = [{ t: `🚨 CASH ALERT: ${kr(s.cash)} in the account. Below ${kr(BANKRUPTCY_FLOOR)} a receiver force-sells your assets — raise cash or sell something first!`, kind: "warn" }, ...s.log];
   }
-  if (s.cash < -1_000_000) {
-    if (s.settings?.noBankruptcy) {
-      if (s.cash > -1_100_000)
-        s.log = [{ t: "💥 Cash below −1,000,000 kr – bankruptcy is disabled, but the bank rolls its eyes.", kind: "warn" }, ...s.log];
-    } else {
-      s.gameOver = true;
-      s.log = [{ t: "💥 BANKRUPTCY! Cash below −1,000,000 kr. The game is over.", kind: "warn" }, ...s.log];
+  if (s.cash < BANKRUPTCY_FLOOR && !s.settings?.noBankruptcy) {
+    const DISTRESS = 0.65; // förvaltaren dumpar till stökpris
+    const canSell = (p: Property) => !(p.storyTag === "arvet" && s.story && !s.story.done);
+    let sold = 0;
+    while (s.cash < 0 && s.portfolio.some(canSell)) {
+      // Sälj det objekt som ger mest NETTO (snabbast ur krisen, minst antal
+      // förlorade hus). Kan inget säljas för positivt netto är bolaget insolvent.
+      const best = s.portfolio
+        .filter(canSell)
+        .map((p) => {
+          const value = propMarketValue(p, s);
+          const salePrice = Math.round(value * DISTRESS);
+          const payoff = Math.min(s.debt, (p.purchasePrice || salePrice) * 0.6);
+          return { p, value, salePrice, payoff, net: salePrice - payoff };
+        })
+        .sort((a, b) => b.net - a.net)[0];
+      if (!best || best.net <= 0) break;
+      const born = s.year * 12 + s.month;
+      s.cash += best.salePrice - best.payoff;
+      s.debt = Math.max(0, s.debt - best.payoff);
+      s.portfolio = s.portfolio.filter((x) => x.id !== best.p.id);
+      s.listings = [
+        ...s.listings,
+        {
+          ...best.p, owned: false, askPrice: best.value,
+          listedMonth: born, expiresMonth: born + 3 + Math.floor(random01() * 2),
+          txHistory: [...(best.p.txHistory ?? []), { type: "sold" as const, price: best.salePrice, month: s.month, year: s.year, party: "Receiver (distress sale)" }],
+          poolAskPrice: undefined, poolBaseRent: undefined, applications: undefined,
+          askRentPct: undefined, regulated: undefined, brokerMandate: undefined,
+          capexTotal: undefined, forSale: undefined,
+        },
+      ];
+      s.pendingRenewals = (s.pendingRenewals ?? []).filter((r) => r.propertyId !== best.p.id);
+      s.salePackages = (s.salePackages ?? [])
+        .map((pkg) => ({ ...pkg, propertyIds: pkg.propertyIds.filter((id) => id !== best.p.id) }))
+        .filter((pkg) => pkg.propertyIds.length > 0);
+      s.log = [{ t: `🧾 Receivership: forced distress sale of ${best.p.typeLabel} in ${best.p.districtName} for ${msek(best.salePrice)} (−35% vs. value) to cover the shortfall.`, kind: "warn" }, ...s.log];
+      sold++;
     }
+    if (sold > 0) {
+      s.reputation = Math.max(0, s.reputation - 5);
+      s.standing = adjustStanding(s.standing, { kind: "bank" }, -20);
+      s.log = [{ t: `⚖️ Corporate restructuring: the receiver sold ${sold} propert${sold > 1 ? "ies" : "y"} to keep you solvent. Reputation and the bank's trust took a hit — but the company survives.`, kind: "warn" }, ...s.log];
+    }
+    if (s.cash < BANKRUPTCY_FLOOR) {
+      s.gameOver = true;
+      s.log = [{ t: "💥 BANKRUPTCY! Nothing left to sell and cash below −1,000,000 kr — the company is insolvent. The game is over.", kind: "warn" }, ...s.log];
+    }
+  } else if (s.cash < BANKRUPTCY_FLOOR && s.settings?.noBankruptcy) {
+    if (s.cash > -1_100_000)
+      s.log = [{ t: "💥 Cash below −1,000,000 kr – bankruptcy is disabled, but the bank rolls its eyes.", kind: "warn" }, ...s.log];
   }
   if (CASHFLOW_DEBUG && cashLedger.length) {
     const net = cashLedger.reduce((a, c) => a + c.delta, 0);
