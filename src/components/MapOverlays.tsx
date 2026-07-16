@@ -14,6 +14,7 @@ import { useGameStore } from "../store/gameStore";
 import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
 import { BURGUNDY } from "../styles/tokens";
+import { RivalCard } from "./RivalCard";
 
 const M: Record<string, CSSProperties> = {
   legend: {
@@ -402,9 +403,8 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
             const mkBid = (mult: number) => Math.round((ask * mult) / 10_000) * 10_000;
             return (
               <>
-                <div style={M.row}>
-                  <span>Owner</span>
-                  <strong>{sel.owner}</strong>
+                <div style={{ marginBottom: 8 }}>
+                  <RivalCard company={sel.owner} showSignature />
                 </div>
                 <div style={M.row}>
                   <span>Valuation</span>

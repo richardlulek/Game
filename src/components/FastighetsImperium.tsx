@@ -74,7 +74,7 @@ const TAB_ICONS: Record<string, string> = {
   staff: "👔",
   research: "🔬",
   districts: "🗺️",
-  rivals: "🏆",
+  rivals: "🕶️",
   nyheter: "📰",
   log: "📜",
 };
@@ -99,7 +99,7 @@ const TABS = [
   { id: "finance",   label: "Finance" },
   { id: "research",  label: "Research" },
   { id: "staff",     label: "Staff" },
-  { id: "rivals",    label: "Top" },
+  { id: "rivals",    label: "Rivals" },
   { id: "log",       label: "Log" },
   { id: "acquisition",  label: "Acquisitions" },
   { id: "districts",    label: "Districts" },

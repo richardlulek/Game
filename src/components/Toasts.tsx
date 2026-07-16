@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { playBuy, playIncome, playWarn } from "../audio/sound";
 import type { LogEntry, LogKind } from "../engine/types";
+import { personaFor } from "../engine/rivalPersonas";
 import { C, THEME } from "../styles/tokens";
+import { RivalPortrait } from "./RivalPortrait";
 
 interface ToastItem {
   id: number;
@@ -84,7 +86,9 @@ export function Toasts({ log }: { log: LogEntry[] }) {
             }}
             onClick={() => setToasts((cur) => cur.filter((x) => x.id !== t.id))}
           >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>{st.icon}</span>
+            {t.entry.rival && personaFor(t.entry.rival)
+              ? <RivalPortrait company={t.entry.rival} size={30} />
+              : <span style={{ fontSize: 16, flexShrink: 0 }}>{st.icon}</span>}
             <span style={{ fontSize: 13, color: C.creamText, lineHeight: 1.35 }}>{t.entry.t}</span>
           </div>
         );

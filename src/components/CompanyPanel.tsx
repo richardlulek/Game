@@ -304,7 +304,7 @@ const WINDOW_LABELS: Record<string, string> = {
   research: "Research",
   staff: "Staff",
   group: "Group (tab in Company)",
-  rivals: "Top",
+  rivals: "Rivals",
   log: "Log",
   overview: "Overview (tab in Company)",
   acquisition: "Acquisition",

@@ -605,6 +605,8 @@ export interface LogEntry {
   kind: LogKind;
   /** Tomtruta händelsen gäller – gör den lokaliserbar på 3D-kartan. */
   parcelId?: string;
+  /** Rivalbolag händelsen rör – ger ett ansikte (porträtt) i toast/nyheter. */
+  rival?: string;
 }
 
 /** En punkt i utvecklingen av eget kapital. */

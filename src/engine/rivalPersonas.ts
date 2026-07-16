@@ -12,6 +12,10 @@ export interface RivalPersona {
   company: string;
   /** Frontfiguren – visas under porträttet. */
   person: string;
+  /** En rad om personligheten – visas i rivalhubben utan att en händelse behövs. */
+  tagline: string;
+  /** Signaturrepliken – karaktärens definierande ton. */
+  signature: string;
   /** Stildrag som styr porträttgeneratorn (hatt/monokel/mustasch …). */
   look: { hat: boolean; glasses: boolean; mustache: boolean; hair: string; skin: string; suit: string };
   quotes: Record<QuoteKind, string[]>;
@@ -21,6 +25,8 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "Northgate Properties",
     person: "Margaret Nordhem",
+    tagline: "Old-money matriarch. Has owned buildings since before you were born.",
+    signature: "Northgate doesn’t back down.",
     look: { hat: false, glasses: true, mustache: false, hair: "#d8d3c8", suit: "#3a4a5a", skin: "#e8c39e" },
     quotes: {
       budkrig: ["”I’ve been buying buildings since before you were born.”", "”Northgate doesn’t back down.”"],
@@ -34,6 +40,8 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "Wellspring Invest",
     person: "Caspar Brunn",
+    tagline: "Spreadsheet shark. Bids by the numbers until your bank calls.",
+    signature: "Excel always wins.",
     look: { hat: false, glasses: false, mustache: false, hair: "#3a2c20", suit: "#20242c", skin: "#e3b58c" },
     quotes: {
       budkrig: ["”The math says you lose on this one.”", "”I’ll bid until your bank calls.”"],
@@ -47,6 +55,8 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "Coastline Ltd",
     person: "Maya Seaborg",
+    tagline: "Owns the waterfront and wants you to know it.",
+    signature: "Everything by the water is mine. Everyone knows that.",
     look: { hat: true, glasses: false, mustache: false, hair: "#8a5a30", suit: "#2c4a56", skin: "#eec9a4" },
     quotes: {
       budkrig: ["”Everything by the water is mine. Everyone knows that.”"],
@@ -60,6 +70,8 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "City Core Group",
     person: "Henry Stead",
+    tagline: "Old-guard downtown traditionalist. Looks down on new money.",
+    signature: "Downtown without City Core? Unthinkable.",
     look: { hat: false, glasses: true, mustache: true, hair: "#4a4a4a", suit: "#40342a", skin: "#e0b795" },
     quotes: {
       budkrig: ["”Downtown without City Core? Unthinkable.”"],
@@ -73,6 +85,8 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "Harborview Capital",
     person: "Rio Harborwick",
+    tagline: "Aggressive fast-money operator. Always raises.",
+    signature: "I raise. I always raise.",
     look: { hat: false, glasses: false, mustache: false, hair: "#1c1c1c", suit: "#5a2c3a", skin: "#c98d5f" },
     quotes: {
       budkrig: ["”I raise. I always raise.”", "”Your ceiling is my floor.”"],
@@ -86,6 +100,8 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "Sterling & Partners",
     person: "Beatrice Silverberg",
+    tagline: "Discreet syndicate. Deals close over a handshake at the club.",
+    signature: "My partners pay whatever it takes.",
     look: { hat: true, glasses: true, mustache: false, hair: "#c9c9c9", suit: "#2a2a34", skin: "#ecd2b8" },
     quotes: {
       budkrig: ["”My partners pay whatever it takes.”"],
@@ -99,6 +115,8 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "Grovewood Properties",
     person: "Sonny Lund",
+    tagline: "Self-made builder. Rebuilt the Suburbs with his own hands.",
+    signature: "Hard work beats a fancy office.",
     look: { hat: false, glasses: false, mustache: true, hair: "#7a5a3a", suit: "#3a4a3a", skin: "#e8bd96" },
     quotes: {
       budkrig: ["”I rebuilt the whole Suburbs with these hands.”"],

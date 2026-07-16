@@ -1,7 +1,9 @@
 import { formatMonthYear } from "../engine/date";
+import { personaFor } from "../engine/rivalPersonas";
 import type { GameState } from "../engine/types";
 import { FONTS } from "../styles/tokens";
 import { logColor } from "./logColor";
+import { RivalCard } from "./RivalCard";
 
 interface Props {
   state: GameState;
@@ -87,6 +89,11 @@ export function NewsFeedPanel({ state }: Props) {
             fontSize: 12,
             lineHeight: 1.5,
           }}>
+            {entry.rival && personaFor(entry.rival) && (
+              <div style={{ marginBottom: 6 }}>
+                <RivalCard company={entry.rival} variant="inline" size={30} />
+              </div>
+            )}
             <div style={{ color: "#1a0a00" }}>{entry.t}</div>
           </div>
         ))}

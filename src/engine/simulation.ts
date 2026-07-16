@@ -970,7 +970,7 @@ export function advanceMonth(state: GameState): GameState {
       s.competitors = s.competitors.map((c) =>
         c.name === comp.name ? { ...c, portfolio: c.portfolio.filter((p) => p.id !== selling.id) } : c,
       );
-      events.push({ t: `🚨 Distress sale! ${comp.name} is forced to sell ${selling.typeLabel} in ${selling.districtName} for ${msek(distressedPrice)} (−${Math.round((1 - distressedPrice / selling.askPrice) * 100)}%).`, kind: "warn" });
+      events.push({ t: `🚨 Distress sale! ${comp.name} is forced to sell ${selling.typeLabel} in ${selling.districtName} for ${msek(distressedPrice)} (−${Math.round((1 - distressedPrice / selling.askPrice) * 100)}%).`, kind: "warn", rival: comp.name });
     }
   }
 
@@ -996,7 +996,7 @@ export function advanceMonth(state: GameState): GameState {
       const absNow = s.year * 12 + s.month;
       s.competingBid = { listingId: target.id, rivalName: rival.name, amount, expiresAbs: absNow + 1, round: 1 };
       const q = rivalQuote(rival.name, "budkrig", absNow);
-      events.push({ t: `⚡ BIDDING: ${rival.name} placed ${msek(amount)} on ${target.typeLabel} in ${target.districtName}!${q ? " " + q : ""} Beat the bid or let them buy.`, kind: "warn" });
+      events.push({ t: `⚡ BIDDING: ${rival.name} placed ${msek(amount)} on ${target.typeLabel} in ${target.districtName}!${q ? " " + q : ""} Beat the bid or let them buy.`, kind: "warn", rival: rival.name });
     }
   } else if (s.competingBid) {
     // Expire competing bid and let rival buy
@@ -1011,7 +1011,7 @@ export function advanceMonth(state: GameState): GameState {
             : c,
         );
         const vq = rivalQuote(s.competingBid.rivalName, "vinst", absNow);
-        events.push({ t: `🏢 ${s.competingBid.rivalName} bought ${listing.typeLabel} in ${listing.districtName} for ${msek(s.competingBid.amount)}.${vq ? " " + vq : ""}`, kind: "event" });
+        events.push({ t: `🏢 ${s.competingBid.rivalName} bought ${listing.typeLabel} in ${listing.districtName} for ${msek(s.competingBid.amount)}.${vq ? " " + vq : ""}`, kind: "event", rival: s.competingBid.rivalName });
       }
       s.competingBid = undefined;
     }
@@ -1038,7 +1038,7 @@ export function advanceMonth(state: GameState): GameState {
     s.competitors = s.competitors.filter((_, i) => i !== buyer.i && i !== weakest.i);
     s.competitors = [...s.competitors, merged];
     const fq = rivalQuote(ca.name, "fusion", s.month);
-    events.push({ t: `🤝 ACQUISITION: ${ca.name} buys out the struggling ${cb.name}.${fq ? " " + fq : ""}`, kind: "warn" });
+    events.push({ t: `🤝 ACQUISITION: ${ca.name} buys out the struggling ${cb.name}.${fq ? " " + fq : ""}`, kind: "warn", rival: ca.name });
     // Det uppköpta bolagets aktie avnoteras: spelarens innehav löses ut
     // till kurs och ev. blankning stängs – annars blir aktien ett zombie-
     // papper utan bolag bakom som driver på ren slump.
@@ -1373,7 +1373,7 @@ export function advanceMonth(state: GameState): GameState {
       return { ...p, buildLeft: p.buildLeft - 1 };
     });
     if (finishedBuild)
-      events.push({ t: `🏢 ${nc.name} completed its new build: ${finishedBuild}.`, kind: "event" });
+      events.push({ t: `🏢 ${nc.name} completed its new build: ${finishedBuild}.`, kind: "event", rival: nc.name });
     // Nybyggnation: kapitalstarka bolag bygger i sina distrikt när det
     // inte är lågkonjunktur – staden växer även utan spelaren.
     const buildChance = nc.strategy === "tillväxt" ? 0.05 : 0.02;
@@ -1401,7 +1401,7 @@ export function advanceMonth(state: GameState): GameState {
           purchasePrice: cost,
         });
         landBudget -= 1; // rutan är nu ianspråktagen
-        events.push({ t: `🏗️ ${nc.name} bygger nytt: ${build.typeLabel} i ${dObj?.name ?? build.districtName} (${msek(cost)}).`, kind: "event" });
+        events.push({ t: `🏗️ ${nc.name} is building anew: ${build.typeLabel} in ${dObj?.name ?? build.districtName} (${msek(cost)}).`, kind: "event", rival: nc.name });
       }
     }
     // Investeringsdriven mognad (Fas 2): kapitalstarka rivaler bygger PÅ sina
@@ -1427,7 +1427,7 @@ export function advanceMonth(state: GameState): GameState {
             capacity: Math.min(p.wholeBlock ? 9 : 4, p.capacity + 1),
             condition: Math.max(85, p.condition),
           };
-          events.push({ t: `🏗️ ${nc.name} is extending its building in ${p.districtName} — the block rises.`, kind: "event" });
+          events.push({ t: `🏗️ ${nc.name} is extending its building in ${p.districtName} — the block rises.`, kind: "event", rival: nc.name });
         }
       }
     }
@@ -1479,6 +1479,7 @@ export function advanceMonth(state: GameState): GameState {
       events.push({
         t: `🏭 ${buyer.name} acquires ${target.name} (${msek(target.purchasePrice)}) – the industry market is no longer yours alone.${iq ? " " + iq : ""}`,
         kind: "warn",
+        rival: buyer.name,
       });
     }
   }
@@ -1530,6 +1531,7 @@ export function advanceMonth(state: GameState): GameState {
       events.push({
         t: `🏢 ${buyer.name} bought ${taken.typeLabel} in ${taken.districtName} for ${msek(price)}.`,
         kind: "event",
+        rival: buyer.name,
       });
     }
   }
@@ -1571,6 +1573,7 @@ export function advanceMonth(state: GameState): GameState {
     events.push({
       t: `📨 ${offers[offers.length - 1].from} bids ${msek(amount)} for your ${target.typeLabel} in ${target.districtName}.`,
       kind: "event",
+      rival: offers[offers.length - 1].from,
     });
   }
 
@@ -1595,7 +1598,7 @@ export function advanceMonth(state: GameState): GameState {
           ...offers,
           { id: newId(), kind: "listing", propId: p.id, propLabel: p.typeLabel, districtName: p.districtName, from, amount: rivalBid, expiresIn: 2 },
         ];
-        events.push({ t: `💥 Bidding war over ${p.typeLabel} in ${p.districtName}! ${from} outbids: ${msek(rivalBid)}.`, kind: "event" });
+        events.push({ t: `💥 Bidding war over ${p.typeLabel} in ${p.districtName}! ${from} outbids: ${msek(rivalBid)}.`, kind: "event", rival: from });
       }
       continue;
     }
@@ -1606,7 +1609,7 @@ export function advanceMonth(state: GameState): GameState {
         ...offers,
         { id: newId(), kind: "listing", propId: p.id, propLabel: p.typeLabel, districtName: p.districtName, from, amount, expiresIn: 3 },
       ];
-      events.push({ t: `🏷️ ${from} bids ${msek(amount)} on your listed ${p.typeLabel} in ${p.districtName}.`, kind: "event" });
+      events.push({ t: `🏷️ ${from} bids ${msek(amount)} on your listed ${p.typeLabel} in ${p.districtName}.`, kind: "event", rival: from });
     }
   }
   // Paketbud: institutioner gillar volym (paketpremie på budnivån).
@@ -1631,7 +1634,7 @@ export function advanceMonth(state: GameState): GameState {
           expiresIn: 3,
         },
       ];
-      events.push({ t: `📦 ${from} bids ${msek(amount)} on the whole ${pkg.name} (${pkg.propertyIds.length} properties).`, kind: "event" });
+      events.push({ t: `📦 ${from} bids ${msek(amount)} on the whole ${pkg.name} (${pkg.propertyIds.length} properties).`, kind: "event", rival: from });
     }
   }
   s.offers = offers;

@@ -12,6 +12,7 @@ import { COURTAGE, stockHoldingsValue } from "../engine/stocks";
 import type { Competitor, GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { AreaChart, FlashCell, GoldRule, Sparkline as Spark, signed, trendColor } from "./ui";
+import { RivalCard } from "./RivalCard";
 
 interface StockExchangeProps {
   state: GameState;
@@ -196,7 +197,7 @@ function LimitOrderForm({
   return (
     <div style={{ background: "#eaf0f7", border: `1px solid ${C.brass}`, borderRadius: 6, padding: 14, marginTop: 10 }}>
       <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: BURGUNDY, marginBottom: 10 }}>
-        Limitorder – {stock.name}
+        Limit order – {stock.name}
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         {(["buy", "sell"] as const).map((s) => (
@@ -346,14 +347,17 @@ function StockDetail({ stock, state, dispatch }: { stock: Stock; state: GameStat
       {linkedComp && (
         <>
           <GoldRule />
-          <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: BURGUNDY, fontSize: 13, marginBottom: 6 }}>
-            ⚔ Konkurrentinsyn — {linkedComp.name}
+          <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: BURGUNDY, fontSize: 13, marginBottom: 8 }}>
+            ⚔ Rival insight
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <RivalCard company={linkedComp.name} showSignature />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 10 }}>
             <Metric label="Holdings" value={`${linkedComp.units.toLocaleString("en-US")} properties`} />
             {linkedComp.monthlyNOI !== undefined && <Metric label="NOI" value={`${kr(linkedComp.monthlyNOI)}/mo`} />}
-            <Metric label="Eget kapital" value={msek(linkedComp.equity)} />
-            {linkedComp.strategy && <Metric label="Strategi" value={STRATEGY_LABEL[linkedComp.strategy] ?? linkedComp.strategy} />}
+            <Metric label="Equity" value={msek(linkedComp.equity)} />
+            {linkedComp.strategy && <Metric label="Strategy" value={STRATEGY_LABEL[linkedComp.strategy] ?? linkedComp.strategy} />}
           </div>
           {linkedComp.agenda && (
             <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 6 }}>

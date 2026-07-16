@@ -1634,6 +1634,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [
           {
             t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} – ${acquired.length} properties and ${msek(Math.round(rival.cash ?? 0))} in cash added!${rivalQuote(rival.name, "uppköpt", state.month) ? " " + rivalQuote(rival.name, "uppköpt", state.month) : ""}`,
+            rival: rival.name,
             kind: "buy",
           },
           ...state.log,
@@ -1761,7 +1762,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         portfolio: [...state.portfolio, { ...listing, owned: true, purchasePrice: myBid }],
         listings: state.listings.filter((p) => p.id !== listing.id),
         competingBid: undefined,
-        log: [{ t: `✅ You won the bidding war! ${listing.typeLabel} in ${listing.districtName} bought for ${msek(myBid)} after ${round} ${round === 1 ? "round" : "rounds"}.${rivalQuote(cb.rivalName, "förlust", round) ? " " + rivalQuote(cb.rivalName, "förlust", round) : ""}`, kind: "buy" }, ...state.log],
+        log: [{ t: `✅ You won the bidding war! ${listing.typeLabel} in ${listing.districtName} bought for ${msek(myBid)} after ${round} ${round === 1 ? "round" : "rounds"}.${rivalQuote(cb.rivalName, "förlust", round) ? " " + rivalQuote(cb.rivalName, "förlust", round) : ""}`, kind: "buy", rival: cb.rivalName }, ...state.log],
       };
     }
     case "PASS_COMPETING_BID": {
