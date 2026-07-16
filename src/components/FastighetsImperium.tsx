@@ -826,8 +826,10 @@ export default function FastighetsImperium() {
       )}
       <OnboardingOverlay state={state} dispatch={dispatch} />
 
-      {/* ── Competing bid banner ────────────────────────────── */}
-      {state.competingBid && (() => {
+      {/* ── Competing bid banner ────────────────────────────────
+          Döljs under en rekonstruktion: krismenyn har företräde och
+          klockan är pausad, så budet kan ändå inte löpa ut. */}
+      {state.competingBid && !state.receivership && (() => {
         const cb = state.competingBid!;
         const listing = state.listings.find((p) => p.id === cb.listingId);
         return (
