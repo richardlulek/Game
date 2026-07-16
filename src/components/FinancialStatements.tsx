@@ -59,65 +59,65 @@ export function FinancialStatements({ state }: { state: GameState }) {
     <div style={P.wrap}>
       {/* ── Resultaträkning ──────────────────────────────────────── */}
       <div style={P.card}>
-        <div style={P.title}>📈 Resultaträkning</div>
+        <div style={P.title}>📈 Income statement</div>
         <div style={P.sub}>
-          Löpande månadstakt ur nuläget · årstakt ≈ {msek(rr.resultat * 12)} efter skatt
+          Current monthly run-rate · annualized ≈ {msek(rr.resultat * 12)} after tax
         </div>
 
-        <div style={P.section}>Intäkter</div>
-        <Row label="Hyresintäkter" value={rr.hyresintakter} />
-        <Row label="Industrinetto" value={rr.industrinetto} hideIfZero />
-        <Row label="Aktieutdelningar" value={rr.utdelningar} hideIfZero />
-        <SumRow label="Summa intäkter" value={rr.summaIntakter} />
+        <div style={P.section}>Revenue</div>
+        <Row label="Rental income" value={rr.hyresintakter} />
+        <Row label="Industry net" value={rr.industrinetto} hideIfZero />
+        <Row label="Share dividends" value={rr.utdelningar} hideIfZero />
+        <SumRow label="Total revenue" value={rr.summaIntakter} />
 
-        <div style={P.section}>Kostnader</div>
-        <Row label="Driftkostnader" value={rr.driftkostnader} negative />
-        <Row label="Förvaltning & direktör" value={rr.forvaltning} negative hideIfZero />
-        <Row label="Personal" value={rr.personal} negative hideIfZero />
-        <Row label="Kontor & organisation" value={rr.kontor} negative hideIfZero />
-        <Row label="Försäkringspremier" value={rr.forsakringar} negative hideIfZero />
-        <SumRow label="Rörelseresultat" value={rr.rorelseresultat} colored />
+        <div style={P.section}>Costs</div>
+        <Row label="Operating costs" value={rr.driftkostnader} negative />
+        <Row label="Management & director" value={rr.forvaltning} negative hideIfZero />
+        <Row label="Staff" value={rr.personal} negative hideIfZero />
+        <Row label="Office & organization" value={rr.kontor} negative hideIfZero />
+        <Row label="Insurance premiums" value={rr.forsakringar} negative hideIfZero />
+        <SumRow label="Operating profit" value={rr.rorelseresultat} colored />
 
-        <div style={P.section}>Finansnetto & skatt</div>
-        <Row label="Räntekostnader" value={rr.rantekostnad} negative />
-        <SumRow label="Resultat före skatt" value={rr.resultatForeSkatt} colored />
-        <Row label={`Skatt (${Math.round(rr.skattesats * 100)} % efter avskrivningsavdrag ${kr(rr.avskrivningsavdrag)})`} value={rr.skatt} negative hideIfZero />
-        <SumRow label="Månadens resultat" value={rr.resultat} colored />
+        <div style={P.section}>Net financials & tax</div>
+        <Row label="Interest costs" value={rr.rantekostnad} negative />
+        <SumRow label="Profit before tax" value={rr.resultatForeSkatt} colored />
+        <Row label={`Tax (${Math.round(rr.skattesats * 100)}% after depreciation deduction ${kr(rr.avskrivningsavdrag)})`} value={rr.skatt} negative hideIfZero />
+        <SumRow label="Result for the month" value={rr.resultat} colored />
 
         <div style={P.hint}>
-          Amortering ingår inte – den är ingen kostnad utan flyttar kassa till eget kapital.
-          Engångsposter (underhåll, köp, projekt) syns i Logg.
+          Amortization isn't included – it's not a cost but moves cash into equity.
+          One-off items (maintenance, purchases, projects) show in the Log.
         </div>
       </div>
 
       {/* ── Balansräkning ────────────────────────────────────────── */}
       <div style={P.card}>
-        <div style={P.title}>⚖️ Balansräkning</div>
+        <div style={P.title}>⚖️ Balance sheet</div>
         <div style={P.sub}>
-          Soliditet {Math.round(br.soliditet * 100)} % · balansomslutning {msek(br.summaTillgangar)}
+          Equity ratio {Math.round(br.soliditet * 100)}% · total assets {msek(br.summaTillgangar)}
         </div>
 
-        <div style={P.section}>Tillgångar</div>
-        <Row label="Kassa" value={br.kassa} />
-        <Row label="Fastigheter (marknadsvärde)" value={br.fastigheter} />
-        <Row label="Mark (tomter)" value={br.mark} hideIfZero />
-        <Row label="Industritillgångar" value={br.industri} hideIfZero />
-        <Row label="Aktieportfölj" value={br.aktier} hideIfZero />
-        <Row label="Dotterbolag" value={br.dotterbolag} hideIfZero />
-        <SumRow label="Summa tillgångar" value={br.summaTillgangar} />
+        <div style={P.section}>Assets</div>
+        <Row label="Cash" value={br.kassa} />
+        <Row label="Properties (market value)" value={br.fastigheter} />
+        <Row label="Land (plots)" value={br.mark} hideIfZero />
+        <Row label="Industry assets" value={br.industri} hideIfZero />
+        <Row label="Share portfolio" value={br.aktier} hideIfZero />
+        <Row label="Subsidiaries" value={br.dotterbolag} hideIfZero />
+        <SumRow label="Total assets" value={br.summaTillgangar} />
 
-        <div style={P.section}>Skulder</div>
-        <Row label="Banklån" value={br.banklan} negative />
-        <Row label="Obligationer" value={br.obligationer} negative hideIfZero />
-        <Row label="Revolverkredit" value={br.revolver} negative hideIfZero />
-        <SumRow label="Summa skulder" value={br.summaSkulder} />
+        <div style={P.section}>Liabilities</div>
+        <Row label="Bank loans" value={br.banklan} negative />
+        <Row label="Bonds" value={br.obligationer} negative hideIfZero />
+        <Row label="Revolving credit" value={br.revolver} negative hideIfZero />
+        <SumRow label="Total liabilities" value={br.summaSkulder} />
 
-        <div style={P.section}>Eget kapital</div>
-        <SumRow label="Eget kapital (tillgångar − skulder)" value={br.egetKapital} colored />
+        <div style={P.section}>Equity</div>
+        <SumRow label="Equity (assets − liabilities)" value={br.egetKapital} colored />
 
         <div style={P.hint}>
-          Fastigheter tas upp till marknadsvärde. Yield on cost per fastighet finns i
-          Portfölj och Översikt.
+          Properties are valued at market value. Yield on cost per property is in
+          Portfolio and Overview.
         </div>
       </div>
     </div>

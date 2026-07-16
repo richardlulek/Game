@@ -120,10 +120,10 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
 
   // Stapelsegment över de positiva komponenterna.
   const segments = [
-    { label: "Kassa", value: cash, color: C.brass },
-    { label: "Fastigheter", value: propVal, color: C.green },
-    { label: "Aktier", value: stocksVal, color: BURGUNDY },
-    { label: "Dotterbolag", value: subsVal, color: C.gold },
+    { label: "Cash", value: cash, color: C.brass },
+    { label: "Properties", value: propVal, color: C.green },
+    { label: "Shares", value: stocksVal, color: BURGUNDY },
+    { label: "Subsidiaries", value: subsVal, color: C.gold },
   ];
   const positiveTotal = segments.reduce((a, s) => a + Math.max(0, s.value), 0) || 1;
 
@@ -148,7 +148,7 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
     >
       {/* ── Förmögenhetsfördelning ────────────────────────── */}
       <div style={card}>
-        <h3 style={heading}>Förmögenhetsfördelning</h3>
+        <h3 style={heading}>Wealth breakdown</h3>
         <GoldRule />
 
         {/* Stackad horisontell stapel */}
@@ -177,41 +177,41 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
           )}
         </div>
 
-        <Row label="Kassa" value={kr(cash)} swatch={C.brass} />
-        <Row label="Fastigheter" value={kr(propVal)} swatch={C.green} />
-        <Row label="Aktieinnehav" value={kr(stocksVal)} swatch={BURGUNDY} />
-        <Row label="Dotterbolag" value={kr(subsVal)} swatch={C.gold} />
-        <Row label="Skulder" value={"−" + kr(state.debt)} accent={C.negative} />
+        <Row label="Cash" value={kr(cash)} swatch={C.brass} />
+        <Row label="Properties" value={kr(propVal)} swatch={C.green} />
+        <Row label="Share holdings" value={kr(stocksVal)} swatch={BURGUNDY} />
+        <Row label="Subsidiaries" value={kr(subsVal)} swatch={C.gold} />
+        <Row label="Debt" value={"−" + kr(state.debt)} accent={C.negative} />
         <GoldRule />
-        <Row label="Eget kapital" value={kr(equity)} accent={BURGUNDY} bold />
+        <Row label="Equity" value={kr(equity)} accent={BURGUNDY} bold />
       </div>
 
       {/* ── Nyckeltal ─────────────────────────────────────── */}
       <div style={card}>
-        <h3 style={heading}>Nyckeltal</h3>
+        <h3 style={heading}>Key figures</h3>
         <GoldRule />
-        <Row label="Eget kapital" value={msek(equity)} accent={BURGUNDY} bold />
+        <Row label="Equity" value={msek(equity)} accent={BURGUNDY} bold />
         <Row
-          label="Månadens kassaflöde"
+          label="Monthly cash flow"
           value={kr(monthlyCashflow)}
           accent={monthlyCashflow >= 0 ? C.positive : C.negative}
         />
         <Row label="Reputation" value={`${Math.round(state.reputation)} / 100`} />
-        <Row label="Antal fastigheter" value={state.portfolio.length.toLocaleString("sv-SE")} />
+        <Row label="Number of properties" value={state.portfolio.length.toLocaleString("en-US")} />
         <Row
-          label="Antal aktieposter"
+          label="Number of share lots"
           value={state.stocks
             .filter((s) => s.owned > 0)
-            .length.toLocaleString("sv-SE")}
+            .length.toLocaleString("en-US")}
         />
         <div style={{ marginTop: 8, fontSize: 11, color: C.inkSoft }}>
-          Kassaflöde = driftnetto − ränta + utdelningar + dotterbolag (per månad).
+          Cash flow = net operating income − interest + dividends + subsidiaries (per month).
         </div>
       </div>
 
       {/* ── Dotterbolag ───────────────────────────────────── */}
       <div style={card}>
-        <h3 style={heading}>Dotterbolag</h3>
+        <h3 style={heading}>Subsidiaries</h3>
         <GoldRule />
         {state.subsidiaries.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -237,38 +237,38 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
                       {s.name}
                     </span>
                     <span style={{ fontSize: 11, color: C.inkSoft }}>
-                      Säljvärde ca {msek(salePrice)}
+                      Sale value ~{msek(salePrice)}
                     </span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ ...num, fontWeight: 700, color: C.green, whiteSpace: "nowrap" }}>
-                      {kr(s.monthlyIncome)}/mån
+                      {kr(s.monthlyIncome)}/mo
                     </span>
                     <button
                       style={sellBtnStyle}
                       onClick={() => dispatch({ type: "SELL_SUBSIDIARY", name: s.name })}
                     >
-                      Sälj
+                      Sell
                     </button>
                   </div>
                 </div>
               );
             })}
             <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
-              Säljpris = kapitaliserat kassaflöde (6 % avkastning) med 20 % realisationsrabatt.
+              Sale price = capitalized cash flow (6% yield) with a 20% liquidation discount.
             </div>
           </div>
         ) : (
           <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
-            Inga dotterbolag. Förvärvade konkurrenter fusioneras in i koncernen —
-            fastigheterna och kassan tillförs direkt i stället för att ligga i ett skalbolag.
+            No subsidiaries. Acquired competitors are merged into the group —
+            their properties and cash are added directly instead of sitting in a shell company.
           </div>
         )}
       </div>
 
       {/* ── Ägarandelar i rivaler ─────────────────────────── */}
       <div style={card}>
-        <h3 style={heading}>Ägarandelar i rivaler</h3>
+        <h3 style={heading}>Stakes in rivals</h3>
         <GoldRule />
         {rivalStakes.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -290,7 +290,7 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
                     <span style={{ fontFamily: FONTS.heading, fontSize: 15, color: C.ink }}>
                       {s.name}
                     </span>
-                    <span style={subLabel}>Ägarandel {pct(share)}</span>
+                    <span style={subLabel}>Ownership {pct(share)}</span>
                   </div>
                   <span
                     style={{
@@ -307,35 +307,35 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
           </div>
         ) : (
           <div style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.5 }}>
-            Du äger inga aktier i konkurrenterna ännu. Köp aktier på Börsen för att bygga inflytande.
+            You don't own any shares in competitors yet. Buy shares on the Stock Exchange to build influence.
           </div>
         )}
       </div>
 
       {/* ── IPO ── */}
       <div style={{ ...card, marginTop: 20 }}>
-        <h3 style={heading}>Börsnotering (IPO)</h3>
+        <h3 style={heading}>Stock listing (IPO)</h3>
         <GoldRule />
         {state.ipoActive ? (
           <>
-            <Row label="Status" value="Börsnoterat ✓" accent={BURGUNDY} bold />
-            <Row label="Totalt utdelat" value={kr(state.dividendsPaid ?? 0)} />
+            <Row label="Status" value="Listed ✓" accent={BURGUNDY} bold />
+            <Row label="Total paid out" value={kr(state.dividendsPaid ?? 0)} />
             <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 8 }}>
-              Bolaget är börsnoterat. Utdelningar betalas under Bolag → Arv.
+              The company is listed. Dividends are paid under Company → Legacy.
             </div>
           </>
         ) : (
           <>
-            <Row label="Status" value="Ej börsnoterat" />
+            <Row label="Status" value="Not listed" />
             {(() => {
               const portVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
               const raised = Math.round(portVal * 0.20);
               return (
                 <>
-                  <Row label="Estimerat insamlat kapital" value={msek(raised)} accent="#27660a" />
-                  <Row label="Reputation-bonus" value="+10" accent={BURGUNDY} />
+                  <Row label="Estimated capital raised" value={msek(raised)} accent="#27660a" />
+                  <Row label="Reputation bonus" value="+10" accent={BURGUNDY} />
                   <div style={{ fontSize: 12, color: C.inkSoft, margin: "8px 0" }}>
-                    En IPO tar in 20 % av portföljvärdet i nytt kapital. Kräver minst 5 MSEK portföljvärde.
+                    An IPO raises 20% of the portfolio value in new capital. Requires at least 5 MSEK portfolio value.
                   </div>
                   <button
                     onClick={() => dispatch({ type: "DO_IPO" })}
@@ -352,7 +352,7 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
                       cursor: portVal >= 5_000_000 ? "pointer" : "default",
                     }}
                   >
-                    Genomför börsnotering
+                    Do stock listing
                   </button>
                 </>
               );

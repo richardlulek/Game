@@ -70,33 +70,33 @@ export function KPIPanel({ state, dispatch: _dispatch }: Props) {
 
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
-      <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 16 }}>KPI-Dashboard</h2>
+      <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 16 }}>KPI dashboard</h2>
 
       {/* Key metrics grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
-        <KPICard label="Yield on cost" value={`${yieldOnCost.toFixed(2)} %`} sub="NOI / investerat kapital" color={yieldOnCost >= 6 ? C.green : yieldOnCost >= 4 ? C.gold : C.negative} />
-        <KPICard label="Direktavkastning" value={`${capRate.toFixed(2)} %`} sub="NOI / marknadsvärde" color={capColor} />
-        <KPICard label="Bruttoyield" value={`${grossYield.toFixed(2)} %`} sub="Bruttohyra / värde" color={C.ink} />
-        <KPICard label="DSCR" value={isFinite(dscr) ? dscr.toFixed(2) : "∞"} sub="NOI / räntekostnad" color={dscrColor} />
-        <KPICard label="Beläggningsgrad" value={pct(occupancyRate)} sub={`${totalTenants} / ${totalCapacity} enheter`} color={occupancyRate >= 0.85 ? C.green : C.gold} />
-        <KPICard label="NOI / år" value={kr(totalNOI)} sub="Driftnetto" color={totalNOI > 0 ? C.green : C.negative} />
-        <KPICard label="Kassaflöde / år" value={kr(totalNOI - annualInterest)} sub="NOI − ränta" color={(totalNOI - annualInterest) > 0 ? C.green : C.negative} />
+        <KPICard label="Yield on cost" value={`${yieldOnCost.toFixed(2)}%`} sub="NOI / invested capital" color={yieldOnCost >= 6 ? C.green : yieldOnCost >= 4 ? C.gold : C.negative} />
+        <KPICard label="Cap rate" value={`${capRate.toFixed(2)}%`} sub="NOI / market value" color={capColor} />
+        <KPICard label="Gross yield" value={`${grossYield.toFixed(2)}%`} sub="Gross rent / value" color={C.ink} />
+        <KPICard label="DSCR" value={isFinite(dscr) ? dscr.toFixed(2) : "∞"} sub="NOI / interest cost" color={dscrColor} />
+        <KPICard label="Occupancy" value={pct(occupancyRate)} sub={`${totalTenants} / ${totalCapacity} units`} color={occupancyRate >= 0.85 ? C.green : C.gold} />
+        <KPICard label="NOI / yr" value={kr(totalNOI)} sub="Net operating income" color={totalNOI > 0 ? C.green : C.negative} />
+        <KPICard label="Cash flow / yr" value={kr(totalNOI - annualInterest)} sub="NOI − interest" color={(totalNOI - annualInterest) > 0 ? C.green : C.negative} />
       </div>
 
       {/* District breakdown */}
       {districtKPIs.length > 0 && (
         <>
-          <h3 style={{ fontFamily: FONTS.heading, color: C.brassBright, fontSize: 15, marginBottom: 10 }}>Per distrikt</h3>
+          <h3 style={{ fontFamily: FONTS.heading, color: C.brassBright, fontSize: 15, marginBottom: 10 }}>Per district</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
             {districtKPIs.map(({ d, count, noi, capRate: cr, occ }) => (
               <div key={d.id} style={{ background: C.wood, border: `1px solid ${C.brass}44`, borderRadius: 6, padding: "10px 14px" }}>
                 <div style={{ fontWeight: 700, color: C.brassBright, marginBottom: 6 }}>{d.name}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 8px", fontSize: 12 }}>
-                  <span style={{ color: C.creamSoft }}>Objekt:</span><span>{count} st</span>
-                  <span style={{ color: C.creamSoft }}>NOI:</span><span>{kr(noi)}/år</span>
+                  <span style={{ color: C.creamSoft }}>Assets:</span><span>{count}</span>
+                  <span style={{ color: C.creamSoft }}>NOI:</span><span>{kr(noi)}/yr</span>
                   <span style={{ color: C.creamSoft }}>Cap rate:</span>
-                  <span style={{ color: cr >= 5 ? C.positive : cr >= 3 ? C.gold : C.negative }}>{cr.toFixed(1)} %</span>
-                  <span style={{ color: C.creamSoft }}>Beläggning:</span>
+                  <span style={{ color: cr >= 5 ? C.positive : cr >= 3 ? C.gold : C.negative }}>{cr.toFixed(1)}%</span>
+                  <span style={{ color: C.creamSoft }}>Occupancy:</span>
                   <span style={{ color: occ >= 0.85 ? C.positive : C.gold }}>{pct(occ)}</span>
                 </div>
               </div>
@@ -108,17 +108,17 @@ export function KPIPanel({ state, dispatch: _dispatch }: Props) {
       {/* Stress test */}
       <div style={{ background: C.wood, border: `1px solid ${C.brass}`, borderRadius: 6, padding: 16 }}>
         <h3 style={{ fontFamily: FONTS.heading, color: C.brassBright, fontSize: 15, marginBottom: 12 }}>
-          Stresstest — "Vad händer om…"
+          Stress test — "What happens if…"
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px", marginBottom: 16 }}>
           <div>
-            <label style={{ fontSize: 11, color: C.creamSoft }}>Ränta stiger: +{stressRate.toFixed(1)} %</label>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Rate rises: +{stressRate.toFixed(1)}%</label>
             <input type="range" min={0} max={5} step={0.5} value={stressRate}
               onChange={(e) => setStressRate(+e.target.value)}
               style={{ width: "100%", accentColor: BURGUNDY, marginTop: 4 }} />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: C.creamSoft }}>Vakans ökar: +{stressVacancy} %</label>
+            <label style={{ fontSize: 11, color: C.creamSoft }}>Vacancy rises: +{stressVacancy}%</label>
             <input type="range" min={0} max={30} step={5} value={stressVacancy}
               onChange={(e) => setStressVacancy(+e.target.value)}
               style={{ width: "100%", accentColor: BURGUNDY, marginTop: 4 }} />
@@ -127,8 +127,8 @@ export function KPIPanel({ state, dispatch: _dispatch }: Props) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {[
             { l: "Stress NOI", v: kr(stressNOI), c: stressNOI > 0 ? C.positive : C.negative },
-            { l: "Stress ränta", v: kr(stressInterest), c: C.negative },
-            { l: "Stress kassaflöde", v: kr(stressCashflow), c: stressCashflow > 0 ? C.positive : C.negative },
+            { l: "Stress interest", v: kr(stressInterest), c: C.negative },
+            { l: "Stress cash flow", v: kr(stressCashflow), c: stressCashflow > 0 ? C.positive : C.negative },
           ].map(({ l, v, c }) => (
             <div key={l} style={{ textAlign: "center", background: "#1a1208", borderRadius: 5, padding: "10px 8px" }}>
               <div style={{ fontSize: 10, color: C.creamSoft, marginBottom: 3 }}>{l}</div>
@@ -138,7 +138,7 @@ export function KPIPanel({ state, dispatch: _dispatch }: Props) {
         </div>
         {stressCashflow < 0 && (
           <div style={{ marginTop: 10, fontSize: 12, color: C.negative, fontWeight: 700 }}>
-            ⚠ Under dessa förhållanden är kassaflödet negativt med {kr(Math.abs(stressCashflow))}/år.
+            ⚠ Under these conditions cash flow is negative by {kr(Math.abs(stressCashflow))}/yr.
           </div>
         )}
       </div>

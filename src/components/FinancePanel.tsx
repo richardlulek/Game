@@ -34,7 +34,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
   return (
     <div style={S.financeWrap}>
       <div style={S.financeCol}>
-        <h3 style={S.h3OnLight}>Balansräkning</h3>
+        <h3 style={S.h3OnLight}>Balance sheet</h3>
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: "8px 10px", marginBottom: 8, borderRadius: 6,
@@ -42,21 +42,21 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           border: `1px solid ${rating.score >= 60 ? "#22a06b" : rating.score >= 36 ? "#c9a13b" : "#c0392b"}`,
         }}>
           <span style={{ fontSize: 12.5 }}>
-            Kreditbetyg <strong style={{ fontSize: 15 }}>{rating.rating}</strong>
+            Credit rating <strong style={{ fontSize: 15 }}>{rating.rating}</strong>
             <span style={{ color: "#888" }}> · {rating.drivers.join(" · ")}</span>
           </span>
-          <span style={{ fontSize: 11, color: "#888" }}>spread {rating.spreadDelta >= 0 ? "+" : ""}{rating.spreadDelta.toFixed(1)} pe</span>
+          <span style={{ fontSize: 11, color: "#888" }}>spread {rating.spreadDelta >= 0 ? "+" : ""}{rating.spreadDelta.toFixed(1)} pp</span>
         </div>
-        <Line l="Kassa" v={kr(state.cash)} />
-        <Line l="Fastighetsvärde" v={kr(totalValue)} />
-        <Line l="Totala tillgångar" v={kr(state.cash + totalValue)} bold />
-        <Line l="Skulder" v={"−" + kr(state.debt)} />
-        <Line l="Eget kapital" v={kr(equity)} bold accent={BURGUNDY} />
-        <Line l="Belåningsgrad (LTV)" v={pct(ltv)} />
+        <Line l="Cash" v={kr(state.cash)} />
+        <Line l="Property value" v={kr(totalValue)} />
+        <Line l="Total assets" v={kr(state.cash + totalValue)} bold />
+        <Line l="Liabilities" v={"−" + kr(state.debt)} />
+        <Line l="Equity" v={kr(equity)} bold accent={BURGUNDY} />
+        <Line l="Loan-to-value (LTV)" v={pct(ltv)} />
 
-        <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Belåna portföljen</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Leverage the portfolio</h3>
         <Line
-          l="Låneutrymme kvar"
+          l="Borrowing capacity left"
           v={kr(maxRefi)}
           accent={maxRefi > 0 ? "#27660a" : "#999"}
         />
@@ -80,44 +80,44 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
               style={{ ...S.amortBtn, background: "#27660a" }}
               onClick={() => dispatch({ type: "REFINANCE", amount: refiAmt })}
             >
-              Belåna mer
+              Borrow more
             </button>
             <div style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
-              Extra räntekostnad: {kr(Math.min(refiAmt, maxRefi) * (terms.rate / 100))}/år · reputation −1
+              Extra interest cost: {kr(Math.min(refiAmt, maxRefi) * (terms.rate / 100))}/yr · reputation −1
             </div>
           </>
         ) : (
           <div style={{ fontSize: 13, color: "#aaa", marginTop: 4 }}>
-            Portföljen är maximalt belånad till {pct(terms.maxLtv)} LTV.
+            The portfolio is maxed out at {pct(terms.maxLtv)} LTV.
           </div>
         )}
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3OnLight}>Resultat (årstakt)</h3>
-        <Line l="Driftnetto" v={kr(totalNOI)} accent="#27660a" />
-        <Line l="Räntekostnad" v={"−" + kr(annualInterest)} accent="#c0392b" />
-        <Line l="Kassaflöde" v={kr(totalNOI - annualInterest)} bold />
+        <h3 style={S.h3OnLight}>Income (annualized)</h3>
+        <Line l="Net operating income" v={kr(totalNOI)} accent="#27660a" />
+        <Line l="Interest cost" v={"−" + kr(annualInterest)} accent="#c0392b" />
+        <Line l="Cash flow" v={kr(totalNOI - annualInterest)} bold />
         <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>
-          Lånevillkor (reputation {Math.round(state.reputation)})
+          Loan terms (reputation {Math.round(state.reputation)})
         </h3>
-        <Line l="Räntepåslag" v={"+" + terms.spread + " %"} />
-        <Line l="Maximal belåningsgrad" v={pct(terms.maxLtv)} />
+        <Line l="Interest spread" v={"+" + terms.spread + "%"} />
+        <Line l="Maximum loan-to-value" v={pct(terms.maxLtv)} />
         {(() => {
           const esg = esgRatingOf(state);
           return (
             <>
               <Line
-                l={`ESG-betyg (energiklasser)`}
-                v={`${esg.letter}${esg.spreadDelta !== 0 ? ` (${esg.spreadDelta > 0 ? "+" : ""}${esg.spreadDelta} % ränta)` : ""}`}
+                l={`ESG rating (energy classes)`}
+                v={`${esg.letter}${esg.spreadDelta !== 0 ? ` (${esg.spreadDelta > 0 ? "+" : ""}${esg.spreadDelta}% rate)` : ""}`}
                 accent={esg.spreadDelta < 0 ? "#27660a" : esg.spreadDelta > 0 ? "#c0392b" : undefined}
               />
               <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
                 {esg.spreadDelta < 0
-                  ? "🌱 Grönt lån aktivt — hög energistandard belönas av bankerna."
+                  ? "🌱 Green loan active — high energy standard is rewarded by the banks."
                   : esg.spreadDelta > 0
-                    ? "🏭 Lågt ESG-betyg ger räntepåslag. Energiuppgradera fastigheterna."
-                    : "Nå snittbetyg B för grönt lån (−0,25 till −0,5 % ränta)."}
+                    ? "🏭 Low ESG rating adds an interest premium. Upgrade the properties\u2019 energy."
+                    : "Reach an average B rating for a green loan (−0.25 to −0.5% rate)."}
               </div>
             </>
           );
@@ -129,11 +129,11 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           const nextRate = +(state.interestRate + nextSpread).toFixed(2);
           return (
             <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 8px", background: "#f2f5f8", borderRadius: 6 }}>
-              Med +10 reputation → ränta {nextRate} % · LTV {pct(nextLtv)}
+              With +10 reputation → rate {nextRate}% · LTV {pct(nextLtv)}
             </div>
           );
         })()}
-        <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Skuldportfölj & amortering</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Debt portfolio & amortization</h3>
         {(() => {
           const ai = amortInfoOf(state);
           const bondInterestMo = (state.bonds ?? []).reduce(
@@ -144,11 +144,11 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           const totalDebtCostMo = bankInterestMo + bondInterestMo + revInterestMo + ai.monthly;
           // Skuldtrappan: bankens alla LTV-nivåer, med nuvarande läge markerat.
           const STEPS: { min: number; max: number; label: string; bad: boolean }[] = [
-            { min: 0.85, max: 9, label: "Bankstraff 1,5 %/år + rep-tapp", bad: true },
-            { min: 0.75, max: 0.85, label: "Räntepåslag 0,5 %/år", bad: true },
-            { min: 0.7, max: 0.75, label: "Amorteringskrav 2 %/år", bad: false },
-            { min: 0.5, max: 0.7, label: "Amorteringskrav 1 %/år", bad: false },
-            { min: 0, max: 0.5, label: "Amorteringsfritt", bad: false },
+            { min: 0.85, max: 9, label: "Bank penalty 1.5%/yr + rep loss", bad: true },
+            { min: 0.75, max: 0.85, label: "Interest premium 0.5%/yr", bad: true },
+            { min: 0.7, max: 0.75, label: "Amortization requirement 2%/yr", bad: false },
+            { min: 0.5, max: 0.7, label: "Amortization requirement 1%/yr", bad: false },
+            { min: 0, max: 0.5, label: "No amortization", bad: false },
           ];
           return (
             <>
@@ -163,24 +163,24 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                       fontWeight: here ? 800 : 400,
                       color: here ? (st.bad ? "#8a3a2a" : "#27660a") : "#888",
                     }}>
-                      <span>{st.max > 1 ? `> ${st.min * 100} %` : st.min === 0 ? `< ${st.max * 100} %` : `${st.min * 100}–${st.max * 100} %`}{here ? ` ← du (${Math.round(ai.ltv * 100)} %)` : ""}</span>
+                      <span>{st.max > 1 ? `> ${st.min * 100}%` : st.min === 0 ? `< ${st.max * 100}%` : `${st.min * 100}–${st.max * 100}%`}{here ? ` ← you (${Math.round(ai.ltv * 100)}%)` : ""}</span>
                       <span>{st.label}</span>
                     </div>
                   );
                 })}
               </div>
-              <Line l="Amorteringskrav" v={ai.monthly > 0 ? `−${kr(ai.monthly)}/mån` : "0 kr (amorteringsfritt)"} accent={ai.monthly > 0 ? "#c0392b" : "#27660a"} />
-              <Line l="Ränta bank + obligationer + kredit" v={`−${kr(bankInterestMo + bondInterestMo + revInterestMo)}/mån`} />
-              <Line l="Skuldens månadskostnad" v={`−${kr(totalDebtCostMo)}/mån`} bold />
+              <Line l="Amortization requirement" v={ai.monthly > 0 ? `−${kr(ai.monthly)}/mo` : "0 kr (no amortization)"} accent={ai.monthly > 0 ? "#c0392b" : "#27660a"} />
+              <Line l="Interest bank + bonds + credit" v={`−${kr(bankInterestMo + bondInterestMo + revInterestMo)}/mo`} />
+              <Line l="Debt monthly cost" v={`−${kr(totalDebtCostMo)}/mo`} bold />
               {ai.amortToNextBreak != null && ai.amortToNextBreak > 0 && ai.nextBreakLtv != null && (
                 <button
                   style={{ ...S.amortBtn, background: "#1a4a6b", marginTop: 6 }}
                   disabled={state.cash < ai.amortToNextBreak}
-                  title={state.cash < ai.amortToNextBreak ? `Kassan räcker inte (${kr(ai.amortToNextBreak)} behövs)` : ""}
+                  title={state.cash < ai.amortToNextBreak ? `Insufficient cash (${kr(ai.amortToNextBreak)} needed)` : ""}
                   onClick={() => dispatch({ type: "AMORT", amount: ai.amortToNextBreak! })}
                 >
-                  Amortera till {Math.round(ai.nextBreakLtv * 100)} % LTV ({msek(ai.amortToNextBreak)})
-                  {ai.nextBreakLtv === 0.5 ? " → amorteringsfritt" : " → 1 %/år"}
+                  Amortize to {Math.round(ai.nextBreakLtv * 100)}% LTV ({msek(ai.amortToNextBreak)})
+                  {ai.nextBreakLtv === 0.5 ? " → no amortization" : " → 1%/yr"}
                 </button>
               )}
             </>
@@ -204,18 +204,18 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           style={S.amortBtn}
           onClick={() => dispatch({ type: "AMORT", amount: amortAmt })}
         >
-          Amortera valfritt belopp
+          Amortize custom amount
         </button>
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3OnLight}>Räntestrategi</h3>
+        <h3 style={S.h3OnLight}>Rate strategy</h3>
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
-            Nuvarande: <strong>{state.rateMode === "fixed" ? `Fast ${state.fixedRate?.toFixed(2)} %` : `Rörlig ${terms.rate.toFixed(2)} %`}</strong>
+            Current: <strong>{state.rateMode === "fixed" ? `Fixed ${state.fixedRate?.toFixed(2)}%` : `Variable ${terms.rate.toFixed(2)}%`}</strong>
             {state.rateMode === "fixed" && state.fixedUntilAbs != null && (
               <span style={{ color: "#c0392b", marginLeft: 6 }}>
-                ({Math.max(0, state.fixedUntilAbs - (state.year * 12 + state.month))} mån kvar)
+                ({Math.max(0, state.fixedUntilAbs - (state.year * 12 + state.month))} mo left)
               </span>
             )}
           </div>
@@ -225,24 +225,24 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
               onClick={() => dispatch({ type: "SET_RATE_MODE", mode: "fixed", months: 36 })}
               disabled={state.debt === 0}
             >
-              Lås ränta i 36 mån (avgift 0,5 % av skuld)
+              Lock rate for 36 mo (fee 0.5% of debt)
             </button>
           ) : (
             <button
               style={{ ...S.amortBtn, background: "#555" }}
               onClick={() => dispatch({ type: "SET_RATE_MODE", mode: "variable" })}
             >
-              Byt till rörlig ränta
+              Switch to variable rate
             </button>
           )}
         </div>
 
-        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Revolverande kredit</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Revolving credit</h3>
         {state.revolving ? (
           <>
-            <Line l="Kreditgräns" v={kr(state.revolving.limit)} />
-            <Line l="Utnyttjad" v={kr(state.revolving.used)} />
-            <Line l="Tillgänglig" v={kr(state.revolving.limit - state.revolving.used)} accent="#27660a" />
+            <Line l="Credit limit" v={kr(state.revolving.limit)} />
+            <Line l="Drawn" v={kr(state.revolving.used)} />
+            <Line l="Available" v={kr(state.revolving.limit - state.revolving.used)} accent="#27660a" />
             <div style={S.amortRow}>
               <input type="range" min="0" max={state.revolving.limit - state.revolving.used}
                 step="100000" value={Math.min(drawAmt, state.revolving.limit - state.revolving.used)}
@@ -251,7 +251,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
             </div>
             <button style={{ ...S.amortBtn, background: "#27660a", marginBottom: 6 }}
               onClick={() => dispatch({ type: "DRAW_REVOLVING", amount: drawAmt })}>
-              Utnyttja kredit
+              Draw credit
             </button>
             {state.revolving.used > 0 && (
               <>
@@ -262,34 +262,34 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                   <span style={{ minWidth: 90, textAlign: "right" }}>{msek(repayAmt)}</span>
                 </div>
                 <button style={S.amortBtn} onClick={() => dispatch({ type: "REPAY_REVOLVING", amount: repayAmt })}>
-                  Återbetala
+                  Repay
                 </button>
               </>
             )}
           </>
         ) : (
           <div style={{ fontSize: 12, color: "#888" }}>
-            Revolverande kredit aktiveras automatiskt när du uppnår reputation 40.
+            Revolving credit activates automatically when you reach reputation 40.
           </div>
         )}
 
-        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Utdelning</h3>
-        <Line l="Totalt utdelat" v={kr(state.dividendsPaid ?? 0)} />
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Dividend</h3>
+        <Line l="Total paid out" v={kr(state.dividendsPaid ?? 0)} />
         <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-          Utdelningen betalas numera under <strong>Bolag → Arv</strong>, där den bygger
-          ägarens privata förmögenhet.
+          Dividends are now paid under <strong>Company → Legacy</strong>, where they build
+          the owner's private wealth.
         </div>
 
         {/* Bonds */}
-        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Obligationsprogram</h3>
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Bond program</h3>
         {rating.bondCap <= 0 ? (
-          <div style={{ fontSize: 12, color: "#888" }}>Betyget {rating.rating} stänger obligationsmarknaden — stärk balansräkningen.</div>
+          <div style={{ fontSize: 12, color: "#888" }}>Rating {rating.rating} closes the bond market — strengthen the balance sheet.</div>
         ) : (
           <>
             <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
-              Programtak vid betyg {rating.rating}: {msek(rating.bondCap)} ·
-              utestående {msek((state.bonds ?? []).reduce((a, b) => a + b.amount, 0))} ·
-              kupong {bondRateFor(state, rating.rating).toFixed(2)} %
+              Program cap at rating {rating.rating}: {msek(rating.bondCap)} ·
+              outstanding {msek((state.bonds ?? []).reduce((a, b) => a + b.amount, 0))} ·
+              coupon {bondRateFor(state, rating.rating).toFixed(2)}%
             </div>
             <div style={S.amortRow}>
               <input type="range" min={1000000} max={Math.max(1_000_000, rating.bondCap)} step={1000000}
@@ -301,21 +301,21 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
               <input type="range" min={3} max={10} step={1}
                 value={bondYears} onChange={(e) => setBondYears(+e.target.value)}
                 style={{ flex: 1, accentColor: "#1a4a6b" }} />
-              <span style={{ minWidth: 90, textAlign: "right" }}>{bondYears} år</span>
+              <span style={{ minWidth: 90, textAlign: "right" }}>{bondYears} yr</span>
             </div>
             <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 6 }}
               onClick={() => dispatch({ type: "ISSUE_BOND", amount: bondAmt, years: bondYears })}>
-              Emittera obligation
+              Issue bond
             </button>
             {(state.bonds ?? []).length > 0 && (
               <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Utestående obligationer:</div>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Outstanding bonds:</div>
                 {(state.bonds ?? []).map((b) => (
                   <div key={b.id} style={{ fontSize: 12, display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #eee" }}>
                     <span>{msek(b.amount)} @ {b.rate.toFixed(2)} %</span>
                     <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #c0392b", background: "transparent", color: "#c0392b", borderRadius: 3, padding: "1px 6px" }}
                       onClick={() => dispatch({ type: "REPAY_BOND", bondId: b.id })}>
-                      Återbetala
+                      Repay
                     </button>
                   </div>
                 ))}
@@ -326,7 +326,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3OnLight}>Skatteoptimering</h3>
+        <h3 style={S.h3OnLight}>Tax optimization</h3>
         {(() => {
           const netIncome = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0) / 12
             - (state.debt * ((state.rateMode === "fixed" && state.fixedRate != null ? state.fixedRate : loanTerms(state).rate) / 100)) / 12;
@@ -340,14 +340,14 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           const monthlyTax = Math.round(taxableIncome * taxRate);
           return (
             <>
-              <Line l="Beräknad skattesats" v={`${Math.round(taxRate * 100)} %${energyACount > 0 ? " (−3 % via klass A)" : ""}`} />
-              <Line l="Avdrag (avskrivning/mån)" v={kr(Math.round(monthlyDep))} />
-              <Line l="Skattebar inkomst/mån" v={kr(Math.max(0, Math.round(taxableIncome)))} />
-              <Line l="Beräknad skatt/mån" v={kr(monthlyTax)} />
-              <Line l="Totalt betald skatt" v={kr(state.totalTaxPaid ?? 0)} />
+              <Line l="Estimated tax rate" v={`${Math.round(taxRate * 100)}%${energyACount > 0 ? " (−3% via class A)" : ""}`} />
+              <Line l="Deduction (depreciation/mo)" v={kr(Math.round(monthlyDep))} />
+              <Line l="Taxable income/mo" v={kr(Math.max(0, Math.round(taxableIncome)))} />
+              <Line l="Estimated tax/mo" v={kr(monthlyTax)} />
+              <Line l="Total tax paid" v={kr(state.totalTaxPaid ?? 0)} />
               {energyACount === 0 && (
                 <div style={{ fontSize: 11, color: "#888", marginTop: 6, padding: "6px 10px", background: "#f0f4f8", borderRadius: 4 }}>
-                  💡 Uppgradera fastigheter till energiklass A för att sänka skattesatsen med 3 procentenheter.
+                  💡 Upgrade properties to energy class A to lower the tax rate by 3 percentage points.
                 </div>
               )}
             </>
@@ -356,9 +356,9 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
       </div>
 
       <div style={S.financeCol}>
-        <h3 style={S.h3OnLight}>Välj långivare</h3>
+        <h3 style={S.h3OnLight}>Choose lender</h3>
         <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>
-          Byt bank för att påverka ränta och belåningsgrad. Aktiv: <strong>{LENDERS.find(l => l.id === state.selectedLender)?.name ?? "Standard (ingen bank vald)"}</strong>
+          Switch bank to affect rate and loan-to-value. Active: <strong>{LENDERS.find(l => l.id === state.selectedLender)?.name ?? "Standard (no bank selected)"}</strong>
         </div>
         {(() => {
           const baseLtv = 0.55 + (state.reputation / 100) * 0.19;
@@ -386,16 +386,16 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                   <span style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, color: active ? BURGUNDY : "#333" }}>
                     {lender.name}
                   </span>
-                  {active && <span style={{ fontSize: 11, fontWeight: 700, color: BURGUNDY }}>AKTIV</span>}
-                  {locked && <span style={{ fontSize: 11, color: "#bbb" }}>Kräver rep. {lender.minReputation}</span>}
+                  {active && <span style={{ fontSize: 11, fontWeight: 700, color: BURGUNDY }}>ACTIVE</span>}
+                  {locked && <span style={{ fontSize: 11, color: "#bbb" }}>Requires rep. {lender.minReputation}</span>}
                 </div>
                 <div style={{ fontSize: 11.5, color: "#888", marginTop: 3 }}>{lender.desc}</div>
                 <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 12 }}>
                   <span style={{ color: lender.rateBonus <= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
-                    Ränta: {actualRate.toFixed(2)} %
+                    Rate: {actualRate.toFixed(2)}%
                   </span>
                   <span style={{ color: lender.ltvBonus >= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>
-                    Max LTV: {(actualLtv * 100).toFixed(0)} %
+                    Max LTV: {(actualLtv * 100).toFixed(0)}%
                   </span>
                 </div>
               </div>

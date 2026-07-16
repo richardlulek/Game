@@ -118,19 +118,19 @@ export function CompanyPanel({
                   setEditing(false);
                 }}
               >
-                Spara
+                Save
               </button>
             </div>
           ) : (
             <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-              <span style={P.name}>{state.companyName ?? "Mitt Fastighetsbolag"}</span>
+              <span style={P.name}>{state.companyName ?? "My Property Company"}</span>
               <button style={P.editBtn} onClick={() => { setDraft(state.companyName ?? ""); setEditing(true); }}>
-                ✎ Byt namn
+                ✎ Rename
               </button>
             </div>
           )}
           <div style={P.tier}>
-            Nivå {level} av {MAX_LEVEL} · {tier.name} · grundat år 1 · rank #{rank} i staden
+            Level {level} of {MAX_LEVEL} · {tier.name} · founded year 1 · rank #{rank} in the city
           </div>
         </div>
       </div>
@@ -138,33 +138,33 @@ export function CompanyPanel({
       <div style={P.card}>
         <div style={P.statRow}>
           <div style={P.stat}>
-            <div style={P.statLabel}>Eget kapital</div>
+            <div style={P.statLabel}>Equity</div>
             <div style={P.statValue}>{msek(equity)}</div>
           </div>
           <div style={P.stat}>
-            <div style={P.statLabel}>Fastigheter</div>
+            <div style={P.statLabel}>Properties</div>
             <div style={P.statValue}>{units}</div>
           </div>
           <div style={P.stat}>
-            <div style={P.statLabel}>Anställda chefer</div>
+            <div style={P.statLabel}>Managers employed</div>
             <div style={P.statValue}>
               {Object.values(state.staff ?? {}).reduce((a, b) => a + b, 0)}
-              {salariesTotal(state) > 0 ? ` (${msek(salariesTotal(state))}/mån)` : ""}
+              {salariesTotal(state) > 0 ? ` (${msek(salariesTotal(state))}/mo)` : ""}
             </div>
           </div>
           <div style={P.stat}>
-            <div style={P.statLabel}>Dotterbolag</div>
+            <div style={P.statLabel}>Subsidiaries</div>
             <div style={P.statValue}>{(state.subsidiaries ?? []).length}</div>
           </div>
           <div style={P.stat}>
-            <div style={P.statLabel}>ESG-betyg</div>
+            <div style={P.statLabel}>ESG rating</div>
             <div style={{ ...P.statValue, color: esgRatingOf(state).spreadDelta < 0 ? "#4d8b52" : esgRatingOf(state).spreadDelta > 0 ? "#b5542a" : undefined }}>
               {esgRatingOf(state).letter}
             </div>
           </div>
           {state.ipoActive && (
             <div style={P.stat}>
-              <div style={P.statLabel}>Börsnoterat</div>
+              <div style={P.statLabel}>Listed</div>
               <div style={P.statValue}>✓ FBAB</div>
             </div>
           )}
@@ -173,14 +173,14 @@ export function CompanyPanel({
 
       {/* Organisationen: kontorskostnad och förvaltningskapacitet */}
       <div style={{ ...P.card, ...(load.over > 0 ? { border: "1px solid #d9a13b", background: "#eef2f8" } : {}) }}>
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>Organisation</div>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Organization</div>
         <div style={P.statRow}>
           <div style={P.stat}>
-            <div style={P.statLabel}>Kontorskostnad</div>
-            <div style={P.statValue}>{tier.monthlyOverhead > 0 ? `${kr(tier.monthlyOverhead)}/mån` : "0 kr (köksbordet)"}</div>
+            <div style={P.statLabel}>Office cost</div>
+            <div style={P.statValue}>{tier.monthlyOverhead > 0 ? `${kr(tier.monthlyOverhead)}/mo` : "0 kr (the kitchen table)"}</div>
           </div>
           <div style={{ ...P.stat, minWidth: 220 }}>
-            <div style={P.statLabel}>Självförvaltade fastigheter</div>
+            <div style={P.statLabel}>Self-managed properties</div>
             <div style={{ ...P.statValue, color: load.over > 0 ? "#b5542a" : undefined }}>
               {load.selfManaged} / {load.cap}
             </div>
@@ -189,13 +189,13 @@ export function CompanyPanel({
         </div>
         {load.over > 0 ? (
           <div style={{ fontSize: 12.5, color: "#9a5a1a", marginTop: 8 }}>
-            ⚠️ {load.over} fastigheter över kapacitet: {kr(load.over * OVERLOAD_COST_PER_PROP)}/mån i
-            merkostnad. Expandera bolaget, anlita förvaltare per fastighet
-            eller en portföljdirektör (Policy → Förvaltning).
+            ⚠️ {load.over} properties over capacity: {kr(load.over * OVERLOAD_COST_PER_PROP)}/mo in
+            extra cost. Expand the company, hire a manager per property
+            or a portfolio director (Policy → Management).
           </div>
         ) : (
           <div style={{ fontSize: 12, color: "#888", marginTop: 8 }}>
-            Fastigheter med förvaltare eller portföljdirektör belastar inte organisationen.
+            Properties with a manager or portfolio director don't burden the organization.
           </div>
         )}
       </div>
@@ -203,12 +203,12 @@ export function CompanyPanel({
       {next ? (
         <div style={P.card}>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>
-            Nästa steg: {next.icon} {next.name}
+            Next step: {next.icon} {next.name}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div>
               <div style={P.barLabel}>
-                <span>Eget kapital</span>
+                <span>Equity</span>
                 <span>
                   {msek(Math.min(equity, next.minEquity))} / {msek(next.minEquity)}
                 </span>
@@ -217,7 +217,7 @@ export function CompanyPanel({
             </div>
             <div>
               <div style={P.barLabel}>
-                <span>Färdiga fastigheter</span>
+                <span>Completed properties</span>
                 <span>
                   {Math.min(units, next.minUnits)} / {next.minUnits}
                 </span>
@@ -226,20 +226,20 @@ export function CompanyPanel({
             </div>
             {next.requiresIpo && (
               <div style={{ fontSize: 12, color: state.ipoActive ? "#4d8b52" : "#b5542a" }}>
-                {state.ipoActive ? "✓ Börsnotering genomförd" : "Kräver dessutom börsnotering (IPO) – se Finans."}
+                {state.ipoActive ? "✓ Stock listing completed" : "Also requires a stock listing (IPO) – see Finance."}
               </div>
             )}
             {next.unlocks.length > 0 && (
               <div style={{ fontSize: 12, color: "#666" }}>
-                Låser upp:{" "}
+                Unlocks:{" "}
                 {next.unlocks
                   .map((id) => WINDOW_LABELS[id] ?? id)
                   .join(" · ")}
               </div>
             )}
             <div style={{ fontSize: 12, color: "#666" }}>
-              Ny kontorskostnad: {kr(next.monthlyOverhead)}/mån · kapacitet {next.selfManagedCap}{" "}
-              självförvaltade fastigheter
+              New office cost: {kr(next.monthlyOverhead)}/mo · capacity {next.selfManagedCap}{" "}
+              self-managed properties
             </div>
             {/* Expansionen är ett aktivt beslut som kostar pengar. */}
             <button
@@ -259,20 +259,20 @@ export function CompanyPanel({
             >
               {up.qualified
                 ? up.affordable
-                  ? `📈 Expandera bolaget (${next.upgradeCost > 0 ? msek(next.upgradeCost) : "utan kostnad"})`
-                  : `Kassan räcker inte – expansionen kostar ${msek(next.upgradeCost)}`
-                : `Uppfyll kraven ovan för att expandera${next.upgradeCost > 0 ? ` (${msek(next.upgradeCost)})` : ""}`}
+                  ? `📈 Expand the company (${next.upgradeCost > 0 ? msek(next.upgradeCost) : "no cost"})`
+                  : `Insufficient cash – the expansion costs ${msek(next.upgradeCost)}`
+                : `Meet the requirements above to expand${next.upgradeCost > 0 ? ` (${msek(next.upgradeCost)})` : ""}`}
             </button>
           </div>
         </div>
       ) : (
         <div style={{ ...P.card, color: "#4757c8", fontWeight: 700 }}>
-          👑 Högsta nivån nådd – ditt imperium dominerar staden.
+          👑 Top level reached – your empire dominates the city.
         </div>
       )}
 
       <div style={P.card}>
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>Bolagsresan</div>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>The company journey</div>
         <div style={P.ladder}>
           {TIERS.map((t) => (
             <div key={t.level} style={{ ...P.ladderRow, opacity: t.level <= level ? 1 : 0.5 }}>
@@ -282,7 +282,7 @@ export function CompanyPanel({
               <span style={{ color: "#888", fontSize: 12 }}>
                 {t.level === 1
                   ? "start"
-                  : `${msek(t.minEquity)} · ${t.minUnits} fastigheter${t.requiresIpo ? " · IPO" : ""}`}
+                  : `${msek(t.minEquity)} · ${t.minUnits} properties${t.requiresIpo ? " · IPO" : ""}`}
               </span>
             </div>
           ))}
@@ -294,26 +294,26 @@ export function CompanyPanel({
 
 /** Läsbara namn för fönster-id:n (håll i synk med TABS i FastighetsImperium). */
 const WINDOW_LABELS: Record<string, string> = {
-  company: "Bolag",
+  company: "Company",
   policy: "Policy",
-  portfolio: "Portfölj",
-  market: "Marknad",
-  build: "Bygg",
-  stocks: "Börs",
-  finance: "Finans",
-  research: "Forskning",
-  staff: "Anställda",
-  group: "Koncern (flik i Bolag)",
-  rivals: "Topp",
-  log: "Logg",
-  overview: "Översikt (flik i Bolag)",
-  acquisition: "Förvärv",
-  districts: "Distrikt",
-  calendar: "Kalender",
-  kpi: "KPI (flik i Bolag)",
-  tenants: "Hyresgäster",
-  milestones: "Milstolpar (flik i Bolag)",
-  nyheter: "Nyheter",
-  industri: "Industri",
-  ind_marknad: "Ind. Marknad",
+  portfolio: "Portfolio",
+  market: "Market",
+  build: "Build",
+  stocks: "Stocks",
+  finance: "Finance",
+  research: "Research",
+  staff: "Staff",
+  group: "Group (tab in Company)",
+  rivals: "Top",
+  log: "Log",
+  overview: "Overview (tab in Company)",
+  acquisition: "Acquisition",
+  districts: "Districts",
+  calendar: "Calendar",
+  kpi: "KPI (tab in Company)",
+  tenants: "Tenants",
+  milestones: "Milestones (tab in Company)",
+  nyheter: "News",
+  industri: "Industry",
+  ind_marknad: "Ind. Market",
 };
