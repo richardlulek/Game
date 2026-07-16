@@ -109,6 +109,10 @@ export function Gallery() {
                 ...state,
                 cash: -1_400_000,
                 receivership: { shortfall: 1_400_000, enteredAbs: state.year * 12 + state.month },
+                revolving: { limit: 2_000_000, used: 1_400_000 },
+                stocks: state.stocks.map((st, i) =>
+                  i === 0 ? { ...st, owned: 500 } : st,
+                ),
               }}
               dispatch={noop}
             />

@@ -810,7 +810,7 @@ export interface GameState {
   /** Pågående företagsrekonstruktion: spelet pausar och spelaren väljer
    *  vilka tillgångar som säljs (ReceivershipModal). Sätts av simulationen
    *  när kassan faller under konkursgolvet men bolaget inte är insolvent. */
-  receivership?: { shortfall: number; enteredAbs: number };
+  receivership?: { shortfall: number; enteredAbs: number; bridgeUsed?: boolean };
   /** Bankens efterkrav efter en löst rekonstruktion: tvångsamortering och
    *  strypt nyutlåning tills absolutmånaden untilAbs (se receivership.ts). */
   restructuringTerms?: { untilAbs: number };
@@ -969,5 +969,6 @@ export type GameAction =
   | { type: "RECEIVER_AUTO" }
   | { type: "RESOLVE_RECEIVERSHIP" }
   | { type: "ACCEPT_BANKRUPTCY" }
+  | { type: "BRIDGE_LOAN" }
   | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string; mode?: "story"; options?: InitOptions }
   | { type: "FOUND_NOTE"; id: string };

@@ -3,15 +3,18 @@
    till −25 % mot värde; lämnas beslutet till förvaltaren blir det −35 %.
    Mönster: AuctionModal (blockerande overlay driven av motor-tillstånd). */
 
+import { equityOf } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { propNOI } from "../engine/property";
 import {
+  BRIDGE_EQUITY_COVER,
   RECEIVERSHIP_BANK_HIT,
   RECEIVERSHIP_REP_HIT,
   RECEIVER_CHOICE_FACTOR,
   RESTRUCTURING_EXTRA_AMORT,
   RESTRUCTURING_LTV_PENALTY,
   RESTRUCTURING_MONTHS,
+  bridgeLoanQuote,
   canSellInReceivership,
   distressQuote,
 } from "../engine/receivership";
@@ -116,10 +119,13 @@ export function ReceivershipModal({
     .sort((a, b) => b.q.net - a.q.net);
   const anySellable = quotes.some((x) => x.sellable && x.q.net > 0);
 
-  // Övrig likviditet: revolverkredit och aktieinnehav.
+  // Övrig likviditet: brygglån, revolverkredit och aktieinnehav.
   const revAvail = state.revolving ? state.revolving.limit - state.revolving.used : 0;
   const holdings = state.stocks.filter((s) => s.owned > 0 && s.competitorName !== "__player__");
   const holdingsValue = holdings.reduce((a, s) => a + s.owned * s.price, 0);
+  const bridge = bridgeLoanQuote(state);
+  const bridgeAvailable = !solvent && !rc.bridgeUsed && bridge.amount > 0;
+  const bridgeCovered = equityOf(state) >= bridge.amount * BRIDGE_EQUITY_COVER;
 
   // Framsteg mot noll: hur stor del av det ursprungliga underskottet som är täckt.
   const progress = state.cash >= 0 ? 1 : Math.max(0, 1 - -state.cash / rc.shortfall);
@@ -195,9 +201,27 @@ export function ReceivershipModal({
         ))}
 
         {/* Övrig likviditet */}
-        {(revAvail > 0 || holdings.length > 0) && (
+        {(bridgeAvailable || revAvail > 0 || holdings.length > 0) && (
           <div style={{ fontFamily: FONTS.heading, fontWeight: 800, fontSize: 13, margin: "12px 0 6px", color: "#5a4a3a" }}>
             OTHER LIQUIDITY
+          </div>
+        )}
+        {bridgeAvailable && (
+          <div style={{ ...R.row, opacity: bridgeCovered ? 1 : 0.6 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>🏦 Bridge loan — keep the buildings</div>
+              <div style={{ fontSize: 12, color: "#6a6250" }}>
+                {msek(bridge.amount)} at <strong>{bridge.rate.toFixed(2)}%/yr punitive interest</strong>, due in {bridge.months} mo ·
+                requires {BRIDGE_EQUITY_COVER}× equity coverage{bridgeCovered ? "" : " — your equity is too thin"} · once per crisis
+              </div>
+            </div>
+            <button
+              style={{ ...R.sellBtn, background: bridgeCovered ? "#1a4a7a" : "#b9ae90", cursor: bridgeCovered ? "pointer" : "default" }}
+              disabled={!bridgeCovered}
+              onClick={() => dispatch({ type: "BRIDGE_LOAN" })}
+            >
+              Borrow {msek(bridge.amount)}
+            </button>
           </div>
         )}
         {revAvail > 0 && (

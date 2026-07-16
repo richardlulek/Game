@@ -23,9 +23,11 @@ import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, distri
 import { kr, msek, pct } from "./format";
 import {
   BANKRUPTCY_FLOOR,
+  BRIDGE_EQUITY_COVER,
   RECEIVER_CHOICE_FACTOR,
   RESTRUCTURING_MONTHS,
   applyDistressSale,
+  bridgeLoanQuote,
   canSellInReceivership,
   distressQuote,
   imposeRestructuringTerms,
@@ -2726,6 +2728,30 @@ export function reducer(state: GameState, action: GameAction): GameState {
         receivership: undefined,
         gameOver: true,
         log: [{ t: "💥 BANKRUPTCY: you chose to fold the company rather than sell it off piece by piece. The game is over.", kind: "warn" }, ...state.log],
+      };
+    }
+    case "BRIDGE_LOAN": {
+      // Dyr nödfinansiering: rädda husen genom att låna sig ur krisen till
+      // straffränta. En gång per rekonstruktion, och banken kräver att eget
+      // kapital täcker lånet (BRIDGE_EQUITY_COVER×) – annars är det bara
+      // ett sätt att skjuta upp konkursen.
+      if (!state.receivership) return state;
+      if (state.receivership.bridgeUsed)
+        return log(state, "The bank has already extended one bridge loan — there will not be another.", "warn");
+      const quote = bridgeLoanQuote(state);
+      if (quote.amount <= 0) return state;
+      if (equityOf(state) < quote.amount * BRIDGE_EQUITY_COVER)
+        return log(state, `The bank demands ${BRIDGE_EQUITY_COVER}× equity coverage for a bridge loan of ${msek(quote.amount)} — your equity is too thin. Sell instead.`, "warn");
+      const bridge = { id: `bridge-${state.year * 12 + state.month}`, amount: quote.amount, rate: quote.rate, matureAbs: state.year * 12 + state.month + quote.months };
+      return {
+        ...state,
+        cash: state.cash + quote.amount,
+        bonds: [...(state.bonds ?? []), bridge],
+        receivership: { ...state.receivership, bridgeUsed: true },
+        log: [
+          { t: `🏦 Bridge loan: ${msek(quote.amount)} at ${quote.rate.toFixed(2)}%/yr punitive interest, due in ${quote.months} months. The buildings stay — the bill arrives monthly.`, kind: "expense" },
+          ...state.log,
+        ],
       };
     }
     case "UPGRADE_COMPANY": {

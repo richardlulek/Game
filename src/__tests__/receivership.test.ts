@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { amortInfoOf, loanTerms } from "../engine/finance";
 import { propMarketValue } from "../engine/property";
 import {
+  BRIDGE_RATE_SPREAD,
   RECEIVER_AUTO_FACTOR,
   RECEIVER_CHOICE_FACTOR,
   RESTRUCTURING_EXTRA_AMORT,
   RESTRUCTURING_MONTHS,
+  bridgeLoanQuote,
   distressQuote,
   isInsolvent,
   maxRaisable,
@@ -121,6 +123,47 @@ describe("RESOLVE_RECEIVERSHIP & ACCEPT_BANKRUPTCY", () => {
     const next = reducer(crisisState(), { type: "ACCEPT_BANKRUPTCY" });
     expect(next.gameOver).toBe(true);
     expect(next.receivership).toBeUndefined();
+  });
+});
+
+describe("BRIDGE_LOAN (dyr nödfinansiering)", () => {
+  it("lånar underskott + buffert till straffränta som en obligation", () => {
+    const s = crisisState(); // hus värt ~38 MSEK → eget kapital täcker gott
+    const quote = bridgeLoanQuote(s);
+    expect(quote.amount).toBeGreaterThanOrEqual(-s.cash); // täcker underskottet
+    expect(quote.rate).toBe(s.interestRate + BRIDGE_RATE_SPREAD);
+    const next = reducer(s, { type: "BRIDGE_LOAN" });
+    expect(next.cash).toBe(s.cash + quote.amount);
+    expect(next.cash).toBeGreaterThan(0); // ur krisen utan att sälja
+    expect(next.bonds?.length).toBe(1);
+    expect(next.bonds![0].rate).toBe(quote.rate);
+    expect(next.receivership?.bridgeUsed).toBe(true);
+    expect(next.portfolio.length).toBe(1); // husen kvar
+  });
+
+  it("bara ETT brygglån per rekonstruktion", () => {
+    const s = crisisState();
+    const once = reducer(s, { type: "BRIDGE_LOAN" });
+    // Simulera att kassan dyker igen med lånet redan draget.
+    const again = reducer({ ...once, cash: -500_000 }, { type: "BRIDGE_LOAN" });
+    expect(again.bonds?.length).toBe(1); // ingen andra obligation
+  });
+
+  it("nekas när eget kapital inte täcker lånet (1,5×)", () => {
+    // Litet hus + stor skuld → tunt eget kapital.
+    const tiny = makeProperty({ id: 1, tenants: [], area: 120, baseRent: 10_000, askPrice: 200_000 });
+    const s = makeState({
+      portfolio: [tiny], cash: -5_000_000, debt: 30_000_000,
+      receivership: { shortfall: 5_000_000, enteredAbs: 13 },
+    });
+    const next = reducer(s, { type: "BRIDGE_LOAN" });
+    expect(next.bonds ?? []).toHaveLength(0);
+    expect(next.receivership?.bridgeUsed).toBeFalsy();
+  });
+
+  it("no-op utan aktiv rekonstruktion", () => {
+    const s = makeState({ cash: -200_000 });
+    expect(reducer(s, { type: "BRIDGE_LOAN" })).toBe(s);
   });
 });
 

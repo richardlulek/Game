@@ -38,6 +38,32 @@ export const RESTRUCTURING_EXTRA_AMORT = 0.02;
 /** Nyutlåningen stryps: maxbelåningsgraden sänks med 10 pp. */
 export const RESTRUCTURING_LTV_PENALTY = 0.10;
 
+/* ── Brygglån: dyr nödfinansiering i stället för att sälja ────────── */
+/** Straffpåslag i procentenheter ovanpå styrräntan. */
+export const BRIDGE_RATE_SPREAD = 8;
+/** Löptid i månader (förfaller via obligationsmaskineriet). */
+export const BRIDGE_MONTHS = 24;
+/** Banken kräver att eget kapital täcker lånet med denna faktor. */
+export const BRIDGE_EQUITY_COVER = 1.5;
+
+export interface BridgeLoanQuote {
+  /** Lånebelopp: täcker underskottet + 25 % buffert (avrundat 100 k). */
+  amount: number;
+  /** Straffränta: styrränta + BRIDGE_RATE_SPREAD. */
+  rate: number;
+  months: number;
+}
+
+/** Brygglåneoffert i krisen (amount 0 när kassan redan är ≥ 0). */
+export function bridgeLoanQuote(state: GameState): BridgeLoanQuote {
+  const amount = state.cash < 0 ? Math.ceil((-state.cash * 1.25) / 100_000) * 100_000 : 0;
+  return {
+    amount,
+    rate: +(state.interestRate + BRIDGE_RATE_SPREAD).toFixed(2),
+    months: BRIDGE_MONTHS,
+  };
+}
+
 /** Är bolaget under bankens rekonstruktionsvillkor just nu? */
 export function underRestructuringTerms(state: GameState): boolean {
   const until = state.restructuringTerms?.untilAbs;
