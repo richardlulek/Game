@@ -661,7 +661,7 @@ export default function FastighetsImperium() {
               case "districts": return <DistrictPanel state={state} dispatch={dispatch} />;
               case "calendar": return <ContractCalendar state={state} />;
               case "tenants": return <TenantPanel state={state} dispatch={dispatch} />;
-              case "nyheter": return <NewsFeedPanel state={state} />;
+              case "nyheter": return <NewsFeedPanel state={state} onBuyPr={() => dispatch({ type: "BUY_PR" })} />;
               case "statistik": return <StatsPanel state={state} />;
               case "industri": return <IndustryPanel state={state} dispatch={dispatch} />;
               case "ind_marknad": return <IndustryMarket state={state} dispatch={dispatch} />;

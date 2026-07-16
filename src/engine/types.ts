@@ -799,6 +799,13 @@ export interface GameState {
   prevEquity?: number;
   insuranceCost?: number;
   marketCycle?: MarketCycle;
+  /** Absolutmånad (år*12+månad) då senaste PR-kampanjen köptes – cooldown. */
+  lastPrMonth?: number;
+  /** Avklingande "presstemperatur": höjs vid vräkningar/stora hyreshöjningar,
+   *  faller långsamt varje månad. Driver risken för en skandalhändelse. */
+  pressHeat?: number;
+  /** Absolutmånad då senaste skandalen bröt ut – cooldown mot nästa. */
+  lastScandalMonth?: number;
   pendingRenewals?: PendingRenewal[];
   totalTaxPaid?: number;
   tutorialDismissed?: boolean;
@@ -911,6 +918,7 @@ export type GameAction =
   | { type: "LOAD"; state: GameState }
   | { type: "SET_COMPANY_NAME"; name: string }
   | { type: "UPGRADE_COMPANY" }
+  | { type: "BUY_PR" }
   | { type: "START_RENOVATION"; id: number; kind: RenovationKind; targetCapacity?: number }
   | { type: "REDEVELOP"; id: number }
   | { type: "SET_ASK_RENT"; id: number; pct: number }

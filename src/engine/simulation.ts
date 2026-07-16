@@ -29,6 +29,7 @@ import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
+import { makeScandal, scandalRisk } from "./newsroom";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
   ACTIVIST_TAKEOVER_AT,
@@ -1989,9 +1990,30 @@ export function advanceMonth(state: GameState): GameState {
   // Råvarupris/byggkostnad mjukt tillbaka mot normalt
   s.buildCostMod = +(((s.buildCostMod ?? 1) * 0.85 + 0.15)).toFixed(3);
 
+  // ── Presstemperatur svalnar ─────────────────────────────────────
+  // Mediestormen efter vräkningar/hyreshöjningar klingar av med tiden.
+  if ((s.pressHeat ?? 0) > 0) s.pressHeat = Math.max(0, +((s.pressHeat ?? 0) - 1).toFixed(2));
+
+  // ── Skandalhändelse ─────────────────────────────────────────────
+  // När tidningen vänder sig mot dig (många vräkningar, tomma hus eller
+  // marknadsdominans) kan en skandal bryta ut. Egen cooldown så den inte
+  // återkommer varje månad, och aldrig ovanpå ett redan väntande beslut.
+  const nowAbsScandal = s.year * 12 + s.month;
+  const scandalCd = s.lastScandalMonth == null || nowAbsScandal - s.lastScandalMonth >= 10;
+  if ((!s.story || s.story.done) && !s.pendingDecision && scandalCd) {
+    // Skalas ned till en per-månad-sannolikhet (topp ~15 % vid full risk).
+    if (random01() < scandalRisk(s) * 0.2) {
+      const scandal = makeScandal(s);
+      s.pendingDecision = scandal;
+      s.lastScandalMonth = nowAbsScandal;
+      s.pressHeat = 0; // stormen bryter ut – temperaturen nollställs.
+      events.push({ t: `📰 Scandal: ${scandal.title}`, kind: "warn" });
+    }
+  }
+
   // ── Beslutshändelse (~6 %) ──────────────────────────────────────
   // Under berättelseläget står kampanjen för besluten – slumpen väntar.
-  if ((!s.story || s.story.done) && random01() < 0.06) {
+  if ((!s.story || s.story.done) && !s.pendingDecision && random01() < 0.06) {
     const decision = makeDecision(s);
     s.pendingDecision = decision;
     events.push({ t: `🤔 Decision required: ${decision.title}`, kind: "event" });

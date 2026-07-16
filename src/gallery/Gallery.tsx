@@ -97,7 +97,7 @@ export function Gallery() {
         <Section id="g-acquisition" title="Acquisition" width={640}>{<AcquisitionPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-contracts" title="Kontraktskalender" width={640}>{<ContractCalendar state={state} />}</Section>
         <Section id="g-milestones" title="Milstolpar">{<MilestonesPanel state={state} />}</Section>
-        <Section id="g-news" title="News feed" width={520}>{<NewsFeedPanel state={state} />}</Section>
+        <Section id="g-news" title="News feed" width={520}>{<NewsFeedPanel state={state} onBuyPr={() => {}} />}</Section>
         <Section id="g-statements" title="Bokslut" width={640}>{<FinancialStatements state={state} />}</Section>
       </div>
     </div>

@@ -2,7 +2,8 @@
    marknadsprognos och artikelnavigering. */
 
 import { describe, expect, it } from "vitest";
-import { articleTarget, editorNotes, marketForecast, upcomingHeadlines } from "../engine/newsroom";
+import { articleTarget, editorNotes, makeScandal, marketForecast, scandalRisk, upcomingHeadlines } from "../engine/newsroom";
+import { reducer } from "../engine/reducer";
 import type { LogEntry } from "../engine/types";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 
@@ -105,6 +106,59 @@ describe("upcomingHeadlines", () => {
     const s = makeState({ districtDev: { centrum: 1.07 } });
     const item = upcomingHeadlines(s).find((u) => u.id === "trend-centrum");
     expect(item).toBeDefined();
+  });
+});
+
+describe("scandalRisk & makeScandal", () => {
+  it("ger noll risk för ett sunt, tomt bolag", () => {
+    expect(scandalRisk(makeState())).toBe(0);
+  });
+
+  it("hög presstemperatur ger en hyresgästskandal", () => {
+    const s = makeState({ pressHeat: 20 });
+    expect(scandalRisk(s)).toBeGreaterThan(0.5);
+    expect(makeScandal(s).title).toMatch(/tenants/i);
+  });
+
+  it("hög vakans ger en vanvårdsskandal", () => {
+    const p = makeProperty({ capacity: 10, tenants: [] });
+    const s = makeState({ portfolio: [p] });
+    expect(scandalRisk(s)).toBeGreaterThan(0);
+    expect(makeScandal(s).title.toLowerCase()).toContain("rot");
+  });
+
+  it("skalar skandalkostnaderna med bolagsnivå", () => {
+    const s = makeState({ pressHeat: 20, companyLevel: 3 });
+    const d = makeScandal(s);
+    // Alternativ 0 = dementi, 1 = PR-byrå: större bolag → dyrare.
+    expect(d.options[0].effect.cash).toBe(-360_000); // 120k * 3
+    expect(d.options[1].effect.cash).toBe(-1_200_000); // 400k * 3
+    expect(d.options[2].effect.reputation).toBe(-8); // ignorera
+  });
+});
+
+describe("BUY_PR", () => {
+  it("höjer ryktet mot kassan och sätter cooldown", () => {
+    const s = makeState({ cash: 5_000_000, reputation: 50, companyLevel: 1 });
+    const s1 = reducer(s, { type: "BUY_PR" });
+    expect(s1.cash).toBe(4_750_000); // −250k
+    expect(s1.reputation).toBe(54); // +4
+    expect(s1.lastPrMonth).toBe(s.year * 12 + s.month);
+  });
+
+  it("nekar en ny kampanj inom cooldown", () => {
+    const s = makeState({ cash: 5_000_000 });
+    const s1 = reducer(s, { type: "BUY_PR" });
+    const s2 = reducer(s1, { type: "BUY_PR" });
+    expect(s2.cash).toBe(s1.cash); // ingen debitering
+    expect(s2.reputation).toBe(s1.reputation);
+  });
+
+  it("nekar när kassan inte räcker", () => {
+    const s = makeState({ cash: 100_000 });
+    const s1 = reducer(s, { type: "BUY_PR" });
+    expect(s1.cash).toBe(100_000);
+    expect(s1.lastPrMonth).toBeUndefined();
   });
 });
 

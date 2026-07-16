@@ -581,6 +581,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash - buyout,
         reputation: Math.max(0, state.reputation - repHit),
+        // Vräkningar värmer pressen – bostadsvräkningar mest.
+        pressHeat: Math.min(20, (state.pressHeat ?? 0) + (residential ? 2 : 1)),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
         ),
@@ -907,6 +909,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...markNegotiated(state),
         reputation: Math.max(0, state.reputation - 1),
+        // En avvisad höjning som driver ut en hyresgäst göder mediestormen.
+        pressHeat: Math.min(20, (state.pressHeat ?? 0) + (action.increasePercent >= 20 ? 2 : 1)),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
         ),
@@ -1988,6 +1992,33 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ownerLuxuries: [...(state.ownerLuxuries ?? []), lux.id],
         reputation: Math.min(100, state.reputation + (lux.reputation ?? 0)),
         log: [{ t: `${lux.icon} ${lux.name} — ${lux.desc}`, kind: "event" }, ...state.log],
+      };
+    }
+    case "BUY_PR": {
+      // Köp en välvillig artikel / annons: bolagets kassa mot ryktesvinst.
+      // Kostnaden skalar med bolagets storlek (större koncern → dyrare
+      // kampanj) och en cooldown hindrar att ryktet köps upp på nolltid.
+      const level = state.companyLevel ?? 1;
+      const cost = Math.round(250_000 * level);
+      const COOLDOWN = 6;
+      const abs = state.year * 12 + state.month;
+      if (state.lastPrMonth != null && abs - state.lastPrMonth < COOLDOWN) {
+        const wait = COOLDOWN - (abs - state.lastPrMonth);
+        return log(state, `The press was courted only recently — a fresh campaign lands flat for another ${wait} month${wait === 1 ? "" : "s"}.`, "warn");
+      }
+      if (state.cash < cost)
+        return log(state, `A press campaign costs ${msek(cost)} — the account is short.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cost,
+        reputation: Math.min(100, state.reputation + 4),
+        lastPrMonth: abs,
+        // En kampanj dämpar också en pågående mediestorm.
+        pressHeat: Math.max(0, (state.pressHeat ?? 0) - 2),
+        log: [
+          { t: `📰 Commissioned a flattering feature in The Property Post — reputation +4 (${msek(cost)}).`, kind: "event" },
+          ...state.log,
+        ],
       };
     }
     case "BUY_AMBIENT": {

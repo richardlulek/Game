@@ -11,6 +11,8 @@ import { RivalCard } from "./RivalCard";
 
 interface Props {
   state: GameState;
+  /** Köp en välvillig artikel (BUY_PR). Utelämnad = knappen döljs (galleriet). */
+  onBuyPr?: () => void;
 }
 
 const HEADLINE_KINDS = new Set(["event", "warn", "income", "buy", "sell"]);
@@ -39,7 +41,7 @@ const ink = "#1a0a00";
 const sepia = "#6a4a00";
 const rule = "#2a1a00";
 
-export function NewsFeedPanel({ state }: Props) {
+export function NewsFeedPanel({ state, onBuyPr }: Props) {
   const { month, year, log } = state;
   const select = useUiStore((s) => s.select);
   const requestFocus = useUiStore((s) => s.requestFocus);
@@ -76,6 +78,14 @@ export function NewsFeedPanel({ state }: Props) {
   const forecast = marketForecast(state);
   const notes = editorNotes(state).slice(0, 2);
   const upcoming = upcomingHeadlines(state);
+
+  // Köp-PR-knapp: kostnad skalar med bolagsnivå; cooldown 6 mån (speglar reducern).
+  const prLevel = state.companyLevel ?? 1;
+  const prCost = 250_000 * prLevel;
+  const prAbs = year * 12 + month;
+  const prCooldownLeft = state.lastPrMonth != null ? Math.max(0, 6 - (prAbs - state.lastPrMonth)) : 0;
+  const prDisabled = prCooldownLeft > 0 || state.cash < prCost;
+  const prCostLabel = `${(prCost / 1e6).toLocaleString("en-US", { maximumFractionDigits: 1 })} MSEK`;
 
   const Kicker = ({ e }: { e: LogEntry }) => (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "baseline", fontSize: 9.5, letterSpacing: 2, fontWeight: 800 }}>
@@ -223,6 +233,37 @@ export function NewsFeedPanel({ state }: Props) {
                 <strong style={{ fontStyle: "normal", color: sepia }}>Forecast: </strong>{forecast}
               </div>
             </div>
+
+            {/* Advertise — commission a flattering feature (BUY_PR) */}
+            {onBuyPr && (
+              <div style={{ marginBottom: 14 }}>
+                <button
+                  onClick={() => !prDisabled && onBuyPr()}
+                  disabled={prDisabled}
+                  title={
+                    prCooldownLeft > 0
+                      ? `The press was just courted — wait ${prCooldownLeft} more month${prCooldownLeft === 1 ? "" : "s"}.`
+                      : state.cash < prCost
+                        ? "Not enough cash for a campaign."
+                        : "Buy a flattering feature — reputation +4."
+                  }
+                  style={{
+                    width: "100%", cursor: prDisabled ? "not-allowed" : "pointer",
+                    fontFamily: FONTS.heading, fontWeight: 800, fontSize: 11, letterSpacing: 0.5,
+                    padding: "8px 10px", borderRadius: 3,
+                    border: `1px solid ${rule}`, color: prDisabled ? "#9a8555" : "#f4ecd6",
+                    background: prDisabled ? "#d9cba0" : "#5a3a00",
+                  }}
+                >
+                  {prCooldownLeft > 0
+                    ? `📰 Press courted · ${prCooldownLeft} mo`
+                    : `📰 Place a feature · ${prCostLabel}`}
+                </button>
+                <div style={{ fontSize: 9.5, color: sepia, textAlign: "center", marginTop: 3, fontStyle: "italic" }}>
+                  Reputation +4 · once per 6 months
+                </div>
+              </div>
+            )}
 
             {/* Upcoming — known-ahead events, click to focus the district */}
             {upcoming.length > 0 && (

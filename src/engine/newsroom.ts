@@ -10,8 +10,11 @@ import { DISTRICTS } from "./data";
 import { districtTier, nextDistrictTier } from "./districtTiers";
 import { esgRatingOf } from "./esg";
 import { equityOf, loanTerms, ltvOf } from "./finance";
+import { msek } from "./format";
 import { orgLoadOf } from "./company";
-import type { GameState, LogEntry } from "./types";
+import { DOMINANCE_REVIEW_SHARE, districtShareOf } from "./lateGame";
+import type { GameState, PendingDecision } from "./types";
+import type { LogEntry } from "./types";
 
 /** En redaktionell notis: kort handlingsinriktad prosa med ett navmål. */
 export interface EditorNote {
@@ -299,4 +302,106 @@ export function marketForecast(state: GameState): string {
   if (rising) return "Sentiment is firming — a warmer market may be forming.";
   if (falling) return "Sentiment is softening; expect a cooler few months.";
   return "A steady market — no turn on the horizon.";
+}
+
+/* ── Skandaler: när tidningen vänder sig mot dig ──────────────────── */
+
+type ScandalKind = "tenants" | "vacancy" | "dominance";
+
+/** Genomsnittlig hyresgästnöjdhet över hela beståndet (0 om tomt). */
+function avgSatisfaction(state: GameState): number {
+  const tenants = state.portfolio.flatMap((p) => p.tenants);
+  if (tenants.length === 0) return 100;
+  return tenants.reduce((a, t) => a + (t.satisfaction ?? 60), 0) / tenants.length;
+}
+
+/** Den starkaste skandalsignalen just nu, med en 0–1-vikt. */
+function scandalSignal(state: GameState): { kind: ScandalKind; weight: number } {
+  // Presstemperatur (vräkningar/hyreshöjningar) väger tyngst.
+  const heat = (state.pressHeat ?? 0) / 20;
+  const vac = portfolioVacancy(state);
+  const share = Math.max(0, ...DISTRICTS.map((d) => districtShareOf(state, d.id)));
+  const sat = avgSatisfaction(state);
+
+  const tenantsW = Math.min(1, heat * 0.8 + (sat < 45 ? 0.25 : 0));
+  const vacancyW = vac > 0.28 ? Math.min(1, (vac - 0.28) * 2.2) : 0;
+  const dominanceW = share >= DOMINANCE_REVIEW_SHARE ? Math.min(1, (share - DOMINANCE_REVIEW_SHARE) * 2 + 0.3) : 0;
+
+  const ranked = ([
+    { kind: "tenants", weight: tenantsW },
+    { kind: "vacancy", weight: vacancyW },
+    { kind: "dominance", weight: dominanceW },
+  ] as { kind: ScandalKind; weight: number }[]).sort((a, b) => b.weight - a.weight);
+  return ranked[0];
+}
+
+/** Sammanlagd skandalrisk 0–1 – simuleringen jämför mot en tröskel. */
+export function scandalRisk(state: GameState): number {
+  return scandalSignal(state).weight;
+}
+
+/**
+ * Skandalhistoria: bygger ett PendingDecision (serialiserbara effekter) med
+ * tre utvägar — dementera billigt, köpa in en PR-byrå dyrt, eller strunta i
+ * det och ta ryktesfallet. Flavor väljs efter den starkaste signalen.
+ * Kostnaderna skalar med bolagets storlek. Ren funktion, ingen RNG.
+ */
+export function makeScandal(state: GameState): PendingDecision {
+  const { kind } = scandalSignal(state);
+  const level = state.companyLevel ?? 1;
+  const statementCost = Math.round(120_000 * level);
+  const prCost = Math.round(400_000 * level);
+
+  const flavor: Record<ScandalKind, { title: string; text: string }> = {
+    tenants: {
+      title: "Tenants go to the press",
+      text: "The Property Post runs a front-page story: evicted families and steep rent hikes across your buildings. The city is talking, and not kindly.",
+    },
+    vacancy: {
+      title: "“Landlord lets it rot”",
+      text: "A reporter counts the dark windows in your portfolio and calls you a warehouser of empty homes while the city needs housing. The photos are damning.",
+    },
+    dominance: {
+      title: "Competition watchdog circles",
+      text: "Commentators warn that one company now controls too much of a district. The Property Post asks whether it is time regulators stepped in.",
+    },
+  };
+
+  const f = flavor[kind];
+  return {
+    id: "scandal",
+    title: f.title,
+    text: f.text,
+    options: [
+      {
+        label: `Issue a statement (${msek(statementCost)})`,
+        detail: `−${msek(statementCost)} · reputation −2`,
+        effect: {
+          cash: -statementCost,
+          reputation: -2,
+          log: "Issued a measured statement — the story loses some of its sting.",
+          logKind: "warn",
+        },
+      },
+      {
+        label: `Hire a PR firm (${msek(prCost)})`,
+        detail: `−${msek(prCost)} · reputation +1`,
+        effect: {
+          cash: -prCost,
+          reputation: 1,
+          log: "A PR firm reframed the story — the campaign all but erases the damage.",
+          logKind: "info",
+        },
+      },
+      {
+        label: "Ignore it",
+        detail: "reputation −8",
+        effect: {
+          reputation: -8,
+          log: "Let the scandal run its course — the city remembers.",
+          logKind: "warn",
+        },
+      },
+    ],
+  };
 }
