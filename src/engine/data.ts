@@ -371,6 +371,6 @@ export const TENANT_NAMES: Record<string, string[]> = {
   stat: ["Tax Authority", "Social Insurance Office", "Land Registry", "Employment Agency", "Migration Board"],
   kedja: ["Corner Grocer", "Espresso House", "City Pharmacy", "Liquor Store", "Handy Hardware", "News Kiosk", "Home Textiles"],
   smb: ["Café Fortune", "Berg & Co Accounting", "Northside Dental", "Studio Form", "Pagina Bookshop", "Saxon Hair Salon"],
-  privat: ["The Anderson Family", "The Lindqvist Family", "Erik & Sofia", "The Öberg Family", "The Holm Family"],
+  privat: ["The Anderson Family", "The Lindquist Family", "Eric & Sophie", "The Oberg Family", "The Holm Family"],
   startup: ["Pixelplay Inc", "Greenmile Tech", "Fjord Analytics", "Loopa", "Nordbyte", "Tindra Studio"],
 };

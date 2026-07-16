@@ -7,11 +7,11 @@ import { C } from "../styles/tokens";
 
 /** Namnskylt under respektive porträtt. */
 const PORTRAIT_NAMES: Record<PortraitId, string> = {
-  morfar: "Morfar Gunnar",
-  ekelof: "Atty. Ekelöf",
-  rogge: "Rogge Flyt",
-  gosta: "Gösta",
-  ulla: "Ulla, Sparbanken",
+  morfar: "Grandpa Gordon",
+  ekelof: "Atty. Oakley",
+  rogge: "Rog Flint",
+  gosta: "Gus",
+  ulla: "Ruth, Oak Savings Bank",
 };
 
 const SEPIA_BG = "#e4d3b0";

@@ -316,7 +316,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p) return state;
       // Villkor 7b i morfars testamente: huset får inte säljas under kampanjen.
       if (p.storyTag === "arvet" && state.story && !state.story.done)
-        return log(state, "Clause 7b: Grandpa's house may not be sold. Ekelöf bills 900 kr for the reminder. (included)", "warn");
+        return log(state, "Clause 7b: Grandpa's house may not be sold. Oakley bills 900 kr for the reminder. (included)", "warn");
       const value = propMarketValue(p, state);
       const salePrice = Math.round(value * QUICK_SALE_FACTOR);
       const payoff = Math.min(state.debt, (p.purchasePrice || salePrice) * 0.6);

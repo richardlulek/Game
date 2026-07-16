@@ -112,10 +112,10 @@ describe("kampanjens kapitelflöde", () => {
     expect(s.story?.beat).toBe("hyresgasten");
     // Injecten gav skriptade ansökningar till huset.
     expect((heirloomOf(s)!.applications ?? []).length).toBeGreaterThanOrEqual(3);
-    expect((heirloomOf(s)!.applications ?? []).some((a) => a.tenant.name.includes("Likbål"))).toBe(true);
+    expect((heirloomOf(s)!.applications ?? []).some((a) => a.tenant.name.includes("Pyre"))).toBe(true);
 
     // Kapitel 2: 2 uthyrda lokaler.
-    const extraTenant = { ...heirloomOf(s)!.tenants[0], id: 999_001, name: "Margit + 14 katter" };
+    const extraTenant = { ...heirloomOf(s)!.tenants[0], id: 999_001, name: "Marge + 14 cats" };
     s = advanceStory({
       ...s,
       portfolio: s.portfolio.map((p) =>
@@ -156,7 +156,7 @@ describe("kampanjens kapitelflöde", () => {
     s = readLetters(s);
     expect(s.story?.beat).toBe("revanschen");
     // Rogge bjuder på grannhuset.
-    expect(s.competingBid?.rivalName).toContain("Flyt");
+    expect(s.competingBid?.rivalName).toContain("Flint");
     expect(s.listings.some((p) => p.storyTag === "revansch")).toBe(true);
 
     // Kapitel 7: vinn grannhuset.

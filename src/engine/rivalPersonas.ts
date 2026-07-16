@@ -20,7 +20,7 @@ export interface RivalPersona {
 export const RIVAL_PERSONAS: RivalPersona[] = [
   {
     company: "Nordhem Properties",
-    person: "Margit Nordhem",
+    person: "Margaret Nordhem",
     look: { hat: false, glasses: true, mustache: false, hair: "#d8d3c8", suit: "#3a4a5a", skin: "#e8c39e" },
     quotes: {
       budkrig: ["”I’ve been buying buildings since before you were born.”", "”Nordhem doesn’t back down.”"],
@@ -33,7 +33,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   },
   {
     company: "Brunnspark Invest",
-    person: "Casper Brunn",
+    person: "Caspar Brunn",
     look: { hat: false, glasses: false, mustache: false, hair: "#3a2c20", suit: "#20242c", skin: "#e3b58c" },
     quotes: {
       budkrig: ["”The math says you lose on this one.”", "”I’ll bid until your bank calls.”"],
@@ -46,7 +46,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   },
   {
     company: "Coastline Ltd",
-    person: "Maja Sjöberg",
+    person: "Maya Seaborg",
     look: { hat: true, glasses: false, mustache: false, hair: "#8a5a30", suit: "#2c4a56", skin: "#eec9a4" },
     quotes: {
       budkrig: ["”Everything by the water is mine. Everyone knows that.”"],
@@ -59,7 +59,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   },
   {
     company: "City Core Group",
-    person: "Henrik Stadig",
+    person: "Henry Stead",
     look: { hat: false, glasses: true, mustache: true, hair: "#4a4a4a", suit: "#40342a", skin: "#e0b795" },
     quotes: {
       budkrig: ["”Downtown without City Core? Unthinkable.”"],
@@ -72,7 +72,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   },
   {
     company: "Harborview Capital",
-    person: "Rio Hamnvik",
+    person: "Rio Harborwick",
     look: { hat: false, glasses: false, mustache: false, hair: "#1c1c1c", suit: "#5a2c3a", skin: "#c98d5f" },
     quotes: {
       budkrig: ["”I raise. I always raise.”", "”Your ceiling is my floor.”"],
@@ -98,7 +98,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
   },
   {
     company: "Lundqvist Properties",
-    person: "Sune Lundqvist",
+    person: "Sonny Lund",
     look: { hat: false, glasses: false, mustache: true, hair: "#7a5a3a", suit: "#3a4a3a", skin: "#e8bd96" },
     quotes: {
       budkrig: ["”I rebuilt the whole Suburbs with these hands.”"],
