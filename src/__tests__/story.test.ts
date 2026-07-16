@@ -167,9 +167,41 @@ describe("kampanjens kapitelflöde", () => {
     s = readLetters(s);
     expect(s.story?.beat).toBe("dynastin");
 
-    // Kapitel 8: nivå 3 + 20 MSEK eget kapital → epilog + morfars klocka.
+    // Kapitel 8: nivå 3 + 20 MSEK eget kapital → Kapitel 9.
     s = advanceStory({ ...s, companyLevel: 3, cash: 25_000_000 });
     expect(equityOf(s)).toBeGreaterThanOrEqual(20_000_000);
+    expect(s.story?.beat).toBe("uppgorelsen");
+
+    // Kapitel 9 (Uppgörelsen): brevet kedjar in en skandal; återställ ryktet till 60.
+    s = readLetters({ ...s, reputation: 65 });
+    expect(s.story?.beat).toBe("prestige");
+
+    // Kapitel 10 (Prestigehyresgästen): hus en notabel hyresgäst.
+    const withNotable = s.portfolio.map((p, i) =>
+      i === 0
+        ? {
+            ...p,
+            tenants: [
+              ...p.tenants,
+              {
+                id: 9001, profile: "notabel", name: "Meridian Capital", profileName: "Notable tenant",
+                quality: 1.3, defaultRisk: 0.004, monthsLeft: 60, termTotal: 60, rent: 50_000,
+                satisfaction: 72, notableId: "meridian",
+              },
+            ],
+          }
+        : p,
+    );
+    s = advanceStory({ ...s, portfolio: withNotable });
+    expect(s.story?.beat).toBe("fejden");
+    expect(s.pendingDecision?.id).toBe("story:brev_kap11");
+    // Rog är nu en RIKTIG konkurrent med nemesis-status.
+    expect(s.competitors.some((c) => c.name.includes("Flint"))).toBe(true);
+    expect(s.nemesis).toContain("Flint");
+
+    // Kapitel 11 (Fejden): väx förbi Rog → epilog + morfars klocka.
+    s = reducer(s, { type: "RESOLVE_DECISION", optionIndex: 0 });
+    s = advanceStory(s);
     expect(s.pendingDecision?.id).toBe("story:brev_epilog");
     expect(s.story?.done).toBe(true);
     expect(s.ownerLuxuries).toContain("morfarsklocka");
@@ -472,9 +504,9 @@ describe("karaktärsporträtt i breven", () => {
 });
 
 describe("kapitel-förstasidor", () => {
-  it("finns för exakt de fyra markanta kapitlen med komplett innehåll", () => {
+  it("finns för de markanta kapitlen med komplett innehåll", () => {
     expect(Object.keys(CHAPTER_FRONTS).sort()).toEqual(
-      ["banken", "hyresgasten", "renoveringen", "revanschen"],
+      ["banken", "fejden", "hyresgasten", "prestige", "renoveringen", "revanschen", "uppgorelsen"],
     );
     for (const front of Object.values(CHAPTER_FRONTS)) {
       expect(front.headline.length).toBeGreaterThan(5);
@@ -504,5 +536,31 @@ describe("advanceStory är idempotent", () => {
     const once = advanceStory(s);
     expect(once).toBe(s); // tidig-retur → samma referens
     expect(advanceStory(once)).toBe(once);
+  });
+});
+
+describe("nya system vävda in i kampanjen", () => {
+  it("ch2: Pyre-ansökan är en notabel hyresgäst (notableId)", () => {
+    let s = readLetters(storyStart());
+    // Spola till kapitel 2 (hyresgästen) så injecten lägger ut ansökningarna.
+    s = { ...s, story: { ...s.story!, beat: "hyresgasten", flags: [...s.story!.flags] } };
+    s = readLetters(advanceStory(s));
+    const house = heirloomOf(s)!;
+    const pyre = (house.applications ?? []).find((a) => a.tenant.name.includes("Pyre"));
+    expect(pyre).toBeDefined();
+    expect(pyre!.tenant.notableId).toBe("pyre");
+  });
+
+  it("ch4: bank_goodwill-flaggan lyfter bankrelationen", () => {
+    const s = applyStoryFlag(makeState(), "bank_goodwill");
+    expect(s.standing?.bank).toBeGreaterThan(0);
+  });
+
+  it("ch7: Rog blir din nemesis och får låg standing", () => {
+    let s = readLetters(storyStart());
+    s = { ...s, story: { ...s.story!, beat: "revanschen", flags: [...s.story!.flags] } };
+    s = advanceStory(s);
+    expect(s.nemesis).toContain("Flint");
+    expect(s.standing?.rivals?.[s.nemesis!]).toBeLessThan(0);
   });
 });

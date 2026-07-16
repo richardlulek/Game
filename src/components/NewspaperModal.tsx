@@ -1,5 +1,6 @@
-/* Tidningsförstasida som firar bolagets expansion – "STADSBLADET"
-   trycker en rubrik när spelarens bolag når en ny nivå. */
+/* Tidningsförstasida som firar bolagets expansion – "THE PROPERTY POST"
+   trycker en rubrik när spelarens bolag når en ny nivå. Samma tidning
+   som den funktionella nyhetspanelen (NewsFeedPanel) – en identitet. */
 
 import { tierForLevel } from "../engine/company";
 import { formatMonthYear } from "../engine/date";
@@ -103,7 +104,7 @@ export function NewspaperModal({
     <div style={N.overlay} onClick={onClose}>
       <div style={N.paper} onClick={(e) => e.stopPropagation()}>
         <div style={N.masthead}>
-          <div style={N.mastheadTitle}>THE CITY HERALD</div>
+          <div style={N.mastheadTitle}>THE PROPERTY POST</div>
         </div>
         <div style={N.dateline}>
           <span>{formatMonthYear(state.month, state.year)}</span>
@@ -128,7 +129,7 @@ export function NewspaperModal({
             "We've only just begun," says the company's founder in a comment, pointing
             toward the city center. Analysts note that the company has grown methodically through
             leasing, acquisitions and maintenance — and that the organization is now gearing up for
-            the next step. The City Herald has reached out to the competitors, who decline to
+            the next step. The Property Post has reached out to the competitors, who decline to
             comment on the upstart's advance. The tenants' association welcomes
             the news but reminds everyone of the responsibility that comes with a growing portfolio.
           </div>

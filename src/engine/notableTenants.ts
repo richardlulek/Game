@@ -34,6 +34,7 @@ export const NOTABLE_TENANTS: NotableTenant[] = [
   { id: "vireo",     name: "Vireo Studios",         kind: "industri", trait: "growth",   quality: 1.05, bio: "a booming game studio hungry for warehouse space" },
   { id: "aria",      name: "Aria Chamber Ensemble", kind: "bostad",   trait: "prestige", quality: 1.25, bio: "an acclaimed ensemble whose residency lends the block cachet" },
   { id: "kestrel",   name: "Kestrel & Vane",        kind: "kontor",   trait: "fickle",   quality: 1.20, bio: "a mercurial ad agency that chases the trendiest address" },
+  { id: "pyre",      name: "Pyre",                  kind: "bostad",   trait: "fickle",   quality: 1.10, bio: "a death-metal band that pays surprisingly well and rehearses surprisingly loud" },
 ];
 
 export function notableById(id: string | undefined): NotableTenant | undefined {

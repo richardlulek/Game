@@ -21,9 +21,12 @@ import { DISTRICT_ZONES, emptyParcels } from "./city";
 import { equityOf, loanTerms } from "./finance";
 import { kr, msek } from "./format";
 import { absMonth, builtYearFor, energyClassFor, genListing } from "./generators";
+import { makeScandal } from "./newsroom";
 import { newId } from "./random";
+import { adjustStanding } from "./standing";
 import type {
   Application,
+  Competitor,
   GameState,
   PendingDecision,
   Property,
@@ -178,6 +181,42 @@ export const STORY_BEATS: StoryBeat[] = [
     ],
     hint: "More properties, kept rented, and reasonable leverage. Grandpa had patience – so should you.",
   },
+  {
+    id: "uppgorelsen",
+    chapter: 9,
+    title: "The Reckoning",
+    letterId: "brev_kap9",
+    objectives: [
+      { text: "Weather the scandal and restore your reputation to 60", check: (s) => s.reputation >= 60 },
+    ],
+    hint: "A press campaign in the News window and treating tenants well both lift reputation. The city is watching now.",
+  },
+  {
+    id: "prestige",
+    chapter: 10,
+    title: "The Prestige Tenant",
+    letterId: "brev_kap10",
+    objectives: [
+      { text: "Land a notable tenant in one of your buildings", check: (s) => s.portfolio.some((p) => p.tenants.some((t) => t.notableId)) },
+    ],
+    hint: "Keep a well-kept building of the right type with a free unit – the city's notable names seek out good landlords with a strong Tenant Score.",
+  },
+  {
+    id: "fejden",
+    chapter: 11,
+    title: "The Feud",
+    letterId: "brev_kap11",
+    objectives: [
+      {
+        text: "Out-grow Rog Flint decisively",
+        check: (s) => {
+          const rog = s.competitors.find((c) => c.name === ROGGE);
+          return !rog || equityOf(s) >= rog.equity * 1.4;
+        },
+      },
+    ],
+    hint: "Rog is back with cash and a grudge. Grow your equity well past his – build, lease, and keep the bank on your side.",
+  },
 ];
 
 export const beatById = (id: string): StoryBeat | undefined =>
@@ -312,7 +351,8 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
       "”Tenants are like weather – you don't get to choose, but you can dress for it. " +
       "Now that the house looks habitable, APPLICATIONS will come. Open the property card: there you see what they want to pay, how reliable they are (quality) " +
       "and the risk they suddenly 'forget' the rent (risk). Lease length is a trade-off: short leases give freedom, long ones give a good night's sleep. " +
-      "And don't listen to people who want to pay in 'exposure'. I'd rather die. Literally, as you know.”",
+      "And one more thing: happy tenants build your TENANT SCORE — a public grade the whole city reads in the paper (the News window sits on your desk from day one). " +
+      "Treat people right and it pays back in reputation. And don't listen to those who want to pay in 'exposure'. I'd rather die. Literally, as you know.”",
     options: [
       {
         label: "Open the applications",
@@ -331,6 +371,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
       "”Sooner or later you have to talk rent, and then everyone suddenly becomes an expert. " +
       "Raise it too much and they move out. Raise it moderately and they grumble but stay – the grumbling is included, it's how we socialize in this country. " +
       "Lower it if you want someone to stay a long time, and extend leases that are expiring before they get to think freely. " +
+      "But mind the mood: squeeze too hard and tenants storm off, your TENANT SCORE drops, and the paper notices before your accountant does. " +
       "Warning: one of your tenants will mention their brother-in-law Kevin 'at the rent tribunal'. Kevin works in the kiosk NEXT TO the rent tribunal. Stand firm.”",
     options: [
       {
@@ -350,12 +391,14 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
       "Ruth has worked at the bank since punch cards. She studies you over her glasses: " +
       "”Well. Gordon's grandchild. He kept his money in the freezer, did you know that? We TALKED about it.” " +
       "She slides a calculation forward: ”Here's how it works: you pay a DOWN PAYMENT in cash, the bank lends the rest up to a certain share of the price – that's called LTV. " +
-      "Then you AMORTIZE. There's an estate in the area that wants to sell fast – the heirs live in Spain and get nervous about weather below 25 degrees. The price is... decent.”",
+      "Then you AMORTIZE. And listen closely, because Gordon never did: the RELATIONSHIP matters. Pay on time, keep your house in order, " +
+      "and our standing with each other grows – which quietly buys you a cheaper spread and a little more leverage. Burn us, and it goes the other way. " +
+      "There's an estate in the area that wants to sell fast – the heirs live in Spain and get nervous about weather below 25 degrees. The price is... decent.”",
     options: [
       {
         label: "Take the loan pledge and go to the Market",
-        detail: "Goal: buy property number two",
-        effect: { log: "Chapter 4: The Bank. Ruth has arranged a loan pledge – the estate is on the Market.", logKind: "event" },
+        detail: "Goal: buy property number two · Ruth opens a line of trust",
+        effect: { storyFlag: "bank_goodwill", log: "Chapter 4: The Bank. Ruth has arranged a loan pledge – and a first line of trust. The estate is on the Market.", logKind: "event" },
       },
     ],
   }),
@@ -448,6 +491,64 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
         label: "Frame the letter",
         detail: "Final goal: level 3 + 20 MSEK equity",
         effect: { reputation: 2, log: "Chapter 8: The Dynasty. Rog pivoted to padel. Your street remains – and your growing empire.", logKind: "event" },
+      },
+    ],
+  }),
+
+  /* Kapitel 9 – Uppgörelsen (skandal + standing) */
+  brev_kap9: () => ({
+    id: "story:brev_kap9",
+    portrait: "morfar",
+    title: "📜 Letter from Grandpa: About the spotlight",
+    text:
+      "”So you're somebody now. That's when the paper stops writing 'local heir does nice thing' and starts writing 'landlord'. " +
+      "One day a story breaks – maybe fair, maybe not – and the whole city has an opinion by lunch. " +
+      "You can dodge it, spend to fix it, or ride it out and take the hit. Reputation is a bank account you can't see the balance of until you overdraw it. " +
+      "Watch the paper, keep the tenants happy, and remember: the city forgives, but it Googles first.” — Grandpa",
+    options: [
+      {
+        label: "Face the music",
+        detail: "A story is breaking – the goal is to restore your name",
+        effect: { nextDecisionId: "kap9_skandal", log: "Chapter 9: The Reckoning. The city is watching now – and the presses are warm.", logKind: "event" },
+      },
+    ],
+  }),
+  /* Den skriptade skandalen återanvänder newsroom.makeScandal (samma modal/effekter). */
+  kap9_skandal: (s) => makeScandal(s),
+
+  /* Kapitel 10 – Prestigehyresgästen (notabla hyresgäster) */
+  brev_kap10: () => ({
+    id: "story:brev_kap10",
+    portrait: "morfar",
+    title: "📜 Letter from Grandpa: About the marquee names",
+    text:
+      "”There's a kind of tenant that's worth more than the rent they pay: a NAME. A restaurant everyone books, a firm everyone's heard of, a band the neighbors complain about with pride. " +
+      "They don't answer classified ads – they seek out landlords with a reputation for keeping things right. Keep a good building of the right sort with a room to spare, mind your Tenant Score, " +
+      "and one of the city's notables will come knocking. Land one and the whole block lifts. Gus, for the record, does not count as a marquee name. He knows. He's fine with it.” — Grandpa",
+    options: [
+      {
+        label: "Roll out the red carpet",
+        detail: "Goal: house a notable tenant",
+        effect: { log: "Chapter 10: The Prestige Tenant. The city's notable names are watching your buildings.", logKind: "event" },
+      },
+    ],
+  }),
+
+  /* Kapitel 11 – Fejden (rivalbågar: Rog återvänder) */
+  brev_kap11: () => ({
+    id: "story:brev_kap11",
+    portrait: "rogge",
+    title: "🕶️ Rog Flint returns – padel is over",
+    text:
+      "A familiar white BMW idles outside your office. Rog Flint steps out, tanned, furious, and holding a racket he snaps over his knee. " +
+      "”Padel was a PHASE, heir. I sold the courts, I cashed out, and I'm back for the hill. Flint Properties, act two. " +
+      "This time I've got real money and a real grudge. May the best portfolio win – it'll be mine, obviously, I have a driver's license AND a pool AGAIN.” " +
+      "This is the showdown Grandpa saw coming. Bury him in the only language Rog understands: equity.",
+    options: [
+      {
+        label: "Let's finish this, Rog.",
+        detail: "Final goal: out-grow Rog Flint's empire decisively",
+        effect: { storyFlag: "fejd_startad", log: "Chapter 11: The Feud. Rog Flint is back in the game – and he's a real competitor now.", logKind: "warn" },
       },
     ],
   }),
@@ -573,7 +674,7 @@ function scriptedApplications(s: GameState, house: Property): Application[] {
   const slotRent = Math.max(4_000, Math.round(house.baseRent / house.capacity / 12));
   const mk = (
     name: string, profileName: string, quality: number, defaultRisk: number,
-    rentFactor: number, term: number,
+    rentFactor: number, term: number, notableId?: string,
   ): Application => ({
     id: newId(),
     tenant: {
@@ -587,12 +688,14 @@ function scriptedApplications(s: GameState, house: Property): Application[] {
       termTotal: term,
       rent: Math.round(slotRent * rentFactor),
       satisfaction: 70,
+      ...(notableId ? { notableId } : {}),
     },
     expiresAbs: nowAbs + 5,
   });
   return [
     // Betalar förvånansvärt bra – replokal och boende i ett. Grannarna får åsikter.
-    mk("The death-metal band Pyre", "Cultural venue", 1.1, 0.04, 1.25, 24),
+    // Pyre är en NOTABEL hyresgäst: skriver du kontrakt får du ett ansikte med en historia.
+    mk("The death-metal band Pyre", "Notable tenant", 1.1, 0.04, 1.25, 24, "pyre"),
     // Betalar lite under marknad men flyttar ALDRIG. Katterna behöver stabilitet.
     mk("Marge + 14 cats", "Private individual", 0.9, 0.005, 0.9, 120),
     // Vill egentligen betala i exposure. Erbjuder ändå några kronor.
@@ -664,6 +767,10 @@ function applyInject(s: GameState, beat: StoryBeat): GameState {
       return {
         ...s,
         listings: [listing, ...s.listings],
+        // Rog blir din uttalade nemesis: fejden är personlig nu. Sätts av storyn
+        // och skyddas i simulationen (skrivs inte över medan kampanjen pågår).
+        nemesis: ROGGE,
+        standing: adjustStanding(s.standing, { kind: "rival", name: ROGGE }, -60),
         competingBid: {
           listingId: listing.id,
           rivalName: ROGGE,
@@ -671,7 +778,29 @@ function applyInject(s: GameState, beat: StoryBeat): GameState {
           expiresAbs: absMonth(s) + 2,
           round: 1,
         },
-        log: [{ t: `🕶️ ${ROGGE} has placed a bid on the neighboring house in ${listing.districtName}. He calls it ”Flint Hills phase 1”.`, kind: "warn" as const }, ...s.log],
+        log: [{ t: `⚔️ ${ROGGE} has declared war over the neighboring house in ${listing.districtName}. He calls it ”Flint Hills phase 1”. This one's personal.`, kind: "warn" as const }, ...s.log],
+      };
+    }
+    case "fejden": {
+      // Rog återvänder som en RIKTIG konkurrent – nu gäller hela nemesis-/standing-
+      // maskineriet (badge i rivalhubben, aggressiv budgivning). Skapas en gång.
+      if (s.competitors.some((c) => c.name === ROGGE)) return s;
+      const rog: Competitor = {
+        name: ROGGE,
+        cash: 25_000_000,
+        units: 0,
+        equity: 25_000_000,
+        portfolio: [],
+        strategy: "tillväxt",
+        preferredDistrict: "kulle",
+        agenda: { kind: "units", target: 20, label: "wants to bury you on the hill" },
+      };
+      return {
+        ...s,
+        competitors: [...s.competitors, rog],
+        nemesis: ROGGE,
+        standing: adjustStanding(s.standing, { kind: "rival", name: ROGGE }, -80),
+        log: [{ t: `🕶️ ${ROGGE} is back and cashed up – Flint Properties, act two. He sold the padel courts and wants the hill. This ends one way.`, kind: "warn" as const }, ...s.log],
       };
     }
     default:
@@ -695,6 +824,10 @@ export function applyStoryFlag(s: GameState, flag: string): GameState {
         ),
       };
     }
+  }
+  // Ruth öppnar en första förtroendelinje: bankrelationen (standing) lyfts.
+  if (flag === "bank_goodwill") {
+    next = { ...next, standing: adjustStanding(next.standing, { kind: "bank" }, 15) };
   }
   return next;
 }
@@ -791,7 +924,7 @@ export function advanceStory(state: GameState): GameState {
 
 /* ── Tidnings-förstasidor vid kapitelslut (E) ──────────────────────── */
 
-/** Innehåll till STADSBLADETs förstasida när ett kapitel klaras. */
+/** Innehåll till The Property Posts förstasida när ett kapitel klaras. */
 export interface StoryFront {
   headline: string;
   sub: string;
@@ -819,7 +952,7 @@ export const CHAPTER_FRONTS: Record<string, StoryFront> = {
     body:
       "The newly renovated house on Villa Hill has tenants. The neighborhood reports " +
       "alternating organ music, running cats and the occasional smoke-machine test. The landlord comments: " +
-      "'Everyone pays in money. That was the most important requirement.' The City Herald has reached out to the band Pyre, " +
+      "'Everyone pays in money. That was the most important requirement.' The Property Post has reached out to the band Pyre, " +
       "which responds with a riff signature.",
     icon: "🎸",
     caption: "Move-in underway.",
@@ -844,6 +977,35 @@ export const CHAPTER_FRONTS: Record<string, StoryFront> = {
       "relayed via lawyer: ”Ha.”",
     icon: "🎾",
     caption: "R. Flint leaves the hill.",
+  },
+  uppgorelsen: {
+    headline: "THE HEIR IN THE HEADLINES",
+    sub: "Reputation is described as ”recovering, like Grandpa's watch: wrong but ticking”.",
+    body:
+      "A story broke this week about the growing property group – the details, as ever, less interesting than the noise. " +
+      "The Property Post notes that reputation is a currency spent faster than it is earned, and that the group has moved to steady the ship. " +
+      "The tenants' association offers a measured comment: 'The rent arrives, the roof holds, the drama is upstairs.'",
+    icon: "📰",
+    caption: "The city forms an opinion.",
+  },
+  prestige: {
+    headline: "A MARQUEE NAME MOVES IN",
+    sub: "The block reacts: ”Suddenly there's a queue, and none of it is for the bus.”",
+    body:
+      "One of the city's notable tenants has signed with the heir's group – the kind of name that turns an address into a destination. " +
+      "Estate agents report a lift across the whole street. The landlord, asked for the secret, credits 'a decent building, a free room, and not being a Rog about it'.",
+    icon: "✨",
+    caption: "The red carpet, rolled out.",
+  },
+  fejden: {
+    headline: "FLINT IS BACK – THE HILL BRACES",
+    sub: "Roger Flint: ”Padel was a phase. Grudges are forever. So is my driver's license.”",
+    body:
+      "Roger Flint has liquidated his racket-sport holdings and re-entered property with a war chest and a personal vendetta against the heir. " +
+      "Analysts call it 'the showdown Villa Hill always deserved'. The Property Post reminds readers that the last time the two met over a house, " +
+      "Flint left the hill at speed. Grandpa's comment, relayed via lawyer, was a single word, again: ”Ha.”",
+    icon: "⚔️",
+    caption: "Act two begins.",
   },
 };
 

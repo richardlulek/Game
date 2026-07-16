@@ -2031,14 +2031,17 @@ export function advanceMonth(state: GameState): GameState {
       s.rivalRelations = s.rivalRelations.filter((r) => names.has(r.a) && names.has(r.b));
     }
     // Nemesis deklareras eller avblåses när standing korsar tröskeln.
-    const nem = nemesisOf(s);
-    if (nem && nem !== s.nemesis) {
-      s.nemesis = nem;
-      const q = rivalQuote(nem, "budkrig", absNow);
-      events.push({ t: `⚔️ ${nem} has declared open war on you — a bitter rivalry begins.${q ? " " + q : ""}`, kind: "warn", rival: nem });
-    } else if (!nem && s.nemesis) {
-      events.push({ t: `🕊️ Your feud with ${s.nemesis} has cooled — for now.`, kind: "info", rival: s.nemesis });
-      s.nemesis = undefined;
+    // Under en pågående kampanj äger storyn nemesisen (t.ex. Rog) – rör den inte.
+    if (!s.story || s.story.done) {
+      const nem = nemesisOf(s);
+      if (nem && nem !== s.nemesis) {
+        s.nemesis = nem;
+        const q = rivalQuote(nem, "budkrig", absNow);
+        events.push({ t: `⚔️ ${nem} has declared open war on you — a bitter rivalry begins.${q ? " " + q : ""}`, kind: "warn", rival: nem });
+      } else if (!nem && s.nemesis) {
+        events.push({ t: `🕊️ Your feud with ${s.nemesis} has cooled — for now.`, kind: "info", rival: s.nemesis });
+        s.nemesis = undefined;
+      }
     }
     // Nemesis hotar då och då i pressen.
     if (s.nemesis && random01() < 0.12) {
