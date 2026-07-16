@@ -6,9 +6,23 @@
 import { create } from "zustand";
 import { initState, reducer } from "../engine";
 import { placeCity } from "../engine/city";
+import { formatMonthYear } from "../engine/date";
 import { readRng, seedRng } from "../engine/random";
 import { advanceStory } from "../engine/story";
-import type { GameAction, GameState } from "../engine/types";
+import type { GameAction, GameState, LogEntry } from "../engine/types";
+
+/** Stämplar nytillkomna loggposter (de främre, odaterade) med aktuellt
+ *  spelmånadsdatum. Loggen är nyast-först, så vi vandrar från toppen tills
+ *  en redan daterad post nås. Ger loggen/tidningen en verklig tidslinje. */
+function stampLog(log: LogEntry[], month: number, year: number): LogEntry[] {
+  if (log.length === 0 || log[0].at !== undefined) return log;
+  const at = formatMonthYear(month, year);
+  const out = log.slice();
+  for (let i = 0; i < out.length && out[i].at === undefined; i++) {
+    out[i] = { ...out[i], at };
+  }
+  return out;
+}
 import { getActiveSlot, hasSave, loadGame, saveGame, setActiveSlot } from "./persistence";
 
 export type ClockSpeed = 1 | 2 | 4 | 8;
@@ -64,7 +78,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set((s) => {
       seedRng(s.state.rng ?? s.state.seed ?? (Date.now() >>> 0));
       const next = placeCity(advanceStory(reducer(s.state, action)));
-      return { state: { ...next, rng: readRng() } };
+      return { state: { ...next, rng: readRng(), log: stampLog(next.log, next.month, next.year) } };
     }),
   save: () => saveGame(get().state, get().activeSlot),
   load: (slot?: number) => {

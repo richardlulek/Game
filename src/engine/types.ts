@@ -607,6 +607,9 @@ export interface LogEntry {
   parcelId?: string;
   /** Rivalbolag händelsen rör – ger ett ansikte (porträtt) i toast/nyheter. */
   rival?: string;
+  /** Datumstämpel ("June 2000") satt när posten läggs till – ger loggen och
+   *  tidningen en verklig tidslinje. Sätts centralt i gameStore.dispatch. */
+  at?: string;
 }
 
 /** En punkt i utvecklingen av eget kapital. */

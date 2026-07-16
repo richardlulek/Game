@@ -42,9 +42,9 @@ export function initState(opts?: InitOptions): GameState {
     competitors: [],
     log: [
       {
-        t: `Du startar med ${(startCash / 1e6).toLocaleString("sv-SE")} MSEK eget kapital${
+        t: `You start with ${(startCash / 1e6).toLocaleString("en-US")} MSEK in equity${
           opts?.difficulty && opts.difficulty !== "normal" ? ` (difficulty: ${opts.difficulty})` : ""
-        }. Lycka till!`,
+        }. Good luck!`,
         kind: "info",
       },
     ],

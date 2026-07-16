@@ -10,12 +10,12 @@ interface LogPanelProps {
 
 const KIND_LABELS: Record<LogKind, string> = {
   info:    "Info",
-  warn:    "Varning",
+  warn:    "Warning",
   buy:     "Buy",
   sell:    "Sell",
-  upg:     "Uppgradering",
+  upg:     "Upgrade",
   income:  "Income",
-  expense: "Kostnad",
+  expense: "Expense",
   event:   "Event",
 };
 
@@ -34,7 +34,7 @@ export function LogPanel({ log }: LogPanelProps) {
           onClick={() => setActiveKind("all")}
           style={chipStyle(activeKind === "all")}
         >
-          Alla ({log.length})
+          All ({log.length})
         </button>
         {ALL_KINDS.map((k) => {
           const count = log.filter((l) => l.kind === k).length;
@@ -57,16 +57,40 @@ export function LogPanel({ log }: LogPanelProps) {
             No events for the selected category.
           </div>
         ) : (
-          filtered.map((l, i) => (
-            <div key={i} style={{ ...S.logItem, color: logColor(l.kind) }}>
-              {l.t}
-            </div>
-          ))
+          filtered.map((l, i) => {
+            // Loggen är nyast-först: rita en månadsrubrik när datumet ändras.
+            const showHeader = l.at !== undefined && (i === 0 || filtered[i - 1].at !== l.at);
+            return (
+              <div key={i}>
+                {showHeader && <div style={monthHeader}>{l.at}</div>}
+                <div style={{ ...S.logItem, color: logColor(l.kind), display: "flex", gap: 8 }}>
+                  <span style={{ color: logColor(l.kind), flexShrink: 0 }}>■</span>
+                  <span style={{ flex: 1 }}>{l.t}</span>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
   );
 }
+
+const monthHeader: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  padding: "5px 10px",
+  margin: "6px 0 2px",
+  fontFamily: FONTS.heading,
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: 1,
+  textTransform: "uppercase",
+  color: C.brassBright,
+  background: C.woodDark,
+  borderBottom: `1px solid ${C.brass}55`,
+  zIndex: 1,
+};
 
 function chipStyle(active: boolean): React.CSSProperties {
   return {
