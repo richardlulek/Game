@@ -574,22 +574,27 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!tenant) return state;
       const residential = p.type === "bostad";
       const buyout = tenant.rent * (residential ? 3 : 1);
-      const repHit = residential ? 3 : 1;
+      // Att vräka en notabel karaktär blir en offentlig affär: hårdare
+      // ryktesförlust och en mediestorm.
+      const notable = !!tenant.notableId;
+      const repHit = (residential ? 3 : 1) + (notable ? 3 : 0);
       if (state.cash < buyout)
         return log(state, `The termination requires ${kr(buyout)} in ${residential ? "relocation compensation (tenancy protection)" : "compensation"}.`, "warn");
       return {
         ...state,
         cash: state.cash - buyout,
         reputation: Math.max(0, state.reputation - repHit),
-        // Vräkningar värmer pressen – bostadsvräkningar mest.
-        pressHeat: Math.min(20, (state.pressHeat ?? 0) + (residential ? 2 : 1)),
+        // Vräkningar värmer pressen – bostadsvräkningar och notabla mest.
+        pressHeat: Math.min(20, (state.pressHeat ?? 0) + (residential ? 2 : 1) + (notable ? 2 : 0)),
         portfolio: state.portfolio.map((x) =>
           x.id === p.id ? { ...x, tenants: x.tenants.filter((t) => t.id !== action.tenantId) } : x,
         ),
         pendingRenewals: dropRenewals(state, (r) => r.propertyId === p.id && r.tenantId === action.tenantId),
         log: [
           {
-            t: `Terminated ${tenant.name} in ${p.districtName}: ${kr(buyout)} in ${residential ? "relocation compensation" : "compensation"} (rep −${repHit}).`,
+            t: notable
+              ? `📰 You evicted ${tenant.name} in ${p.districtName} — a notable name goes to the press. ${kr(buyout)} paid (rep −${repHit}).`
+              : `Terminated ${tenant.name} in ${p.districtName}: ${kr(buyout)} in ${residential ? "relocation compensation" : "compensation"} (rep −${repHit}).`,
             kind: "warn",
           },
           ...state.log,

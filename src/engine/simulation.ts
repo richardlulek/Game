@@ -30,6 +30,7 @@ import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
 import { makeScandal, scandalRisk } from "./newsroom";
+import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
 import { tenantScoreOf } from "./tenantScore";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
 import {
@@ -482,20 +483,39 @@ export function advanceMonth(state: GameState): GameState {
       if (random01() < effDefaultRisk) {
         const evictionCost = Math.round(t.rent * 2);
         monthlyNOI -= evictionCost;
-        events.push({ t: `⚠️ ${t.name} in ${np.districtName} went bankrupt. Eviction cost: ${kr(evictionCost)}.`, kind: "expense" });
+        events.push({
+          t: t.notableId
+            ? `📉 ${t.name} has closed its doors in ${np.districtName} — a notable tenant lost. Eviction cost: ${kr(evictionCost)}.`
+            : `⚠️ ${t.name} in ${np.districtName} went bankrupt. Eviction cost: ${kr(evictionCost)}.`,
+          kind: t.notableId ? "warn" : "expense",
+        });
         continue;
       }
       // Livscykel: kommersiella hyresgäster expanderar i högkonjunktur
-      // (hyr mer yta, +15 % hyra – en gång per hyresgäst).
-      if (cyclePhaseNow === "boom" && np.type !== "bostad" && !t.expanded && random01() < 0.01) {
+      // (hyr mer yta, +15 % hyra – en gång per hyresgäst). Notabla
+      // "growth"-karaktärer växer ur sina lokaler betydligt oftare.
+      const notable = notableById(t.notableId);
+      const growthMult = notable?.trait === "growth" ? 6 : 1;
+      if (cyclePhaseNow === "boom" && np.type !== "bostad" && !t.expanded && random01() < 0.01 * growthMult) {
         t.expanded = true;
         t.rent = Math.round(t.rent * 1.15);
-        events.push({ t: `📈 ${t.name} expanderar i ${np.districtName} – hyr mer yta (+15 % hyra).`, kind: "income" });
+        events.push({
+          t: notable
+            ? `📈 ${t.name} is booming and takes more space in ${np.districtName} (+15% rent).`
+            : `📈 ${t.name} expanderar i ${np.districtName} – hyr mer yta (+15 % hyra).`,
+          kind: "income",
+        });
       }
       // Djupt missnöjda lämnar i förtid (U3) – lättare i löst marknadsläge.
       if (sat < 30 && random01() < 0.06 * moveP) {
         movers.push(t);
-        events.push({ t: `😟 ${t.name} left ${np.districtName} early – dissatisfied (satisfaction ${sat}).`, kind: "warn" });
+        if (t.notableId) {
+          // En notabel karaktär som lämnar i vredesmod svider – ryktesförlust.
+          s.reputation = Math.max(0, s.reputation - 3);
+          events.push({ t: `💢 ${t.name} stormed out of ${np.districtName}, publicly slamming its landlord (satisfaction ${sat}). Reputation −3.`, kind: "warn" });
+        } else {
+          events.push({ t: `😟 ${t.name} left ${np.districtName} early – dissatisfied (satisfaction ${sat}).`, kind: "warn" });
+        }
         continue;
       }
       // Anchor tenant designation at 36+ consecutive months
@@ -1909,6 +1929,34 @@ export function advanceMonth(state: GameState): GameState {
     // Dålig hållbarhet göder aktivister efter börsnoteringen.
     if (s.ipoActive && rating.spreadDelta > 0)
       s.takeoverPressure = Math.min(100, (s.takeoverPressure ?? 0) + 1.5);
+  }
+
+  // ── Notabla hyresgäster: en namngiven karaktär söker lokal ───────
+  // Sällsynt, och bara om en passande ledig lokal finns: en av stadens
+  // notabla hyresgäster flyttar in — ett ansikte, en hyrespremie och för
+  // prestigenamn ett lyft för både distrikt och rykte.
+  if (random01() < 0.05) {
+    const match = findNotableMoveIn(s);
+    if (match) {
+      const pi = s.portfolio.findIndex((p) => p.id === match.propertyId);
+      if (pi >= 0) {
+        const p = s.portfolio[pi];
+        const slot = p.capacity > 0 ? propPotentialRent(p, s) / p.capacity / 12 : 0;
+        const t = signNotable(match.notable, slot);
+        s.portfolio = s.portfolio.map((pp, i) => (i === pi ? { ...pp, tenants: [...pp.tenants, t] } : pp));
+        if (match.notable.trait === "prestige") {
+          s.reputation = Math.min(100, s.reputation + 2);
+          s.districtDev = {
+            ...s.districtDev,
+            [p.district]: +(((s.districtDev?.[p.district] ?? 1) + 0.03)).toFixed(3),
+          };
+        }
+        events.push({
+          t: `✨ ${match.notable.name} — ${match.notable.bio} — has leased space in your ${p.typeLabel} in ${p.districtName}.`,
+          kind: "event",
+        });
+      }
+    }
   }
 
   // ── Hyresgästbetyg: publikt rykte som andas långsamt ─────────────

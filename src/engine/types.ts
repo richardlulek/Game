@@ -187,6 +187,9 @@ export interface Tenant {
   anchorDeal?: boolean;
   /** Kommersiell hyresgäst som expanderat i högkonjunktur (+15 % hyra, en gång). */
   expanded?: boolean;
+  /** Namngiven "notabel" hyresgäst (NOTABLE_TENANTS) – ett ansikte med en
+   *  historia som flyttar in, växer och stannar lojal eller lämnar i vredesmod. */
+  notableId?: string;
 }
 
 /** Ett inkommande erbjudande: oombett uppköpsbud ("buyout"), bud på en

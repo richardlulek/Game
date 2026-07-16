@@ -410,7 +410,10 @@ export function TenantPanel({ state, dispatch }: Props) {
                     return (
                       <tr key={t.id} style={{ background: i % 2 === 0 ? C.woodDark : C.wood }}>
                         <td style={{ padding: "8px 10px" }}>
-                          <div style={{ fontWeight: 600 }}>{t.name}</div>
+                          <div style={{ fontWeight: 600 }}>
+                            {t.notableId && <span title="Notable tenant" style={{ color: "#e0b34a", marginRight: 4 }}>★</span>}
+                            {t.name}
+                          </div>
                           <div style={{ fontSize: 11, color: C.creamSoft }}>{t.propLabel} · {t.profileName ?? t.profile}</div>
                         </td>
                         <td style={{ padding: "8px 10px", color: C.creamSoft }}>{t.districtName}</td>
