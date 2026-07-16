@@ -330,9 +330,12 @@ export function playLevelUp(): void {
 /** Milstolpe – CC0-upptäcktsjingel (Kenney), annars klar bjällra. */
 export function playMilestone(): void {
   if (!enabled) return;
-  if (playSample("milestone", 0.45)) return;
-  tone(1318, 0, 0.5, "sine", 0.05);
-  tone(1046, 0.05, 0.4, "sine", 0.035);
+  // Varmt tvåtoners "ta-daa" (kvint upp) med mjuk botten – ersätter det
+  // tidigare ljusa milestone-samplet/den skarpa plingningen.
+  tone(523, 0, 0.45, "triangle", 0.05);
+  tone(261, 0, 0.45, "sine", 0.03);      // varm botten under första tonen
+  tone(784, 0.16, 0.7, "triangle", 0.05);
+  tone(392, 0.16, 0.7, "sine", 0.03);    // varm botten under andra tonen
 }
 
 /** Upptäckt – morfars minneslappar m.m. CC0-jingel (Kenney), annars bjällra. */
