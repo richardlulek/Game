@@ -357,13 +357,13 @@ export const POLITICAL_PARTIES: PoliticalParty[] = [
 ];
 
 export const AI_NAMES = [
-  "Nordhem Properties",
-  "Brunnspark Invest",
+  "Northgate Properties",
+  "Wellspring Invest",
   "Coastline Ltd",
   "City Core Group",
   "Harborview Capital",
-  "Silverberg & Partners",
-  "Lundqvist Properties",
+  "Sterling & Partners",
+  "Grovewood Properties",
 ];
 
 /** Affärsnamn per hyresgästprofil – ger varje kontrakt en egen identitet. */

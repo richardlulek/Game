@@ -238,24 +238,24 @@ interface CompanyDef {
 }
 
 const OTHER_COMPANIES: CompanyDef[] = [
-  { id: "handelsbk", name: "Handelsbanken",  sector: "bank",     price: 112, sharesOutstanding: 2_000_000, dividendYield: 0.052, beta: 1.15, drift: 0.0030, volatility: 0.035, eps: 9.80 },
-  { id: "skanska",   name: "Skanska Construction",   sector: "bygg",     price: 168, sharesOutstanding: 1_400_000, dividendYield: 0.040, beta: 1.40, drift: 0.0035, volatility: 0.050, eps: 12.60 },
-  { id: "ica",       name: "ICA Group",    sector: "handel",   price: 240, sharesOutstanding: 1_000_000, dividendYield: 0.030, beta: 0.80, drift: 0.0030, volatility: 0.028, eps: 16.80 },
-  { id: "sandvik",   name: "Sandvik",        sector: "industri", price: 196, sharesOutstanding: 1_600_000, dividendYield: 0.028, beta: 1.10, drift: 0.0040, volatility: 0.042, eps: 14.20 },
-  { id: "sbb",       name: "SBB Nordic",     sector: "fastighet",price: 88,  sharesOutstanding: 2_200_000, dividendYield: 0.045, beta: 1.30, drift: 0.0025, volatility: 0.055, eps: 5.50 },
-  { id: "volvo",     name: "Volvo Group",    sector: "industri", price: 154, sharesOutstanding: 1_800_000, dividendYield: 0.035, beta: 1.05, drift: 0.0038, volatility: 0.040, eps: 12.80 },
+  { id: "handelsbk", name: "Crestline Bank",  sector: "bank",     price: 112, sharesOutstanding: 2_000_000, dividendYield: 0.052, beta: 1.15, drift: 0.0030, volatility: 0.035, eps: 9.80 },
+  { id: "skanska",   name: "Ironclad Construction",   sector: "bygg",     price: 168, sharesOutstanding: 1_400_000, dividendYield: 0.040, beta: 1.40, drift: 0.0035, volatility: 0.050, eps: 12.60 },
+  { id: "ica",       name: "Evermart Group",    sector: "handel",   price: 240, sharesOutstanding: 1_000_000, dividendYield: 0.030, beta: 0.80, drift: 0.0030, volatility: 0.028, eps: 16.80 },
+  { id: "sandvik",   name: "Vulcan Industries",        sector: "industri", price: 196, sharesOutstanding: 1_600_000, dividendYield: 0.028, beta: 1.10, drift: 0.0040, volatility: 0.042, eps: 14.20 },
+  { id: "sbb",       name: "Cornerstone REIT",     sector: "fastighet",price: 88,  sharesOutstanding: 2_200_000, dividendYield: 0.045, beta: 1.30, drift: 0.0025, volatility: 0.055, eps: 5.50 },
+  { id: "volvo",     name: "Titan Motors",    sector: "industri", price: 154, sharesOutstanding: 1_800_000, dividendYield: 0.035, beta: 1.05, drift: 0.0038, volatility: 0.040, eps: 12.80 },
 ];
 
 /** Pool av fiktiva bolag som kan nyintroduceras på börsen (feature 10). */
 const IPO_POOL: Omit<CompanyDef, "id">[] = [
-  { name: "Nordbygg Contracting", sector: "bygg",      price: 95,  sharesOutstanding: 1_200_000, dividendYield: 0.030, beta: 1.35, drift: 0.0040, volatility: 0.055, eps: 6.40 },
-  { name: "Svea Retail",    sector: "handel",    price: 128, sharesOutstanding: 900_000,   dividendYield: 0.028, beta: 0.85, drift: 0.0032, volatility: 0.030, eps: 8.60 },
-  { name: "Baltic Industries",      sector: "industri",  price: 142, sharesOutstanding: 1_100_000, dividendYield: 0.026, beta: 1.20, drift: 0.0042, volatility: 0.048, eps: 9.90 },
-  { name: "Kronan Properties",   sector: "fastighet", price: 76,  sharesOutstanding: 1_800_000, dividendYield: 0.048, beta: 1.25, drift: 0.0026, volatility: 0.050, eps: 4.80 },
-  { name: "First Savings Bank",    sector: "bank",      price: 88,  sharesOutstanding: 1_600_000, dividendYield: 0.050, beta: 1.05, drift: 0.0028, volatility: 0.032, eps: 7.20 },
-  { name: "Malmo Logistics",     sector: "industri",  price: 110, sharesOutstanding: 1_000_000, dividendYield: 0.024, beta: 1.15, drift: 0.0044, volatility: 0.046, eps: 7.80 },
+  { name: "Northbuild Contracting", sector: "bygg",      price: 95,  sharesOutstanding: 1_200_000, dividendYield: 0.030, beta: 1.35, drift: 0.0040, volatility: 0.055, eps: 6.40 },
+  { name: "Crownline Retail",    sector: "handel",    price: 128, sharesOutstanding: 900_000,   dividendYield: 0.028, beta: 0.85, drift: 0.0032, volatility: 0.030, eps: 8.60 },
+  { name: "Ironbay Industries",      sector: "industri",  price: 142, sharesOutstanding: 1_100_000, dividendYield: 0.026, beta: 1.20, drift: 0.0042, volatility: 0.048, eps: 9.90 },
+  { name: "Keystone Properties",   sector: "fastighet", price: 76,  sharesOutstanding: 1_800_000, dividendYield: 0.048, beta: 1.25, drift: 0.0026, volatility: 0.050, eps: 4.80 },
+  { name: "Union Savings Bank",    sector: "bank",      price: 88,  sharesOutstanding: 1_600_000, dividendYield: 0.050, beta: 1.05, drift: 0.0028, volatility: 0.032, eps: 7.20 },
+  { name: "Redline Logistics",     sector: "industri",  price: 110, sharesOutstanding: 1_000_000, dividendYield: 0.024, beta: 1.15, drift: 0.0044, volatility: 0.046, eps: 7.80 },
   { name: "Aurora Data",          sector: "handel",    price: 64,  sharesOutstanding: 1_400_000, dividendYield: 0.005, beta: 1.75, drift: 0.0070, volatility: 0.090, eps: 1.20 },
-  { name: "Optimus Telekom",      sector: "handel",    price: 158, sharesOutstanding: 1_300_000, dividendYield: 0.010, beta: 1.60, drift: 0.0060, volatility: 0.080, eps: 3.40 },
+  { name: "Nimbus Telecom",      sector: "handel",    price: 158, sharesOutstanding: 1_300_000, dividendYield: 0.010, beta: 1.60, drift: 0.0060, volatility: 0.080, eps: 3.40 },
 ];
 
 /** Bygger den initiala aktielistan: noterade konkurrenter + andra bolag. */

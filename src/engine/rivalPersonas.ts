@@ -19,11 +19,11 @@ export interface RivalPersona {
 
 export const RIVAL_PERSONAS: RivalPersona[] = [
   {
-    company: "Nordhem Properties",
+    company: "Northgate Properties",
     person: "Margaret Nordhem",
     look: { hat: false, glasses: true, mustache: false, hair: "#d8d3c8", suit: "#3a4a5a", skin: "#e8c39e" },
     quotes: {
-      budkrig: ["”I’ve been buying buildings since before you were born.”", "”Nordhem doesn’t back down.”"],
+      budkrig: ["”I’ve been buying buildings since before you were born.”", "”Northgate doesn’t back down.”"],
       vinst: ["”As expected.”"],
       förlust: ["”Enjoy it. It won’t happen again.”"],
       fusion: ["”Size is the only thing the bank respects.”"],
@@ -32,7 +32,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     },
   },
   {
-    company: "Brunnspark Invest",
+    company: "Wellspring Invest",
     person: "Caspar Brunn",
     look: { hat: false, glasses: false, mustache: false, hair: "#3a2c20", suit: "#20242c", skin: "#e3b58c" },
     quotes: {
@@ -84,7 +84,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     },
   },
   {
-    company: "Silverberg & Partners",
+    company: "Sterling & Partners",
     person: "Beatrice Silverberg",
     look: { hat: true, glasses: true, mustache: false, hair: "#c9c9c9", suit: "#2a2a34", skin: "#ecd2b8" },
     quotes: {
@@ -97,7 +97,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     },
   },
   {
-    company: "Lundqvist Properties",
+    company: "Grovewood Properties",
     person: "Sonny Lund",
     look: { hat: false, glasses: false, mustache: true, hair: "#7a5a3a", suit: "#3a4a3a", skin: "#e8bd96" },
     quotes: {

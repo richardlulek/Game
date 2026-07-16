@@ -43,7 +43,7 @@ describe("StockExchange (rendering)", () => {
     expect(html).toContain("Price");
     expect(html).toContain("P/E");
     // Både externa bolag och rivalen listas
-    expect(html).toContain("Handelsbanken");
+    expect(html).toContain("Crestline Bank");
     expect(html).toContain("Rival AB");
     // Makrokoppling i headern
     expect(html).toContain("Policy rate");

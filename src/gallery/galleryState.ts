@@ -34,7 +34,7 @@ export function galleryState(): GameState {
   return {
     ...base,
     companyLevel: MAX_LEVEL,
-    companyName: "Nordhem Fastigheter",
+    companyName: "Meridian Estates",
     portfolio,
     listings,
     debt: 18_000_000,

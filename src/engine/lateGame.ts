@@ -27,7 +27,7 @@ export const FUND_TRIGGER_EQUITY = 400_000_000;
 
 export const FUNDS = [
   { name: "Meridian Global Partners", strategy: "värde" as const },
-  { name: "Nordkap Infrastructure", strategy: "tillväxt" as const },
+  { name: "Northcape Infrastructure", strategy: "tillväxt" as const },
 ];
 
 /** Har fonderna redan klivit in? */
