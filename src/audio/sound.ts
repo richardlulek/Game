@@ -437,8 +437,10 @@ export function playTick(): void {
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.13);
   osc.start(t0);
   osc.stop(t0 + 0.16);
-  // Liten ljus överton ger klubban lite "trä".
-  tone(1180, 0, 0.05, "sine", 0.01);
+  // Varm, låg trä-överton i stället för den tidigare ljusa plingningen –
+  // en mjuk "tock" som inte sticker ut varje månadsskifte (och därmed inte
+  // heller när ett underhåll blir klart, som sammanfaller med månadsticket).
+  tone(210, 0, 0.06, "sine", 0.014);
 }
 
 // ── Reaktiv bakgrundsmusik ───────────────────────────────────────────────────
