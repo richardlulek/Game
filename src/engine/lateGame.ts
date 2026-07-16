@@ -55,17 +55,17 @@ export function activistTick(cash: number, equity: number, annualReturn: number)
   const reasons: string[] = [];
   if (idle > 0.35) {
     delta += 1.5;
-    reasons.push("död kassa");
+    reasons.push("idle cash");
   }
   const roe = annualReturn / equity;
   if (roe < 0.04) {
     delta += 1;
-    reasons.push("svag avkastning");
+    reasons.push("weak returns");
   } else if (roe > 0.09) {
     delta -= 1;
   }
   if (delta === 0 && idle < 0.2) delta = -0.5; // väl skött → positionen säljs av
-  return { delta, reason: reasons.length ? reasons.join(" och ") : null };
+  return { delta, reason: reasons.length ? reasons.join(" and ") : null };
 }
 
 /** Utdelning blidkar kapitalmarknaden: −15 pe per utdelad andel av EK. */
@@ -128,31 +128,31 @@ export const MEGA_PROJECTS: MegaProject[] = [
     dynasty: 400,
     devBoost: 0.15,
     reputation: 10,
-    desc: "Evenemangsarena som sätter staden på kartan.",
+    desc: "An events arena that puts the city on the map.",
     site: { x: -180, z: 315, district: "hamnen" },
   },
   {
     id: "campus",
-    name: "Universitetscampus",
+    name: "University campus",
     icon: "🎓",
     cost: 500_000_000,
     months: 48,
     dynasty: 600,
     devBoost: 0.2,
     reputation: 12,
-    desc: "Fakulteter, studentliv och forskning i världsklass.",
+    desc: "Faculties, student life and world-class research.",
     site: { x: -180, z: -330, district: "innerstad" },
   },
   {
     id: "sjukhus",
-    name: "Sjukhuskvarteret",
+    name: "The hospital quarter",
     icon: "🏥",
     cost: 800_000_000,
     months: 60,
     dynasty: 900,
     devBoost: 0.25,
     reputation: 15,
-    desc: "Regionens nya universitetssjukhus – ditt livsverk.",
+    desc: "The region’s new university hospital – your life’s work.",
     site: { x: 560, z: 90, district: "industri" },
   },
 ];
@@ -170,16 +170,16 @@ export interface Luxury {
 }
 
 export const LUXURIES: Luxury[] = [
-  { id: "sportbil", name: "Italiensk sportbil", icon: "🏎️", cost: 3_000_000, dynasty: 15, desc: "Kryssar utanför huvudkontoret – syns på kartan." },
-  { id: "villa", name: "Sommarvilla i skärgården", icon: "🏖️", cost: 8_000_000, dynasty: 30, desc: "Faluröd på en skärgårdsö – syns på kartan." },
-  { id: "konst", name: "Konstsamling", icon: "🖼️", cost: 12_000_000, dynasty: 45, reputation: 1, desc: "Nordisk modernism. Lånas ut till stadens museum." },
-  { id: "vingard", name: "Vingård i Toscana", icon: "🍇", cost: 20_000_000, dynasty: 60, desc: "Årgångarna etiketteras med bolagets vapen." },
-  { id: "yacht", name: "M/Y Imperium", icon: "🛥️", cost: 30_000_000, dynasty: 100, reputation: 2, desc: "Ligger förtöjd i Hamnen – syns på kartan." },
-  { id: "helikopter", name: "Privat helikopter", icon: "🚁", cost: 45_000_000, dynasty: 150, reputation: 3, desc: "Står på kontorets helipad – syns på kartan." },
-  { id: "flygel", name: "Donation: universitetsflygel", icon: "🏛️", cost: 50_000_000, dynasty: 200, reputation: 5, desc: "Ditt namn över entrén, för alltid." },
-  { id: "stiftelse", name: "Välgörenhetsstiftelse", icon: "💛", cost: 100_000_000, dynasty: 400, reputation: 8, desc: "Stipendier, bostäder och forskning i familjens namn." },
+  { id: "sportbil", name: "Italian sports car", icon: "🏎️", cost: 3_000_000, dynasty: 15, desc: "Cruises outside the headquarters – visible on the map." },
+  { id: "villa", name: "Summer villa in the archipelago", icon: "🏖️", cost: 8_000_000, dynasty: 30, desc: "Falun-red on an archipelago island – visible on the map." },
+  { id: "konst", name: "Art collection", icon: "🖼️", cost: 12_000_000, dynasty: 45, reputation: 1, desc: "Nordic modernism. Loaned to the city museum." },
+  { id: "vingard", name: "Vineyard in Tuscany", icon: "🍇", cost: 20_000_000, dynasty: 60, desc: "The vintages are labeled with the company crest." },
+  { id: "yacht", name: "M/Y Imperium", icon: "🛥️", cost: 30_000_000, dynasty: 100, reputation: 2, desc: "Moored in The Harbor – visible on the map." },
+  { id: "helikopter", name: "Private helicopter", icon: "🚁", cost: 45_000_000, dynasty: 150, reputation: 3, desc: "Sits on the office helipad – visible on the map." },
+  { id: "flygel", name: "Donation: university wing", icon: "🏛️", cost: 50_000_000, dynasty: 200, reputation: 5, desc: "Your name over the entrance, forever." },
+  { id: "stiftelse", name: "Charitable foundation", icon: "💛", cost: 100_000_000, dynasty: 400, reputation: 8, desc: "Scholarships, housing and research in the family name." },
   // Kan inte köpas – delas ut när berättelseläget "Arvet efter morfar" fullbordas.
-  { id: "morfarsklocka", name: "Morfars klocka", icon: "⌚", cost: 0, dynasty: 25, desc: "Har gått fel sedan 1979, men den går. Arvet fullbordat." },
+  { id: "morfarsklocka", name: "Grandpa’s watch", icon: "⌚", cost: 0, dynasty: 25, desc: "It’s run wrong since 1979, but it runs. The inheritance complete." },
 ];
 
 /* ── C7: Dynastipoäng ──────────────────────────────────────────────── */
@@ -223,10 +223,10 @@ export function dynastyScore(s: GameState): DynastyBreakdown {
   const total = utdelningar + lyxOchDonationer + megaprojekt + stadsdelar + esg + nojdhet + reglerat;
   const grade = total >= 1000 ? "S" : total >= 600 ? "A" : total >= 300 ? "B" : total >= 100 ? "C" : "E";
   const gradeLabel =
-    grade === "S" ? "Dynasti – staden bär ditt namn"
-    : grade === "A" ? "Patriark – ett bestående arv"
-    : grade === "B" ? "Mecenat – staden minns dig"
-    : grade === "C" ? "Framgångsrik – men vad lämnar du efter dig?"
-    : "Kapitalist – pengarna dog med bolaget";
+    grade === "S" ? "Dynasty – the city bears your name"
+    : grade === "A" ? "Patriarch – a lasting legacy"
+    : grade === "B" ? "Patron – the city remembers you"
+    : grade === "C" ? "Successful – but what do you leave behind?"
+    : "Capitalist – the money died with the company";
   return { utdelningar, lyxOchDonationer, megaprojekt, stadsdelar, esg, nojdhet, reglerat, total, grade, gradeLabel };
 }

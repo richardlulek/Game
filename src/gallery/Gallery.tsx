@@ -68,14 +68,14 @@ export function Gallery() {
   return (
     <div style={{ minHeight: "100vh", background: THEME.feltBg, color: C.creamText, fontFamily: FONTS.body, padding: 24 }}>
       <h1 style={{ fontFamily: FONTS.display, color: C.brassBright, fontSize: 22, letterSpacing: 2, marginBottom: 4 }}>UI-GALLERI</h1>
-      <div style={{ color: C.creamSoft, fontSize: 13, marginBottom: 24 }}>Alla paneler med fabricerat tillstånd – för visuell QA (?gallery).</div>
+      <div style={{ color: C.creamSoft, fontSize: 13, marginBottom: 24 }}>All panels with fabricated state – for visual QA (?gallery).</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 28, alignItems: "flex-start" }}>
         <Section id="g-market" title="Marknad">{<MarketPanel state={state} dispatch={noop} />}</Section>
-        <Section id="g-portfoliotable" title="Portföljtabell (klicka på en rad → fäll ut)" width={1040}>{<PortfolioTable state={state} dispatch={noop} />}</Section>
+        <Section id="g-portfoliotable" title="Portfolio table (click a row → expand)" width={1040}>{<PortfolioTable state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliocard" title="Fastighetskort (uthyrt)" width={360}>{<PortfolioCard p={state.portfolio[0]} state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliocard-vac" title="Fastighetskort (vakant)" width={360}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} />}</Section>
-        <Section id="g-portfoliocard-wide" title="Fastighetskort – bred layout (utfälld i lista)" width={960}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} wide />}</Section>
-        <Section id="g-portfolio-cardsview" title="Kort-vy (kompakta, skannbara kort i rutnät)" width={1040}>
+        <Section id="g-portfoliocard-wide" title="Property card – wide layout (expanded in list)" width={960}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} wide />}</Section>
+        <Section id="g-portfolio-cardsview" title="Card view (compact, scannable cards in a grid)" width={1040}>
           {<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, alignItems: "start" }}>
             {state.portfolio.map((p) => <PortfolioSummaryCard key={p.id} p={p} state={state} open={false} onToggle={noop} />)}
           </div>}
@@ -83,21 +83,21 @@ export function Gallery() {
         <Section id="g-listing" title="Objektkort (Marknad)" width={360}>{<ListingCard p={state.listings[0]} state={state} dispatch={noop} />}</Section>
         <Section id="g-finance" title="Finans" width={640}>{<FinancePanel state={state} dispatch={noop} equity={equity} ltv={ltv} terms={terms} />}</Section>
         <Section id="g-company" title="Bolag">{<CompanyPanel state={state} dispatch={noop} />}</Section>
-        <Section id="g-group" title="Koncernöversikt" width={640}>{<GroupOverview state={state} dispatch={noop} />}</Section>
-        <Section id="g-stocks" title="Börs" width={860}>{<StockExchange state={state} dispatch={noop} />}</Section>
+        <Section id="g-group" title="Group overview" width={640}>{<GroupOverview state={state} dispatch={noop} />}</Section>
+        <Section id="g-stocks" title="Stock exchange" width={860}>{<StockExchange state={state} dispatch={noop} />}</Section>
         <Section id="g-tenants" title="Uthyrning" width={640}>{<TenantPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-policy" title="Policy">{<PolicyPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-industry" title="Industrimarknad" width={640}>{<IndustryMarket state={state} dispatch={noop} />}</Section>
-        <Section id="g-staff" title="Anställda">{<StaffPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-staff" title="Staff">{<StaffPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-research" title="Forskning">{<ResearchPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-district" title="Distrikt">{<DistrictPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-kpi" title="Nyckeltal (KPI)">{<KPIPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-legacy" title="Arv & slutspel">{<LegacyPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-build" title="Bygg">{<BuildPanel state={state} dispatch={noop} />}</Section>
-        <Section id="g-acquisition" title="Förvärv" width={640}>{<AcquisitionPanel state={state} dispatch={noop} />}</Section>
+        <Section id="g-acquisition" title="Acquisition" width={640}>{<AcquisitionPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-contracts" title="Kontraktskalender" width={640}>{<ContractCalendar state={state} />}</Section>
         <Section id="g-milestones" title="Milstolpar">{<MilestonesPanel state={state} />}</Section>
-        <Section id="g-news" title="Nyhetsflöde" width={520}>{<NewsFeedPanel state={state} />}</Section>
+        <Section id="g-news" title="News feed" width={520}>{<NewsFeedPanel state={state} />}</Section>
         <Section id="g-statements" title="Bokslut" width={640}>{<FinancialStatements state={state} />}</Section>
       </div>
     </div>

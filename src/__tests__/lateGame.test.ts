@@ -61,8 +61,8 @@ describe("aktivistfonden", () => {
   it("död kassa och svag avkastning bygger positionen", () => {
     const tick = activistTick(100_000_000, 100_000_000, 0); // idle 100 %, ROE 0
     expect(tick.delta).toBe(2.5);
-    expect(tick.reason).toContain("död kassa");
-    expect(tick.reason).toContain("svag avkastning");
+    expect(tick.reason).toContain("idle cash");
+    expect(tick.reason).toContain("weak returns");
   });
 
   it("stark ROE och arbetande kassa säljer av positionen", () => {

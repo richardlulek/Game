@@ -1863,8 +1863,8 @@ export function advanceMonth(state: GameState): GameState {
         const up = newIdx > prevIdx;
         events.push({
           t: up
-            ? `${tier.icon} STADSOMVANDLING: ${d.name} klassas nu som ${tier.name} – hyror och värden lyfter i takt med områdets rykte.`
-            : `${tier.icon} ${d.name} har halkat ned till ${tier.name} – eftersatt underhåll och svag utveckling pressar området.`,
+            ? `${tier.icon} URBAN TRANSFORMATION: ${d.name} is now classed as ${tier.name} – rents and values rise with the area’s reputation.`
+            : `${tier.icon} ${d.name} has slipped down to ${tier.name} – deferred maintenance and weak development weigh on the area.`,
           kind: up ? "income" : "warn",
         });
       }

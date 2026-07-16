@@ -179,7 +179,7 @@ describe("kampanjens kapitelflöde", () => {
     expect(advanceStory(s)).toBe(s);
   });
 
-  it("Rogge flippar grannhuset om han vinner budkriget", () => {
+  it("Rogge flips grannhuset om han vinner budkriget", () => {
     let s = storyStart();
     s = readLetters(s);
     // Spola fram till kapitel 7 genom att uppfylla allt i ett svep.
@@ -190,7 +190,7 @@ describe("kampanjens kapitelflöde", () => {
     s = { ...s, listings: s.listings.filter((p) => p.storyTag !== "revansch"), competingBid: undefined };
     s = advanceStory(s);
     expect(s.listings.some((p) => p.storyTag === "revansch")).toBe(true); // återinlagt
-    expect(s.log[0].t).toContain("flippar");
+    expect(s.log[0].t).toContain("flips");
   });
 });
 
@@ -253,7 +253,7 @@ describe("morfars minneslappar", () => {
     s = reducer(s, { type: "FOUND_NOTE", id: "vattentornet" });
     expect(s.story?.flags).toContain("lapp:vattentornet");
     expect(s.reputation).toBe(repBefore + 1);
-    expect(s.log[0].t).toContain("Vattentornet");
+    expect(s.log[0].t).toContain("The Water Tower");
     // Samma lapp igen: ingenting händer.
     const again = reducer(s, { type: "FOUND_NOTE", id: "vattentornet" });
     expect(again).toBe(s);

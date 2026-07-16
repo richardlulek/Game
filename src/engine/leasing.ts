@@ -100,12 +100,12 @@ export function blockMixFor(
     if (types.has("butik")) { satBonus += 5; rentMult *= 1.03; parts.push("butik i kvarteret"); }
     if (types.has("industri")) { satBonus -= 7; rentMult *= 0.97; parts.push("industri intill"); }
   } else if (p.type === "butik") {
-    if (types.has("bostad")) { rentMult *= 1.05; parts.push("bostäder ger kundflöde"); }
+    if (types.has("bostad")) { rentMult *= 1.05; parts.push("residential drives foot traffic"); }
     if (types.has("kontor")) { rentMult *= 1.04; parts.push("kontor ger lunchkunder"); }
   } else if (p.type === "kontor") {
     if (types.has("butik")) { satBonus += 3; rentMult *= 1.03; parts.push("service i bottenplan"); }
   }
-  if (anchorInBlock) { satBonus += 5; rentMult *= 1.02; parts.push("ankarhyresgäst ⭐"); }
+  if (anchorInBlock) { satBonus += 5; rentMult *= 1.02; parts.push("anchor tenant ⭐"); }
   return {
     rentMult,
     satBonus,

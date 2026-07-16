@@ -8,7 +8,7 @@ import { C } from "../styles/tokens";
 /** Namnskylt under respektive porträtt. */
 const PORTRAIT_NAMES: Record<PortraitId, string> = {
   morfar: "Morfar Gunnar",
-  ekelof: "Adv. Ekelöf",
+  ekelof: "Atty. Ekelöf",
   rogge: "Rogge Flyt",
   gosta: "Gösta",
   ulla: "Ulla, Sparbanken",

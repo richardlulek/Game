@@ -219,7 +219,7 @@ function IndustryNode({ asset, forSale, rivalOwner }: { asset: IndustryAsset; fo
             <br />
             <span style={{ opacity: 0.8 }}>
               {rivalOwner
-                ? `Ägs av ${rivalOwner} – klicka för att lägga bud`
+                ? `Owned by ${rivalOwner} – click to place a bid`
                 : forSale
                   ? "Industry for sale – click for the market"
                   : "Your industry – click for overview"}

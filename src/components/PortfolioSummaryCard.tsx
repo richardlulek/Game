@@ -177,7 +177,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
           marginTop: 10, textAlign: "center", fontSize: 11.5, fontWeight: 700,
           color: open ? BURGUNDY : C.inkSoft,
         }}>
-          {open ? "▲ Dölj förvaltning" : "▾ Hantera fastigheten"}
+          {open ? "▲ Hide management" : "▾ Hantera fastigheten"}
         </div>
       </div>
     </div>

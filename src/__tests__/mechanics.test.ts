@@ -143,7 +143,7 @@ describe("B5: distriktsöden", () => {
     });
     const s1 = advanceMonth(s0);
     if ((s1.districtDev?.centrum ?? 0) >= 1.3) {
-      expect(s1.log.some((l) => l.t.includes("STADSOMVANDLING"))).toBe(true);
+      expect(s1.log.some((l) => l.t.includes("URBAN TRANSFORMATION"))).toBe(true);
     }
     expect(s1.districtTiers?.centrum).toBe(tierOfDev(s1.districtDev!.centrum).id);
   });

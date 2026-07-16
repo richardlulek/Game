@@ -31,8 +31,8 @@ import type {
   Tenant,
 } from "./types";
 
-export const STORY_COMPANY_NAME = "Morfars Fastigheter";
-export const GOSTA_NAME = "Gösta (morfars kompis)";
+export const STORY_COMPANY_NAME = "Grandpa's Properties";
+export const GOSTA_NAME = "Gösta (Grandpa's buddy)";
 export const ROGGE = "Roger ”Rogge” Flyt";
 
 /** Fryspåse-säkerhetsnätet: under denna kassa rycker morfar ut (en gång). */
@@ -72,111 +72,111 @@ export const STORY_BEATS: StoryBeat[] = [
   {
     id: "prolog",
     chapter: 0,
-    title: "Begravningen",
+    title: "The Funeral",
     letterId: "brev_ekelof",
     objectives: [
-      { text: "Läs breven från advokaten och morfar", check: (s) => hasFlag(s, "prolog_läst") },
+      { text: "Read the letters from the lawyer and Grandpa", check: (s) => hasFlag(s, "prolog_läst") },
     ],
-    hint: "Huset ligger i Villakullen – leta efter 🔵-markören på kartan.",
+    hint: "The house is in Villa Hill – look for the 🔵 marker on the map.",
   },
   {
     id: "renoveringen",
     chapter: 1,
-    title: "Renoveringen",
+    title: "The Renovation",
     letterId: "brev_kap1",
     objectives: [
       {
-        text: "Rusta upp morfars hus till skick 60",
+        text: "Renovate Grandpa's house to condition 60",
         check: (s) => (heirloomOf(s)?.condition ?? 0) >= 60,
       },
     ],
-    hint: "Klicka på huset → Underhåll. Hantverkarna behöver en månad per omgång – tre omgångar räcker. Låt tiden gå emellan.",
+    hint: "Click the house → Maintain. The workers need a month per round – three rounds is enough. Let time pass in between.",
   },
   {
     id: "hyresgasten",
     chapter: 2,
-    title: "Hyresgästen",
+    title: "The Tenant",
     letterId: "gosta_dilemma",
     objectives: [
       {
-        text: "Teckna kontrakt så minst 2 lokaler är uthyrda",
+        text: "Sign leases so at least 2 units are rented",
         check: (s) => (heirloomOf(s)?.tenants.length ?? 0) >= 2,
       },
     ],
-    hint: "Ansökningarna ligger i fastighetskortet under Hyresgäster.",
+    hint: "The applications are in the property card under Tenants.",
   },
   {
     id: "forhandlingen",
     chapter: 3,
-    title: "Förhandlingen",
+    title: "The Negotiation",
     letterId: "brev_kap3",
     objectives: [
       {
-        text: "Förhandla om en hyra (höj, sänk eller förläng ett kontrakt)",
+        text: "Negotiate a rent (raise, lower or extend a contract)",
         check: (s) => hasFlag(s, "förhandlat"),
       },
     ],
-    hint: "Öppna en hyresgäst i fastighetskortet → Höj/Sänk hyran eller Förläng.",
+    hint: "Open a tenant in the property card → Raise/Lower the rent or Extend.",
   },
   {
     id: "banken",
     chapter: 4,
-    title: "Banken",
+    title: "The Bank",
     letterId: "brev_kap4",
     objectives: [
       {
-        text: "Köp din andra fastighet",
+        text: "Buy your second property",
         check: (s) => s.portfolio.filter((p) => p.status === "klar").length >= 2,
       },
     ],
-    hint: "Marknad-fönstret – dödsboet ligger överst. Banken ordnar lånet automatiskt.",
+    hint: "The Market window – the estate sale is at the top. The bank arranges the loan automatically.",
   },
   {
     id: "konjunkturen",
     chapter: 5,
-    title: "Konjunkturen",
+    title: "The Economy",
     letterId: "brev_kap5",
     objectives: [
       {
-        text: "Överlev 6 månader med kassan över noll",
+        text: "Survive 6 months with cash above zero",
         check: (s) => absMonth(s) >= kap5Start(s) + 6 && s.cash > 0,
       },
     ],
-    hint: "Håll uthyrt, undvik panikförsäljningar. Kassaflödet syns i statusraden.",
+    hint: "Keep it rented, avoid panic sales. Cash flow is shown in the status bar.",
   },
   {
     id: "bolaget",
     chapter: 6,
-    title: "Bolaget",
+    title: "The Company",
     letterId: "brev_kap6",
     objectives: [
-      { text: "Expandera bolaget till nivå 2", check: (s) => (s.companyLevel ?? 1) >= 2 },
+      { text: "Expand the company to level 2", check: (s) => (s.companyLevel ?? 1) >= 2 },
     ],
-    hint: "Bolag-fönstret → Expandera bolaget (kräver eget kapital + 2 fastigheter).",
+    hint: "The Company window → Expand the company (requires equity + 2 properties).",
   },
   {
     id: "revanschen",
     chapter: 7,
-    title: "Revanschen",
+    title: "The Rematch",
     letterId: "brev_kap7",
     objectives: [
       {
-        text: "Vinn budkriget mot Rogge om grannhuset",
+        text: "Win the bidding war against Rogge over the neighboring house",
         check: (s) => s.portfolio.some((p) => p.storyTag === "revansch"),
       },
     ],
-    hint: "Grannhuset ligger i Marknad-fönstret. Rogge bjuder emot – bjud över honom.",
+    hint: "The neighboring house is in the Market window. Rogge bids against you – outbid him.",
   },
   {
     id: "dynastin",
     chapter: 8,
-    title: "Dynastin",
+    title: "The Dynasty",
     letterId: "rogge_surbrev",
     objectives: [
-      { text: "Nå bolagsnivå 3", check: (s) => (s.companyLevel ?? 1) >= 3 },
-      { text: "Nå 20 MSEK i eget kapital", check: (s) => equityOf(s) >= 20_000_000 },
+      { text: "Reach company level 3", check: (s) => (s.companyLevel ?? 1) >= 3 },
+      { text: "Reach 20 MSEK in equity", check: (s) => equityOf(s) >= 20_000_000 },
     ],
-    hint: "Fler fastigheter, uthyrt och rimlig belåning. Morfar hade tålamod – ha det du med.",
+    hint: "More properties, kept rented, and reasonable leverage. Grandpa had patience – so should you.",
   },
 ];
 
@@ -194,22 +194,22 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_ekelof: () => ({
     id: "story:brev_ekelof",
     portrait: "ekelof",
-    title: "Advokatbyrån Ekelöf & Söner (inga söner)",
+    title: "The Ekelöf & Sons Law Firm (no sons)",
     text:
-      "”Bästa arvtagare. Er morfader Gunnar har, som Ni möjligen noterat på begravningen, avlidit. " +
-      "Ni ärver härmed: en (1) fastighet i Villakullen, benämnd 'huset', samt kontanter om 850 000 kr " +
-      "vilka påträffades i frysen i påsar märkta 'köttfärs 1994'. Kriminaltekniker har bekräftat att det inte är köttfärs.” " +
-      "— Faktura bifogas: Upprättande av detta brev, 900 kr. Porto, 12 kr. Emotionellt stöd, 0 kr (ej beställt).",
+      "”Dear heir. Your grandfather Gunnar has, as you may have noted at the funeral, passed away. " +
+      "You hereby inherit: one (1) property in Villa Hill, referred to as 'the house', plus cash of 850,000 kr " +
+      "found in the freezer in bags labeled 'ground beef 1994'. Forensic technicians have confirmed it is not ground beef.” " +
+      "— Invoice enclosed: Drafting of this letter, 900 kr. Postage, 12 kr. Emotional support, 0 kr (not ordered).",
     options: [
       {
-        label: "Ta emot arvet",
-        detail: "Huset + 850 000 kr",
-        effect: { nextDecisionId: "brev_morfar_1", log: "Tog emot arvet efter morfar Gunnar.", logKind: "event" },
+        label: "Accept the inheritance",
+        detail: "The house + 850,000 kr",
+        effect: { nextDecisionId: "brev_morfar_1", log: "Accepted the inheritance from Grandpa Gunnar.", logKind: "event" },
       },
       {
-        label: "Fråga om det finns mer pengar",
-        detail: "Det gör det inte",
-        effect: { nextDecisionId: "brev_morfar_1", log: "Ekelöf: ”Nej. Fakturerar för frågan: 300 kr.” (ingick i arvet)", logKind: "info" },
+        label: "Ask if there is more money",
+        detail: "There isn't",
+        effect: { nextDecisionId: "brev_morfar_1", log: "Ekelöf: ”No. Billing for the question: 300 kr.” (included in the inheritance)", logKind: "info" },
       },
     ],
   }),
@@ -217,17 +217,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_morfar_1: () => ({
     id: "story:brev_morfar_1",
     portrait: "morfar",
-    title: "📜 Brev från morfar (1 av oräkneliga)",
+    title: "📜 Letter from Grandpa (1 of countless)",
     text:
-      "”Om du läser det här är jag död. Eller så har Ekelöf skickat brevet för tidigt igen – då ses vi på söndag som vanligt. " +
-      "Huset är ditt nu. Det är byggt 1962, tillbyggt 1971, 1978 och 1983. Bygglovet är 'under handläggning' sedan 1987 – stör inte kommunen i onödan. " +
-      "Gösta bor på nedervåningen. Han betalar inte hyra, men han vaktar huset. Mot vad har aldrig framgått. " +
-      "Ta hand om huset, pojk. Det har tak, väggar och POTENTIAL – två av tre är i bra skick.” — Morfar",
+      "”If you're reading this, I'm dead. Or Ekelöf sent the letter too early again – in which case, see you Sunday as usual. " +
+      "The house is yours now. It was built in 1962, extended in 1971, 1978 and 1983. The building permit has been 'under review' since 1987 – don't bother the municipality unnecessarily. " +
+      "Gösta lives on the ground floor. He doesn't pay rent, but he guards the house. Against what has never become clear. " +
+      "Take care of the house, my boy. It has a roof, walls and POTENTIAL – two of three are in good shape.” — Grandpa",
     options: [
       {
-        label: "Vila i frid, morfar",
-        detail: "Fortsätt",
-        effect: { nextDecisionId: "rogge_lowball", log: "Läste morfars första brev.", logKind: "event" },
+        label: "Rest in peace, Grandpa",
+        detail: "Continue",
+        effect: { nextDecisionId: "rogge_lowball", log: "Read Grandpa's first letter.", logKind: "event" },
       },
     ],
   }),
@@ -235,22 +235,22 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   rogge_lowball: () => ({
     id: "story:rogge_lowball",
     portrait: "rogge",
-    title: "🕶️ Besök: Roger ”Rogge” Flyt, Flyt Fastigheter",
+    title: "🕶️ Visit: Roger ”Rogge” Flyt, Flyt Properties",
     text:
-      "En man i vita loafers klampar in på begravningskaffet och delar ut visitkort mellan kanapéerna. " +
-      "”Rogge Flyt, Flyt Fastigheter. Beklagar sorgen och så vidare. Jag ger dig 1,2 miljoner för kåken – kontant, i morgon. " +
-      "Det är över marknadspris, lita på mig, jag har B-körkort och en pool.” " +
-      "Huset är värt över det fyrdubbla. Dessutom: testamentets villkor 7b förbjuder försäljning de första 24 månaderna.",
+      "A man in white loafers clomps into the funeral reception and hands out business cards between the canapés. " +
+      "”Rogge Flyt, Flyt Properties. Sorry for your loss and so on. I'll give you 1.2 million for the shack – cash, tomorrow. " +
+      "That's over market, trust me, I have a driver's license and a pool.” " +
+      "The house is worth more than four times that. Also: clause 7b of the will forbids a sale for the first 24 months.",
     options: [
       {
-        label: "”Huset är inte till salu.”",
-        detail: "Reputation +1 · Rogge glömmer dig inte",
-        effect: { reputation: 1, storyFlag: "prolog_läst", log: "Avvisade Rogges lowball-bud. Han log som en människa som sett bilder på leenden.", logKind: "event" },
+        label: "”The house is not for sale.”",
+        detail: "Reputation +1 · Rogge won't forget you",
+        effect: { reputation: 1, storyFlag: "prolog_läst", log: "Rejected Rogge's lowball bid. He smiled like a man who has seen pictures of smiles.", logKind: "event" },
       },
       {
-        label: "Överväg budet... nej. NEJ.",
-        detail: "Villkor 7b förbjuder det ändå",
-        effect: { storyFlag: "prolog_läst", log: "Övervägde Rogges bud tills Ekelöf harklade sig och pekade på villkor 7b. Faktura: 900 kr. (ingick)", logKind: "info" },
+        label: "Consider the offer... no. NO.",
+        detail: "Clause 7b forbids it anyway",
+        effect: { storyFlag: "prolog_läst", log: "Considered Rogge's offer until Ekelöf cleared his throat and pointed at clause 7b. Invoice: 900 kr. (included)", logKind: "info" },
       },
     ],
   }),
@@ -259,17 +259,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_kap1: () => ({
     id: "story:brev_kap1",
     portrait: "morfar",
-    title: "📜 Brev från morfar: Om huset",
+    title: "📜 Letter from Grandpa: About the house",
     text:
-      "”Nu har du väl sett skicket. Ja. Jag VET. Taket läcker bara när det regnar, och elen är original – " +
-      "det knastrar lite när man tänder i köket, det betyder att den fungerar. " +
-      "Ta pengarna i påsen och RUSTA UPP huset. Skick under 40 skrämmer bort alla hyresgäster utom Gösta, och Gösta räknas inte, han är ju Gösta. " +
-      "Klicka på huset på kartan och välj Underhåll. Gör det några gånger. Bättre skick = högre hyra, färre vakanser och en energiklass som inte börjar på F som i 'Fy'.”",
+      "”You've seen the condition by now. Yes. I KNOW. The roof only leaks when it rains, and the wiring is original – " +
+      "it crackles a bit when you turn on the kitchen light, which means it works. " +
+      "Take the money from the bag and FIX UP the house. Condition below 40 scares off every tenant except Gösta, and Gösta doesn't count, he's Gösta. " +
+      "Click the house on the map and choose Maintain. Do it a few times. Better condition = higher rent, fewer vacancies and an energy class that doesn't start with F as in 'Foul'.”",
     options: [
       {
-        label: "Kavla upp ärmarna",
-        detail: "Mål: skick 60",
-        effect: { log: "Kapitel 1: Renoveringen. Morfars hus ska rustas upp till skick 60.", logKind: "event" },
+        label: "Roll up your sleeves",
+        detail: "Goal: condition 60",
+        effect: { log: "Chapter 1: The Renovation. Grandpa's house must be renovated to condition 60.", logKind: "event" },
       },
     ],
   }),
@@ -278,27 +278,27 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   gosta_dilemma: () => ({
     id: "story:gosta_dilemma",
     portrait: "gosta",
-    title: "🚪 Gösta står i dörren",
+    title: "🚪 Gösta is at the door",
     text:
-      "”Jag hör att det renoveras”, säger Gösta misstänksamt och håller upp en termos som försvar. " +
-      "”Dragit in vatten på övervåningen? Diskmaskin? Jag är ingen greve.” " +
-      "Gösta har bott här sedan 2009. Hyra: 500 kr/mån (morfars kompispris, senast justerat aldrig). " +
-      "Han betalar alltid i tid, klagar aldrig, och vaktar huset. Men lokalen han bor i är värd 15 gånger mer på öppna marknaden.",
+      "”I hear there's renovating going on,” Gösta says suspiciously, holding up a thermos as a shield. " +
+      "”Ran water to the upper floor? A dishwasher? I'm no count.” " +
+      "Gösta has lived here since 2009. Rent: 500 kr/mo (Grandpa's buddy price, last adjusted never). " +
+      "He always pays on time, never complains, and guards the house. But the unit he lives in is worth 15 times more on the open market.",
     options: [
       {
-        label: "”Du bor kvar, Gösta. Kompispriset gäller.”",
-        detail: "Behåll Gösta · 500 kr/mån · lojal för evigt · Reputation +2",
+        label: "”You stay, Gösta. The buddy price holds.”",
+        detail: "Keep Gösta · 500 kr/mo · loyal forever · Reputation +2",
         effect: {
           reputation: 2, storyFlag: "gosta_kvar", nextDecisionId: "brev_kap2",
-          log: "Gösta bor kvar. Han nickade långsamt och erbjöd kaffe ur termosen. Det var starkt nog att belysa källaren.", logKind: "event",
+          log: "Gösta stays. He nodded slowly and offered coffee from the thermos. It was strong enough to light up the basement.", logKind: "event",
         },
       },
       {
-        label: "”Jag behöver lokalen, Gösta.”",
-        detail: "Gösta flyttar · lokalen frigörs · Reputation −2",
+        label: "”I need the unit, Gösta.”",
+        detail: "Gösta moves out · the unit is freed · Reputation −2",
         effect: {
           reputation: -2, storyFlag: "gosta_ut", nextDecisionId: "brev_kap2",
-          log: "Gösta packade termosen och flyttade till sin syster i Förorten. Huset känns konstigt tyst. Och ovaktat.", logKind: "warn",
+          log: "Gösta packed the thermos and moved to his sister in The Suburbs. The house feels strangely quiet. And unguarded.", logKind: "warn",
         },
       },
     ],
@@ -307,17 +307,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_kap2: () => ({
     id: "story:brev_kap2",
     portrait: "morfar",
-    title: "📜 Brev från morfar: Om hyresgäster",
+    title: "📜 Letter from Grandpa: About tenants",
     text:
-      "”Hyresgäster är som väder – man väljer inte, men man kan klä sig rätt. " +
-      "Nu när huset ser beboeligt ut kommer ANSÖKNINGAR. Öppna fastighetskortet: där ser du vad de vill betala, hur pålitliga de är (kvalitet) " +
-      "och risken att de plötsligt 'glömmer' hyran (risk). Kontraktslängd är en avvägning: korta kontrakt ger frihet, långa ger nattsömn. " +
-      "Och lyssna inte på folk som vill betala i 'exposure'. Jag dog hellre. Bokstavligen, som du vet.”",
+      "”Tenants are like weather – you don't get to choose, but you can dress for it. " +
+      "Now that the house looks habitable, APPLICATIONS will come. Open the property card: there you see what they want to pay, how reliable they are (quality) " +
+      "and the risk they suddenly 'forget' the rent (risk). Lease length is a trade-off: short leases give freedom, long ones give a good night's sleep. " +
+      "And don't listen to people who want to pay in 'exposure'. I'd rather die. Literally, as you know.”",
     options: [
       {
-        label: "Öppna ansökningarna",
-        detail: "Mål: 2 lokaler uthyrda",
-        effect: { log: "Kapitel 2: Hyresgästen. Ansökningar har börjat komma till morfars hus.", logKind: "event" },
+        label: "Open the applications",
+        detail: "Goal: 2 units rented",
+        effect: { log: "Chapter 2: The Tenant. Applications have begun arriving for Grandpa's house.", logKind: "event" },
       },
     ],
   }),
@@ -326,17 +326,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_kap3: () => ({
     id: "story:brev_kap3",
     portrait: "morfar",
-    title: "📜 Brev från morfar: Om förhandling",
+    title: "📜 Letter from Grandpa: About negotiation",
     text:
-      "”Förr eller senare måste man prata hyra, och då blir alla plötsligt experter. " +
-      "Höj för mycket och de flyttar. Höj lagom och de muttrar men stannar – muttrandet ingår, det är så vi umgås i det här landet. " +
-      "Sänk om du vill att någon ska stanna länge, och förläng kontrakt som löper ut innan de hinner tänka fritt. " +
-      "Varning: en av dina hyresgäster kommer att nämna sin svåger Kent-Ove 'i hyresnämnden'. Kent-Ove jobbar i kiosken BREDVID hyresnämnden. Stå på dig.”",
+      "”Sooner or later you have to talk rent, and then everyone suddenly becomes an expert. " +
+      "Raise it too much and they move out. Raise it moderately and they grumble but stay – the grumbling is included, it's how we socialize in this country. " +
+      "Lower it if you want someone to stay a long time, and extend leases that are expiring before they get to think freely. " +
+      "Warning: one of your tenants will mention their brother-in-law Kent-Ove 'at the rent tribunal'. Kent-Ove works in the kiosk NEXT TO the rent tribunal. Stand firm.”",
     options: [
       {
-        label: "Dags att förhandla",
-        detail: "Mål: höj, sänk eller förläng en hyra",
-        effect: { log: "Kapitel 3: Förhandlingen. Dags att röra en hyra – uppåt, nedåt eller framåt i tiden.", logKind: "event" },
+        label: "Time to negotiate",
+        detail: "Goal: raise, lower or extend a rent",
+        effect: { log: "Chapter 3: The Negotiation. Time to move a rent – up, down or forward in time.", logKind: "event" },
       },
     ],
   }),
@@ -345,17 +345,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_kap4: () => ({
     id: "story:brev_kap4",
     portrait: "ulla",
-    title: "🏦 Möte: Ulla på Sparbanken Eken",
+    title: "🏦 Meeting: Ulla at Oak Savings Bank",
     text:
-      "Ulla har jobbat på banken sedan hålkort. Hon granskar dig över glasögonen: " +
-      "”Jaha. Gunnars barnbarn. Han hade sina pengar i frysen, visste du det? Vi PRATADE om det.” " +
-      "Hon skjuter fram en kalkyl: ”Så här fungerar det: du betalar en HANDPENNING kontant, banken lånar ut resten upp till en viss andel av priset – det kallas LTV. " +
-      "Sedan AMORTERAR du. Det finns ett dödsbo i området som vill sälja snabbt – arvingarna bor i Spanien och blir nervösa av väder under 25 grader. Priset är... anständigt.”",
+      "Ulla has worked at the bank since punch cards. She studies you over her glasses: " +
+      "”Well. Gunnar's grandchild. He kept his money in the freezer, did you know that? We TALKED about it.” " +
+      "She slides a calculation forward: ”Here's how it works: you pay a DOWN PAYMENT in cash, the bank lends the rest up to a certain share of the price – that's called LTV. " +
+      "Then you AMORTIZE. There's an estate in the area that wants to sell fast – the heirs live in Spain and get nervous about weather below 25 degrees. The price is... decent.”",
     options: [
       {
-        label: "Ta lånelöftet och gå till Marknaden",
-        detail: "Mål: köp fastighet nummer två",
-        effect: { log: "Kapitel 4: Banken. Ulla har ordnat lånelöfte – dödsboet ligger ute på Marknaden.", logKind: "event" },
+        label: "Take the loan pledge and go to the Market",
+        detail: "Goal: buy property number two",
+        effect: { log: "Chapter 4: The Bank. Ulla has arranged a loan pledge – the estate is on the Market.", logKind: "event" },
       },
     ],
   }),
@@ -364,17 +364,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_kap5: () => ({
     id: "story:brev_kap5",
     portrait: "morfar",
-    title: "📜 Brev från morfar: Om konjunkturen",
+    title: "📜 Letter from Grandpa: About the economy",
     text:
-      "”Om du läser det här brevet har Riksbanken just höjt räntan, för det gör den alltid förr eller senare. Andas. " +
-      "Jag ägde hus 1992. Räntan var 500 procent. FEMHUNDRA. Vi grillade korv på räntebeskedet, för det var det enda som var gratis. " +
-      "Du överlever några procentenheter. Regeln är enkel: håll uthyrt, sälj ingenting i panik, och köp när alla andra gråter. " +
-      "Marknaden går i cykler – den som har kassa i botten av cykeln blir rik på toppen. Den som har vita loafers blir det sällan länge.”",
+      "”If you're reading this letter, the central bank just raised rates, because it always does sooner or later. Breathe. " +
+      "I owned property in 1992. The rate was 500 percent. FIVE HUNDRED. We grilled sausages on the rate announcement, because it was the only thing that was free. " +
+      "You'll survive a few percentage points. The rule is simple: keep it rented, sell nothing in panic, and buy when everyone else is crying. " +
+      "The market moves in cycles – whoever has cash at the bottom of the cycle gets rich at the top. Whoever has white loafers rarely does for long.”",
     options: [
       {
-        label: "Andas. Håll ut.",
-        detail: "Mål: överlev 6 månader",
-        effect: { log: "Kapitel 5: Konjunkturen. Räntan har höjts – håll kassan över noll i sex månader.", logKind: "event" },
+        label: "Breathe. Hold on.",
+        detail: "Goal: survive 6 months",
+        effect: { log: "Chapter 5: The Economy. Rates have risen – keep cash above zero for six months.", logKind: "event" },
       },
     ],
   }),
@@ -382,16 +382,16 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   bailout_frys: () => ({
     id: "story:bailout_frys",
     portrait: "morfar",
-    title: "🧊 Ett fynd i frysen",
+    title: "🧊 A find in the freezer",
     text:
-      "Du letar efter något ätbart i morfars gamla frys och hittar, längst ner under en isig påse strömming, " +
-      "ytterligare en påse. Märkt 'JULSKINKA 1997'. Den innehåller 400 000 kr och en post-it: " +
-      "”Jag visste att du skulle leta här förr eller senare. Antingen är du hungrig eller pank. Båda går över. — Morfar”",
+      "You're looking for something edible in Grandpa's old freezer and find, at the very bottom under an icy bag of herring, " +
+      "another bag. Labeled 'CHRISTMAS HAM 1997'. It contains 400,000 kr and a post-it: " +
+      "”I knew you'd look here sooner or later. Either you're hungry or broke. Both pass. — Grandpa”",
     options: [
       {
-        label: "Tack, morfar.",
-        detail: `+${kr(BAILOUT_AMOUNT)} · händer bara en gång`,
-        effect: { cash: BAILOUT_AMOUNT, log: "Hittade morfars sista fryspåse: +400 000 kr. Strömmingen fick ligga kvar.", logKind: "income" },
+        label: "Thanks, Grandpa.",
+        detail: `+${kr(BAILOUT_AMOUNT)} · happens only once`,
+        effect: { cash: BAILOUT_AMOUNT, log: "Found Grandpa's last freezer bag: +400,000 kr. The herring stayed put.", logKind: "income" },
       },
     ],
   }),
@@ -400,17 +400,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_kap6: () => ({
     id: "story:brev_kap6",
     portrait: "morfar",
-    title: "📜 Brev från morfar: Om bolag",
+    title: "📜 Letter from Grandpa: About companies",
     text:
-      "”Två hus och en fungerande ekonomi – nu är du officiellt inte längre en 'privatperson med problem' utan en 'aktör i sektorn'. Grattis. " +
-      "Dags att registrera ett riktigt bolag: kontor, kostnader och rätten att säga 'vi' om dig själv. " +
-      "Jag försökte registrera bolag en gång. 'Hus AB' – upptaget. 'Hus 2 AB' – upptaget. 'Gunnars Hus & Hämnd AB' – godkänt, men mormor sa nej. " +
-      "Gå till Bolag-fönstret och expandera när du uppfyller kraven. Och byt namn på firman om du vill – det är ditt bolag nu, inte mitt.”",
+      "”Two houses and a working economy – you're now officially no longer a 'private person with problems' but an 'actor in the sector'. Congratulations. " +
+      "Time to register a real company: an office, costs, and the right to say 'we' about yourself. " +
+      "I tried to register a company once. 'House Ltd' – taken. 'House 2 Ltd' – taken. 'Gunnar's Houses & Revenge Ltd' – approved, but Grandma said no. " +
+      "Go to the Company window and expand when you meet the requirements. And rename the firm if you like – it's your company now, not mine.”",
     options: [
       {
-        label: "Registrera bolaget",
-        detail: "Mål: bolagsnivå 2",
-        effect: { log: "Kapitel 6: Bolaget. Expandera till nivå 2 i Bolag-fönstret.", logKind: "event" },
+        label: "Register the company",
+        detail: "Goal: company level 2",
+        effect: { log: "Chapter 6: The Company. Expand to level 2 in the Company window.", logKind: "event" },
       },
     ],
   }),
@@ -419,17 +419,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_kap7: () => ({
     id: "story:brev_kap7",
     portrait: "rogge",
-    title: "🕶️ Rogge Flyt köper upp din gata",
+    title: "🕶️ Rogge Flyt buys up your street",
     text:
-      "Rogge Flyt står utanför grannhuset och fotograferar det med tummen upp. " +
-      "”Läget, arvtagaren! Flyt Fastigheter expanderar. Jag köper grannkåken, river ut allt med SJÄL i och hyr ut per kvadratmillimeter. " +
-      "Sen tar jag nästa hus. Och nästa. Snart heter kullen Flyt Hills. Det fokusgruppas just nu.” " +
-      "Grannhuset har precis lagts ut till försäljning – och Rogge har redan lagt ett bud. Morfar hade väntat sig att du gör något åt saken.",
+      "Rogge Flyt stands outside the neighboring house photographing it with a thumbs-up. " +
+      "”What's up, heir! Flyt Properties is expanding. I'm buying the shack next door, ripping out everything with SOUL in it and renting per square millimeter. " +
+      "Then I take the next house. And the next. Soon the hill will be called Flyt Hills. It's in focus groups right now.” " +
+      "The neighboring house has just been listed for sale – and Rogge has already placed a bid. Grandpa would have expected you to do something about it.",
     options: [
       {
-        label: "Inte min gata, Rogge.",
-        detail: "Mål: vinn budkriget om grannhuset",
-        effect: { log: "Kapitel 7: Revanschen. Rogge Flyt bjuder på grannhuset – bjud över honom på Marknaden.", logKind: "event" },
+        label: "Not my street, Rogge.",
+        detail: "Goal: win the bidding war over the neighboring house",
+        effect: { log: "Chapter 7: The Rematch. Rogge Flyt is bidding on the neighboring house – outbid him on the Market.", logKind: "event" },
       },
     ],
   }),
@@ -437,17 +437,17 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   rogge_surbrev: () => ({
     id: "story:rogge_surbrev",
     portrait: "rogge",
-    title: "📬 Ett surt brev på blankt papper",
+    title: "📬 A sour letter on blank paper",
     text:
-      "”Grattis eller vad man säger. Budgivning är ändå mest en grej för folk som gillar att äga hus. " +
-      "Flyt Fastigheter PIVOTERAR nu till mer spännande vertikaler. Padel. Padel är framtiden. " +
-      "Vi ses på toppen – jag tar hissen, du får trappan. /R Flyt, CEO, grundare, visionär, B-körkort” " +
-      "PS. Ekelöf hälsar att morfar förutsåg detta brev och bad honom bifoga: ”Ha. — Gunnar”",
+      "”Congrats or whatever. Bidding is really mostly a thing for people who like owning houses. " +
+      "Flyt Properties is now PIVOTING to more exciting verticals. Padel. Padel is the future. " +
+      "See you at the top – I'll take the elevator, you get the stairs. /R Flyt, CEO, founder, visionary, driver's license” " +
+      "PS. Ekelöf sends word that Grandpa foresaw this letter and asked him to attach: ”Ha. — Gunnar”",
     options: [
       {
-        label: "Rama in brevet",
-        detail: "Sista målet: nivå 3 + 20 MSEK eget kapital",
-        effect: { reputation: 2, log: "Kapitel 8: Dynastin. Rogge pivoterade till padel. Kvar står din gata – och ditt växande imperium.", logKind: "event" },
+        label: "Frame the letter",
+        detail: "Final goal: level 3 + 20 MSEK equity",
+        effect: { reputation: 2, log: "Chapter 8: The Dynasty. Rogge pivoted to padel. Your street remains – and your growing empire.", logKind: "event" },
       },
     ],
   }),
@@ -456,18 +456,18 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
   brev_epilog: () => ({
     id: "story:brev_epilog",
     portrait: "morfar",
-    title: "📜 Morfars sista brev",
+    title: "📜 Grandpa's last letter",
     text:
-      "”Om Ekelöf har skött sig får du det här brevet när du inte längre behöver det – när huset blivit flera, " +
-      "och 'Gunnars pojk' blivit någon som folk ringer FÖRE banken. Jag är inte förvånad. Jag är någonting annat som börjar på stolt. " +
-      "I kuvertet ligger min klocka. Den har gått fel sedan 1979, men den går – och det är hela hemligheten med det här yrket: " +
-      "det viktiga är inte att gå rätt, det viktiga är att inte stanna. Bygg vidare. Staden är din nu.” — Morfar. " +
-      "(Ekelöfs slutfaktura bifogas: ”Förvaring av klocka, 26 år: 0 kr. För Gunnar: allt var 0 kr.”)",
+      "”If Ekelöf has done his job, you get this letter when you no longer need it – when the house has become many, " +
+      "and 'Gunnar's boy' has become someone people call BEFORE the bank. I'm not surprised. I'm something else that starts with proud. " +
+      "In the envelope is my watch. It's run wrong since 1979, but it runs – and that's the whole secret of this trade: " +
+      "the important thing isn't to keep the right time, the important thing is not to stop. Keep building. The city is yours now.” — Grandpa. " +
+      "(Ekelöf's final invoice enclosed: ”Storage of a watch, 26 years: 0 kr. For Gunnar: everything was 0 kr.”)",
     options: [
       {
-        label: "⌚ Ta emot morfars klocka",
-        detail: "+25 dynastipoäng · kampanjen fullbordad – spelet fortsätter fritt",
-        effect: { log: "🏆 ARVET FULLBORDAT: Morfars klocka hänger nu på kontorsväggen. Kampanjen är klar – staden är din.", logKind: "event" },
+        label: "⌚ Accept Grandpa's watch",
+        detail: "+25 dynasty points · the campaign complete – the game continues freely",
+        effect: { log: "🏆 THE INHERITANCE COMPLETE: Grandpa's watch now hangs on the office wall. The campaign is done – the city is yours.", logKind: "event" },
       },
     ],
   }),
@@ -487,7 +487,7 @@ function makeGosta(): Tenant {
     id: newId(),
     profile: "privat",
     name: GOSTA_NAME,
-    profileName: "Privatperson",
+    profileName: "Private individual",
     quality: 0.4,
     defaultRisk: 0.001,
     monthsLeft: 999,
@@ -510,9 +510,9 @@ export function makeInheritedHouse(fresh: GameState): Property {
   return {
     id: newId(),
     district: "kulle",
-    districtName: "Villakullen",
+    districtName: "Villa Hill",
     type: "bostad",
-    typeLabel: "Bostadshus",
+    typeLabel: "Residential",
     area,
     condition,
     askPrice: value,
@@ -560,7 +560,7 @@ export function seedStory(fresh: GameState): GameState {
     tutorialDismissed: true,
     pendingDecision: STORY_DECISIONS.brev_ekelof(fresh),
     log: [
-      { t: "📜 ARVET: Morfar Gunnars hus i Villakullen är ditt – liksom 850 000 kr ur frysen.", kind: "event" },
+      { t: "📜 THE INHERITANCE: Grandpa Gunnar's house in Villa Hill is yours – along with 850,000 kr from the freezer.", kind: "event" },
       ...fresh.log,
     ],
   };
@@ -592,11 +592,11 @@ function scriptedApplications(s: GameState, house: Property): Application[] {
   });
   return [
     // Betalar förvånansvärt bra – replokal och boende i ett. Grannarna får åsikter.
-    mk("Dödsmetallbandet Likbål", "Kulturverksamhet", 1.1, 0.04, 1.25, 24),
+    mk("The death-metal band Likbål", "Cultural venue", 1.1, 0.04, 1.25, 24),
     // Betalar lite under marknad men flyttar ALDRIG. Katterna behöver stabilitet.
-    mk("Margit + 14 katter", "Privatperson", 0.9, 0.005, 0.9, 120),
+    mk("Margit + 14 cats", "Private individual", 0.9, 0.005, 0.9, 120),
     // Vill egentligen betala i exposure. Erbjuder ändå några kronor.
-    mk("Influencerparet @UrbanNesting", "Innehållsskapare", 0.3, 0.2, 0.45, 6),
+    mk("The influencer couple @UrbanNesting", "Content creator", 0.3, 0.2, 0.45, 6),
   ];
 }
 
@@ -637,7 +637,7 @@ function applyInject(s: GameState, beat: StoryBeat): GameState {
         portfolio: s.portfolio.map((p) =>
           p.id === house.id ? { ...p, applications: [...(p.applications ?? []), ...apps] } : p,
         ),
-        log: [{ t: "📬 Tre ansökningar har kommit till morfars hus – en av dem luktar rökmaskin.", kind: "event" as const }, ...s.log],
+        log: [{ t: "📬 Three applications have arrived for Grandpa's house – one of them smells of smoke machine.", kind: "event" as const }, ...s.log],
       };
     }
     case "banken": {
@@ -645,7 +645,7 @@ function applyInject(s: GameState, beat: StoryBeat): GameState {
       return {
         ...s,
         listings: [listing, ...s.listings],
-        log: [{ t: `🏦 Dödsboet i ${listing.districtName} har lagts ut för ${msek(listing.askPrice)} – arvingarna i Spanien vill sälja i förrgår.`, kind: "event" as const }, ...s.log],
+        log: [{ t: `🏦 The estate in ${listing.districtName} has been listed for ${msek(listing.askPrice)} – the heirs in Spain wanted to sell the day before yesterday.`, kind: "event" as const }, ...s.log],
       };
     }
     case "konjunkturen": {
@@ -656,7 +656,7 @@ function applyInject(s: GameState, beat: StoryBeat): GameState {
         story: s.story
           ? { ...s.story, flags: [...s.story.flags, `kap5start:${absMonth(s)}`] }
           : s.story,
-        log: [{ t: `🏦 RIKSBANKEN höjer styrräntan med ${hike.toFixed(2).replace(".", ",")} procentenheter. Ulla på banken ringde bara för att säga ”vad var det jag sa”.`, kind: "warn" as const }, ...s.log],
+        log: [{ t: `🏦 THE CENTRAL BANK raises the policy rate by ${hike.toFixed(2)} percentage points. Ulla at the bank called just to say ”what did I tell you”.`, kind: "warn" as const }, ...s.log],
       };
     }
     case "revanschen": {
@@ -671,7 +671,7 @@ function applyInject(s: GameState, beat: StoryBeat): GameState {
           expiresAbs: absMonth(s) + 2,
           round: 1,
         },
-        log: [{ t: `🕶️ ${ROGGE} har lagt ett bud på grannhuset i ${listing.districtName}. Han kallar det ”Flyt Hills fas 1”.`, kind: "warn" as const }, ...s.log],
+        log: [{ t: `🕶️ ${ROGGE} has placed a bid on the neighboring house in ${listing.districtName}. He calls it ”Flyt Hills phase 1”.`, kind: "warn" as const }, ...s.log],
       };
     }
     default:
@@ -757,7 +757,7 @@ export function advanceStory(state: GameState): GameState {
             expiresAbs: absMonth(s) + 2,
             round: 1,
           },
-          log: [{ t: "🕶️ Rogge flippar grannhuset – ute till försäljning igen, nu med ”stylad tambur” och högre pris.", kind: "warn" as const }, ...s.log],
+          log: [{ t: "🕶️ Rogge flips the neighboring house – back on the market, now with a ”styled entryway” and a higher price.", kind: "warn" as const }, ...s.log],
         };
         return s;
       }
@@ -804,46 +804,46 @@ export interface StoryFront {
  *  täcker redan Bolaget/Dynastin). Nyckel = beat-id som just KLARATS. */
 export const CHAPTER_FRONTS: Record<string, StoryFront> = {
   renoveringen: {
-    headline: "KÅKEN PÅ KULLEN HAR FÅTT NYTT TAK",
-    sub: "Grannarna: ”Äntligen.” Gösta: ”Det knastrar mindre i köket nu. Misstänkt.”",
+    headline: "THE SHACK ON THE HILL HAS A NEW ROOF",
+    sub: "The neighbors: ”Finally.” Gösta: ”The kitchen crackles less now. Suspicious.”",
     body:
-      "Villakullens mest omtalade fastighet – i folkmun 'Gunnars kåk' – har rustats upp av arvtagaren. " +
-      "Hantverkare bekräftar att taket numera läcker 'åt rätt håll, alltså inte alls'. " +
-      "Kommunens bygglovskontor uppger att man 'ser över ärendet från 1987 med förnyad energi'.",
+      "Villa Hill's most talked-about property – colloquially 'Gunnar's shack' – has been renovated by the heir. " +
+      "Workers confirm that the roof now leaks 'the right way, i.e. not at all'. " +
+      "The municipal permit office states that it is 'reviewing the 1987 case with renewed energy'.",
     icon: "🔨",
-    caption: "Huset på kullen, nu med tak.",
+    caption: "The house on the hill, now with a roof.",
   },
   hyresgasten: {
-    headline: "NYA HYRESGÄSTER PÅ KULLEN",
-    sub: "Grannsämjan beskrivs som ”förvånansvärt god, med vissa förbehåll kring ljudnivån torsdagar”.",
+    headline: "NEW TENANTS ON THE HILL",
+    sub: "Neighborly relations are described as ”surprisingly good, with some reservations about the noise level on Thursdays”.",
     body:
-      "Det nyrenoverade huset på Villakullen har fått hyresgäster. Grannskapet rapporterar om " +
-      "omväxlande orgelmusik, kattspring och enstaka rökmaskinstest. Hyresvärden kommenterar: " +
-      "'Alla betalar i pengar. Det var det viktigaste kravet.' Stadsbladet har sökt bandet Likbål, " +
-      "som svarar med en riffsignatur.",
+      "The newly renovated house on Villa Hill has tenants. The neighborhood reports " +
+      "alternating organ music, running cats and the occasional smoke-machine test. The landlord comments: " +
+      "'Everyone pays in money. That was the most important requirement.' The City Herald has reached out to the band Likbål, " +
+      "which responds with a riff signature.",
     icon: "🎸",
-    caption: "Inflyttning pågår.",
+    caption: "Move-in underway.",
   },
   banken: {
-    headline: "ARVTAGAREN EXPANDERAR",
-    sub: "Sparbanken Eken: ”Kalkylen håller. Vi har räknat två gånger. Ulla tre.”",
+    headline: "THE HEIR EXPANDS",
+    sub: "Oak Savings Bank: ”The math holds. We counted twice. Ulla three times.”",
     body:
-      "Med lånelöfte från Sparbanken Eken har arvtagaren förvärvat sin andra fastighet – dödsboet " +
-      "vars arvingar enligt uppgift redan hunnit tillbaka till Marbella. Banken beskriver kunden som " +
-      "'påfallande lik sin morfar, fast med pengarna på banken i stället för i frysen'.",
+      "With a loan pledge from Oak Savings Bank, the heir has acquired a second property – the estate " +
+      "whose heirs are reportedly already back in Marbella. The bank describes the customer as " +
+      "'strikingly like his grandfather, only with the money in the bank instead of the freezer'.",
     icon: "🏦",
-    caption: "Fastighet nummer två.",
+    caption: "Property number two.",
   },
   revanschen: {
-    headline: "FLYT FASTIGHETER PIVOTERAR TILL PADEL",
-    sub: "Roger Flyt: ”Helt frivilligt. Fastigheter var ändå mest en grej för folk som gillar hus.”",
+    headline: "FLYT PROPERTIES PIVOTS TO PADEL",
+    sub: "Roger Flyt: ”Entirely voluntary. Real estate was really mostly a thing for people who like houses.”",
     body:
-      "Budkriget om grannhuset på Villakullen är över: arvtagaren vann. Flyt Fastigheter meddelar " +
-      "samma dag en 'strategisk pivot till racketsport-vertikalen'. Branschanalytiker noterar att " +
-      "bolagets vita BMW setts lämna kullen 'i god fart, dock privatleasad'. Morfars kommentar, " +
-      "förmedlad via advokat: ”Ha.”",
+      "The bidding war over the neighboring house on Villa Hill is over: the heir won. Flyt Properties announces " +
+      "the same day a 'strategic pivot to the racket-sport vertical'. Industry analysts note that " +
+      "the company's white BMW was seen leaving the hill 'at good speed, though privately leased'. Grandpa's comment, " +
+      "relayed via lawyer: ”Ha.”",
     icon: "🎾",
-    caption: "R. Flyt lämnar kullen.",
+    caption: "R. Flyt leaves the hill.",
   },
 };
 
@@ -862,50 +862,50 @@ export const MEMORY_NOTES: MemoryNote[] = [
   {
     id: "vattentornet",
     x: -382, z: -338,
-    title: "Vattentornet",
+    title: "The Water Tower",
     text:
-      "”Här friade jag till mormor, juni 1961. Hon sa ja för att det blåste och hon ville gå ner. " +
-      "Vi var gifta i 52 år. Ibland räcker det med bra timing.” — Morfar",
+      "”Here I proposed to Grandma, June 1961. She said yes because it was windy and she wanted to go down. " +
+      "We were married for 52 years. Sometimes good timing is enough.” — Grandpa",
   },
   {
     id: "klocktornet",
     x: 152, z: 30,
-    title: "Klocktornet vid bygglovskontoret",
+    title: "The Clock Tower by the permit office",
     text:
-      "”Bygglovskontoret. Mitt tillbyggnadsärende är 'under handläggning' sedan 1987. " +
-      "Jag vattnar deras pelargoner varje fredag i väntan. Man ska vårda sina relationer.” — Morfar",
+      "”The permit office. My extension case has been 'under review' since 1987. " +
+      "I water their geraniums every Friday while I wait. You should tend your relationships.” — Grandpa",
   },
   {
     id: "skorstenarna",
     x: 325, z: -256,
-    title: "Fabriksskorstenarna",
+    title: "The Factory Chimneys",
     text:
-      "”Min första lön, 1953. Förmannen sa att jag var för klen för tegelbärning. " +
-      "Huset hans barnbarn hyr idag råkar jag känna ägaren till. Bär du tegel, pojk – men äg huset.” — Morfar",
+      "”My first paycheck, 1953. The foreman said I was too frail to carry bricks. " +
+      "The house his grandchild rents today, I happen to know the owner of. Carry bricks, my boy – but own the house.” — Grandpa",
   },
   {
     id: "hamnkajen",
     x: 40, z: 308,
-    title: "Hamnkajen",
+    title: "The Harbor Quay",
     text:
-      "”Härifrån skulle jag emigrera till Amerika, våren 1958. Båten gick utan mig – " +
-      "jag hade hittat en tomt på vägen till kajen. Amerika klarade sig. Det gjorde jag med.” — Morfar",
+      "”From here I was going to emigrate to America, spring 1958. The boat left without me – " +
+      "I had found a lot on the way to the quay. America managed fine. So did I.” — Grandpa",
   },
   {
     id: "angen",
     x: -242, z: 230,
-    title: "Ängen",
+    title: "The Meadow",
     text:
-      "”På den här ängen lärde jag din mamma cykla, sommaren 1974. Hon körde rakt in i en ko. " +
-      "Kon klarade sig. Bygg något fint här en dag – marken är bättre än den ser ut.” — Morfar",
+      "”In this meadow I taught your mother to ride a bike, summer 1974. She rode straight into a cow. " +
+      "The cow was fine. Build something nice here one day – the land is better than it looks.” — Grandpa",
   },
   {
     id: "appeltradet",
     x: null, z: null,
-    title: "Grannens äppelträd",
+    title: "The Neighbor's Apple Tree",
     text:
-      "”Grannens äppelträd. Grenarna som hänger över staketet är juridiskt sett dina – " +
-      "jag har kollat med Ekelöf (faktura 900 kr, värt det). Skörda med gott samvete.” — Morfar",
+      "”The neighbor's apple tree. The branches hanging over the fence are legally yours – " +
+      "I checked with Ekelöf (invoice 900 kr, worth it). Harvest with a clear conscience.” — Grandpa",
   },
 ];
 
@@ -930,8 +930,8 @@ const DISTRICT_UNLOCK_AT: Record<string, string[]> = {
 
 /** Namn för upplåsningsloggen. */
 const DISTRICT_NAMES: Record<string, string> = {
-  kulle: "Villakullen", förort: "Förorten", innerstad: "Innerstaden",
-  centrum: "Centrum", hamnen: "Hamnen", industri: "Industriområdet", finans: "Finansdistriktet",
+  kulle: "Villa Hill", förort: "The Suburbs", innerstad: "Inner City",
+  centrum: "Downtown", hamnen: "The Harbor", industri: "Industrial District", finans: "Financial District",
 };
 
 /**
@@ -971,7 +971,7 @@ export function unlockLogFor(beatId: string): string | null {
   const opened = DISTRICT_UNLOCK_AT[beatId] ?? [];
   if (opened.length === 0 || beatId === "prolog") return null;
   const names = opened.map((d) => DISTRICT_NAMES[d] ?? d).join(", ");
-  return `🔓 NYTT OMRÅDE: ${names} är nu öppet för affärer – staden växer med dig.`;
+  return `🔓 NEW AREA: ${names} is now open for business – the city grows with you.`;
 }
 
 /* ── Berättelseregi: pauser mellan breven ──────────────────────────── */
@@ -1006,55 +1006,55 @@ export interface StoryCinematic {
 export const STORY_CINEMATICS: Record<string, StoryCinematic> = {
   "story:brev_morfar_1": {
     focusTag: "arvet", zoom: 62, holdMs: 3400,
-    hint: "Villakullen. Morfars hus. Ditt hus.",
+    hint: "Villa Hill. Grandpa's house. Your house.",
   },
   "story:rogge_lowball": {
     focusTag: "arvet", zoom: 62, holdMs: 4200, car: true,
-    hint: "En vit, nyputsad sedan glider in vid tomtgränsen …",
+    hint: "A white, freshly polished sedan glides up to the lot line …",
   },
   "story:brev_kap1": {
     focusTag: "arvet", zoom: 70, holdMs: 3200,
-    hint: "Presenningen. Flaggstången. Listan skriver sig själv.",
+    hint: "The tarp. The flagpole. The list writes itself.",
   },
   // Kap 2: taket är lagat – och ryktet har gått. Folk står vid grinden.
   "story:gosta_dilemma": {
     focusTag: "arvet", zoom: 62, holdMs: 3200,
-    hint: "Det luktar nybryggt kaffe från källaren. Och … rökmaskin?",
+    hint: "There's a smell of fresh coffee from the basement. And … smoke machine?",
   },
   // Kap 3: staden öppnar sig – Förorten är inte längre bara en skylt.
   "story:brev_kap3": {
     focusDistrict: "förort", zoom: 240, holdMs: 3600,
-    hint: "🔓 Förorten. Morfar kallade den 'framtiden, fast med sämre bussförbindelse'.",
+    hint: "🔓 The Suburbs. Grandpa called them 'the future, but with worse bus connections'.",
   },
   // Kap 4: dödsboet har lagts ut – kameran hittar objektet före brevet.
   "story:brev_kap4": {
     focusTag: "dödsbo", zoom: 80, holdMs: 3400,
-    hint: "Ett dödsbo till salu. Arvingarna i Spanien har is i magen – men inte oändligt mycket.",
+    hint: "An estate for sale. The heirs in Spain are cool-headed – but not infinitely so.",
   },
   // Kap 5: Centrum öppnar – och Riksbanken höjer tonläget.
   "story:brev_kap5": {
     focusDistrict: "centrum", zoom: 260, holdMs: 3600,
-    hint: "🔓 Centrum. Här mäts kvadratmeter i prestige – och räntan i sömnlösa nätter.",
+    hint: "🔓 Downtown. Here square meters are measured in prestige – and the rate in sleepless nights.",
   },
   // Kap 6: blicken hem till huvudkontoret – dags att bli ett riktigt bolag.
   "story:brev_kap6": {
     focusDistrict: "hk", zoom: 90, holdMs: 3400,
-    hint: "Huvudkontoret. Morfar hade kallat det 'onödigt flott'. Han hade menat det som beröm.",
+    hint: "The headquarters. Grandpa would have called it 'needlessly fancy'. He'd have meant it as praise.",
   },
   // Kap 7: den vita sedanen glider in vid grannhuset. Rogge är tillbaka.
   "story:brev_kap7": {
     focusTag: "revansch", zoom: 62, holdMs: 4200, car: true,
-    hint: "En välbekant vit sedan parkerar vid grannhuset …",
+    hint: "A familiar white sedan parks by the neighboring house …",
   },
   // Kap 8: sista distriktet öppnar – och Rogge fattar pennan i vredesmod.
   "story:rogge_surbrev": {
     focusDistrict: "finans", zoom: 260, holdMs: 3600,
-    hint: "🔓 Finansdistriktet. Glasfasader, hörnkontor och priser med många nollor.",
+    hint: "🔓 The Financial District. Glass facades, corner offices and prices with many zeros.",
   },
   // Epilogen: staden från ovan – allt du byggt, i en enda vy.
   "story:brev_epilog": {
     focusDistrict: "staden", zoom: 620, holdMs: 4600,
-    hint: "Staden. Din stad. Morfar hade nickat långsamt och bjudit på termoskaffe.",
+    hint: "The city. Your city. Grandpa would have nodded slowly and offered thermos coffee.",
   },
 };
 

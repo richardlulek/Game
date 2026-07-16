@@ -16,7 +16,7 @@ export function MemoryNoteCard() {
     <div style={wrap}>
       <div style={head}>
         <span style={title}>📌 {note.title}</span>
-        <button style={closeBtn} onClick={() => setOpenNote(null)} title="Lägg tillbaka lappen">
+        <button style={closeBtn} onClick={() => setOpenNote(null)} title="Put the note back">
           ×
         </button>
       </div>
@@ -24,7 +24,7 @@ export function MemoryNoteCard() {
         <StoryPortrait id="morfar" size={52} />
         <div style={body}>{note.text}</div>
       </div>
-      <div style={foot}>En gul lapp i morfars handstil. Bläcket har bleknat, inte humorn.</div>
+      <div style={foot}>A yellow note in Grandpa’s handwriting. The ink has faded, not the humor.</div>
     </div>
   );
 }

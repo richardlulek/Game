@@ -1566,7 +1566,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, state.reputation + 1),
         story: { ...state.story, flags: [...state.story.flags, noteFlag(note.id)] },
         log: [
-          { t: `📌 Hittade morfars minneslapp: ${note.title} (reputation +1).`, kind: "event" as const },
+          { t: `📌 Found one of Grandpa’s memory notes: ${note.title} (reputation +1).`, kind: "event" as const },
           ...state.log,
         ],
       };

@@ -33,7 +33,7 @@ const FAMILIES: { district: string; label: string; type: PropTypeKey; w: number;
   { district: "centrum", label: "Centrum (stenstad)", type: "kontor", w: 17, d: 17, seed: 6 },
   { district: "innerstad", label: "Innerstad (funkis)", type: "bostad", w: 17, d: 17, seed: 3 },
   { district: "innerstad", label: "Innerstad (tegel)", type: "butik", w: 17, d: 17, seed: 5 },
-  { district: "förort", label: "Förort (kvarter)", type: "bostad", w: 22, d: 24, seed: 4 },
+  { district: "förort", label: "Suburb (block)", type: "bostad", w: 22, d: 24, seed: 4 },
   { district: "kulle", label: "Villakullen", type: "bostad", w: 10, d: 12, seed: 2 },
   { district: "industri", label: "Industri (hall)", type: "industri", w: 27, d: 27, seed: 4 },
   { district: "hamnen", label: "Hamnen (magasin)", type: "industri", w: 17, d: 17, seed: 1 },
@@ -112,8 +112,8 @@ export function ModelGallery() {
   );
   rz += 48;
   rows.push(
-    <group key="sol" position={[0, 0, rz]}><SolarPark pc={{ w: 64, d: 44 }} /><Label text="Solpark (energiläge)" y={-3} /></group>,
-    <group key="vind" position={[90, 0, rz]}><WindFarm pc={{ w: 64, d: 44 }} mw={15} /><Label text="Vindpark (energiläge)" y={-3} /></group>,
+    <group key="sol" position={[0, 0, rz]}><SolarPark pc={{ w: 64, d: 44 }} /><Label text="Solar park (energy mode)" y={-3} /></group>,
+    <group key="vind" position={[90, 0, rz]}><WindFarm pc={{ w: 64, d: 44 }} mw={15} /><Label text="Wind park (energy mode)" y={-3} /></group>,
   );
   rz += 70;
   // Signaturkvarter
@@ -121,7 +121,7 @@ export function ModelGallery() {
   rows.push(
     <group key="sig1" position={[0, 0, rz]}><OfficeCluster b={b} floors={20} /><Label text="Signatur: Kontorskluster" y={-3} /></group>,
     <group key="sig2" position={[90, 0, rz]}><ResidentialBlock b={b} floors={8} /><Label text="Signatur: Bostadskvarter" y={-3} /></group>,
-    <group key="sig3" position={[180, 0, rz]}><CultureDistrict b={b} floors={5} /><Label text="Signatur: Kulturstråk" y={-3} /></group>,
+    <group key="sig3" position={[180, 0, rz]}><CultureDistrict b={b} floors={5} /><Label text="Signature: Cultural quarter" y={-3} /></group>,
     <group key="sig4" position={[270, 0, rz]}><ConstructionSite b={b} progress={0.55} floors={12} /><Label text="Signatur: under bygge" y={-3} /></group>,
   );
   rz += 100;

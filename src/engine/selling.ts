@@ -47,9 +47,9 @@ export function offerAmount(A: number, ask: number, value: number): number {
 
 /** Grov intressenivå för UI:t. */
 export function interestLabel(chance: number): { label: string; color: string } {
-  if (chance >= 0.5) return { label: `Hög (~${Math.round(chance * 100)} %/mån)`, color: "#27660a" };
-  if (chance >= 0.25) return { label: `Medel (~${Math.round(chance * 100)} %/mån)`, color: "#b07010" };
-  return { label: `Låg (~${Math.round(chance * 100)} %/mån)`, color: "#c0392b" };
+  if (chance >= 0.5) return { label: `High (~${Math.round(chance * 100)}%/mo)`, color: "#27660a" };
+  if (chance >= 0.25) return { label: `Medium (~${Math.round(chance * 100)}%/mo)`, color: "#b07010" };
+  return { label: `Low (~${Math.round(chance * 100)}%/mo)`, color: "#c0392b" };
 }
 
 /** Rabatten vid snabbförsäljning till uppköpare (utan att invänta köpare). */

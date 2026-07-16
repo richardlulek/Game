@@ -48,28 +48,28 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
       {/* ── Dynastipoäng ─────────────────────────────────────────── */}
       <div style={{ ...P.card, borderColor: GRADE_COLOR[dyn.grade] }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <div style={P.title}>🏛️ Dynastipoäng: {dyn.total}</div>
-          <div style={{ fontWeight: 800, fontSize: 18, color: GRADE_COLOR[dyn.grade] }}>Betyg {dyn.grade}</div>
+          <div style={P.title}>🏛️ Dynasty points: {dyn.total}</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: GRADE_COLOR[dyn.grade] }}>Grade {dyn.grade}</div>
         </div>
         <div style={{ fontSize: 12.5, color: "#5d6b7c", marginBottom: 8 }}>{dyn.gradeLabel}</div>
-        <div style={P.row}><span>Utdelat till ägaren</span><strong>{dyn.utdelningar} p</strong></div>
-        <div style={P.row}><span>Lyx & donationer</span><strong>{dyn.lyxOchDonationer} p</strong></div>
-        <div style={P.row}><span>Megaprojekt</span><strong>{dyn.megaprojekt} p</strong></div>
-        <div style={P.row}><span>Signaturkvarter</span><strong>{dyn.stadsdelar} p</strong></div>
-        <div style={P.row}><span>ESG-bestånd</span><strong>{dyn.esg} p</strong></div>
-        <div style={P.row}><span>Nöjda hyresgäster</span><strong>{dyn.nojdhet} p</strong></div>
-        <div style={P.row}><span>Reglerade bostäder (allmännytta)</span><strong>{dyn.reglerat} p</strong></div>
+        <div style={P.row}><span>Paid out to the owner</span><strong>{dyn.utdelningar} p</strong></div>
+        <div style={P.row}><span>Luxury & donations</span><strong>{dyn.lyxOchDonationer} p</strong></div>
+        <div style={P.row}><span>Megaprojects</span><strong>{dyn.megaprojekt} p</strong></div>
+        <div style={P.row}><span>Signature blocks</span><strong>{dyn.stadsdelar} p</strong></div>
+        <div style={P.row}><span>ESG portfolio</span><strong>{dyn.esg} p</strong></div>
+        <div style={P.row}><span>Satisfied tenants</span><strong>{dyn.nojdhet} p</strong></div>
+        <div style={P.row}><span>Regulated housing (public benefit)</span><strong>{dyn.reglerat} p</strong></div>
         <div style={P.hint}>
-          Pengar dör med bolaget — poängen mäter vad du lämnar efter dig. S-betyg vid 1000 p.
+          Money dies with the company — the points measure what you leave behind. S-grade at 1000 pts.
         </div>
       </div>
 
       {/* ── Ägarens privata förmögenhet ──────────────────────────── */}
       <div style={P.card}>
-        <div style={P.title}>💼 Ägarens förmögenhet: {msek(wealth)}</div>
+        <div style={P.title}>💼 Owner’s wealth: {msek(wealth)}</div>
         <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 10 }}>
-          Betala utdelning från bolaget så blir pengarna dina privat — bolagets kassa
-          kan inte röra dem. Använd dem till lyx och donationer nedan.
+          Pay a dividend from the company and the money becomes yours privately — the company’s cash
+          can’t touch it. Use it for luxury and donations below.
         </div>
 
         {/* Utdelningskontroll – flyttad hit från Finans så allt ägar-relaterat samlas. */}
@@ -102,10 +102,10 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
             disabled={div <= 0}
             onClick={() => { dispatch({ type: "PAY_DIVIDEND", amount: div }); setDivAmt(0); }}
           >
-            Betala utdelning{state.ipoActive ? " (lindrar uppköpstryck)" : ""}
+            Pay dividend{state.ipoActive ? " (eases takeover pressure)" : ""}
           </button>
           <div style={{ fontSize: 11, color: "#8291a3", marginTop: 4 }}>
-            Minst {kr(DIVIDEND_CASH_FLOOR)} behålls i bolagets kassa.
+            At least {kr(DIVIDEND_CASH_FLOOR)} is kept in the company’s cash.
           </div>
         </div>
 
@@ -127,7 +127,7 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
                 </div>
                 <div style={{ fontSize: 11, color: "#8291a3", margin: "3px 0 6px" }}>{l.desc}</div>
                 {has ? (
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#22a06b" }}>✓ I familjens ägo · +{l.dynasty} p</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#22a06b" }}>✓ In the family’s possession · +{l.dynasty} pts</span>
                 ) : (
                   <button
                     style={{
@@ -138,7 +138,7 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
                     disabled={!affordable}
                     onClick={() => dispatch({ type: "BUY_LUXURY", luxuryId: l.id })}
                   >
-                    Köp · +{l.dynasty} p{l.reputation ? ` · rep +${l.reputation}` : ""}
+                    Buy · +{l.dynasty} pts{l.reputation ? ` · rep +${l.reputation}` : ""}
                   </button>
                 )}
               </div>
@@ -149,19 +149,19 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
 
       {/* ── Stadsdelsprojekt ─────────────────────────────────────── */}
       <div style={P.card}>
-        <div style={P.title}>🏙️ Stadsdelsprojekt</div>
+        <div style={P.title}>🏙️ District projects</div>
         <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 10 }}>
-          Riv ett HELÄGT kvarter i stenstaden och bygg ett signaturkvarter — miljardbygge i
-          flera år som permanent lyfter hela distriktet och skriver om stadens siluett.
-          {!levelOk && ` Kräver bolagsnivå ${CITY_PROJECT_MIN_LEVEL}.`}
-          {levelOk && cityBlocks.length === 0 && " Du har inget ledigt helägt kvarter (köp alla fastigheter i ett slutet kvarter i Centrum eller Innerstaden)."}
+          Demolish a WHOLLY OWNED block in the stone city and build a signature block — a billion-krona build over
+          several years that permanently lifts the whole district and rewrites the city’s skyline.
+          {!levelOk && ` Requires company level ${CITY_PROJECT_MIN_LEVEL}.`}
+          {levelOk && cityBlocks.length === 0 && " You have no free wholly owned block (buy all properties in a closed block in Downtown or Inner City)."}
         </div>
         {(state.cityProjects ?? []).map((m) => {
           const prof = cityProfileById(m.profile)!;
           return (
             <div key={m.blockId} style={{ ...P.row, fontWeight: 700 }}>
-              <span>{prof.icon} {prof.name} i {blockDistrictName(m.blockId)} — bygget pågår</span>
-              <span>{m.monthsLeft} mån kvar</span>
+              <span>{prof.icon} {prof.name} in {blockDistrictName(m.blockId)} — under construction</span>
+              <span>{m.monthsLeft} mo left</span>
             </div>
           );
         })}
@@ -169,8 +169,8 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
           const prof = cityProfileById(sb.profile)!;
           return (
             <div key={sb.blockId} style={{ ...P.row, color: "#b8860b", fontWeight: 700 }}>
-              <span>🏆 {prof.icon} {prof.name} i {blockDistrictName(sb.blockId)}</span>
-              <span>invigt</span>
+              <span>🏆 {prof.icon} {prof.name} in {blockDistrictName(sb.blockId)}</span>
+              <span>opened</span>
             </div>
           );
         })}
@@ -183,11 +183,11 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
                 <span>{prof.icon} {prof.name}</span>
                 <span style={{ color: "#5d6b7c" }}>
-                  {block ? msek(cost) : "—"} · {prof.months} mån · +{prof.dynasty} p
+                  {block ? msek(cost) : "—"} · {prof.months} mo · +{prof.dynasty} pts
                 </span>
               </div>
               <div style={{ fontSize: 11.5, color: "#8291a3", margin: "2px 0 6px" }}>
-                {prof.desc} Distriktet lyfter permanent (+{Math.round(prof.devBoost * 100)} %), rykte +{prof.reputation}.
+                {prof.desc} The district lifts permanently (+{Math.round(prof.devBoost * 100)}%), reputation +{prof.reputation}.
               </div>
               <button
                 style={{
@@ -196,7 +196,7 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
                   background: canStart ? BURGUNDY : "#dde4ec", color: canStart ? "#fff" : "#8291a3",
                 }}
                 disabled={!canStart}
-                title={!levelOk ? `Kräver bolagsnivå ${CITY_PROJECT_MIN_LEVEL}` : !block ? "Kräver ett ledigt helägt kvarter i stenstaden" : state.cash < cost ? `Kassan räcker inte (${kr(cost)})` : ""}
+                title={!levelOk ? `Requires company level ${CITY_PROJECT_MIN_LEVEL}` : !block ? "Requires a free wholly owned block in the stone city" : state.cash < cost ? `Insufficient cash (${kr(cost)})` : ""}
                 onClick={() => block && dispatch({ type: "START_CITY_PROJECT", blockId: block, profile: prof.id })}
               >
                 Byggstarta{block ? ` (kvarter ${block}, ${blockDistrictName(block)})` : ""}
@@ -208,17 +208,17 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
 
       {/* ── Megaprojekt ──────────────────────────────────────────── */}
       <div style={P.card}>
-        <div style={P.title}>🏗️ Megaprojekt</div>
+        <div style={P.title}>🏗️ Megaprojects</div>
         <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 10 }}>
-          Landmärken med fasta platser i stadens omland. Kräver bolagsnivå 4, gott rykte (60+)
-          och bolagets kassa. Prestige — inte avkastning.
+          Landmarks with fixed locations on the city’s outskirts. Requires company level 4, a good reputation (60+)
+          and the company’s cash. Prestige — not returns.
         </div>
         {(state.megaActive ?? []).map((m) => {
           const proj = MEGA_PROJECTS.find((x) => x.id === m.projectId)!;
           return (
             <div key={m.projectId} style={{ ...P.row, fontWeight: 700 }}>
-              <span>{proj.icon} {proj.name} — under uppförande</span>
-              <span>{m.monthsLeft} mån kvar</span>
+              <span>{proj.icon} {proj.name} — under construction</span>
+              <span>{m.monthsLeft} mo left</span>
             </div>
           );
         })}
@@ -230,12 +230,12 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
           return (
             <div key={proj.id} style={{ borderTop: "1px solid #e8edf3", padding: "8px 0" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-                <span>{proj.icon} {proj.name}{done ? " — INVIGD" : ""}</span>
-                <span style={{ color: "#5d6b7c" }}>{msek(proj.cost)} · {proj.months} mån · +{proj.dynasty} p</span>
+                <span>{proj.icon} {proj.name}{done ? " — OPENED" : ""}</span>
+                <span style={{ color: "#5d6b7c" }}>{msek(proj.cost)} · {proj.months} mo · +{proj.dynasty} pts</span>
               </div>
               <div style={{ fontSize: 11.5, color: "#8291a3", margin: "2px 0 6px" }}>{proj.desc}</div>
               {done ? (
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#b8860b" }}>🏆 Ditt namn står över entrén.</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#b8860b" }}>🏆 Your name is over the entrance.</span>
               ) : (
                 <button
                   style={{
@@ -244,10 +244,10 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
                     background: canStart ? BURGUNDY : "#dde4ec", color: canStart ? "#fff" : "#8291a3",
                   }}
                   disabled={!canStart}
-                  title={state.cash < proj.cost ? `Kassan räcker inte (${kr(proj.cost)})` : (state.companyLevel ?? 1) < 4 ? "Kräver bolagsnivå 4" : state.reputation < 60 ? "Kräver rykte 60+" : ""}
+                  title={state.cash < proj.cost ? `Insufficient cash (${kr(proj.cost)})` : (state.companyLevel ?? 1) < 4 ? "Requires company level 4" : state.reputation < 60 ? "Requires reputation 60+" : ""}
                   onClick={() => dispatch({ type: "START_MEGA", projectId: proj.id })}
                 >
-                  Byggstarta
+                  Start construction
                 </button>
               )}
             </div>

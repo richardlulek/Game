@@ -221,7 +221,7 @@ function parseSaveFile(raw: string): GameState | null {
     let state = (parsed.state ?? (parsed as unknown as GameState)) as GameState;
 
     if (version < MIN_SAVE_VERSION) {
-      console.warn(`Sparfil v${version} är äldre än stadskartan 3.0 (v${MIN_SAVE_VERSION}) – kan inte laddas.`);
+      console.warn(`Save file v${version} is older than city map 3.0 (v${MIN_SAVE_VERSION}) – cannot be loaded.`);
       return null;
     }
 
