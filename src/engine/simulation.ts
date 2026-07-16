@@ -31,6 +31,7 @@ import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDist
 import { makeDecision } from "./decisions";
 import { makeScandal, scandalRisk } from "./newsroom";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
+import { hasRelation, nemesisOf, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
@@ -1023,10 +1024,14 @@ export function advanceMonth(state: GameState): GameState {
   const rivalIsClose = leadProgress > 0.75; // rival within striking distance
 
   // ── Competing bid on active listing (~12 % chans/mån) ──────────
-  if (!s.competingBid && s.competitors.length > 0 && s.listings.length > 0 && random01() < (rivalIsClose ? 0.28 : 0.12)) {
+  // En nemesis budar oftare mot dig och lägger sig gärna i dina affärer.
+  const nemesisBidBoost = s.nemesis && s.competitors.some((c) => c.name === s.nemesis) ? 0.06 : 0;
+  if (!s.competingBid && s.competitors.length > 0 && s.listings.length > 0 && random01() < (rivalIsClose ? 0.28 : 0.12) + nemesisBidBoost) {
     const target = pick(s.listings.filter((p) => p.status === "klar"));
     if (target) {
-      const rival = pick(s.competitors);
+      // Nemesis går ofta själv in i budgivningen.
+      const nemesisComp = nemesisBidBoost > 0 ? s.competitors.find((c) => c.name === s.nemesis) : undefined;
+      const rival = nemesisComp && random01() < 0.5 ? nemesisComp : pick(s.competitors);
       const amount = Math.round(target.askPrice * rnd(1.02, 1.15));
       const absNow = s.year * 12 + s.month;
       s.competingBid = { listingId: target.id, rivalName: rival.name, amount, expiresAbs: absNow + 1, round: 1 };
@@ -1395,7 +1400,8 @@ export function advanceMonth(state: GameState): GameState {
   s.competitors = s.competitors.map((c) => {
     const nc = { ...c, portfolio: [...(c.portfolio ?? [])] };
     const portVal = nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
-    nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI) / 12);
+    // Allianser ger medvind, fejder motvind (rivalCycleMult).
+    nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI * rivalCycleMult(s, nc.name)) / 12);
     rivalCashflow(nc, nc.monthlyNOI);
     // Rivalernas byggen tickar och färdigställs (kranar på kartan).
     let finishedBuild: string | null = null;
@@ -2012,6 +2018,54 @@ export function advanceMonth(state: GameState): GameState {
     }
     return c;
   });
+
+  // ── Rivalberättelser: nemesis, fejder och allianser ─────────────
+  // Rivalerna får pågående historier som speglas i tidningen: en nemesis
+  // deklareras när en relation surnat, och konkurrenterna sluter allianser
+  // eller hamnar i fejd med varandra – stadens maktkamp.
+  {
+    const absNow = s.year * 12 + s.month;
+    // Rensa relationer mot bortfusionerade rivaler.
+    if (s.rivalRelations?.length) {
+      const names = new Set(s.competitors.map((c) => c.name));
+      s.rivalRelations = s.rivalRelations.filter((r) => names.has(r.a) && names.has(r.b));
+    }
+    // Nemesis deklareras eller avblåses när standing korsar tröskeln.
+    const nem = nemesisOf(s);
+    if (nem && nem !== s.nemesis) {
+      s.nemesis = nem;
+      const q = rivalQuote(nem, "budkrig", absNow);
+      events.push({ t: `⚔️ ${nem} has declared open war on you — a bitter rivalry begins.${q ? " " + q : ""}`, kind: "warn", rival: nem });
+    } else if (!nem && s.nemesis) {
+      events.push({ t: `🕊️ Your feud with ${s.nemesis} has cooled — for now.`, kind: "info", rival: s.nemesis });
+      s.nemesis = undefined;
+    }
+    // Nemesis hotar då och då i pressen.
+    if (s.nemesis && random01() < 0.12) {
+      const q = rivalQuote(s.nemesis, "budkrig", absNow);
+      events.push({ t: `🗣️ ${s.nemesis} vows to outmaneuver you in the months ahead.${q ? " " + q : ""}`, kind: "warn", rival: s.nemesis });
+    }
+    // Rival-mot-rival: bilda eller bryt en relation (sällsynt).
+    if (s.competitors.length >= 2 && random01() < 0.05) {
+      const a = pick(s.competitors);
+      const b = pick(s.competitors.filter((c) => c.name !== a.name));
+      if (!hasRelation(s, a.name, b.name)) {
+        const kind = random01() < 0.5 ? "alliance" : "feud";
+        s.rivalRelations = [...(s.rivalRelations ?? []), { a: a.name, b: b.name, kind, since: absNow }];
+        events.push({
+          t: kind === "alliance"
+            ? `🤝 ${a.name} and ${b.name} have struck an alliance — the city's balance of power shifts.`
+            : `⚔️ ${a.name} and ${b.name} are locked in a feud over territory.`,
+          kind: "event",
+        });
+      } else {
+        s.rivalRelations = (s.rivalRelations ?? []).filter(
+          (r) => !((r.a === a.name && r.b === b.name) || (r.a === b.name && r.b === a.name)),
+        );
+        events.push({ t: `📰 The pact between ${a.name} and ${b.name} has fallen apart.`, kind: "event" });
+      }
+    }
+  }
 
   // ── Detaljplaneauktion: kommunen släpper nytt kvarter ────────────
   // Tidsstyrd (var 30:e månad) MEN också behovsstyrd: när staden har

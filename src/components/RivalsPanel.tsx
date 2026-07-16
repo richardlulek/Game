@@ -1,5 +1,6 @@
 import { competitorLevel, tierForLevel } from "../engine/company";
 import { kr, msek, pct } from "../engine/format";
+import { relationSummary } from "../engine/rivalArcs";
 import { rivalStanding, standingLabel } from "../engine/standing";
 import type { GameState } from "../engine/types";
 import { S } from "../styles/styles";
@@ -96,7 +97,17 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
               </span>
             );
           })()}
+          {!c.me && state.nemesis === c.name && (
+            <span title="Your nemesis — the most hostile rival" style={{ fontWeight: 800, color: "#fff", background: "#b23030", padding: "1px 7px", borderRadius: 8 }}>
+              ⚔️ NEMESIS
+            </span>
+          )}
         </div>
+        {!c.me && relationSummary(state, c.name) && (
+          <div style={{ fontSize: 12, marginTop: 3, color: "#7b5a2e", fontStyle: "italic" }}>
+            🏙️ {relationSummary(state, c.name)}
+          </div>
+        )}
         {(() => {
           if (c.me || !comp?.agenda) return null;
           const ag = comp.agenda;

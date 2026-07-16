@@ -602,6 +602,15 @@ export interface LimitOrder {
   createdMonth: number;
 }
 
+/** En relation mellan två rivalbolag – en allians eller en fejd. */
+export interface RivalRelation {
+  a: string;
+  b: string;
+  kind: "feud" | "alliance";
+  /** Absolutmånad då relationen uppstod. */
+  since: number;
+}
+
 /** Bestående relationer (favör ↔ agg, −100…100) till rivaler, banker
  *  och kommunen. Neutralt (0/utelämnat) är utgångsläget. */
 export interface Standing {
@@ -794,6 +803,10 @@ export interface GameState {
   tenantScoreLetter?: string;
   /** Bestående relationer till rivaler, banker och kommunen. */
   standing?: Standing;
+  /** Din nemesis (rivalbolagets namn) – den mest fientliga rivalen just nu. */
+  nemesis?: string;
+  /** Allianser och fejder mellan rivalbolagen (stadens maktkamp). */
+  rivalRelations?: RivalRelation[];
   /** Distriktens nuvarande statusnivå (för att upptäcka byten). */
   districtTiers?: Record<string, string>;
   /** Bolagspolicy – portföljstandarder med per-fastighet-överstyrning. */
