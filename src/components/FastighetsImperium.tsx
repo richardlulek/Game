@@ -55,6 +55,7 @@ import { IndustryMarket } from "./IndustryMarket";
 import { CompanyHub } from "./CompanyHub";
 import { NewspaperModal } from "./NewspaperModal";
 import { AuctionModal } from "./AuctionModal";
+import { ReceivershipModal } from "./ReceivershipModal";
 import { PolicyPanel } from "./PolicyPanel";
 
 /** Ikon per fönster (Capitalism-stil ikonverktygsrad). */
@@ -807,6 +808,7 @@ export default function FastighetsImperium() {
         <NewspaperModal state={state} level={newsLevel} onClose={() => setNewsLevel(null)} />
       )}
       <AuctionModal state={state} dispatch={dispatch} />
+      <ReceivershipModal state={state} dispatch={dispatch} />
       <DecisionModal state={state} dispatch={dispatch} />
       {cinematic && (
         <div

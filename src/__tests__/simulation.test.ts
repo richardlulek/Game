@@ -80,24 +80,37 @@ describe("advanceMonth – konkurs", () => {
 });
 
 describe("insolvens vs. illikviditet (rekonstruktion före konkurs)", () => {
-  it("djupt negativ kassa MEN tillgångar → förvaltaren tvångssäljer, bolaget överlever", () => {
+  it("djupt negativ kassa MEN tillgångar → rekonstruktion öppnas, INGET säljs automatiskt", () => {
     const p = makeProperty({ id: 1, tenants: [] });
     const s = makeState({ portfolio: [p], cash: -3_000_000, debt: 0 });
     const next = advanceMonth(s);
     expect(next.gameOver).toBe(false);
-    expect(next.cash).toBeGreaterThan(0); // likviditeten återställd
-    expect(next.portfolio.length).toBe(0); // huset tvångssåldes
-    expect(next.listings.some((l) => (l.txHistory ?? []).some((tx) => tx.party.includes("Receiver")))).toBe(true);
-    expect(next.standing?.bank ?? 0).toBeLessThan(0); // banken tappar förtroende vid en rekonstruktion
+    expect(next.receivership).toBeDefined(); // menyn öppnas, spelet pausar
+    expect(next.portfolio.length).toBe(1); // inget tvångssålt än – spelaren väljer
+    expect(next.standing?.bank ?? 0).toBeLessThan(0); // engångssmällen tas vid inträdet
+    expect((next.pressHeat ?? 0)).toBeGreaterThan(0);
   });
 
-  it("djupt negativ kassa OCH inga tillgångar → konkurs (game over)", () => {
+  it("ignorerad rekonstruktion → förvaltaren agerar vid nästa månadsskifte", () => {
+    const p = makeProperty({ id: 1, tenants: [] });
+    const s = makeState({ portfolio: [p], cash: -3_000_000, debt: 0 });
+    const first = advanceMonth(s);
+    expect(first.receivership).toBeDefined();
+    const second = advanceMonth(first);
+    expect(second.receivership).toBeUndefined();
+    expect(second.gameOver).toBe(false);
+    expect(second.cash).toBeGreaterThan(0); // förvaltaren sålde och löste krisen
+    expect(second.listings.some((l) => (l.txHistory ?? []).some((tx) => tx.party.includes("Receiver")))).toBe(true);
+  });
+
+  it("djupt negativ kassa OCH inga tillgångar → konkurs (game over) direkt", () => {
     const s = makeState({ portfolio: [], cash: -2_000_000, debt: 0 });
     const next = advanceMonth(s);
     expect(next.gameOver).toBe(true);
+    expect(next.receivership).toBeUndefined(); // ingen meny som inte kan hjälpa
   });
 
-  it("noBankruptcy: kassan kan gå djupt negativt utan konkurs eller tvångsförsäljning", () => {
+  it("noBankruptcy: kassan kan gå djupt negativt utan rekonstruktion eller konkurs", () => {
     const p = makeProperty({ id: 1, tenants: [] });
     const s = makeState({
       portfolio: [p], cash: -3_000_000, debt: 0,
@@ -105,14 +118,16 @@ describe("insolvens vs. illikviditet (rekonstruktion före konkurs)", () => {
     });
     const next = advanceMonth(s);
     expect(next.gameOver).toBe(false);
-    expect(next.portfolio.length).toBe(1); // inget tvångssålt
+    expect(next.receivership).toBeUndefined();
+    expect(next.portfolio.length).toBe(1);
   });
 
-  it("kassa mellan varning och golv → ingen tvångsförsäljning, inget game over", () => {
+  it("kassa mellan varning och golv → ingen rekonstruktion, inget game over", () => {
     const p = makeProperty({ id: 1, tenants: [] });
     const s = makeState({ portfolio: [p], cash: -500_000, debt: 0 });
     const next = advanceMonth(s);
     expect(next.gameOver).toBe(false);
+    expect(next.receivership).toBeUndefined();
     expect(next.portfolio.length).toBe(1);
   });
 });

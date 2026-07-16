@@ -34,6 +34,7 @@ import { ContractCalendar } from "../components/ContractCalendar";
 import { MilestonesPanel } from "../components/MilestonesPanel";
 import { NewsFeedPanel } from "../components/NewsFeedPanel";
 import { FinancialStatements } from "../components/FinancialStatements";
+import { ReceivershipModal } from "../components/ReceivershipModal";
 
 const noop = () => {};
 
@@ -99,6 +100,20 @@ export function Gallery() {
         <Section id="g-milestones" title="Milstolpar">{<MilestonesPanel state={state} />}</Section>
         <Section id="g-news" title="News feed" width={520}>{<NewsFeedPanel state={state} onBuyPr={() => {}} />}</Section>
         <Section id="g-statements" title="Bokslut" width={640}>{<FinancialStatements state={state} />}</Section>
+        {/* Rekonstruktionsmenyn: transform-tricket gör att den fixed-positionerade
+            overlayen fyller sektionen i stället för hela skärmen. */}
+        <Section id="g-receivership" title="Rekonstruktion (kris)" width={720}>
+          <div style={{ position: "relative", transform: "translate(0,0)", height: 720, overflow: "hidden", borderRadius: 8 }}>
+            <ReceivershipModal
+              state={{
+                ...state,
+                cash: -1_400_000,
+                receivership: { shortfall: 1_400_000, enteredAbs: state.year * 12 + state.month },
+              }}
+              dispatch={noop}
+            />
+          </div>
+        </Section>
       </div>
     </div>
   );

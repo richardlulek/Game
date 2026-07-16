@@ -807,6 +807,10 @@ export interface GameState {
   nemesis?: string;
   /** Allianser och fejder mellan rivalbolagen (stadens maktkamp). */
   rivalRelations?: RivalRelation[];
+  /** Pågående företagsrekonstruktion: spelet pausar och spelaren väljer
+   *  vilka tillgångar som säljs (ReceivershipModal). Sätts av simulationen
+   *  när kassan faller under konkursgolvet men bolaget inte är insolvent. */
+  receivership?: { shortfall: number; enteredAbs: number };
   /** Distriktens nuvarande statusnivå (för att upptäcka byten). */
   districtTiers?: Record<string, string>;
   /** Bolagspolicy – portföljstandarder med per-fastighet-överstyrning. */
@@ -958,5 +962,9 @@ export type GameAction =
   | { type: "SET_POLICY"; policy: Partial<CompanyPolicy> }
   | { type: "AUCTION_BID" }
   | { type: "AUCTION_PASS" }
+  | { type: "RECEIVER_SELL"; id: number }
+  | { type: "RECEIVER_AUTO" }
+  | { type: "RESOLVE_RECEIVERSHIP" }
+  | { type: "ACCEPT_BANKRUPTCY" }
   | { type: "RESET"; scenarioId?: ScenarioId; companyName?: string; mode?: "story"; options?: InitOptions }
   | { type: "FOUND_NOTE"; id: string };

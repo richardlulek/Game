@@ -21,6 +21,14 @@ import { equityOf, loanTerms } from "./finance";
 import { ambientAsk, ambientProfile, ambientValue } from "./landDeals";
 import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
 import { kr, msek, pct } from "./format";
+import {
+  BANKRUPTCY_FLOOR,
+  RECEIVER_CHOICE_FACTOR,
+  applyDistressSale,
+  canSellInReceivership,
+  distressQuote,
+  receiverAutoLiquidate,
+} from "./receivership";
 import { adjustStanding } from "./standing";
 import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
@@ -2659,6 +2667,63 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const a = state.auction;
       if (!a) return state;
       return resolveAuction(state, a);
+    }
+    case "RECEIVER_SELL": {
+      // Rekonstruktionsmenyn: spelaren väljer själv vad som säljs (−25 %,
+      // bättre villkor än förvaltarens −35 % men sämre än att sälja i tid).
+      if (!state.receivership) return state;
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p || !canSellInReceivership(p, state)) return state;
+      const q = distressQuote(p, state, RECEIVER_CHOICE_FACTOR);
+      const next = applyDistressSale(state, p, RECEIVER_CHOICE_FACTOR, "You (restructuring sale)");
+      return {
+        ...next,
+        log: [
+          { t: `🧾 Restructuring sale: ${p.typeLabel} in ${p.districtName} for ${msek(q.salePrice)} (−25% vs. value, net ${msek(q.net)}).`, kind: "sell" },
+          ...next.log,
+        ],
+      };
+    }
+    case "RECEIVER_AUTO": {
+      // "Låt förvaltaren välja": auto-likvidering till −35 %, sedan stängs
+      // rekonstruktionen – eller konkurs om golvet ändå inte nås.
+      if (!state.receivership) return state;
+      const res = receiverAutoLiquidate(state);
+      const s2: GameState = { ...res.state, receivership: undefined };
+      if (s2.cash < BANKRUPTCY_FLOOR) {
+        return {
+          ...s2,
+          gameOver: true,
+          log: [{ t: "💥 BANKRUPTCY! Even the receiver's liquidation could not cover the shortfall. The game is over.", kind: "warn" }, ...s2.log],
+        };
+      }
+      return {
+        ...s2,
+        log: [
+          { t: `⚖️ You handed the keys to the receiver, who sold ${res.sold} propert${res.sold === 1 ? "y" : "ies"} at fire-sale prices. The company survives.`, kind: "warn" },
+          ...s2.log,
+        ],
+      };
+    }
+    case "RESOLVE_RECEIVERSHIP": {
+      // Kräver återställd likviditet: kassan över noll.
+      if (!state.receivership) return state;
+      if (state.cash < 0)
+        return log(state, `The receiver shakes his head: cash must be back above zero (currently ${kr(state.cash)}).`, "warn");
+      return {
+        ...state,
+        receivership: undefined,
+        log: [{ t: "⚖️ Restructuring resolved: liquidity restored and the receiver withdraws. The company survives — smaller, but standing.", kind: "event" }, ...state.log],
+      };
+    }
+    case "ACCEPT_BANKRUPTCY": {
+      if (!state.receivership) return state;
+      return {
+        ...state,
+        receivership: undefined,
+        gameOver: true,
+        log: [{ t: "💥 BANKRUPTCY: you chose to fold the company rather than sell it off piece by piece. The game is over.", kind: "warn" }, ...state.log],
+      };
     }
     case "UPGRADE_COMPANY": {
       // Expansion är ett aktivt val: kraven ska vara uppfyllda och det

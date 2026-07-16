@@ -30,6 +30,7 @@ import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
 import { makeScandal, scandalRisk } from "./newsroom";
+import { BANKRUPTCY_FLOOR, isInsolvent, receiverAutoLiquidate } from "./receivership";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
 import { hasRelation, nemesisOf, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding } from "./standing";
@@ -63,7 +64,7 @@ import { attractiveness, interestChance, offerAmount, packageOfferAmount, packag
 import { applyStockNews, executeLimitOrders, maybeListingEvents, priceStocks, quarterlyEarnings, rivalNews, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { INDUSTRY_TEMPLATES } from "./industryData";
-import type { GameState, InfraProject, LogEntry, Offer, Property, Tenant } from "./types";
+import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
 /**
  * Enda kanalen för att ändra spelarens kassa i månadssimuleringen. Ett positivt
@@ -2410,64 +2411,51 @@ export function advanceMonth(state: GameState): GameState {
   ].slice(-120);
 
   // ── Illikviditet vs. insolvens ───────────────────────────────────
-  // En djupt negativ kassa betyder inte längre automatisk konkurs: har du
-  // TILLGÅNGAR går bolaget i företagsrekonstruktion och en förvaltare
-  // tvångsförsäljer fastigheter till stökpris (−35 %) tills likviditeten är
-  // återställd. Konkurs (game over) inträffar bara när kassan är djupt negativ
-  // OCH ingen tillgång kan säljas för ett positivt netto – bolaget är då
-  // verkligt insolvent (skulderna överstiger tillgångarna).
+  // Under konkursgolvet pausar spelet: bolaget går i FÖRETAGSREKONSTRUKTION
+  // och spelaren väljer själv i ReceivershipModal vilka tillgångar som säljs
+  // (−25 %) – eller lämnar över till förvaltaren (−35 %). Konkurs (game over)
+  // inträffar bara vid äkta insolvens: när inte ens full likvidering kan
+  // lyfta kassan över golvet. Ticker en månad medan rekonstruktionen redan
+  // pågår (spolning/AFK/tester) tar förvaltaren över och löser den själv.
   const CASH_WARN = -200_000;
-  const BANKRUPTCY_FLOOR = -1_000_000;
   if (s.cash < CASH_WARN && s.cash >= BANKRUPTCY_FLOOR && !s.gameOver) {
-    s.log = [{ t: `🚨 CASH ALERT: ${kr(s.cash)} in the account. Below ${kr(BANKRUPTCY_FLOOR)} a receiver force-sells your assets — raise cash or sell something first!`, kind: "warn" }, ...s.log];
+    s.log = [{ t: `🚨 CASH ALERT: ${kr(s.cash)} in the account. Below ${kr(BANKRUPTCY_FLOOR)} the company enters receivership — raise cash or sell something first!`, kind: "warn" }, ...s.log];
   }
-  if (s.cash < BANKRUPTCY_FLOOR && !s.settings?.noBankruptcy) {
-    const DISTRESS = 0.65; // förvaltaren dumpar till stökpris
-    const canSell = (p: Property) => !(p.storyTag === "arvet" && s.story && !s.story.done);
-    let sold = 0;
-    while (s.cash < 0 && s.portfolio.some(canSell)) {
-      // Sälj det objekt som ger mest NETTO (snabbast ur krisen, minst antal
-      // förlorade hus). Kan inget säljas för positivt netto är bolaget insolvent.
-      const best = s.portfolio
-        .filter(canSell)
-        .map((p) => {
-          const value = propMarketValue(p, s);
-          const salePrice = Math.round(value * DISTRESS);
-          const payoff = Math.min(s.debt, (p.purchasePrice || salePrice) * 0.6);
-          return { p, value, salePrice, payoff, net: salePrice - payoff };
-        })
-        .sort((a, b) => b.net - a.net)[0];
-      if (!best || best.net <= 0) break;
-      const born = s.year * 12 + s.month;
-      s.cash += best.salePrice - best.payoff;
-      s.debt = Math.max(0, s.debt - best.payoff);
-      s.portfolio = s.portfolio.filter((x) => x.id !== best.p.id);
-      s.listings = [
-        ...s.listings,
-        {
-          ...best.p, owned: false, askPrice: best.value,
-          listedMonth: born, expiresMonth: born + 3 + Math.floor(random01() * 2),
-          txHistory: [...(best.p.txHistory ?? []), { type: "sold" as const, price: best.salePrice, month: s.month, year: s.year, party: "Receiver (distress sale)" }],
-          poolAskPrice: undefined, poolBaseRent: undefined, applications: undefined,
-          askRentPct: undefined, regulated: undefined, brokerMandate: undefined,
-          capexTotal: undefined, forSale: undefined,
-        },
-      ];
-      s.pendingRenewals = (s.pendingRenewals ?? []).filter((r) => r.propertyId !== best.p.id);
-      s.salePackages = (s.salePackages ?? [])
-        .map((pkg) => ({ ...pkg, propertyIds: pkg.propertyIds.filter((id) => id !== best.p.id) }))
-        .filter((pkg) => pkg.propertyIds.length > 0);
-      s.log = [{ t: `🧾 Receivership: forced distress sale of ${best.p.typeLabel} in ${best.p.districtName} for ${msek(best.salePrice)} (−35% vs. value) to cover the shortfall.`, kind: "warn" }, ...s.log];
-      sold++;
-    }
-    if (sold > 0) {
-      s.reputation = Math.max(0, s.reputation - 5);
-      s.standing = adjustStanding(s.standing, { kind: "bank" }, -20);
-      s.log = [{ t: `⚖️ Corporate restructuring: the receiver sold ${sold} propert${sold > 1 ? "ies" : "y"} to keep you solvent. Reputation and the bank's trust took a hit — but the company survives.`, kind: "warn" }, ...s.log];
-    }
-    if (s.cash < BANKRUPTCY_FLOOR) {
-      s.gameOver = true;
-      s.log = [{ t: "💥 BANKRUPTCY! Nothing left to sell and cash below −1,000,000 kr — the company is insolvent. The game is over.", kind: "warn" }, ...s.log];
+  if (!s.gameOver && !s.settings?.noBankruptcy) {
+    if (s.receivership) {
+      if (s.cash >= 0) {
+        // Kassan återhämtade sig (spelarens försäljningar eller månadens hyror).
+        s.receivership = undefined;
+        s.log = [{ t: "⚖️ The restructuring is resolved — liquidity restored.", kind: "info" }, ...s.log];
+      } else {
+        // Deadline: rekonstruktionen låg kvar över ett månadsskifte
+        // (spolning/AFK/soak) – förvaltaren agerar åt spelaren.
+        const res = receiverAutoLiquidate(s);
+        Object.assign(s, res.state);
+        s.receivership = undefined;
+        if (res.sold > 0 && s.cash >= BANKRUPTCY_FLOOR) {
+          s.log = [{ t: `⚖️ The receiver stepped in and sold ${res.sold} propert${res.sold > 1 ? "ies" : "y"} to keep the company alive.`, kind: "warn" }, ...s.log];
+        }
+        if (s.cash < BANKRUPTCY_FLOOR) {
+          s.gameOver = true;
+          s.log = [{ t: "💥 BANKRUPTCY! Nothing left to sell and cash below −1,000,000 kr — the company is insolvent. The game is over.", kind: "warn" }, ...s.log];
+        }
+      }
+    } else if (s.cash < BANKRUPTCY_FLOOR) {
+      if (isInsolvent(s)) {
+        // Inte ens allt sålt räcker: äkta insolvens → konkurs direkt.
+        s.gameOver = true;
+        s.log = [{ t: "💥 BANKRUPTCY! Debts exceed everything the company owns — not even a full liquidation could cover the shortfall. The game is over.", kind: "warn" }, ...s.log];
+      } else {
+        // Krisen bryter ut: spelet pausar och menyn öppnas. Engångssmällen
+        // (rykte, bankförtroende, presstemperatur) tas HÄR – händelsen är
+        // offentlig oavsett hur den sedan löses.
+        s.receivership = { shortfall: -s.cash, enteredAbs: s.year * 12 + s.month };
+        s.reputation = Math.max(0, s.reputation - 5);
+        s.standing = adjustStanding(s.standing, { kind: "bank" }, -20);
+        s.pressHeat = Math.min(20, (s.pressHeat ?? 0) + 4);
+        s.log = [{ t: `⚖️ RECEIVERSHIP: cash is ${kr(s.cash)} and the bank has appointed a receiver. Choose which assets to sell (−25% vs. value) — or the receiver will choose for you (−35%).`, kind: "warn" }, ...s.log];
+      }
     }
   } else if (s.cash < BANKRUPTCY_FLOOR && s.settings?.noBankruptcy) {
     if (s.cash > -1_100_000)

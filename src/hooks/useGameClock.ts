@@ -43,7 +43,7 @@ export function useGameClock(): void {
 
     const blocked = () => {
       const st = useGameStore.getState().state;
-      return st.gameOver || !!st.gameWon || !!st.pendingDecision || !!st.auction;
+      return st.gameOver || !!st.gameWon || !!st.pendingDecision || !!st.auction || !!st.receivership;
     };
 
     const loop = (now: number) => {
