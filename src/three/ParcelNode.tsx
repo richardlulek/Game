@@ -123,7 +123,7 @@ function tooltipFor(content: ParcelContent): { title: string; sub: string } {
     case "listing":
       return {
         title: `${content.prop.typeLabel} · ${msek(content.prop.askPrice)}`,
-        sub: `${content.prop.districtName} · till salu`,
+        sub: `${content.prop.districtName} · for sale`,
       };
     case "owned": {
       const p = content.prop;
@@ -131,21 +131,21 @@ function tooltipFor(content: ParcelContent): { title: string; sub: string } {
         title: p.typeLabel,
         sub:
           p.status === "bygger"
-            ? `Bygger – klart om ${p.buildLeft} mån`
+            ? `Building – done in ${p.buildLeft} mo`
             : p.tenants.length === 0
-              ? "Vakant – hyr ut!"
-              : `${p.tenants.length}/${p.capacity} uthyrda`,
+              ? "Vacant – lease it!"
+              : `${p.tenants.length}/${p.capacity} rented`,
       };
     }
     case "lotForSale":
       return {
-        title: `Tomt · ${msek(content.lot.price)}`,
+        title: `Lot · ${msek(content.lot.price)}`,
         sub: `${content.lot.districtName} · ${content.lot.area} m²`,
       };
     case "lotOwned":
-      return { title: "Min tomt", sub: `${content.lot.districtName} · redo att bebyggas` };
+      return { title: "My lot", sub: `${content.lot.districtName} · ready to build` };
     case "rival":
-      return { title: content.prop.typeLabel, sub: `Ägs av ${content.owner}` };
+      return { title: content.prop.typeLabel, sub: `Owned by ${content.owner}` };
   }
 }
 
@@ -272,10 +272,10 @@ function LockedExpansion({ parcel }: { parcel: Parcel }) {
       {hovered && (
         <Html position={[0, 7, 0]} center zIndexRange={[40, 0]}>
           <div style={TOOLTIP_STYLE}>
-            <strong>{isPlan ? "Råmark – planområde" : "Kommunal mark"}</strong>
+            <strong>{isPlan ? "Raw land – plan area" : "Municipal land"}</strong>
             <br />
             <span style={{ opacity: 0.8 }}>
-              {isPlan ? "Klicka för köp & detaljplan" : "Släpps på detaljplaneauktion"}
+              {isPlan ? "Click to buy & zone" : "Released at plan auction"}
             </span>
           </div>
         </Html>
@@ -383,11 +383,11 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   const badges: { emoji: string; title: string; action: () => void }[] = [];
   if (content.kind === "owned" && content.prop.status === "klar") {
     if (content.hasOffer)
-      badges.push({ emoji: "📨", title: "Bud väntar – öppna inkorgen", action: () => requestOpen("offers") });
+      badges.push({ emoji: "📨", title: "Bid waiting – open the inbox", action: () => requestOpen("offers") });
     if (content.prop.tenants.length < content.prop.capacity)
       badges.push({
         emoji: "🔑",
-        title: `${content.prop.capacity - content.prop.tenants.length} vakanser – öppna Hyresgäster`,
+        title: `${content.prop.capacity - content.prop.tenants.length} vacancies – open Tenants`,
         action: () => {
           select(parcel.id);
           requestOpen("tenants");
@@ -396,7 +396,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     if (content.prop.forSale)
       badges.push({
         emoji: "🏷️",
-        title: "Till salu – öppna Portfölj",
+        title: "For sale – open Portfolio",
         action: () => {
           select(parcel.id);
           requestOpen("portfolio");

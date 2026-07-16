@@ -463,7 +463,7 @@ export default function FastighetsImperium() {
                   <button
                     key={id}
                     style={{ ...iconTabStyle, opacity: 0.32, cursor: "default" }}
-                    title={`🔒 ${t.label} – låses upp på nivå ${reqTier.level}: ${reqTier.name}`}
+                    title={`🔒 ${t.label} – unlocks at level ${reqTier.level}: ${reqTier.name}`}
                   >
                     {TAB_ICONS[id] ?? "▫️"}
                   </button>

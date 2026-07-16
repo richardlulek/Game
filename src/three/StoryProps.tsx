@@ -124,7 +124,7 @@ function NoteMarker({
     <Html position={[x, 7, z]} center zIndexRange={[24, 0]}>
       <button
         onClick={() => onOpen(id)}
-        title={found ? "Morfars lapp (läst)" : "En gul lapp fladdrar här…"}
+        title={found ? "Grandpa's note (read)" : "A yellow note flutters here…"}
         style={{
           background: found ? "#efe6c2" : "#ffe873",
           border: "1px solid #b89a3e",

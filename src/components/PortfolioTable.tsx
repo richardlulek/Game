@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { DISTRICTS, PROP_TYPES } from "../engine/data";
 import { msek, kr, pct } from "../engine/format";
 import { pendingWork, propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import { interestLabel, packageStats } from "../engine/selling";
@@ -14,8 +15,8 @@ interface Props {
 
 type SortKey = "value" | "yield" | "condition" | "noi" | "vacant";
 
-const DISTRICT_OPTIONS = ["Alla", "Centrum", "Hamnen", "Industriområdet", "Förorten", "Villakullen"];
-const TYPE_OPTIONS = ["Alla", "Bostadshus", "Kontor", "Butik", "Industri/Lager"];
+const DISTRICT_OPTIONS = ["All", ...DISTRICTS.map((d) => d.name)];
+const TYPE_OPTIONS = ["All", ...Object.values(PROP_TYPES).map((t) => t.label)];
 
 function condColor(c: number): string {
   if (c >= 70) return C.positive;
@@ -28,8 +29,8 @@ export function PortfolioTable({ state, dispatch }: Props) {
   const [sortAsc, setSortAsc] = useState(false);
   // Klick på en rad fäller ut fastighetens fullständiga hantering (bred layout).
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [districtFilter, setDistrictFilter] = useState("Alla");
-  const [typeFilter, setTypeFilter] = useState("Alla");
+  const [districtFilter, setDistrictFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
   // Paketförsäljning: bocka för fastigheter och annonsera som portfölj.
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [pkgAskPct, setPkgAskPct] = useState(102);
@@ -52,8 +53,8 @@ export function PortfolioTable({ state, dispatch }: Props) {
 
   // Filter
   let rows = state.portfolio.filter((p) => {
-    if (districtFilter !== "Alla" && p.districtName !== districtFilter) return false;
-    if (typeFilter !== "Alla" && p.typeLabel !== typeFilter) return false;
+    if (districtFilter !== "All" && p.districtName !== districtFilter) return false;
+    if (typeFilter !== "All" && p.typeLabel !== typeFilter) return false;
     return true;
   });
 
@@ -114,16 +115,16 @@ export function PortfolioTable({ state, dispatch }: Props) {
         flexWrap: "wrap",
       }}>
         <span style={{ fontFamily: FONTS.heading, fontSize: 15, fontWeight: 700, color: C.brassBright }}>
-          Portföljdirektör
+          Portfolio director
         </span>
         {gm.active ? (
           <span style={{ fontSize: 12.5, color: C.creamSoft }}>
-            ✓ Aktiv · underhåll under skick {gm.minCondition} · hyresmål {pct(gm.rentTargetPct)} ·
-            kvalitet ≥ {gm.minTenantQuality > 0 ? gm.minTenantQuality.toFixed(2) : "alla"} · <strong style={{ color: C.gold }}>{kr(gmCost)}/mån</strong>
+            ✓ Active · maintenance below condition {gm.minCondition} · rent target {pct(gm.rentTargetPct)} ·
+            quality ≥ {gm.minTenantQuality > 0 ? gm.minTenantQuality.toFixed(2) : "all"} · <strong style={{ color: C.gold }}>{kr(gmCost)}/mo</strong>
           </span>
         ) : (
           <span style={{ fontSize: 12.5, color: C.creamSoft }}>
-            Inaktiv — sköter uthyrning och underhåll för hela beståndet ({kr(gmCost)}/mån).
+            Inactive — handles leasing and maintenance for the whole portfolio ({kr(gmCost)}/mo).
           </span>
         )}
         <button
@@ -133,7 +134,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
             borderRadius: 5, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
           }}
         >
-          Styr i Policy →
+          Manage in Policy →
         </button>
       </div>
 
@@ -155,7 +156,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
             opacity: lowCond.length > 0 ? 1 : 0.5,
           }}
         >
-          Underhåll alla med skick &lt; 50 ({lowCond.length} st)
+          Maintain all below condition &lt; 50 ({lowCond.length})
         </button>
         {/* Med direktör aktiv är förvaltare på alla bara dubbla arvoden –
             egen förvaltare behövs enbart för avvikande instruktioner. */}
@@ -176,7 +177,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
               cursor: "pointer",
             }}
           >
-            Aktivera förvaltare på alla
+            Activate manager on all
           </button>
         )}
       </div>
@@ -198,7 +199,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
           {TYPE_OPTIONS.map((t) => <option key={t}>{t}</option>)}
         </select>
         <span style={{ fontSize: 12, color: C.creamSoft, alignSelf: "center" }}>
-          {rows.length} av {state.portfolio.length} fastigheter
+          {rows.length} of {state.portfolio.length} properties
         </span>
       </div>
 
@@ -206,7 +207,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
       {(state.salePackages ?? []).length > 0 && (
         <div style={{ background: C.woodDark, border: `1px solid ${C.brass}55`, borderRadius: 6, padding: "10px 14px", marginBottom: 12 }}>
           <div style={{ fontSize: 11, color: C.creamSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
-            📦 Aktiva säljpaket
+            📦 Active sale packages
           </div>
           {(state.salePackages ?? []).map((pkg) => {
             const st = packageStats(pkg, state);
@@ -214,8 +215,8 @@ export function PortfolioTable({ state, dispatch }: Props) {
             return (
               <div key={pkg.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "4px 0", fontSize: 12.5, color: C.parchment }}>
                 <span>
-                  <strong>{pkg.name}</strong> · {pkg.propertyIds.length} fastigheter · utgångspris {msek(pkg.ask)}
-                  {" · "}värde {msek(st.value)} (paketpremie +{Math.round((st.premium - 1) * 100)} %)
+                  <strong>{pkg.name}</strong> · {pkg.propertyIds.length} properties · asking {msek(pkg.ask)}
+                  {" · "}value {msek(st.value)} (package premium +{Math.round((st.premium - 1) * 100)}%)
                 </span>
                 <span style={{ display: "flex", gap: 10, alignItems: "center", whiteSpace: "nowrap" }}>
                   <span style={{ color: il.color, fontWeight: 700, fontSize: 11.5 }}>{il.label}</span>
@@ -223,7 +224,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
                     style={{ background: "transparent", border: `1px solid ${C.brass}66`, color: C.creamSoft, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}
                     onClick={() => dispatch({ type: "UNLIST_PACKAGE", packageId: pkg.id })}
                   >
-                    Återkalla
+                    Withdraw
                   </button>
                 </span>
               </div>
@@ -238,7 +239,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
         return (
           <div style={{ background: C.woodDark, border: `1px solid ${C.brass}`, borderRadius: 6, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12.5, color: C.parchment }}>
-              <strong>{props.length} valda</strong> · värde {msek(value)}
+              <strong>{props.length} selected</strong> · value {msek(value)}
             </span>
             <input
               type="range" min={92} max={118} step={1}
@@ -247,7 +248,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
               style={{ flex: 1, minWidth: 120, accentColor: C.brass }}
             />
             <span style={{ fontSize: 12.5, color: C.brassBright, fontWeight: 700 }}>
-              Utgångspris {msek(ask)} ({pkgAskPct} %)
+              Asking {msek(ask)} ({pkgAskPct}%)
             </span>
             <button
               style={{ background: BURGUNDY, color: C.brassBright, border: "none", borderRadius: 4, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
@@ -257,7 +258,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
                 setSelected(new Set());
               }}
             >
-              📦 Skapa säljpaket
+              📦 Create sale package
             </button>
           </div>
         );
@@ -266,36 +267,36 @@ export function PortfolioTable({ state, dispatch }: Props) {
       {/* ── Tabell ───────────────────────────────────────────────── */}
       {state.portfolio.length === 0 ? (
         <div style={{ color: C.creamSoft, fontSize: 13, padding: 20 }}>
-          Inga fastigheter i portföljen ännu.
+          No properties in the portfolio yet.
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: C.woodDark, borderBottom: `1px solid ${C.brass}` }}>
-                <th style={{ ...thStyle, width: 30 }} title="Välj för säljpaket">📦</th>
-                <th style={thStyle}>Fastighet</th>
+                <th style={{ ...thStyle, width: 30 }} title="Select for sale package">📦</th>
+                <th style={thStyle}>Property</th>
                 <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("value")}>
-                  Marknadsvärde{sortIndicator("value")}
+                  Market value{sortIndicator("value")}
                 </th>
                 <th
                   style={{ ...thStyle, cursor: "pointer" }}
                   onClick={() => toggleSort("yield")}
-                  title="Yield on cost: driftnetto / (inköpspris + förbättringar och omkostnader)"
+                  title="Yield on cost: net operating income / (purchase price + improvements and costs)"
                 >
                   Yield on cost %{sortIndicator("yield")}
                 </th>
                 <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("condition")}>
-                  Skick{sortIndicator("condition")}
+                  Condition{sortIndicator("condition")}
                 </th>
                 <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("noi")}>
-                  NOI/år{sortIndicator("noi")}
+                  NOI/yr{sortIndicator("noi")}
                 </th>
                 <th style={{ ...thStyle, cursor: "pointer" }} onClick={() => toggleSort("vacant")}>
-                  Platser{sortIndicator("vacant")}
+                  Units{sortIndicator("vacant")}
                 </th>
                 <th style={thStyle}>Status</th>
-                <th style={thStyle}>Åtgärd</th>
+                <th style={thStyle}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -323,13 +324,13 @@ export function PortfolioTable({ state, dispatch }: Props) {
                           style={{ accentColor: C.brass, cursor: "pointer" }}
                         />
                       ) : p.forSale ? (
-                        <span title={p.forSale.packageId != null ? "I säljpaket" : "Till salu"} style={{ fontSize: 11 }}>🏷️</span>
+                        <span title={p.forSale.packageId != null ? "In sale package" : "For sale"} style={{ fontSize: 11 }}>🏷️</span>
                       ) : null}
                     </td>
                     <td
                       style={{ ...tdStyle, cursor: "pointer" }}
                       onClick={() => setExpandedId(isOpen ? null : p.id)}
-                      title="Klicka för att hantera fastigheten"
+                      title="Click to manage the property"
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ color: C.brass, fontSize: 11, width: 10 }}>{isOpen ? "▾" : "▸"}</span>
@@ -361,13 +362,13 @@ export function PortfolioTable({ state, dispatch }: Props) {
                         background: C.woodDark,
                         borderRadius: 3, padding: "2px 6px",
                       }}>
-                        {p.status === "bygger" ? `Bygg ${p.buildLeft}m` : p.managed ? "Förvaltas" : "Manuell"}
+                        {p.status === "bygger" ? `Build ${p.buildLeft}m` : p.managed ? "Managed" : "Manual"}
                       </span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>
                       {p.condition < 50 && p.status === "klar" && (
                         pendingWork(p, "underhåll") ? (
-                          <span style={{ fontSize: 11, color: C.brass }}>⏳ pågår</span>
+                          <span style={{ fontSize: 11, color: C.brass }}>⏳ in progress</span>
                         ) : (
                           <button
                             onClick={() => dispatch({ type: "MAINTAIN", id: p.id })}
@@ -381,7 +382,7 @@ export function PortfolioTable({ state, dispatch }: Props) {
                               cursor: "pointer",
                             }}
                           >
-                            Underhåll
+                            Maintain
                           </button>
                         )
                       )}

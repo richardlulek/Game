@@ -75,7 +75,7 @@ const M: Record<string, CSSProperties> = {
 export function MapLegend() {
   return (
     <div style={M.legend}>
-      🔵 Din · 🟡 Till salu · 🟢 Tomt · 🔴 Konkurrent
+      🔵 Yours · 🟡 For sale · 🟢 Lot · 🔴 Competitor
     </div>
   );
 }
@@ -125,9 +125,9 @@ function resolveSelection(state: GameState, parcelId: string | null): Selection 
 }
 
 const STAGE_LABEL: Record<PlanProcess["stage"], string> = {
-  samråd: "Samråd pågår",
-  granskning: "Granskning pågår",
-  överklagad: "Överklagad – hos domstolen",
+  samråd: "Consultation in progress",
+  granskning: "Review in progress",
+  överklagad: "Appealed – with the court",
 };
 
 /** Lägesfaktor som läsbar rad: centralt läge ger premie, utkant rabatt. */
@@ -137,10 +137,10 @@ function LocationRow({ parcelId }: { parcelId?: string }) {
   const pctVal = Math.round((loc - 1) * 100);
   return (
     <div style={M.row}>
-      <span>Läge</span>
+      <span>Location</span>
       <strong style={{ color: pctVal >= 0 ? "#4d8b52" : "#b5542a" }}>
         {pctVal >= 0 ? "+" : ""}
-        {pctVal} % {pctVal >= 4 ? "· centralt" : pctVal <= -3 ? "· utkant" : ""}
+        {pctVal}% {pctVal >= 4 ? "· central" : pctVal <= -3 ? "· outskirts" : ""}
       </strong>
     </div>
   );
@@ -161,7 +161,7 @@ function ShortcutBtn({
   const req = tierForLevel(unlockLevelFor(id));
   return (
     <button style={{ ...M.btn2, opacity: 0.55, cursor: "default" }} disabled>
-      🔒 {label} – nivå {req.level}
+      🔒 {label} – level {req.level}
     </button>
   );
 }
@@ -182,10 +182,10 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
   if (sel.kind !== "owned" && districtLocked(state, selDistrict)) {
     return (
       <div style={M.panel}>
-        <div style={M.title}>🔒 Området är låst</div>
+        <div style={M.title}>🔒 The area is locked</div>
         <div style={M.sub}>{DISTRICTS.find((d) => d.id === selDistrict)?.name ?? selDistrict}</div>
         <div style={{ ...M.row, color: "#777" }}>
-          <span>Berättelsen öppnar staden kapitel för kapitel. Fortsätt kampanjen så öppnas området för affärer.</span>
+          <span>The story opens the city chapter by chapter. Continue the campaign to open this area for deals.</span>
         </div>
       </div>
     );
@@ -195,10 +195,10 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
   if (sel.kind === "kommunal") {
     return (
       <div style={M.panel}>
-        <div style={M.title}>Kommunal mark</div>
-        <div style={M.sub}>Inhägnat expansionskvarter</div>
+        <div style={M.title}>Municipal land</div>
+        <div style={M.sub}>Fenced expansion block</div>
         <div style={{ ...M.row, color: "#777" }}>
-          <span>Kommunen planlägger området och släpper det på detaljplaneauktion. Håll kassan redo.</span>
+          <span>The municipality zones the area and releases it at a plan auction. Keep cash ready.</span>
         </div>
       </div>
     );
@@ -209,50 +209,50 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
     const fee = planFee(blockId);
     return (
       <div style={M.panel}>
-        <div style={M.title}>🌾 Planområde</div>
-        <div style={M.sub}>Privat råmark · obyggbar tills detaljplan finns</div>
+        <div style={M.title}>🌾 Plan area</div>
+        <div style={M.sub}>Private raw land · unbuildable until a zoning plan exists</div>
         {sel.areaState === "till-salu" && (
           <>
             <div style={M.row}>
-              <span>Råmarkspris</span>
+              <span>Raw land price</span>
               <strong>{msek(price)}</strong>
             </div>
             <div style={M.row}>
-              <span>Planavgift (senare)</span>
+              <span>Plan fee (later)</span>
               <strong>{msek(fee)}</strong>
             </div>
             <div style={M.row}>
-              <span>Planprocess</span>
-              <strong>~{planMonths(blockId)} mån</strong>
+              <span>Plan process</span>
+              <strong>~{planMonths(blockId)} mo</strong>
             </div>
             <button
               style={M.btn}
               disabled={state.cash < price}
               onClick={() => dispatch({ type: "BUY_RAW_LAND", blockId })}
             >
-              Köp råmarken {msek(price)}
+              Buy the raw land {msek(price)}
             </button>
           </>
         )}
         {sel.areaState === "ägd" && (
           <>
             <div style={M.row}>
-              <span>Råmarken</span>
-              <strong style={{ color: "#4d8b52" }}>Din</strong>
+              <span>Raw land</span>
+              <strong style={{ color: "#4d8b52" }}>Yours</strong>
             </div>
             <div style={M.row}>
-              <span>Planavgift & utredningar</span>
+              <span>Plan fee & studies</span>
               <strong>{msek(fee)}</strong>
             </div>
             <div style={{ ...M.row, color: "#999", fontSize: 12 }}>
-              <span>Samråd, granskning… och kanske överklaganden. Gott anseende snabbar på processen.</span>
+              <span>Consultation, review… and maybe appeals. Good reputation speeds up the process.</span>
             </div>
             <button
               style={M.btn}
               disabled={state.cash < fee}
               onClick={() => dispatch({ type: "START_PLAN", blockId })}
             >
-              Starta detaljplan {msek(fee)}
+              Start zoning plan {msek(fee)}
             </button>
           </>
         )}
@@ -263,12 +263,12 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
               <strong>{STAGE_LABEL[sel.proc.stage]}</strong>
             </div>
             <div style={M.row}>
-              <span>Klart om</span>
-              <strong>~{sel.proc.monthsLeft} mån</strong>
+              <span>Done in</span>
+              <strong>~{sel.proc.monthsLeft} mo</strong>
             </div>
             {(sel.proc.parkParcels ?? []).length > 0 && (
               <div style={{ ...M.row, color: "#999", fontSize: 12 }}>
-                <span>🌊 Strandskydd: {sel.proc.parkParcels!.length} tomt avstås som park</span>
+                <span>🌊 Shoreline protection: {sel.proc.parkParcels!.length} lot ceded as park</span>
               </div>
             )}
           </>
@@ -282,41 +282,41 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
     const down = deal.ask * (1 - loanTerms(state).maxLtv);
     return (
       <div style={M.panel}>
-        <div style={M.title}>{prof.typeLabel} · privatägd</div>
+        <div style={M.title}>{prof.typeLabel} · privately owned</div>
         <div style={M.sub}>
-          Inte till salu — men allt har ett pris
+          Not for sale — but everything has a price
         </div>
         <div style={M.row}>
-          <span>Yta</span>
+          <span>Area</span>
           <strong>{prof.area} m²</strong>
         </div>
         <div style={M.row}>
-          <span>Skick</span>
+          <span>Condition</span>
           <strong>{prof.condition}</strong>
         </div>
         <LocationRow parcelId={sel.parcel.id} />
         <div style={M.row}>
-          <span>Värdering</span>
+          <span>Valuation</span>
           <strong>{msek(deal.value)}</strong>
         </div>
         <div style={M.row}>
-          <span>Ägaren begär</span>
+          <span>Owner asks</span>
           <strong style={{ color: deal.holdout ? "#b5542a" : undefined }}>
-            {msek(deal.ask)} (+{Math.round((deal.premium - 1) * 100)} %)
+            {msek(deal.ask)} (+{Math.round((deal.premium - 1) * 100)}%)
           </strong>
         </div>
         {deal.holdout && (
           <div style={{ ...M.row, color: "#b5542a", fontSize: 12 }}>
-            <span>😤 Nejsägare — säljer bara mot rejäl överkurs</span>
+            <span>😤 Holdout — only sells at a steep premium</span>
           </div>
         )}
         <button
           style={M.btn}
           disabled={state.cash < down}
-          title={state.cash < down ? `Kräver ${msek(down)} i handpenning` : `Handpenning ${msek(down)}`}
+          title={state.cash < down ? `Requires ${msek(down)} down payment` : `Down payment ${msek(down)}`}
           onClick={() => dispatch({ type: "BUY_AMBIENT", parcelId: sel.parcel.id })}
         >
-          Köp av ägaren {msek(deal.ask)}
+          Buy from owner {msek(deal.ask)}
         </button>
       </div>
     );
@@ -326,7 +326,7 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
     <div style={M.panel}>
       {sel.kind === "lot" ? (
         <>
-          <div style={M.title}>Tomt {sel.lot.owned ? "(din)" : "till salu"}</div>
+          <div style={M.title}>Lot {sel.lot.owned ? "(yours)" : "for sale"}</div>
           <div style={M.sub}>
             {sel.lot.districtName} · {sel.lot.area} m²
           </div>
@@ -334,7 +334,7 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
           {!sel.lot.owned && (
             <>
               <div style={M.row}>
-                <span>Pris</span>
+                <span>Price</span>
                 <strong>{msek(sel.lot.price)}</strong>
               </div>
               <button
@@ -342,44 +342,44 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
                 disabled={state.cash < sel.lot.price}
                 onClick={() => dispatch({ type: "BUY_LOT", id: sel.lot.id })}
               >
-                Köp tomt {msek(sel.lot.price)}
+                Buy lot {msek(sel.lot.price)}
               </button>
             </>
           )}
-          <ShortcutBtn id="build" label="Öppna Bygg" level={level} openWindow={openWindow} />
+          <ShortcutBtn id="build" label="Open Build" level={level} openWindow={openWindow} />
         </>
       ) : (
         <>
           <div style={M.title}>{sel.prop.typeLabel}</div>
           <div style={M.sub}>
-            {sel.prop.districtName} · {sel.prop.area} m² · skick {Math.round(sel.prop.condition)}
+            {sel.prop.districtName} · {sel.prop.area} m² · condition {Math.round(sel.prop.condition)}
           </div>
           <LocationRow parcelId={sel.prop.parcelId} />
           {sel.kind === "owned" && (
             <>
               <div style={M.row}>
-                <span>Värde</span>
+                <span>Value</span>
                 <strong>{msek(propMarketValue(sel.prop, state))}</strong>
               </div>
               <div style={M.row}>
-                <span>Uthyrt</span>
+                <span>Rented</span>
                 <strong>
                   {sel.prop.tenants.length}/{sel.prop.capacity}
                 </strong>
               </div>
               <button style={M.btn} onClick={() => openWindow("portfolio")}>
-                Öppna Portfölj
+                Open Portfolio
               </button>
             </>
           )}
           {sel.kind === "listing" && (
             <>
               <div style={M.row}>
-                <span>Pris</span>
+                <span>Price</span>
                 <strong>{msek(sel.prop.askPrice)}</strong>
               </div>
               <div style={M.row}>
-                <span>Handpenning</span>
+                <span>Down payment</span>
                 <strong>{msek(sel.prop.askPrice * (1 - loanTerms(state).maxLtv))}</strong>
               </div>
               <button
@@ -387,10 +387,10 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
                 disabled={state.cash < sel.prop.askPrice * (1 - loanTerms(state).maxLtv)}
                 onClick={() => dispatch({ type: "BUY", id: sel.prop.id })}
               >
-                Köp {msek(sel.prop.askPrice)}
+                Buy {msek(sel.prop.askPrice)}
               </button>
               <button style={M.btn2} onClick={() => openWindow("market")}>
-                Öppna Marknad (bud m.m.)
+                Open Market (bids etc.)
               </button>
             </>
           )}
@@ -403,17 +403,17 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
             return (
               <>
                 <div style={M.row}>
-                  <span>Ägare</span>
+                  <span>Owner</span>
                   <strong>{sel.owner}</strong>
                 </div>
                 <div style={M.row}>
-                  <span>Värdering</span>
+                  <span>Valuation</span>
                   <strong>{msek(ask)}</strong>
                 </div>
                 <div style={{ ...M.row, color: "#999", fontSize: 12 }}>
-                  <span>Inte till salu – men allt har ett pris</span>
+                  <span>Not for sale – but everything has a price</span>
                 </div>
-                {([[1.10, "Bud +10 %"], [1.25, "Bud +25 % (accepteras)"]] as const).map(([mult, label]) => {
+                {([[1.10, "Bid +10%"], [1.25, "Bid +25% (accepted)"]] as const).map(([mult, label]) => {
                   const bid = mkBid(mult);
                   const down = bid * (1 - maxLtv);
                   return (
@@ -421,7 +421,7 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
                       key={mult}
                       style={mult === 1.25 ? M.btn : M.btn2}
                       disabled={state.cash < down}
-                      title={state.cash < down ? `Kräver ${msek(down)} i handpenning` : `Handpenning ${msek(down)}`}
+                      title={state.cash < down ? `Requires ${msek(down)} down payment` : `Down payment ${msek(down)}`}
                       onClick={() =>
                         dispatch({ type: "OFFER_TO_RIVAL", competitorName: sel.owner, propertyId: sel.prop.id, amount: bid })
                       }
@@ -430,7 +430,7 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
                     </button>
                   );
                 })}
-                <ShortcutBtn id="acquisition" label="Öppna Förvärv (M&A)" level={level} openWindow={openWindow} />
+                <ShortcutBtn id="acquisition" label="Open Acquisition (M&A)" level={level} openWindow={openWindow} />
               </>
             );
           })()}
@@ -441,10 +441,10 @@ export function MapSelectionCard({ openWindow }: { openWindow: (id: string) => v
 }
 
 const OVERLAYS: { id: OverlayMode; label: string }[] = [
-  { id: "ingen", label: "Karta" },
-  { id: "vakans", label: "Vakans" },
-  { id: "skick", label: "Skick" },
-  { id: "avkastning", label: "Avkastning" },
+  { id: "ingen", label: "Map" },
+  { id: "vakans", label: "Vacancy" },
+  { id: "skick", label: "Condition" },
+  { id: "avkastning", label: "Yield" },
 ];
 
 const T: Record<string, CSSProperties> = {
@@ -584,92 +584,92 @@ export function TodoHud({ openWindow }: { openWindow: (id: string) => void }) {
   return (
     <div style={T.hud}>
       <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: 1, marginBottom: 4 }}>
-        FÖRVALTNING · {klar.length} fastigheter
+        MANAGEMENT · {klar.length} properties
       </div>
       {offersCount > 0 && (
         <div style={{ ...T.hudRow, color: "#4757c8", fontWeight: 700 }}>
-          <span>📨 {offersCount} bud väntar på svar</span>
+          <span>📨 {offersCount} bids awaiting response</span>
           <button style={T.hudBtn} onClick={() => requestOpen("offers")}>
-            Öppna inkorgen
+            Open inbox
           </button>
         </div>
       )}
       {up.qualified && (
         <div style={{ ...T.hudRow, color: "#4757c8", fontWeight: 700 }}>
-          <span>📈 Redo att expandera bolaget!</span>
+          <span>📈 Ready to expand the company!</span>
           <button style={T.hudBtn} onClick={() => openWindow("company")}>
-            Öppna Bolag
+            Open Company
           </button>
         </div>
       )}
       {load.over > 0 && (
         <div style={{ ...T.hudRow, color: "#b5542a" }}>
-          <span>🏢 {load.over} hus över kapacitet ({load.selfManaged}/{load.cap})</span>
+          <span>🏢 {load.over} buildings over capacity ({load.selfManaged}/{load.cap})</span>
           <button style={T.hudBtn2} onClick={() => openWindow("company")}>
-            Bolag →
+            Company →
           </button>
         </div>
       )}
-      {nothing && <div style={{ color: "#4d8b52" }}>✓ Inga bud, vakanser eller underhållsbehov.</div>}
+      {nothing && <div style={{ color: "#4d8b52" }}>✓ No bids, vacancies or maintenance needs.</div>}
       {vacantSlots > 0 && (
         <div style={T.hudRow}>
           <span>
-            🔑 {vacantSlots} vakanser i {vacantHouses} hus
-            {totalApps > 0 ? ` · ${totalApps} sökande` : " · inga sökande"}
+            🔑 {vacantSlots} vacancies in {vacantHouses} buildings
+            {totalApps > 0 ? ` · ${totalApps} applicants` : " · no applicants"}
           </span>
           {totalApps > 0 ? (
             <button style={T.hudBtn} onClick={() => dispatch({ type: "LEASE_ALL" })}>
-              Acceptera bästa
+              Accept best
             </button>
           ) : (
             <button style={T.hudBtn2} onClick={() => openWindow("portfolio")}>
-              Justera hyror →
+              Adjust rents →
             </button>
           )}
         </div>
       )}
       {expiring > 0 && (
         <div style={T.hudRow}>
-          <span>📄 {expiring} kontrakt löper ut ≤3 mån</span>
+          <span>📄 {expiring} contracts expire ≤3 mo</span>
           <button style={T.hudBtn} onClick={() => dispatch({ type: "RENEW_ALL", monthsLeft: 3 })}>
-            Förnya alla
+            Renew all
           </button>
         </div>
       )}
       {pendingJobs > 0 && (
         <div style={{ ...T.hudRow, color: "#7a5c2a" }}>
-          <span>⏳ {pendingJobs} beställda jobb klara vid kommande månadsskiften</span>
+          <span>⏳ {pendingJobs} ordered jobs completing at upcoming month-ends</span>
         </div>
       )}
       {maintDebt > 0 && (
         <div style={T.hudRow}>
           <span style={{ color: poor.length > 0 ? "#b5542a" : "#666" }}>
-            🔧 Underhållsskuld {msek(maintDebt)} ({belowGood} hus under skick {GOOD}
-            {poor.length > 0 ? `, ${poor.length} akuta` : ""})
+            🔧 Maintenance debt {msek(maintDebt)} ({belowGood} buildings under condition {GOOD}
+            {poor.length > 0 ? `, ${poor.length} urgent` : ""})
           </span>
           <button
             style={{ ...T.hudBtn, ...(state.cash < (poor.length > 0 ? poorCost : goodRoundCost) ? { opacity: 0.55 } : {}) }}
             title={
               poor.length > 0
-                ? `Underhåller de akuta (skick < ${POOR}) för ca ${msek(poorCost)}. Hela skulden ${msek(maintDebt)} betas av i omgångar.`
-                : `En underhållsrunda (+15 skick) för alla hus under ${GOOD} – hela skulden betas av i omgångar.`
+                ? `Maintains the urgent ones (condition < ${POOR}) for ~${msek(poorCost)}. The whole debt ${msek(maintDebt)} is paid down in rounds.`
+                : `One maintenance round (+15 condition) for all buildings under ${GOOD} – the whole debt is paid down in rounds.`
             }
             onClick={() => dispatch({ type: "MAINTAIN_ALL", threshold: poor.length > 0 ? POOR : GOOD })}
           >
-            Underhåll ({msek(poor.length > 0 ? poorCost : goodRoundCost)})
+            Maintain ({msek(poor.length > 0 ? poorCost : goodRoundCost)})
           </button>
         </div>
       )}
       <div style={{ ...T.hudRow, borderTop: "1px solid #eee", marginTop: 4, paddingTop: 8 }}>
         {unmanaged > 0 ? (
           <button style={T.hudBtn2} onClick={() => dispatch({ type: "MANAGE_ALL", managed: true })}>
-            👔 Förvaltare på alla ({unmanaged})
+            👔 Manager on all ({unmanaged})
           </button>
         ) : (
-          <span style={{ color: "#888", fontSize: 11 }}>👔 Förvaltare överallt</span>
+          <span style={{ color: "#888", fontSize: 11 }}>👔 Managers everywhere</span>
         )}
         <button style={T.hudBtn2} onClick={() => openWindow("tenants")}>
-          Direktör →
+          Director →
         </button>
       </div>
     </div>
