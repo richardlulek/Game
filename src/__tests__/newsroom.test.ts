@@ -2,7 +2,7 @@
    marknadsprognos och artikelnavigering. */
 
 import { describe, expect, it } from "vitest";
-import { articleTarget, editorNotes, marketForecast } from "../engine/newsroom";
+import { articleTarget, editorNotes, marketForecast, upcomingHeadlines } from "../engine/newsroom";
 import type { LogEntry } from "../engine/types";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 
@@ -65,6 +65,46 @@ describe("marketForecast", () => {
   it("läser en stigande stämningstrend i en stabil marknad", () => {
     const s = makeState({ sentimentHistory: [1.0, 1.02, 1.05] });
     expect(marketForecast(s)).toMatch(/firming/i);
+  });
+});
+
+describe("upcomingHeadlines", () => {
+  it("är tom utan kända framtida händelser", () => {
+    expect(upcomingHeadlines(makeState())).toHaveLength(0);
+  });
+
+  it("listar en detaljplan med ETA och distrikt", () => {
+    const s = makeState({
+      planProcesses: [
+        {
+          blockId: "b1", district: "hamnen", districtName: "The Harbor",
+          stage: "granskning", monthsLeft: 5, totalMonths: 12, spent: 0, challenges: [],
+        },
+      ],
+    });
+    const item = upcomingHeadlines(s).find((u) => u.id === "plan-b1");
+    expect(item).toBeDefined();
+    expect(item!.district).toBe("hamnen");
+    expect(item!.eta).toBe(5);
+  });
+
+  it("sätter en öppen auktion överst (ETA 0)", () => {
+    const s = makeState({
+      auction: { blockId: "b2", district: "centrum", districtName: "Downtown", parcels: 3, minBid: 1, currentBid: 1, leader: null, round: 1 },
+      planProcesses: [
+        { blockId: "b1", district: "hamnen", districtName: "The Harbor", stage: "granskning", monthsLeft: 5, totalMonths: 12, spent: 0, challenges: [] },
+      ],
+    });
+    const items = upcomingHeadlines(s);
+    expect(items[0].id).toBe("auction-b2");
+    expect(items[0].eta).toBe(0);
+  });
+
+  it("varnar för ett distrikt nära ett statusbyte", () => {
+    // Downtown "Rising" ligger på 1.1; dev 1.07 → gap 0.03 < 0.04.
+    const s = makeState({ districtDev: { centrum: 1.07 } });
+    const item = upcomingHeadlines(s).find((u) => u.id === "trend-centrum");
+    expect(item).toBeDefined();
   });
 });
 

@@ -46,5 +46,11 @@ export function galleryState(): GameState {
     marketSentiment: 1.11,
     marketCycle: { phase: "boom", monthsRemaining: 7 },
     interestRate: 4.25,
+    planProcesses: [
+      { blockId: "hamn-3", district: "hamnen", districtName: "The Harbor", stage: "granskning", monthsLeft: 4, totalMonths: 14, spent: 2_100_000, challenges: [] },
+    ],
+    infraProjects: [
+      { id: 1, name: "New tram line", district: "innerstad", districtName: "Inner City", monthsLeft: 9, totalMonths: 24, boost: 0.06 },
+    ],
   };
 }

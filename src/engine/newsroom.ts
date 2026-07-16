@@ -173,6 +173,108 @@ export function editorNotes(state: GameState): EditorNote[] {
   return notes.sort((a, b) => b.priority - a.priority);
 }
 
+/** Ett känt-i-förväg framtidsspår: en händelse med ETA som ger läsaren
+ *  en chans att positionera sig innan priserna rör sig. */
+export interface UpcomingItem {
+  id: string;
+  /** Kort etikett (versaliseras i UI), t.ex. "PLAN PROCESS". */
+  kicker: string;
+  text: string;
+  /** Distrikt-id att zooma till vid klick. */
+  district?: string;
+  /** Månader kvar (0 = pågår nu); styr sortering. */
+  eta: number;
+}
+
+const districtName = (id: string): string => DISTRICTS.find((d) => d.id === id)?.name ?? id;
+const moLeft = (n: number) => `${n} month${n === 1 ? "" : "s"}`;
+
+/**
+ * Kommande rubriker: händelser staden redan vet om – detaljplaner på väg
+ * mot laga kraft, pågående signaturkvarter/megaprojekt/infrastruktur, en
+ * öppen planauktion och distrikt som närmar sig ett statusbyte. Sorteras
+ * efter ETA så det mest näraliggande ligger överst. Klick zoomar dit.
+ */
+export function upcomingHeadlines(state: GameState): UpcomingItem[] {
+  const out: UpcomingItem[] = [];
+
+  // Öppen planauktion – pågår nu.
+  if (state.auction) {
+    const a = state.auction;
+    out.push({
+      id: `auction-${a.blockId}`,
+      kicker: "Auction",
+      text: `A detailed-plan auction for ${a.districtName} is open now — ${a.parcels} lots on the block, leader ${a.leader ?? "none yet"}.`,
+      district: a.district,
+      eta: 0,
+    });
+  }
+
+  // Egna detaljplaner på väg mot laga kraft.
+  for (const p of state.planProcesses ?? []) {
+    out.push({
+      id: `plan-${p.blockId}`,
+      kicker: "Plan process",
+      text: `${p.districtName} detailed plan clears ${p.stage === "överklagad" ? "its appeal" : "review"} in ${moLeft(p.monthsLeft)} — new buildable land ahead.`,
+      district: p.district,
+      eta: p.monthsLeft,
+    });
+  }
+
+  // Signaturkvarter under uppförande.
+  for (const c of state.cityProjects ?? []) {
+    out.push({
+      id: `cityproj-${c.blockId}`,
+      kicker: "Redevelopment",
+      text: `A signature block is rising in ${districtName(c.district)} — completes in ${moLeft(c.monthsLeft)}.`,
+      district: c.district,
+      eta: c.monthsLeft,
+    });
+  }
+
+  // Megaprojekt (slutspel).
+  for (const m of state.megaActive ?? []) {
+    out.push({
+      id: `mega-${m.blockId}`,
+      kicker: "Mega-project",
+      text: `A landmark project in ${districtName(m.district)} is ${moLeft(m.monthsLeft)} from completion.`,
+      district: m.district,
+      eta: m.monthsLeft,
+    });
+  }
+
+  // Kommunal infrastruktur som lyfter ett distrikt.
+  for (const inf of state.infraProjects ?? []) {
+    out.push({
+      id: `infra-${inf.id}`,
+      kicker: "Infrastructure",
+      text: `${inf.name} in ${inf.districtName} opens in ${moLeft(inf.monthsLeft)}, lifting the district.`,
+      district: inf.district,
+      eta: inf.monthsLeft,
+    });
+  }
+
+  // Distrikt nära ett statusbyte – en trend att köpa före.
+  for (const d of DISTRICTS) {
+    const dev = state.districtDev?.[d.id] ?? 1;
+    const tier = districtTier(state, d.id);
+    const next = nextDistrictTier(tier);
+    if (!next) continue;
+    const gap = next.min - dev;
+    if (gap > 0 && gap <= 0.04) {
+      out.push({
+        id: `trend-${d.id}`,
+        kicker: "District trend",
+        text: `${d.name} is closing on "${next.name}" status ${next.icon} — values tend to follow a reclassification.`,
+        district: d.id,
+        eta: 90, // ingen exakt månad: sorteras efter de tidsbestämda.
+      });
+    }
+  }
+
+  return out.sort((a, b) => a.eta - b.eta).slice(0, 5);
+}
+
 /**
  * Marknadsprognos: en enda mening som läser av cykeln och stämningen.
  * Härleds enbart (marketCycle + sentimentHistory) – ingen motorändring.

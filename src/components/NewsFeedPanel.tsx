@@ -1,6 +1,6 @@
 import { formatMonthYear } from "../engine/date";
 import { equityOf } from "../engine/finance";
-import { articleTarget, editorNotes, marketForecast, type NavIntent } from "../engine/newsroom";
+import { articleTarget, editorNotes, marketForecast, upcomingHeadlines, type NavIntent } from "../engine/newsroom";
 import { personaFor } from "../engine/rivalPersonas";
 import { cinematicPointFor } from "../engine/story";
 import type { GameState, LogEntry } from "../engine/types";
@@ -75,6 +75,7 @@ export function NewsFeedPanel({ state }: Props) {
   const cycle = state.marketCycle;
   const forecast = marketForecast(state);
   const notes = editorNotes(state).slice(0, 2);
+  const upcoming = upcomingHeadlines(state);
 
   const Kicker = ({ e }: { e: LogEntry }) => (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "baseline", fontSize: 9.5, letterSpacing: 2, fontWeight: 800 }}>
@@ -222,6 +223,32 @@ export function NewsFeedPanel({ state }: Props) {
                 <strong style={{ fontStyle: "normal", color: sepia }}>Forecast: </strong>{forecast}
               </div>
             </div>
+
+            {/* Upcoming — known-ahead events, click to focus the district */}
+            {upcoming.length > 0 && (
+              <div style={{ border: `1px solid ${rule}88`, borderRadius: 3, padding: "9px 11px", marginBottom: 14, background: "#efe4c6" }}>
+                <div style={{ fontFamily: FONTS.heading, fontWeight: 800, fontSize: 11, letterSpacing: 1.5, textAlign: "center", borderBottom: `1px solid ${rule}66`, paddingBottom: 4, marginBottom: 7 }}>
+                  CITY PLANNING · UPCOMING
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {upcoming.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => go(u.district ? { type: "district", district: u.district } : null)}
+                      title={u.district ? "See the district →" : undefined}
+                      style={{ all: "unset", cursor: u.district ? "pointer" : "default", display: "block" }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 6, alignItems: "baseline" }}>
+                        <span style={{ fontSize: 9, letterSpacing: 1.5, fontWeight: 800, color: sepia }}>{u.kicker.toUpperCase()}</span>
+                        {u.eta > 0 && u.eta < 90 && <span style={{ fontSize: 9.5, color: "#8a6a2a", fontWeight: 700 }}>{u.eta} mo</span>}
+                        {u.eta === 0 && <span style={{ fontSize: 9.5, color: "#a23", fontWeight: 800 }}>NOW</span>}
+                      </div>
+                      <div style={{ fontSize: 10.5, lineHeight: 1.35, color: ink }}>{u.text}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* In brief */}
             {briefs.length > 0 && (
