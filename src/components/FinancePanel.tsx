@@ -4,6 +4,12 @@ import { LENDERS, amortInfoOf, loanTerms } from "../engine/finance";
 import { bondRateFor, creditRatingOf } from "../engine/rating";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
+import {
+  RESTRUCTURING_EXTRA_AMORT,
+  RESTRUCTURING_LTV_PENALTY,
+  restructuringMonthsLeft,
+  underRestructuringTerms,
+} from "../engine/receivership";
 import { bankStanding, standingLabel } from "../engine/standing";
 import type { GameAction, GameState, LoanTerms } from "../engine/types";
 import { S } from "../styles/styles";
@@ -115,6 +121,19 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
             />
           );
         })()}
+        {underRestructuringTerms(state) && (
+          <>
+            <Line
+              l="⚖️ Restructuring covenants"
+              v={`${restructuringMonthsLeft(state)} mo left`}
+              accent="#c0392b"
+            />
+            <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+              After the receivership the bank demands +{Math.round(RESTRUCTURING_EXTRA_AMORT * 100)}%/yr
+              amortization on existing debt and caps new lending (max LTV −{Math.round(RESTRUCTURING_LTV_PENALTY * 100)}pp).
+            </div>
+          </>
+        )}
         {(() => {
           const esg = esgRatingOf(state);
           return (

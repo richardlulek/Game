@@ -30,7 +30,16 @@ import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
 import { makeScandal, scandalRisk } from "./newsroom";
-import { BANKRUPTCY_FLOOR, isInsolvent, receiverAutoLiquidate } from "./receivership";
+import {
+  BANKRUPTCY_FLOOR,
+  RECEIVERSHIP_BANK_HIT,
+  RECEIVERSHIP_PRESS_HIT,
+  RECEIVERSHIP_REP_HIT,
+  RESTRUCTURING_MONTHS,
+  imposeRestructuringTerms,
+  isInsolvent,
+  receiverAutoLiquidate,
+} from "./receivership";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
 import { hasRelation, nemesisOf, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding } from "./standing";
@@ -2425,8 +2434,10 @@ export function advanceMonth(state: GameState): GameState {
     if (s.receivership) {
       if (s.cash >= 0) {
         // Kassan återhämtade sig (spelarens försäljningar eller månadens hyror).
+        // Banken släpper inte taget: rekonstruktionsvillkoren gäller ändå.
         s.receivership = undefined;
-        s.log = [{ t: "⚖️ The restructuring is resolved — liquidity restored.", kind: "info" }, ...s.log];
+        Object.assign(s, imposeRestructuringTerms(s));
+        s.log = [{ t: `⚖️ The restructuring is resolved — liquidity restored. The bank imposes ${RESTRUCTURING_MONTHS}-month covenants: mandatory amortization and capped new lending.`, kind: "info" }, ...s.log];
       } else {
         // Deadline: rekonstruktionen låg kvar över ett månadsskifte
         // (spolning/AFK/soak) – förvaltaren agerar åt spelaren.
@@ -2434,7 +2445,8 @@ export function advanceMonth(state: GameState): GameState {
         Object.assign(s, res.state);
         s.receivership = undefined;
         if (res.sold > 0 && s.cash >= BANKRUPTCY_FLOOR) {
-          s.log = [{ t: `⚖️ The receiver stepped in and sold ${res.sold} propert${res.sold > 1 ? "ies" : "y"} to keep the company alive.`, kind: "warn" }, ...s.log];
+          Object.assign(s, imposeRestructuringTerms(s));
+          s.log = [{ t: `⚖️ The receiver stepped in and sold ${res.sold} propert${res.sold > 1 ? "ies" : "y"} to keep the company alive — and the bank imposes ${RESTRUCTURING_MONTHS}-month covenants.`, kind: "warn" }, ...s.log];
         }
         if (s.cash < BANKRUPTCY_FLOOR) {
           s.gameOver = true;
@@ -2451,15 +2463,20 @@ export function advanceMonth(state: GameState): GameState {
         // (rykte, bankförtroende, presstemperatur) tas HÄR – händelsen är
         // offentlig oavsett hur den sedan löses.
         s.receivership = { shortfall: -s.cash, enteredAbs: s.year * 12 + s.month };
-        s.reputation = Math.max(0, s.reputation - 5);
-        s.standing = adjustStanding(s.standing, { kind: "bank" }, -20);
-        s.pressHeat = Math.min(20, (s.pressHeat ?? 0) + 4);
+        s.reputation = Math.max(0, s.reputation - RECEIVERSHIP_REP_HIT);
+        s.standing = adjustStanding(s.standing, { kind: "bank" }, -RECEIVERSHIP_BANK_HIT);
+        s.pressHeat = Math.min(20, (s.pressHeat ?? 0) + RECEIVERSHIP_PRESS_HIT);
         s.log = [{ t: `⚖️ RECEIVERSHIP: cash is ${kr(s.cash)} and the bank has appointed a receiver. Choose which assets to sell (−25% vs. value) — or the receiver will choose for you (−35%).`, kind: "warn" }, ...s.log];
       }
     }
   } else if (s.cash < BANKRUPTCY_FLOOR && s.settings?.noBankruptcy) {
     if (s.cash > -1_100_000)
       s.log = [{ t: "💥 Cash below −1,000,000 kr – bankruptcy is disabled, but the bank rolls its eyes.", kind: "warn" }, ...s.log];
+  }
+  // Rekonstruktionsvillkoren löper ut: banken återgår till normala villkor.
+  if (s.restructuringTerms && !s.receivership && s.year * 12 + s.month >= s.restructuringTerms.untilAbs) {
+    s.restructuringTerms = undefined;
+    s.log = [{ t: "🏦 The restructuring covenants have expired — the bank restores normal amortization and lending terms.", kind: "info" }, ...s.log];
   }
   if (CASHFLOW_DEBUG && cashLedger.length) {
     const net = cashLedger.reduce((a, c) => a + c.delta, 0);

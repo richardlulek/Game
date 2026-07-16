@@ -9,6 +9,7 @@ import { propMarketValue } from "./property";
 import { spreadDelta } from "./progression";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
 import { industryAssetValue } from "./industries";
+import { RESTRUCTURING_EXTRA_AMORT, RESTRUCTURING_LTV_PENALTY, underRestructuringTerms } from "./receivership";
 import { bankStandingTerms } from "./standing";
 import type { GameState, Lender, LoanTerms } from "./types";
 
@@ -54,8 +55,10 @@ export function loanTerms(state: GameState): LoanTerms {
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;
-  const ltvAdj = (lender?.ltvBonus ?? 0) + bank.ltvDelta;
-  const maxLtv = Math.max(0.5, Math.min(0.85, baseLtv + ltvAdj));
+  // Rekonstruktionsvillkor: nyutlåningen stryps tills villkoren löpt ut.
+  const covenantLtv = underRestructuringTerms(state) ? -RESTRUCTURING_LTV_PENALTY : 0;
+  const ltvAdj = (lender?.ltvBonus ?? 0) + bank.ltvDelta + covenantLtv;
+  const maxLtv = Math.max(0.4, Math.min(0.85, baseLtv + ltvAdj));
   return {
     rate: +(state.interestRate + spread + rateAdj).toFixed(2),
     spread: +(spread + rateAdj).toFixed(2),
@@ -116,7 +119,12 @@ export function amortTierPct(ltv: number): number {
 export function amortInfoOf(state: GameState): AmortInfo {
   const portVal = portfolioValue(state);
   const ltv = portVal > 0 ? state.debt / portVal : state.debt > 0 ? 1 : 0;
-  const yearlyPct = amortTierPct(ltv);
+  // Rekonstruktionsvillkor: banken kräver +2 pp/år UTÖVER trappan, och
+  // minst 2 %/år även under 50 % LTV – befintlig skuld ska betas av.
+  const covenant = underRestructuringTerms(state);
+  const yearlyPct = covenant
+    ? Math.max(RESTRUCTURING_EXTRA_AMORT, amortTierPct(ltv) + RESTRUCTURING_EXTRA_AMORT)
+    : amortTierPct(ltv);
   const monthly = Math.round((state.debt * yearlyPct) / 12);
   const nextBreakLtv = ltv > 0.7 ? 0.7 : ltv > 0.5 ? 0.5 : null;
   const amortToNextBreak =

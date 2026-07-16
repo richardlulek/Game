@@ -2,16 +2,21 @@
    upplösning och konkursvalet. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { amortInfoOf, loanTerms } from "../engine/finance";
 import { propMarketValue } from "../engine/property";
 import {
   RECEIVER_AUTO_FACTOR,
   RECEIVER_CHOICE_FACTOR,
+  RESTRUCTURING_EXTRA_AMORT,
+  RESTRUCTURING_MONTHS,
   distressQuote,
   isInsolvent,
   maxRaisable,
   receiverAutoLiquidate,
+  underRestructuringTerms,
 } from "../engine/receivership";
 import { reducer } from "../engine/reducer";
+import { advanceMonth } from "../engine/simulation";
 import type { GameState } from "../engine/types";
 import { makeProperty, makeState } from "./factories";
 
@@ -116,5 +121,47 @@ describe("RESOLVE_RECEIVERSHIP & ACCEPT_BANKRUPTCY", () => {
     const next = reducer(crisisState(), { type: "ACCEPT_BANKRUPTCY" });
     expect(next.gameOver).toBe(true);
     expect(next.receivership).toBeUndefined();
+  });
+});
+
+describe("rekonstruktionsvillkor (bankens efterkrav)", () => {
+  it("RESOLVE_RECEIVERSHIP inför villkor i RESTRUCTURING_MONTHS månader", () => {
+    const s = { ...crisisState(), cash: 50_000 };
+    const done = reducer(s, { type: "RESOLVE_RECEIVERSHIP" });
+    expect(done.restructuringTerms).toBeDefined();
+    expect(done.restructuringTerms!.untilAbs).toBe(s.year * 12 + s.month + RESTRUCTURING_MONTHS);
+    expect(underRestructuringTerms(done)).toBe(true);
+  });
+
+  it("RECEIVER_AUTO (överlevnad) inför också villkoren", () => {
+    const next = reducer(crisisState(), { type: "RECEIVER_AUTO" });
+    expect(next.gameOver).toBe(false);
+    expect(underRestructuringTerms(next)).toBe(true);
+  });
+
+  it("villkoren kräver tvångsamortering även under 50 % LTV", () => {
+    const p = makeProperty({ id: 1, tenants: [] }); // värde ~38 MSEK → LTV låg
+    const base = makeState({ portfolio: [p], debt: 3_000_000, cash: 1_000_000, month: 2 });
+    expect(amortInfoOf(base).yearlyPct).toBe(0); // under 50 % LTV: amorteringsfritt normalt
+    const covenant = { ...base, restructuringTerms: { untilAbs: base.year * 12 + base.month + 12 } };
+    expect(amortInfoOf(covenant).yearlyPct).toBe(RESTRUCTURING_EXTRA_AMORT);
+    expect(amortInfoOf(covenant).monthly).toBeGreaterThan(0);
+  });
+
+  it("villkoren stryper nyutlåningen (lägre maxLtv)", () => {
+    const base = makeState({ reputation: 60 });
+    const covenant = { ...base, restructuringTerms: { untilAbs: base.year * 12 + base.month + 12 } };
+    expect(loanTerms(covenant).maxLtv).toBeLessThan(loanTerms(base).maxLtv);
+  });
+
+  it("villkoren löper ut och banken återgår till normala villkor", () => {
+    const p = makeProperty({ id: 1, tenants: [] });
+    const s = makeState({
+      portfolio: [p], cash: 5_000_000, debt: 0,
+      restructuringTerms: { untilAbs: 1 * 12 + 1 }, // redan passerad
+    });
+    const next = advanceMonth(s);
+    expect(next.restructuringTerms).toBeUndefined();
+    expect(next.log.some((l) => l.t.includes("covenants have expired"))).toBe(true);
   });
 });

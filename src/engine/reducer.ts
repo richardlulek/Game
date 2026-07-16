@@ -24,9 +24,11 @@ import { kr, msek, pct } from "./format";
 import {
   BANKRUPTCY_FLOOR,
   RECEIVER_CHOICE_FACTOR,
+  RESTRUCTURING_MONTHS,
   applyDistressSale,
   canSellInReceivership,
   distressQuote,
+  imposeRestructuringTerms,
   receiverAutoLiquidate,
 } from "./receivership";
 import { adjustStanding } from "./standing";
@@ -2698,22 +2700,23 @@ export function reducer(state: GameState, action: GameAction): GameState {
         };
       }
       return {
-        ...s2,
+        ...imposeRestructuringTerms(s2),
         log: [
-          { t: `⚖️ You handed the keys to the receiver, who sold ${res.sold} propert${res.sold === 1 ? "y" : "ies"} at fire-sale prices. The company survives.`, kind: "warn" },
+          { t: `⚖️ You handed the keys to the receiver, who sold ${res.sold} propert${res.sold === 1 ? "y" : "ies"} at fire-sale prices. The company survives — under ${RESTRUCTURING_MONTHS}-month bank covenants.`, kind: "warn" },
           ...s2.log,
         ],
       };
     }
     case "RESOLVE_RECEIVERSHIP": {
-      // Kräver återställd likviditet: kassan över noll.
+      // Kräver återställd likviditet: kassan över noll. Banken släpper inte
+      // taget: rekonstruktionsvillkor (tvångsamortering + strypt nyutlåning)
+      // gäller i RESTRUCTURING_MONTHS månader efteråt.
       if (!state.receivership) return state;
       if (state.cash < 0)
         return log(state, `The receiver shakes his head: cash must be back above zero (currently ${kr(state.cash)}).`, "warn");
       return {
-        ...state,
-        receivership: undefined,
-        log: [{ t: "⚖️ Restructuring resolved: liquidity restored and the receiver withdraws. The company survives — smaller, but standing.", kind: "event" }, ...state.log],
+        ...imposeRestructuringTerms({ ...state, receivership: undefined }),
+        log: [{ t: `⚖️ Restructuring resolved: liquidity restored and the receiver withdraws. The bank imposes ${RESTRUCTURING_MONTHS}-month covenants — mandatory amortization and capped new lending.`, kind: "event" }, ...state.log],
       };
     }
     case "ACCEPT_BANKRUPTCY": {

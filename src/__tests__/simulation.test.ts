@@ -101,6 +101,7 @@ describe("insolvens vs. illikviditet (rekonstruktion före konkurs)", () => {
     expect(second.gameOver).toBe(false);
     expect(second.cash).toBeGreaterThan(0); // förvaltaren sålde och löste krisen
     expect(second.listings.some((l) => (l.txHistory ?? []).some((tx) => tx.party.includes("Receiver")))).toBe(true);
+    expect(second.restructuringTerms).toBeDefined(); // bankens efterkrav gäller
   });
 
   it("djupt negativ kassa OCH inga tillgångar → konkurs (game over) direkt", () => {

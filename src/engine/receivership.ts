@@ -21,6 +21,43 @@ export const RECEIVER_AUTO_FACTOR = 0.65;
 /** Kassagolvet som utlöser rekonstruktionen. */
 export const BANKRUPTCY_FLOOR = -1_000_000;
 
+/* ── Engångssmällen vid inträdet (delas av simulation + modal) ────── */
+/** Ryktesförlust när rekonstruktionen blir offentlig. */
+export const RECEIVERSHIP_REP_HIT = 10;
+/** Bankförtroendet (standing) rasar. */
+export const RECEIVERSHIP_BANK_HIT = 30;
+/** Pressen vädrar blod (göder skandalsystemet). */
+export const RECEIVERSHIP_PRESS_HIT = 6;
+
+/* ── Bankens efterkrav: rekonstruktionsvillkor ────────────────────── */
+/** Villkorens längd i månader efter att krisen lösts. */
+export const RESTRUCTURING_MONTHS = 24;
+/** Tvångsamortering: +2 pp/år UTÖVER trappan – och minst 2 %/år även
+ *  under 50 % LTV. Banken vill ha tillbaka sina pengar. */
+export const RESTRUCTURING_EXTRA_AMORT = 0.02;
+/** Nyutlåningen stryps: maxbelåningsgraden sänks med 10 pp. */
+export const RESTRUCTURING_LTV_PENALTY = 0.10;
+
+/** Är bolaget under bankens rekonstruktionsvillkor just nu? */
+export function underRestructuringTerms(state: GameState): boolean {
+  const until = state.restructuringTerms?.untilAbs;
+  return until != null && state.year * 12 + state.month < until;
+}
+
+/** Månader kvar av villkoren (0 om inga/utgångna). */
+export function restructuringMonthsLeft(state: GameState): number {
+  const until = state.restructuringTerms?.untilAbs;
+  return until != null ? Math.max(0, until - (state.year * 12 + state.month)) : 0;
+}
+
+/** Villkoren som sätts när rekonstruktionen löses (oavsett väg). */
+export function imposeRestructuringTerms(state: GameState): GameState {
+  return {
+    ...state,
+    restructuringTerms: { untilAbs: state.year * 12 + state.month + RESTRUCTURING_MONTHS },
+  };
+}
+
 export interface DistressQuote {
   value: number;
   salePrice: number;

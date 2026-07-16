@@ -811,6 +811,9 @@ export interface GameState {
    *  vilka tillgångar som säljs (ReceivershipModal). Sätts av simulationen
    *  när kassan faller under konkursgolvet men bolaget inte är insolvent. */
   receivership?: { shortfall: number; enteredAbs: number };
+  /** Bankens efterkrav efter en löst rekonstruktion: tvångsamortering och
+   *  strypt nyutlåning tills absolutmånaden untilAbs (se receivership.ts). */
+  restructuringTerms?: { untilAbs: number };
   /** Distriktens nuvarande statusnivå (för att upptäcka byten). */
   districtTiers?: Record<string, string>;
   /** Bolagspolicy – portföljstandarder med per-fastighet-överstyrning. */

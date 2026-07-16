@@ -6,7 +6,12 @@
 import { kr, msek } from "../engine/format";
 import { propNOI } from "../engine/property";
 import {
+  RECEIVERSHIP_BANK_HIT,
+  RECEIVERSHIP_REP_HIT,
   RECEIVER_CHOICE_FACTOR,
+  RESTRUCTURING_EXTRA_AMORT,
+  RESTRUCTURING_LTV_PENALTY,
+  RESTRUCTURING_MONTHS,
   canSellInReceivership,
   distressQuote,
 } from "../engine/receivership";
@@ -139,6 +144,23 @@ export function ReceivershipModal({
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 11, letterSpacing: 1, color: "#8a6a5a" }}>TOWARD SOLVENCY</div>
             <div style={{ fontSize: 16, fontWeight: 800 }}>{Math.round(progress * 100)}%</div>
+          </div>
+        </div>
+
+        {/* Konsekvenser: vad krisen redan kostat och vad som följer efteråt */}
+        <div style={{ background: "#f3ead4", border: "1px solid #cbb27a", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 12.5, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: FONTS.heading, fontWeight: 800, fontSize: 12, letterSpacing: 0.5, marginBottom: 4, color: "#5a4a3a" }}>
+            CONSEQUENCES
+          </div>
+          <div>
+            <strong>Already taken:</strong> reputation <span style={{ color: "#a33", fontWeight: 700 }}>−{RECEIVERSHIP_REP_HIT}</span> ·
+            bank trust <span style={{ color: "#a33", fontWeight: 700 }}>−{RECEIVERSHIP_BANK_HIT}</span> ·
+            the press is circling (scandal risk up)
+          </div>
+          <div style={{ marginTop: 3 }}>
+            <strong>After resolution:</strong> the bank imposes <strong>{RESTRUCTURING_MONTHS}-month covenants</strong> —
+            mandatory amortization +{Math.round(RESTRUCTURING_EXTRA_AMORT * 100)}%/yr on existing debt (even below 50% LTV)
+            and max loan-to-value cut by {Math.round(RESTRUCTURING_LTV_PENALTY * 100)}pp on new lending.
           </div>
         </div>
 
