@@ -12,12 +12,8 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Imperium" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Inter self-hostas via @fontsource (importeras i main.tsx) så
+         spelet fungerar helt offline – inga CDN-anrop. -->
     <style>
       html, body, #root { height: 100%; margin: 0; }
       /* Hemskärms-PWA: statusfältet ligger ovanpå sidan – knuffa ner UI:t. */
@@ -28,8 +24,8 @@
         -webkit-font-smoothing: antialiased;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-BIMgEMSB.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-3XymhnhF.css">
+    <script type="module" crossorigin src="./assets/index-DpH1sXUw.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DeJFNFpS.css">
   </head>
   <body>
     <div id="root"></div>
