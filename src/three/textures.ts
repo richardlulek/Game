@@ -33,9 +33,10 @@ function mulberry32(seed: number) {
  */
 function drawWindowTile(): HTMLCanvasElement {
   const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 256;
+  c.width = 512;
+  c.height = 512;
   const g = c.getContext("2d")!;
+  g.scale(2, 2); // ritlogiken ligger kvar i 256-rummet – dubbel upplösning
   const rand = mulberry32(1337);
   g.fillStyle = "#ffffff";
   g.fillRect(0, 0, 256, 256);
@@ -137,11 +138,33 @@ const LIT_SHARE: Record<FacadeVariant, number> = {
 const CURTAIN_COLORS = ["#e8ddc8", "#d8c8b8", "#e2d4d0", "#ccd4c8"];
 const SIGN_COLORS = ["#b6413a", "#3c6ca8", "#c9a13b", "#4d8b52", "#7a5c8f"];
 
+/** Fejkad AO i en fönsternisch: mörk kant upptill och till vänster ger
+ *  djupintryck utan geometri. Anropas efter att glaset ritats. */
+function windowRecess(g: CanvasRenderingContext2D, wx: number, wy: number, ww: number, wh: number) {
+  const top = g.createLinearGradient(0, wy, 0, wy + 6);
+  top.addColorStop(0, "rgba(0,0,0,0.30)");
+  top.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = top;
+  g.fillRect(wx, wy, ww, 6);
+  g.fillStyle = "rgba(0,0,0,0.10)";
+  g.fillRect(wx, wy, 3, wh);
+}
+
+/** Bjälklagsskugga som gradient – mjukare än en platt rektangel. */
+function slabShadow(g: CanvasRenderingContext2D, x: number, y: number) {
+  const slab = g.createLinearGradient(0, y + 51, 0, y + 64);
+  slab.addColorStop(0, "rgba(0,0,0,0)");
+  slab.addColorStop(1, "rgba(0,0,0,0.17)");
+  g.fillStyle = slab;
+  g.fillRect(x, y + 51, 64, 13);
+}
+
 function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasElement {
   const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 256;
+  c.width = 512;
+  c.height = 512;
   const g = c.getContext("2d")!;
+  g.scale(2, 2); // ritlogiken ligger kvar i 256-rummet – dubbel upplösning
   const rand = mulberry32(kind.length * 1000 + variant.length * 77 + 42);
   const CELL = 64;
   g.fillStyle = "#ffffff";
@@ -155,11 +178,15 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
 
       if (kind === "bostad") {
         // Bostadsfönster med gardiner; var ~femte cell är balkongdörr.
+        // Radindex ger våningsvariation: jämna våningar har högre fönster
+        // med markerat bleck, udda lägre – fasaden får rytm i höjdled.
         const door = rand() < 0.2;
+        const french = !door && rand() < 0.12; // fransk balkong
+        const tallRow = row % 2 === 0;
         const wx = x + (door ? 20 : 14);
-        const wy = y + (door ? 10 : 16);
+        const wy = y + (door ? 10 : tallRow ? 14 : 18);
         const ww = door ? 24 : 36;
-        const wh = door ? 46 : 34;
+        const wh = door ? 46 : tallRow ? 37 : 31;
         g.fillStyle = "#4a4a44";
         g.fillRect(wx - 3, wy - 3, ww + 6, wh + 6);
         if (lit(0.16)) {
@@ -178,6 +205,25 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
           g.fillRect(wx, wy, 6, wh);
           g.fillRect(wx + ww - 6, wy, 6, wh);
         }
+        windowRecess(g, wx, wy, ww, wh);
+        // Fönsterbleck – ljus kant under öppningen
+        if (!door) {
+          g.fillStyle = "rgba(255,255,255,0.35)";
+          g.fillRect(wx - 2, wy + wh + 3, ww + 4, 2);
+        }
+        // Blomlåda på somliga bleck
+        if (!door && !french && rand() < 0.13) {
+          g.fillStyle = "#7a5c46";
+          g.fillRect(wx + 4, wy + wh + 4, ww - 8, 5);
+          g.fillStyle = "#5e7f3e";
+          for (let f = 0; f < 5; f++) g.fillRect(wx + 5 + (f * (ww - 10)) / 5, wy + wh + 2, 4, 3);
+        }
+        // Fransk balkong: smäckert räcke framför fönstrets nederdel
+        if (french) {
+          g.fillStyle = "rgba(60,60,58,0.85)";
+          g.fillRect(wx - 2, wy + wh - 12, ww + 4, 2);
+          for (let b = 0; b <= 8; b++) g.fillRect(wx - 2 + (b * (ww + 4)) / 8, wy + wh - 12, 1.5, 12);
+        }
         // Balkongräcke framför dörren
         if (door) {
           g.fillStyle = "rgba(60,60,58,0.85)";
@@ -185,7 +231,10 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
           for (let b = 0; b < 6; b++) g.fillRect(x + 14 + b * 7, y + 38, 2, 16);
         }
       } else if (kind === "kontor") {
-        // Brett kontorsband med persienner; kallt ljus.
+        // Brett kontorsband med persienner; kallt ljus. Bröstningsband i
+        // växlande ton per våning ger horisontell rytm.
+        g.fillStyle = row % 2 ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.06)";
+        g.fillRect(x, y + 50, CELL, 8);
         const wx = x + 8;
         const wy = y + 18;
         g.fillStyle = "#3e454c";
@@ -193,6 +242,10 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
         if (lit(0.12)) {
           g.fillStyle = "#e8f0f8";
           g.fillRect(wx, wy, 48, 28);
+          // Takarmaturer – två ljusa band i taket på tända kontor
+          g.fillStyle = "rgba(255,255,255,0.85)";
+          g.fillRect(wx + 4, wy + 3, 17, 2.5);
+          g.fillRect(wx + 27, wy + 3, 17, 2.5);
           g.fillStyle = "rgba(150,160,170,0.5)";
           g.fillRect(wx + 22, wy, 3, 28); // interiörpost
         } else {
@@ -219,13 +272,32 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
         }
         g.fillStyle = "#3e454c";
         g.fillRect(wx + 23, wy - 2, 2, 32); // mittpost
+        windowRecess(g, wx, wy, 48, 28);
       } else if (kind === "butik") {
         // Stora skyltfönster med varmt skyltljus och skyltband.
+        // Somliga celler är glasdörrar med handtag – entréer i bandet.
+        const isDoor = rand() < 0.15;
         const wx = x + 6;
         const wy = y + 14;
         g.fillStyle = "#2e3338";
         g.fillRect(wx - 2, wy - 2, 56, 42);
-        if (lit(0.3)) {
+        if (isDoor) {
+          // Glasdörr: två dörrblad, varmt ljus innanför, handtag
+          const glow = g.createLinearGradient(0, wy, 0, wy + 38);
+          glow.addColorStop(0, "#f4e2b8");
+          glow.addColorStop(1, "#d8b878");
+          g.fillStyle = glow;
+          g.fillRect(wx + 12, wy, 28, 38);
+          g.fillStyle = "#2e3338";
+          g.fillRect(wx + 25, wy, 2, 38); // dörrpost
+          g.fillStyle = "rgba(40,40,36,0.9)";
+          g.fillRect(wx + 21, wy + 18, 2, 8); // handtag
+          g.fillRect(wx + 29, wy + 18, 2, 8);
+          // Sidopaneler i mörkt glas
+          g.fillStyle = `rgb(${96 + rand() * 20 | 0},${104 + rand() * 20 | 0},${112 + rand() * 20 | 0})`;
+          g.fillRect(wx, wy, 12, 38);
+          g.fillRect(wx + 40, wy, 12, 38);
+        } else if (lit(0.3)) {
           const glow = g.createLinearGradient(0, wy, 0, wy + 38);
           glow.addColorStop(0, "#ffedc2");
           glow.addColorStop(1, "#e8c47f");
@@ -235,16 +307,23 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
           g.fillStyle = "rgba(90,70,50,0.55)";
           g.fillRect(wx + 6 + rand() * 8, wy + 20, 8, 18);
           g.fillRect(wx + 28 + rand() * 8, wy + 24, 10, 14);
+          g.fillRect(wx + 18 + rand() * 6, wy + 26, 6, 12);
         } else {
           g.fillStyle = `rgb(${110 + rand() * 30 | 0},${118 + rand() * 30 | 0},${126 + rand() * 30 | 0})`;
           g.fillRect(wx, wy, 52, 38);
           g.fillStyle = "rgba(255,255,255,0.12)";
           g.fillRect(wx, wy + 4, 52, 6);
         }
+        // Sockelplåt under skyltfönstret
+        g.fillStyle = "rgba(0,0,0,0.28)";
+        g.fillRect(wx - 2, wy + 36, 56, 4);
+        windowRecess(g, wx, wy, 52, 38);
         // Skyltband ovanför fönstret
         if (rand() < 0.6) {
           g.fillStyle = SIGN_COLORS[(rand() * SIGN_COLORS.length) | 0];
           g.fillRect(wx, y + 4, 52, 8);
+          g.fillStyle = "rgba(255,255,255,0.25)";
+          g.fillRect(wx, y + 4, 52, 2);
         }
       } else {
         // Industri: profilplåt med högt fönsterband och ventiler.
@@ -261,6 +340,7 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
         }
         g.fillStyle = "rgba(0,0,0,0.18)";
         for (let p = 0; p < 5; p++) g.fillRect(x + 10 + p * 10, y + 10, 2, 10);
+        windowRecess(g, x + 8, y + 10, 48, 10);
         // Ventil/lucka
         if (rand() < 0.3) {
           g.fillStyle = "#6a7076";
@@ -271,8 +351,7 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
       }
 
       // Bjälklagsskugga
-      g.fillStyle = "rgba(0,0,0,0.10)";
-      g.fillRect(x, y + 58, CELL, 6);
+      slabShadow(g, x, y);
     }
   }
 
@@ -324,9 +403,10 @@ export function facadeTexture(kind: FacadeKind, variant: FacadeVariant = "normal
  */
 function drawGlassTile(): HTMLCanvasElement {
   const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 256;
+  c.width = 512;
+  c.height = 512;
   const g = c.getContext("2d")!;
+  g.scale(2, 2); // ritlogiken ligger kvar i 256-rummet – dubbel upplösning
   const rand = mulberry32(90210);
   const CELL = 64;
   for (let row = 0; row < 4; row++) {
@@ -337,6 +417,10 @@ function drawGlassTile(): HTMLCanvasElement {
       if (lit) {
         g.fillStyle = "#ffe2a8";
         g.fillRect(x, y, CELL, CELL);
+        // Interiörsilhuett: bjälklag + pelare skymtar i tända paneler
+        g.fillStyle = "rgba(120,90,40,0.25)";
+        g.fillRect(x, y + CELL - 8, CELL, 8);
+        g.fillRect(x + 18 + rand() * 24, y + 12, 5, CELL - 12);
       } else {
         // Glas med vertikal gradient + horisontellt himmelsband
         const shade = 0.88 + rand() * 0.28;
@@ -351,6 +435,12 @@ function drawGlassTile(): HTMLCanvasElement {
           g.fillRect(x, y + 10 + rand() * 30, CELL, 6);
         }
       }
+      // Fejkad AO: panelen sitter bakom posterna – mörk kant upptill
+      const recess = g.createLinearGradient(0, y, 0, y + 5);
+      recess.addColorStop(0, "rgba(0,10,20,0.30)");
+      recess.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = recess;
+      g.fillRect(x, y, CELL, 5);
       // Poster (mörka linjer mellan paneler)
       g.strokeStyle = "rgba(30,40,50,0.8)";
       g.lineWidth = 3;
@@ -370,6 +460,99 @@ export function glassTexture(repeatX: number, repeatY: number): CanvasTexture {
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(repeatX / 4, repeatY / 4);
+  tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
+  return tex;
+}
+
+/* ============================================================
+   Skyltfönsterglas för butiksbanden i bottenplan: en våning hög
+   remsa med stora glaspartier, varmt butiksljus, varusilhuetter
+   och en och annan glasdörr – i stället för en platt mörk låda.
+   ============================================================ */
+
+let sharedStorefrontCanvas: HTMLCanvasElement | null = null;
+
+function drawStorefrontTile(): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 128;
+  const g = c.getContext("2d")!;
+  g.scale(2, 2); // 256×64-rummet – 4 sektioner à 64 px
+  const rand = mulberry32(2468);
+  const CELL = 64;
+  for (let s = 0; s < 4; s++) {
+    const x = s * CELL;
+    // Mörk ram/pilaster mellan sektionerna
+    g.fillStyle = "#2e3338";
+    g.fillRect(x, 0, CELL, 64);
+    const isDoor = s === 2; // en entré per kakel
+    const wx = x + 5;
+    if (isDoor) {
+      // Glasdörr med varmt ljus + sidofönster
+      g.fillStyle = `rgb(${100 + rand() * 20 | 0},${108 + rand() * 20 | 0},${116 + rand() * 20 | 0})`;
+      g.fillRect(wx, 8, 14, 50);
+      g.fillRect(x + 45, 8, 14, 50);
+      const glow = g.createLinearGradient(0, 8, 0, 58);
+      glow.addColorStop(0, "#f4e2b8");
+      glow.addColorStop(1, "#d8b878");
+      g.fillStyle = glow;
+      g.fillRect(x + 21, 8, 22, 50);
+      g.fillStyle = "#2e3338";
+      g.fillRect(x + 31, 8, 2, 50); // dörrpost
+      g.fillStyle = "rgba(40,40,36,0.9)";
+      g.fillRect(x + 27, 30, 2, 10); // handtag
+      g.fillRect(x + 35, 30, 2, 10);
+    } else {
+      // Skyltfönster: varmt ljus med varusilhuetter, eller släckt glas
+      const litWin = rand() < 0.7;
+      if (litWin) {
+        const glow = g.createLinearGradient(0, 8, 0, 58);
+        glow.addColorStop(0, "#ffedc2");
+        glow.addColorStop(1, "#e0bc72");
+        g.fillStyle = glow;
+        g.fillRect(wx, 8, 54, 50);
+        g.fillStyle = "rgba(90,70,50,0.55)";
+        g.fillRect(wx + 6 + rand() * 6, 30, 9, 24);
+        g.fillRect(wx + 24 + rand() * 6, 36, 11, 18);
+        g.fillRect(wx + 40 + rand() * 4, 32, 7, 22);
+      } else {
+        g.fillStyle = `rgb(${112 + rand() * 26 | 0},${120 + rand() * 26 | 0},${128 + rand() * 26 | 0})`;
+        g.fillRect(wx, 8, 54, 50);
+        g.fillStyle = "rgba(255,255,255,0.14)";
+        g.fillRect(wx, 14, 54, 7);
+      }
+      // Mittpost i breda partier
+      g.fillStyle = "#2e3338";
+      g.fillRect(x + 31, 8, 2, 50);
+    }
+    // Fejkad AO under taklisten + sockelplåt nederst
+    const recess = g.createLinearGradient(0, 8, 0, 15);
+    recess.addColorStop(0, "rgba(0,0,0,0.32)");
+    recess.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = recess;
+    g.fillRect(wx, 8, 54, 7);
+    g.fillStyle = "rgba(10,12,14,0.85)";
+    g.fillRect(x, 58, CELL, 6);
+  }
+  return c;
+}
+
+/**
+ * Skyltfönstertextur för ett butiksband av given bredd (världsenheter).
+ * En sektion är ~4 enheter bred; kaklet innehåller 4 sektioner så
+ * repeat = bredd/16. Cachas per sektionsantal.
+ */
+export function storefrontTexture(width: number): CanvasTexture {
+  const sections = Math.max(2, Math.round(width / 4));
+  const key = `store:${sections}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  if (!sharedStorefrontCanvas) sharedStorefrontCanvas = drawStorefrontTile();
+  const tex = new CanvasTexture(sharedStorefrontCanvas);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(sections / 4, 1);
   tex.colorSpace = SRGBColorSpace;
   textureCache.set(key, tex);
   return tex;

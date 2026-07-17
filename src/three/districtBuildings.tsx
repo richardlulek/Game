@@ -26,7 +26,7 @@ import {
   PALETTE_FUNKIS,
   PALETTE_TEGEL,
 } from "./colors";
-import { facadeTexture, glassTexture, type FacadeVariant } from "./textures";
+import { facadeTexture, glassTexture, storefrontTexture, type FacadeVariant } from "./textures";
 
 /** Antal våningar per distrikt – deterministiskt ur hash + läge. */
 export function districtFloors(parcel: Parcel, hash: number, area?: number): number {
@@ -327,10 +327,14 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
           <meshStandardMaterial color={new Color(color).multiplyScalar(0.88).getStyle()} />
         </mesh>
       )}
-      {/* Bottenvåning i sten (sockel) mot gatan */}
+      {/* Bottenvåning mot gatan: sten (sockel) – butiker får skyltfönsterglas */}
       <mesh position={[offX + sx * (mainW / 2 + 0.06), 1.7, offZ + sz * (mainD / 2 + 0.06)]}>
         <boxGeometry args={[sx !== 0 ? 0.3 : mainW * 0.98, 3.4, sz !== 0 ? 0.3 : mainD * 0.98]} />
-        <meshStandardMaterial color={new Color(color).multiplyScalar(0.62).getStyle()} />
+        {type === "butik" ? (
+          <meshStandardMaterial map={storefrontTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissive="#c8b070" emissiveIntensity={0.14} roughness={0.5} />
+        ) : (
+          <meshStandardMaterial color={new Color(color).multiplyScalar(0.62).getStyle()} />
+        )}
       </mesh>
       {type === "butik" && (
         <mesh castShadow position={[offX + sx * (mainW / 2 + 0.8), 3.1, offZ + sz * (mainD / 2 + 0.8)]}>
@@ -490,10 +494,10 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
           </mesh>
         </>
       )}
-      {/* Butiksband i bottenplan mot gatan */}
+      {/* Butiksband i bottenplan mot gatan – skyltfönsterglas med entréer */}
       <mesh position={[sx * (w / 2 + 0.05), 1.5, sz * (d / 2 + 0.05)]}>
         <boxGeometry args={[sx !== 0 ? 0.28 : w * 0.94, 3, sz !== 0 ? 0.28 : d * 0.94]} />
-        <meshStandardMaterial color="#3a4148" emissive="#c8b070" emissiveIntensity={0.1} />
+        <meshStandardMaterial map={storefrontTexture((sx !== 0 ? d : w) * 0.94)} emissive="#c8b070" emissiveIntensity={0.16} roughness={0.5} />
       </mesh>
       {(type === "butik" || seed % 3 === 0) && (
         <mesh castShadow position={[sx * (w / 2 + 0.75), 3.05, sz * (d / 2 + 0.75)]}>
