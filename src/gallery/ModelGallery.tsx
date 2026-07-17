@@ -98,6 +98,33 @@ export function ModelGallery() {
     rz += 48;
   });
 
+  // Silhuettvarianter (massing-passet): hörntorn i gatukors, miljon-
+  // programmets platta tak, vinkelvillan och podiumtornet – tomter och
+  // seeds valda så att just de dragen garanterat triggas.
+  const cornerParcel: Parcel = {
+    ...mkParcel("centrum", "centrum-corner"),
+    edges: { n: false, e: true, s: true, w: false },
+  };
+  rows.push(
+    <Slot key="sil1" x={0} z={rz} label="Centrum · hörntorn (gatukors)">
+      <DistrictBuilding parcel={cornerParcel} type="kontor" floors={7} color="#b8a88a"
+        windows selected={false} handlers={noop} seed={83} variant="normal" />
+    </Slot>,
+    <Slot key="sil2" x={44} z={rz} label="Suburb · miljonprogram (platta tak)">
+      <DistrictBuilding parcel={mkParcel("förort", "förort-mp", 24, 24)} type="bostad" floors={3} color="#b8a88a"
+        windows selected={false} handlers={noop} seed={12} variant="normal" />
+    </Slot>,
+    <Slot key="sil3" x={88} z={rz} label="Villa · vinkelflygel">
+      <DistrictBuilding parcel={mkParcel("kulle", "kulle-L", 10, 12)} type="bostad" floors={2} color="#c9b892"
+        windows selected={false} handlers={noop} seed={9} variant="normal" />
+    </Slot>,
+    <Slot key="sil4" x={132} z={rz} label="Finans · podium + teknikvåning">
+      <DistrictBuilding parcel={mkParcel("finans", "finans-podium", 19, 19)} type="kontor" floors={22} color="#b8a88a"
+        windows selected={false} handlers={noop} seed={6} variant="normal" />
+    </Slot>,
+  );
+  rz += 48;
+
   // Morfars hus
   rows.push(
     <Slot key="arv" x={0} z={rz} label="Morfars hus (arvet)">

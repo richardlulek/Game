@@ -2,15 +2,16 @@
    Distriktsarkitektur – varje distrikt har sin egen byggnadsfamilj:
 
    Centrum      slutna stenstadskvarter, 5–12 vån, full tomtyta,
-                gårdsflyglar mot kvarterets insida
+                gårdsflyglar, gesims, hörntorn i gatukors, vattentankar
    Finans       glastorn 20–50 vån med avsatser, krona och antenn,
-                höjdhierarki mot klustrets mitt
-   Innerstad    funkis (puts, balkongband) och tegel (sadeltak),
-                4–6 vån, butiksband i bottenplan mot gatan
-   Förort       hela kvarter: 4–6 lamellhus kring en gård
-   Villakullen  villor med sadeltak och skorsten
-   Industri     hallar med monitortak, cisterner och skorstenar
-   Hamnen       magasin med valmade tak längs kajen
+                podium i gatuplan, teknikvåning, höjdhierarki mot mitten
+   Innerstad    funkis (puts, balkongband) och tegel (sadeltak med
+                takkupor och skorsten), 4–6 vån, butiksband mot gatan
+   Förort       hela kvarter: 4–6 lamellhus kring en gård, entrétak,
+                miljonprogramsvariant med platta tak
+   Villakullen  villor med sadeltak, vinkelflyglar och farstukvistar
+   Industri     hallar med monitortak, cisterner, skorstenar och rörgator
+   Hamnen       magasin med valmade tak, hissbalkar och gods längs kajen
 
    Allt är procedurellt: parcelHash ger deterministisk variation
    så att inget kvarter ser klonat ut.
@@ -282,9 +283,34 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
   const offX = hasInside && sx !== 0 ? (sx * (parcel.w - mainW)) / 2 : 0;
   const offZ = hasInside && sz !== 0 ? (sz * (parcel.d - mainD)) / 2 : 0;
   const wingH = FLOOR_HEIGHT * (1 + (seed % 2));
+  // Hörntorn: tomter i gatukors (två angränsande gatusidor) får ett runt
+  // torn med tälttak – stenstadens klassiska accent mot korsningen.
+  const ex = parcel.edges.e ? 1 : parcel.edges.w ? -1 : 0;
+  const ez = parcel.edges.s ? 1 : parcel.edges.n ? -1 : 0;
+  const turret = ex !== 0 && ez !== 0 && seed % 3 !== 0;
+  const trim = new Color(color).multiplyScalar(0.66).getStyle();
   return (
     <group {...handlers}>
       <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(mainW, h, mainD)} position={[offX, h / 2, offZ]} dispose={null} />
+      {/* Taklist (gesims) strax under taklinjen – bryter den raka lådprofilen.
+          Småornament kastar ingen skugga: de skulle dubbla sina draw calls
+          i skuggpasset utan synbar vinst. */}
+      <mesh position={[offX, h - 0.55, offZ]}>
+        <boxGeometry args={[mainW * 1.05, 0.55, mainD * 1.05]} />
+        <meshStandardMaterial color={trim} />
+      </mesh>
+      {turret && (
+        <group position={[offX + ex * (mainW / 2 - 0.5), 0, offZ + ez * (mainD / 2 - 0.5)]}>
+          <mesh castShadow receiveShadow position={[0, (h + 1.6) / 2, 0]}>
+            <cylinderGeometry args={[2.0, 2.0, h + 1.6, 10]} />
+            <meshStandardMaterial color={new Color(color).multiplyScalar(0.92).getStyle()} roughness={0.8} />
+          </mesh>
+          <mesh castShadow position={[0, h + 2.9, 0]}>
+            <coneGeometry args={[2.35, 2.6, 10]} />
+            <meshStandardMaterial color={(seed >> 1) % 2 ? "#4a6152" : ROOF_DARK} metalness={0.15} roughness={0.7} />
+          </mesh>
+        </group>
+      )}
       {/* Takräcke/parapet + takplatta (annars gapar ett mörkt hål uppifrån) */}
       <mesh castShadow position={[offX, h + 0.35, offZ]}>
         <boxGeometry args={[mainW * 0.99, 0.7, mainD * 0.99]} />
@@ -320,6 +346,23 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
       {solar && <SolarPanel w={mainW * 0.44} d={mainD * 0.32} y={h + 0.85} x={offX - sx * mainW * 0.12} z={offZ - sz * mainD * 0.12} />}
       <group position={[offX, 0, offZ]}>
         <RoofClutter w={mainW} d={mainD} y={h + 0.7} seed={seed} />
+        {/* Vattentank på tak – på var femte hus, ger takhorisonten rytm */}
+        {seed % 5 === 2 && (
+          <group position={[-mainW * 0.26, h + 0.75, -mainD * 0.24]}>
+            <mesh position={[0, 0.35, 0]}>
+              <boxGeometry args={[1.7, 0.7, 1.7]} />
+              <meshStandardMaterial color="#6b6458" roughness={0.9} />
+            </mesh>
+            <mesh castShadow position={[0, 1.75, 0]}>
+              <cylinderGeometry args={[1.05, 1.15, 2.1, 9]} />
+              <meshStandardMaterial color="#7d6a52" roughness={0.85} />
+            </mesh>
+            <mesh position={[0, 3.0, 0]}>
+              <coneGeometry args={[1.15, 0.7, 9]} />
+              <meshStandardMaterial color="#5d564c" roughness={0.9} />
+            </mesh>
+          </group>
+        )}
         {variant === "sliten" && <WornDetails w={mainW} d={mainD} h={h} sx={sx} sz={sz} seed={seed} />}
       </group>
     </group>
@@ -335,8 +378,21 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
   const h = floors * FLOOR_HEIGHT;
   const landmark = floors >= 40;
   const style = seed % 3; // 0 = rak, 1 = avsatser, 2 = smalnande topp
+  // Podium: vartannat torn står på en bredare bas i 2–3 våningar –
+  // ger gaturummet en mänsklig skala under glaskroppen.
+  const podium = seed % 2 === 0;
+  const podiumH = FLOOR_HEIGHT * (2 + ((seed >> 2) % 2));
   return (
     <group {...handlers}>
+      {podium && (
+        <>
+          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(parcel.w * 0.92, podiumH, parcel.d * 0.92, true)} position={[0, podiumH / 2, 0]} dispose={null} />
+          <mesh receiveShadow position={[0, podiumH + 0.12, 0]}>
+            <boxGeometry args={[parcel.w * 0.94, 0.24, parcel.d * 0.94]} />
+            <meshStandardMaterial color="#3d454c" roughness={0.6} metalness={0.2} />
+          </mesh>
+        </>
+      )}
       {style === 1 ? (
         <>
           <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h * 0.6, d, true)} position={[0, h * 0.3, 0]} dispose={null} />
@@ -364,6 +420,13 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
         <meshStandardMaterial color="#7a8288" metalness={0.6} roughness={0.4} />
       </mesh>
       {solar && <SolarPanel w={w * 0.32} d={d * 0.28} y={h + 0.2} x={-w * 0.24} z={d * 0.22} />}
+      {/* Maskinrum på taket – raka torn utan krona får en teknikvåning */}
+      {style === 0 && !landmark && (
+        <mesh castShadow position={[-w * 0.12, h + 1.0, d * 0.08]}>
+          <boxGeometry args={[w * 0.42, 2.0, d * 0.36]} />
+          <meshStandardMaterial color="#3d454c" roughness={0.6} metalness={0.25} />
+        </mesh>
+      )}
       {style === 0 && !landmark && <RoofClutter w={w} d={d} y={h} seed={seed >> 1} />}
       {/* Kontorstorn får en glasentré i gatuplan */}
       {windows && type === "kontor" && (
@@ -387,8 +450,33 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
     <group {...handlers}>
       <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, 0]} dispose={null} />
       {tegel ? (
-        // Valmat sadeltak – klassiskt tegelhus
-        <HipRoof w={w} d={d} y={h + 1.1} rise={2.4} color={ROOF_RED} />
+        <>
+          {/* Valmat sadeltak – klassiskt tegelhus */}
+          <HipRoof w={w} d={d} y={h + 1.1} rise={2.4} color={ROOF_RED} />
+          {/* Skorsten vid nocken */}
+          <mesh castShadow position={[w * 0.2, h + 2.6, -d * 0.08]}>
+            <boxGeometry args={[0.8, 1.7, 0.8]} />
+            <meshStandardMaterial color="#7d5a48" roughness={0.9} />
+          </mesh>
+          {/* Takkupor mot gatan – bryter takfallet */}
+          {Array.from({ length: 1 + ((seed >> 1) % 2) }, (_, i) => {
+            const t = (i === 0 ? -1 : 1) * 0.2;
+            const kx = sz !== 0 ? t * w : sx * w * 0.26;
+            const kz = sz !== 0 ? sz * d * 0.26 : t * d;
+            return (
+              <group key={i} position={[kx, h + 1.1, kz]}>
+                <mesh castShadow>
+                  <boxGeometry args={[1.5, 1.5, 1.5]} />
+                  <meshStandardMaterial color={facade} />
+                </mesh>
+                <mesh position={[0, 1.0, 0]} rotation-y={Math.PI / 4}>
+                  <coneGeometry args={[1.15, 0.9, 4]} />
+                  <meshStandardMaterial color={ROOF_RED} />
+                </mesh>
+              </group>
+            );
+          })}
+        </>
       ) : (
         <>
           {/* Funkis: indragen takvåning + balkongband */}
@@ -431,6 +519,9 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
   const perRow = Math.ceil(houses / rows);
   const hw = parcel.w / perRow - 4.5;
   const hd = 9;
+  // Miljonprogram: vart fjärde kvarter har platta tak med sarg i stället
+  // för sadeltak – två tydligt olika förortsepoker.
+  const flatRoofs = seed % 4 === 0;
   return (
     <group {...handlers}>
       {Array.from({ length: houses }, (_, i) => {
@@ -440,10 +531,23 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
         const hh = hFloors * FLOOR_HEIGHT;
         const x = -parcel.w / 2 + (col + 0.5) * (parcel.w / perRow);
         const z = row === 0 ? -parcel.d / 2 + hd / 2 + 2.5 : parcel.d / 2 - hd / 2 - 2.5;
+        const yard = row === 0 ? 1 : -1; // mot gården
         return (
           <group key={i} position={[x, 0, z]}>
             <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(hw, hh, hd)} position={[0, hh / 2, 0]} dispose={null} />
-            <HipRoof w={hw} d={hd} y={hh + 0.8} rise={1.8} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
+            {flatRoofs ? (
+              <mesh castShadow position={[0, hh + 0.3, 0]}>
+                <boxGeometry args={[hw * 1.03, 0.6, hd * 1.03]} />
+                <meshStandardMaterial color={ROOF_DARK} roughness={0.9} />
+              </mesh>
+            ) : (
+              <HipRoof w={hw} d={hd} y={hh + 0.8} rise={1.8} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
+            )}
+            {/* Entrétak mot gården (ingen skugga – ornament) */}
+            <mesh position={[0, 2.5, yard * (hd / 2 + 0.55)]}>
+              <boxGeometry args={[2.2, 0.18, 1.1]} />
+              <meshStandardMaterial color="#e8e2d4" />
+            </mesh>
             {variant === "sliten" && i === 0 && <WornDetails w={hw} d={hd} h={hh} sx={0} sz={row === 0 ? -1 : 1} seed={seed} />}
           </group>
         );
@@ -472,6 +576,8 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
   const mat = useFacade(color, windows, selected, false, type, variant);
   const vw = parcel.w * 0.55;
   const vd = parcel.d * 0.55;
+  const wing = seed % 3 === 0; // vinkelbyggd villa (L-form)
+  const veranda = seed % 3 === 1; // farstukvist med tak
   return (
     <group {...handlers}>
       <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(vw, h, vd)} position={[0, h / 2, 0]} dispose={null} />
@@ -483,6 +589,32 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
         <boxGeometry args={[0.7, 1.5, 0.7]} />
         <meshStandardMaterial color="#6f5648" />
       </mesh>
+      {/* Vinkelflygel i en våning – bryter kvadraten till en L-form */}
+      {wing && (
+        <group position={[-vw * 0.68, 0, vd * 0.3]}>
+          <mesh castShadow receiveShadow position={[0, FLOOR_HEIGHT / 2, 0]}>
+            <boxGeometry args={[vw * 0.6, FLOOR_HEIGHT, vd * 0.75]} />
+            <meshStandardMaterial color={new Color(color).multiplyScalar(0.92).getStyle()} />
+          </mesh>
+          <mesh castShadow position={[0, FLOOR_HEIGHT + 0.55, 0]} rotation-y={Math.PI / 4}>
+            <coneGeometry args={[vw * 0.44, 1.1, 4]} />
+            <meshStandardMaterial color={seed % 3 ? ROOF_RED : ROOF_DARK} />
+          </mesh>
+        </group>
+      )}
+      {/* Farstukvist: trallgolv + tak på framsidan */}
+      {veranda && (
+        <group position={[0, 0, vd / 2 + 1.0]}>
+          <mesh receiveShadow position={[0, 0.35, 0]}>
+            <boxGeometry args={[3.0, 0.7, 1.9]} />
+            <meshStandardMaterial color="#a8907a" roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 2.75, 0]} rotation-x={0.18}>
+            <boxGeometry args={[3.2, 0.16, 2.1]} />
+            <meshStandardMaterial color={seed % 3 ? ROOF_RED : ROOF_DARK} />
+          </mesh>
+        </group>
+      )}
       {/* Garage/förråd */}
       {seed % 2 === 0 && (
         <mesh castShadow receiveShadow position={[vw * 0.85, 1.2, -vd * 0.5]}>
@@ -545,6 +677,19 @@ function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, 
           <meshStandardMaterial color="#7d6659" />
         </mesh>
       )}
+      {/* Rörgata längs takkanten – hallar utan skorsten får processrör */}
+      {seed % 2 === 1 && (
+        <group position={[0, hallH + 1.4, d * 0.4]}>
+          <mesh castShadow rotation-z={Math.PI / 2}>
+            <cylinderGeometry args={[0.28, 0.28, w * 0.6, 8]} />
+            <meshStandardMaterial color="#8a929a" metalness={0.4} roughness={0.5} />
+          </mesh>
+          <mesh position={[-w * 0.3, -0.9, 0]}>
+            <cylinderGeometry args={[0.28, 0.28, 1.8, 8]} />
+            <meshStandardMaterial color="#8a929a" metalness={0.4} roughness={0.5} />
+          </mesh>
+        </group>
+      )}
       <mesh castShadow position={[-w * 0.34, 2.4, d * 0.52]}>
         <cylinderGeometry args={[1.6, 1.6, 4.4, 10]} />
         <meshStandardMaterial color="#aab2b8" metalness={0.35} roughness={0.5} />
@@ -594,6 +739,28 @@ function HarborShed({ parcel, type, floors, color, windows, selected, handlers, 
         <boxGeometry args={[w * 0.3, 4, 0.25]} />
         <meshStandardMaterial color={type === "kontor" ? "#8fa8b8" : "#4a4238"} />
       </mesh>
+      {/* Hissbalk över porten – magasinens signum mot kajen */}
+      <mesh castShadow position={[0, h - 0.3, d / 2 + 0.8]}>
+        <boxGeometry args={[0.35, 0.35, 1.9]} />
+        <meshStandardMaterial color="#5a4a3a" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, h - 1.05, d / 2 + 1.5]}>
+        <boxGeometry args={[0.22, 1.15, 0.22]} />
+        <meshStandardMaterial color="#3d3a34" roughness={0.9} />
+      </mesh>
+      {/* Godslådor vid porten */}
+      {seed % 2 === 0 && (
+        <group position={[w * 0.3, 0, d / 2 + 1.6]}>
+          <mesh castShadow position={[0, 0.55, 0]}>
+            <boxGeometry args={[1.1, 1.1, 1.1]} />
+            <meshStandardMaterial color="#8a7050" roughness={0.9} />
+          </mesh>
+          <mesh position={[0.95, 0.4, 0.35]} rotation-y={0.4}>
+            <boxGeometry args={[0.8, 0.8, 0.8]} />
+            <meshStandardMaterial color="#96784f" roughness={0.9} />
+          </mesh>
+        </group>
+      )}
       {variant === "sliten" && <WornDetails w={w} d={d} h={h} sx={0} sz={1} seed={seed} />}
     </group>
   );
