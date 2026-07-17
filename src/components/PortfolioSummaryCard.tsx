@@ -61,7 +61,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
           <span style={{ fontSize: 13, color: C.inkSoft, whiteSpace: "nowrap" }}>{msek(value)}</span>
         </span>
         <span style={{ fontSize: 11.5, fontWeight: 700, color: BURGUNDY, whiteSpace: "nowrap" }}>
-          ▲ Dölj förvaltning
+          ▲ Hide management
         </span>
       </div>
     );
@@ -79,13 +79,13 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
   // Statusflaggor – bara det som kräver uppmärksamhet.
   const flags: { label: string; color: string }[] = [];
   if (building) flags.push({ label: `🏗️ ${p.buildLeft} mo`, color: "#7a5c2a" });
-  if (!building && vacant > 0) flags.push({ label: `${vacant} ledig${vacant > 1 ? "a" : ""}`, color: "#b5542a" });
+  if (!building && vacant > 0) flags.push({ label: `${vacant} vacant`, color: "#b5542a" });
   if (!building && soonest !== null && soonest <= 3) flags.push({ label: `⏰ ${soonest} mo`, color: "#c0392b" });
   else if (!building && soonest !== null && soonest <= 12) flags.push({ label: `⏰ ${soonest} mo`, color: "#c07f16" });
-  if (!building && p.condition < 50) flags.push({ label: `🔧 skick ${p.condition}`, color: "#c0392b" });
-  if (p.forSale) flags.push({ label: "🏷️ till salu", color: "#3d54d8" });
+  if (!building && p.condition < 50) flags.push({ label: `🔧 cond ${p.condition}`, color: "#c0392b" });
+  if (p.forSale) flags.push({ label: "🏷️ for sale", color: "#3d54d8" });
   if (p.managed) flags.push({ label: "🤝 managed", color: "#27660a" });
-  if (p.regulated) flags.push({ label: "🏛️ reglerad", color: "#2a4a8a" });
+  if (p.regulated) flags.push({ label: "🏛️ regulated", color: "#2a4a8a" });
 
   const yieldColor = yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#c07f16" : "#c0392b";
 
@@ -134,7 +134,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
           {!building && (
             p.tenants.length === 0 ? (
               <span style={{ fontSize: 13, fontWeight: 700, color: C.inkSoft }} title="Yield shows once the first contract is signed">
-                — vakant
+                — vacant
               </span>
             ) : (
               <span style={{ fontSize: 13, fontWeight: 700, color: yieldColor }}>
@@ -150,11 +150,11 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 6px" }}>
-              <span style={{ fontSize: 10, color: C.brassDim, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, minWidth: 34 }}>Skick</span>
+              <span style={{ fontSize: 10, color: C.brassDim, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, minWidth: 34 }}>Cond.</span>
               <div style={{ flex: 1 }}><CondBar c={p.condition} /></div>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.inkSoft }}>
-              <span>{p.tenants.length}/{p.capacity} uthyrt</span>
+              <span>{p.tenants.length}/{p.capacity} let</span>
               <span style={{ color: noi >= 0 ? "#27660a" : "#c0392b", fontWeight: 700 }}>{kr(Math.round(noi / 12))}/mo</span>
             </div>
             {/* Uthyrningsprickar */}
@@ -177,7 +177,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
           marginTop: 10, textAlign: "center", fontSize: 11.5, fontWeight: 700,
           color: open ? BURGUNDY : C.inkSoft,
         }}>
-          {open ? "▲ Hide management" : "▾ Hantera fastigheten"}
+          {open ? "▲ Hide management" : "▾ Manage the property"}
         </div>
       </div>
     </div>

@@ -1,5 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+// Inter self-hostas och bundlas av Vite – Steam-builden måste fungera
+// helt utan nätverk (ersätter Google Fonts-CDN:et i index.html).
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
+import "@fontsource/inter/800.css";
 import FastighetsImperium from "./components/FastighetsImperium";
 import { Gallery } from "./gallery/Gallery";
 import { ModelGallery } from "./gallery/ModelGallery";

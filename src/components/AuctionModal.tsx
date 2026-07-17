@@ -108,7 +108,7 @@ export function AuctionModal({
                 disabled={!affordable}
                 onClick={() => dispatch({ type: "AUCTION_BID" })}
               >
-                Bjud {msek(nextBid)}
+                Bid {msek(nextBid)}
               </button>
               <button style={A.passBtn} onClick={() => dispatch({ type: "AUCTION_PASS" })}>
                 {a.leader ? `Pass — concede to ${a.leader}` : "Pass on the auction"}

@@ -72,13 +72,13 @@ export function OnboardingOverlay({ state, dispatch }: Props) {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 11, color: "#888" }}>
-          Steg {step + 1} av {STEPS.length}
+          Step {step + 1} of {STEPS.length}
         </div>
         <button
           onClick={() => dispatch({ type: "DISMISS_TUTORIAL" })}
           style={{ fontSize: 12, color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}
         >
-          Hoppa över guide
+          Skip the guide
         </button>
       </div>
     </div>
