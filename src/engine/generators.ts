@@ -124,7 +124,7 @@ function genProperty(
     district: d.id,
     districtName: d.name,
     type: typeKey,
-    typeLabel: wholeBlock ? `Kvarter · ${t.label}` : t.label,
+    typeLabel: wholeBlock ? `Block · ${t.label}` : t.label,
     area,
     condition,
     askPrice: Math.round(value),

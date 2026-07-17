@@ -742,7 +742,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           <div style={{ ...card, border: `2px solid ${C.brass}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
               <div>
-                <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 17, color: BURGUNDY }}>🏛 Fastighets AB (FBAB) — Ditt bolag</div>
+                <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 17, color: BURGUNDY }}>🏛 Property Corp (FBAB) — Your company</div>
                 <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>{(state.ipoShares?.total ?? 0).toLocaleString("sv-SE")} aktier · {(state.ipoShares?.public ?? 0).toLocaleString("sv-SE")} i publik handel</div>
               </div>
               {fbab && (
@@ -796,7 +796,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {sectors.map((s) => (
-          <button key={s} style={chip(s === sectorFilter)} onClick={() => setSectorFilter(s)}>{s === "alla" ? "Alla branscher" : SECTOR_LABEL[s]}</button>
+          <button key={s} style={chip(s === sectorFilter)} onClick={() => setSectorFilter(s)}>{s === "alla" ? "All sectors" : SECTOR_LABEL[s]}</button>
         ))}
       </div>
 

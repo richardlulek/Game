@@ -187,7 +187,7 @@ function HqBuilding({ level }: { level: number }) {
 /** Huvudkontoret med skylt och entréplatta. Växer in vid nivåhöjning. */
 export function Headquarters() {
   const level = useGameStore((s) => s.state.companyLevel ?? 1);
-  const name = useGameStore((s) => s.state.companyName ?? "Mitt Fastighetsbolag");
+  const name = useGameStore((s) => s.state.companyName ?? "My Property Co.");
   const ref = useRef<Group>(null);
   const prevLevel = useRef(level);
 

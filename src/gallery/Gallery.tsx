@@ -74,8 +74,8 @@ export function Gallery() {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 28, alignItems: "flex-start" }}>
         <Section id="g-market" title="Marknad">{<MarketPanel state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliotable" title="Portfolio table (click a row → expand)" width={1040}>{<PortfolioTable state={state} dispatch={noop} />}</Section>
-        <Section id="g-portfoliocard" title="Fastighetskort (uthyrt)" width={360}>{<PortfolioCard p={state.portfolio[0]} state={state} dispatch={noop} />}</Section>
-        <Section id="g-portfoliocard-vac" title="Fastighetskort (vakant)" width={360}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} />}</Section>
+        <Section id="g-portfoliocard" title="Property card (let)" width={360}>{<PortfolioCard p={state.portfolio[0]} state={state} dispatch={noop} />}</Section>
+        <Section id="g-portfoliocard-vac" title="Property card (vacant)" width={360}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} />}</Section>
         <Section id="g-portfoliocard-wide" title="Property card – wide layout (expanded in list)" width={960}>{<PortfolioCard p={state.portfolio[1]} state={state} dispatch={noop} wide />}</Section>
         <Section id="g-portfolio-cardsview" title="Card view (compact, scannable cards in a grid)" width={1040}>
           {<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, alignItems: "start" }}>
@@ -120,7 +120,7 @@ export function Gallery() {
           </div>
         </Section>
         {/* Slutskärmen (insolvens-varianten) – samma transform-trick. */}
-        <Section id="g-gameover" title="Slutskärm (game over)" width={620}>
+        <Section id="g-gameover" title="Game over screen" width={620}>
           <div style={{ position: "relative", transform: "translate(0,0)", height: 700, overflow: "hidden", borderRadius: 8 }}>
             <GameOverModal
               state={{

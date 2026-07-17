@@ -81,7 +81,7 @@ describe("kvartersköp i förorten", () => {
     const p = genWorldProperty(makeState({}));
     expect(p.district).toBe("förort");
     expect(p.wholeBlock).toBe(true);
-    expect(p.typeLabel).toContain("Kvarter");
+    expect(p.typeLabel).toContain("Block");
     expect(p.capacity).toBeGreaterThan(4); // fler platser än enskilda hus
   });
 

@@ -1,8 +1,9 @@
 import { competitorLevel, tierForLevel } from "../engine/company";
+import { DISTRICTS } from "../engine/data";
 import { kr, msek, pct } from "../engine/format";
 import { relationSummary } from "../engine/rivalArcs";
 import { rivalStanding, standingLabel } from "../engine/standing";
-import type { GameState } from "../engine/types";
+import { STRATEGY_LABELS, type CompetitorStrategy, type GameState } from "../engine/types";
 import { S } from "../styles/styles";
 import { BURGUNDY, C } from "../styles/tokens";
 import { RivalCard } from "./RivalCard";
@@ -19,7 +20,7 @@ interface RankRow {
   me?: boolean;
   lastBuy?: string;
   monthlyNOI?: number;
-  strategy?: string;
+  strategy?: CompetitorStrategy;
   preferredDistrict?: string;
   /** Bolagsnivå 1–6 (samma trappa som spelarens). */
   level: number;
@@ -82,7 +83,7 @@ export function RivalsPanel({ state, equity }: RivalsPanelProps) {
           {c.lastBuy && <span>Latest purchase: {c.lastBuy}</span>}
           {!c.me && c.strategy && (
             <span style={{ fontWeight: 700, color: "#7b5a2e" }}>
-              Strategy: {c.strategy}{c.preferredDistrict ? ` (${c.preferredDistrict})` : ""}
+              Strategy: {STRATEGY_LABELS[c.strategy]}{c.preferredDistrict ? ` (${DISTRICTS.find((d) => d.id === c.preferredDistrict)?.name ?? c.preferredDistrict})` : ""}
             </span>
           )}
           {!c.me && (() => {

@@ -2246,7 +2246,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const sharePrice = Math.max(0.01, equityOf(state) / TOTAL_SHARES);
       const playerStock: Stock = {
         id: "FBAB",
-        name: "Fastighets AB (ditt bolag)",
+        name: "Property Corp (your company)",
         sector: "fastighet",
         price: sharePrice,
         prevPrice: sharePrice,

@@ -24,7 +24,7 @@ export function StoryHud() {
   return (
     <div style={wrap}>
       <div style={head} onClick={() => setCollapsed((c) => !c)} title={collapsed ? "Show goals" : "Collapse"}>
-        <span style={chapterNo}>KAPITEL {beat.chapter} AV {STORY_BEATS.length - 1}</span>
+        <span style={chapterNo}>CHAPTER {beat.chapter} OF {STORY_BEATS.length - 1}</span>
         <span style={chapterTitle}>📜 {beat.title}</span>
         <span style={{ marginLeft: "auto", color: C.brassDim, fontSize: 11 }}>{collapsed ? "▼" : "▲"}</span>
       </div>

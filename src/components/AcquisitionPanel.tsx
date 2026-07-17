@@ -4,7 +4,8 @@ import { loanTerms } from "../engine/finance";
 import { industryAssetValue } from "../engine/industries";
 import { personaFor } from "../engine/rivalPersonas";
 import { RivalPortrait } from "./RivalPortrait";
-import type { GameAction, GameState } from "../engine/types";
+import { STRATEGY_LABELS, type GameAction, type GameState } from "../engine/types";
+import { DISTRICTS } from "../engine/data";
 import { C, FONTS, BURGUNDY } from "../styles/tokens";
 
 interface Props {
@@ -186,7 +187,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                     </span>
                     <span style={{ fontSize: 12, color: C.creamSoft, display: "flex", gap: 16 }}>
                       <span>{comp.portfolio.length} properties{(comp.industries ?? []).length > 0 ? ` · ${(comp.industries ?? []).length} industries` : ""}</span>
-                      <span>Strategy: {comp.strategy ?? "unknown"}</span>
+                      <span>Strategy: {comp.strategy ? STRATEGY_LABELS[comp.strategy] : "unknown"}</span>
                       <span style={{ color: C.brass }}>{open ? "▲" : "▼"}</span>
                     </span>
                   </button>
@@ -308,8 +309,8 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       {comp.name}
                     </div>
                     <div style={{ fontSize: 12, color: C.creamSoft, marginTop: 4 }}>
-                      Strategy: {comp.strategy ?? "unknown"}
-                      {comp.preferredDistrict ? ` (${comp.preferredDistrict})` : ""}
+                      Strategy: {comp.strategy ? STRATEGY_LABELS[comp.strategy] : "unknown"}
+                      {comp.preferredDistrict ? ` (${DISTRICTS.find((d) => d.id === comp.preferredDistrict)?.name ?? comp.preferredDistrict})` : ""}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 10, fontSize: 12 }}>
                       <div style={{ color: C.creamSoft }}>Properties:</div>

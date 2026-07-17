@@ -17,7 +17,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
     <div>
       <div style={S.marketBar}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span>Tomter till salu ({state.lots.filter((l) => !l.owned).length})</span>
+          <span>Lots for sale ({state.lots.filter((l) => !l.owned).length})</span>
           <span style={{ fontSize: 10, color: C.inkSoft }}>New lots appear every month</span>
         </div>
         <button

@@ -137,8 +137,8 @@ export function DistrictPanel({ state, dispatch }: Props) {
               {/* Player stats */}
               <div style={{ borderTop: `1px solid ${C.brass}44`, paddingTop: 10, marginTop: 4 }}>
                 <div style={{ fontSize: 12, marginBottom: 6 }}>
-                  <span style={{ color: C.creamSoft }}>Dina fastigheter: </span>
-                  <strong style={{ color: C.parchment }}>{myCount} st</strong>
+                  <span style={{ color: C.creamSoft }}>Your properties: </span>
+                  <strong style={{ color: C.parchment }}>{myCount}</strong>
                   {myValue > 0 && (
                     <span style={{ color: C.creamSoft }}> · {msek(myValue)}</span>
                   )}
@@ -147,7 +147,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                 {/* Market share bar */}
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.creamSoft, marginBottom: 3 }}>
-                    <span>Din marknadsandel</span>
+                    <span>Your market share</span>
                     <span style={{ fontWeight: 700, color: barColor }}>{pct(marketShare)}</span>
                   </div>
                   <div style={{ background: C.woodDark, borderRadius: 4, height: 8, overflow: "hidden" }}>
@@ -160,7 +160,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                     }} />
                   </div>
                   <div style={{ fontSize: 10, color: C.creamSoft, marginTop: 2 }}>
-                    {myCount} av {totalInDistrict} fastigheter i distriktet
+                    {myCount} of {totalInDistrict} properties in the district
                   </div>
                 </div>
 
@@ -172,7 +172,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                       <span key={name}>
                         {i > 0 && <span style={{ color: C.creamSoft }}>, </span>}
                         <span style={{ color: C.negativeBright, fontWeight: 600 }}>{name}</span>
-                        <span style={{ color: C.creamSoft }}> ({cnt} st)</span>
+                        <span style={{ color: C.creamSoft }}> ({cnt})</span>
                       </span>
                     ))}
                   </div>

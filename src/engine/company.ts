@@ -206,4 +206,4 @@ export function competitorLevel(c: Competitor): number {
   return level;
 }
 
-export const DEFAULT_COMPANY_NAME = "Mitt Fastighetsbolag";
+export const DEFAULT_COMPANY_NAME = "My Property Co.";

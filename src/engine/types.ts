@@ -515,6 +515,14 @@ export interface Lot {
 
 export type CompetitorStrategy = "tillväxt" | "utdelning" | "värde" | "distrikt";
 
+/** Visningsnamn för rivalstrategierna – id:na är interna (sparfiler). */
+export const STRATEGY_LABELS: Record<CompetitorStrategy, string> = {
+  tillväxt: "growth",
+  utdelning: "dividends",
+  värde: "value",
+  distrikt: "district focus",
+};
+
 /** En AI-konkurrent. */
 export interface Competitor {
   name: string;

@@ -456,7 +456,7 @@ export default function FastighetsImperium() {
           onClick={() => (wins.includes("company") ? closeWindow("company") : openWindow("company"))}
           title={upgrade.qualified ? "The company is ready to expand!" : "Open Company"}
         >
-          {tierForLevel(companyLevel).icon} {state.companyName ?? "Mitt Fastighetsbolag"}
+          {tierForLevel(companyLevel).icon} {state.companyName ?? "My Property Co."}
           {upgrade.qualified ? " ⬆" : ""}
         </button>
         {TAB_GROUPS.map((group, gi) => (
@@ -531,7 +531,7 @@ export default function FastighetsImperium() {
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <span style={{ fontSize: 10, color: C.creamSoft, whiteSpace: "nowrap" }}>Du: {prog.label}</span>
+              <span style={{ fontSize: 10, color: C.creamSoft, whiteSpace: "nowrap" }}>You: {prog.label}</span>
               {leadRival && (
                 <span style={{ fontSize: 10, color: rivalPct > pct ? "#f87a7a" : "#aaa", whiteSpace: "nowrap" }}>
                   {leadRival.name}: {Math.round(rivalPct * 100)} %{rivalPct > pct ? " ⚠️" : ""}
@@ -592,9 +592,9 @@ export default function FastighetsImperium() {
                               >
                                 <option value="value">Value ↓</option>
                                 <option value="yield">Yield ↓</option>
-                                <option value="condition">Skick ↓</option>
+                                <option value="condition">Condition ↓</option>
                                 <option value="noi">NOI ↓</option>
-                                <option value="vacant">Vakanser ↓</option>
+                                <option value="vacant">Vacancies ↓</option>
                               </select>
                             )}
                             {(["list", "cards"] as const).map((v) => (
