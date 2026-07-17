@@ -122,6 +122,10 @@ export function ModelGallery() {
       <DistrictBuilding parcel={mkParcel("finans", "finans-podium", 19, 19)} type="kontor" floors={22} color="#b8a88a"
         windows selected={false} handlers={noop} seed={6} variant="normal" />
     </Slot>,
+    <Slot key="sil5" x={176} z={rz} label="Tegel bostad · balkonger + brandtrappa">
+      <DistrictBuilding parcel={mkParcel("innerstad", "innerstad-balk", 17, 17)} type="bostad" floors={5} color="#b8a88a"
+        windows selected={false} handlers={noop} seed={21} variant="normal" />
+    </Slot>,
   );
   rz += 48;
 

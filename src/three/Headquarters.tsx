@@ -4,10 +4,10 @@
 
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { MeshStandardMaterial, type Group } from "three";
 import { useGameStore } from "../store/gameStore";
-import { windowEmissiveTexture, windowTexture } from "./textures";
+import { nameSignTexture, windowEmissiveTexture, windowTexture } from "./textures";
 
 const POS: [number, number, number] = [-225, 0, 215];
 const CREAM = "#e8e0cd";
@@ -78,6 +78,32 @@ function CompanyFlag({ y }: { y: number }) {
           <meshStandardMaterial color={BURGUNDY} side={2} />
         </mesh>
       </group>
+    </group>
+  );
+}
+
+/** Bolagsskylt i 3D på taket: namnet på vinröd panel med guldram som
+ *  lyser svagt – syns på håll långt innan HTML-skylten går att läsa. */
+function RoofSign({ name, y, z = 0 }: { name: string; y: number; z?: number }) {
+  const mat = useMemo(() => {
+    const m = new MeshStandardMaterial({ map: nameSignTexture(name), side: 2, roughness: 0.5 });
+    m.emissiveMap = m.map;
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.35;
+    return m;
+  }, [name]);
+  useEffect(() => () => mat.dispose(), [mat]);
+  return (
+    <group position={[0, y, z]}>
+      {[-2.6, 2.6].map((px) => (
+        <mesh key={px} position={[px, -1.0, 0]}>
+          <cylinderGeometry args={[0.09, 0.11, 1.6, 6]} />
+          <meshStandardMaterial color="#8f9398" metalness={0.5} roughness={0.5} />
+        </mesh>
+      ))}
+      <mesh material={mat}>
+        <planeGeometry args={[7.5, 1.4]} />
+      </mesh>
     </group>
   );
 }
@@ -188,6 +214,15 @@ export function Headquarters() {
       </mesh>
       <group ref={ref}>
         <HqBuilding level={level} />
+        {/* Takskylt med bolagsnamnet från nivå 3 – flaggnivåerna får den
+            bakomskjuten så flaggstången inte skär genom panelen. */}
+        {level >= 3 && (
+          <RoofSign
+            name={name}
+            y={[0, 0, 0, 13.9, 22.9, 31.9, 39.4][Math.min(6, level)]}
+            z={level >= 5 ? -3.2 : 0}
+          />
+        )}
       </group>
       {/* distanceFactor: skylten krymper med avståndet i stället för att
           täcka halva kvarteret i utzoomad vy. */}

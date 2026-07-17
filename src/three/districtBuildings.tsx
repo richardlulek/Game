@@ -306,6 +306,83 @@ function WornDetails({ w, d, h, sx, sz, seed }: {
 
 /* ── Centrum: sluten stenstad ─────────────────────────────────────── */
 
+/** Riktiga balkonger på gatufasaden för bostadshus: utstickande platta
+ *  med räcke, sidoförskjutna i sick-sack per våning. Inga skuggor –
+ *  ornamentregeln (skuggpasset hade dubblat kostnaden). */
+function Balconies({ w, d, h, sx, sz, floors, color, seed }: {
+  w: number; d: number; h: number; sx: number; sz: number; floors: number; color: string; seed: number;
+}) {
+  const along = sx !== 0; // gatufasaden löper i z-led
+  const count = Math.min(2, Math.floor(floors / 2));
+  if (count === 0) return null;
+  const slab = new Color(color).multiplyScalar(0.7).getStyle();
+  return (
+    <group>
+      {Array.from({ length: count }, (_, i) => {
+        const t = (i % 2 === 0 ? -1 : 1) * ((seed >> i) % 2 ? 0.16 : 0.24);
+        // Plattan ligger vid våningslinjen så räcket hamnar framför
+        // fönstrens nederdel – inte mitt över dem.
+        const fy = FLOOR_HEIGHT * (2 + i * 2) + 0.15;
+        const y = Math.min(fy, h - 2.6);
+        const bx = along ? sx * (w / 2 + 0.55) : t * w;
+        const bz = along ? t * d : sz * (d / 2 + 0.55);
+        return (
+          <group key={i} position={[bx, y, bz]}>
+            <mesh>
+              <boxGeometry args={[along ? 1.1 : 2.4, 0.16, along ? 2.4 : 1.1]} />
+              <meshStandardMaterial color={slab} />
+            </mesh>
+            {/* Halvtransparent smidesräcke – läser som galler, inte plåt */}
+            <mesh position={[along ? sx * 0.5 : 0, 0.45, along ? 0 : sz * 0.5]}>
+              <boxGeometry args={[along ? 0.06 : 2.4, 0.75, along ? 2.4 : 0.06]} />
+              <meshStandardMaterial color="#4a5055" metalness={0.35} roughness={0.55} transparent opacity={0.55} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/** Brandtrappa i zigzag på gaveln – bakgatans siluett. Gruppen roteras
+ *  så lokala +z pekar ut från väggen; två plan, ett trapplopp och en
+ *  nedfällbar stege. Bara på slitna hus och vart femte hus (budget). */
+function FireEscape({ w, d, h, sz, seed }: {
+  w: number; d: number; h: number; sx: number; sz: number; seed: number;
+}) {
+  const onX = sz !== 0; // gatan i z-led → trappan på öst/västgaveln
+  const side = seed % 2 ? 1 : -1;
+  const yaw = onX ? (side > 0 ? Math.PI / 2 : -Math.PI / 2) : side > 0 ? 0 : Math.PI;
+  const pos: [number, number, number] = onX
+    ? [side * (w / 2), 0, (((seed >> 2) % 2) ? -1 : 1) * d * 0.12]
+    : [(((seed >> 2) % 2) ? -1 : 1) * w * 0.12, 0, side * (d / 2)];
+  const y1 = h * 0.36;
+  const y2 = h * 0.64;
+  const run = 2.4;
+  const len = Math.hypot(run, y2 - y1);
+  const ang = Math.atan2(y2 - y1, run);
+  const metal = { color: "#3a3f43", metalness: 0.45, roughness: 0.55 } as const;
+  return (
+    <group position={pos} rotation-y={yaw}>
+      {[y1, y2].map((y, i) => (
+        <mesh key={i} position={[i === 0 ? -1.2 : 1.2, y, 0.5]}>
+          <boxGeometry args={[2.4, 0.14, 0.9]} />
+          <meshStandardMaterial {...metal} />
+        </mesh>
+      ))}
+      <mesh position={[0, (y1 + y2) / 2, 0.5]} rotation-z={ang}>
+        <boxGeometry args={[len, 0.14, 0.7]} />
+        <meshStandardMaterial {...metal} />
+      </mesh>
+      {/* Nedfällbar stege under nedersta planet */}
+      <mesh position={[-1.2, y1 * 0.62, 0.7]}>
+        <boxGeometry args={[0.7, y1 * 0.6, 0.08]} />
+        <meshStandardMaterial {...metal} />
+      </mesh>
+    </group>
+  );
+}
+
 function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers, seed, variant, solar }: DistrictBuildingProps) {
   const h = floors * FLOOR_HEIGHT;
   const mat = useFacade(color, windows, selected, false, type, variant);
@@ -380,6 +457,8 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
       {windows && (
         <group position={[offX, 0, offZ]}>
           <EntranceDetail type={type} w={mainW} d={mainD} sx={sx} sz={sz} color={color} seed={seed} />
+          {type === "bostad" && <Balconies w={mainW} d={mainD} h={h} sx={sx} sz={sz} floors={floors} color={color} seed={seed} />}
+          {(variant === "sliten" || seed % 5 === 1) && <FireEscape w={mainW} d={mainD} h={h} sx={sx} sz={sz} seed={seed} />}
         </group>
       )}
       {solar && <SolarPanel w={mainW * 0.44} d={mainD * 0.32} y={h + 0.85} x={offX - sx * mainW * 0.12} z={offZ - sz * mainD * 0.12} />}
@@ -541,6 +620,13 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
         </mesh>
       )}
       {windows && <EntranceDetail type={type} w={w} d={d} sx={sx} sz={sz} color={color} seed={seed} />}
+      {/* Tegelhusens bostäder får riktiga balkonger (funkisen har sitt band) */}
+      {windows && tegel && type === "bostad" && (
+        <Balconies w={w} d={d} h={h} sx={sx} sz={sz} floors={floors} color={color} seed={seed} />
+      )}
+      {windows && (variant === "sliten" || seed % 5 === 1) && (
+        <FireEscape w={w} d={d} h={h} sx={sx} sz={sz} seed={seed} />
+      )}
       {/* Solpanel: platt funkistak (tegelhusens sadeltak lämnas ifred) */}
       {solar && !tegel && <SolarPanel w={w * 0.36} d={d * 0.3} y={h + 0.35} x={-w * 0.26} z={-d * 0.2} />}
       {!tegel && <RoofClutter w={w} d={d} y={h + 0.1} seed={seed >> 1} />}

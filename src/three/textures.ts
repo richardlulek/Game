@@ -728,6 +728,41 @@ function drawGroundTile(): HTMLCanvasElement {
  * Statusikon för kartan: emoji på en läsbar vit bricka, som CanvasTexture
  * för billboard-sprites ovanför husen (bud, vakans, till salu). Cachas.
  */
+/**
+ * Bolagsskylt för HK-taket: namnet i versaler på vinröd botten med
+ * guldram – lyser svagt via emissiveMap (samma textur). Cachas per namn.
+ */
+export function nameSignTexture(text: string): CanvasTexture {
+  const key = `sign:${text}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 96;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#6e1a2a";
+  g.fillRect(0, 0, 512, 96);
+  g.strokeStyle = "#c9a13b";
+  g.lineWidth = 6;
+  g.strokeRect(5, 5, 502, 86);
+  g.fillStyle = "#f5efe2";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const t = text.toUpperCase();
+  let size = 44;
+  g.font = `800 ${size}px 'Inter', system-ui, sans-serif`;
+  while (size > 16 && g.measureText(t).width > 456) {
+    size -= 2;
+    g.font = `800 ${size}px 'Inter', system-ui, sans-serif`;
+  }
+  g.fillText(t, 256, 52);
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 4;
+  textureCache.set(key, tex);
+  return tex;
+}
+
 export function iconTexture(emoji: string, bg = "rgba(255,252,244,0.95)"): CanvasTexture {
   const key = `icon:${emoji}:${bg}`;
   const hit = textureCache.get(key);
