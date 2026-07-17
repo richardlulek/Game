@@ -208,3 +208,24 @@ describe("rekonstruktionsvillkor (bankens efterkrav)", () => {
     expect(next.log.some((l) => l.t.includes("covenants have expired"))).toBe(true);
   });
 });
+
+describe("gameOverReason (slutskärmens förklaring)", () => {
+  it("ACCEPT_BANKRUPTCY sätter orsak med kassa och skuld", () => {
+    const next = reducer(crisisState({ debt: 7_000_000 }), { type: "ACCEPT_BANKRUPTCY" });
+    expect(next.gameOverReason).toBeDefined();
+    expect(next.gameOverReason!.title).toContain("by choice");
+    expect(next.gameOverReason!.text).toContain("7.0 MSEK");
+  });
+
+  it("RECEIVER_AUTO som inte når golvet sätter konkursorsak", () => {
+    // Litet hus, jättekassa-hål: förvaltarens likvidering räcker inte.
+    const tiny = makeProperty({ id: 1, tenants: [], area: 120, baseRent: 10_000, askPrice: 200_000 });
+    const s = makeState({
+      portfolio: [tiny], cash: -8_000_000, debt: 0,
+      receivership: { shortfall: 8_000_000, enteredAbs: 13 },
+    });
+    const next = reducer(s, { type: "RECEIVER_AUTO" });
+    expect(next.gameOver).toBe(true);
+    expect(next.gameOverReason?.title).toBe("Bankruptcy");
+  });
+});

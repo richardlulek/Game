@@ -132,3 +132,15 @@ describe("insolvens vs. illikviditet (rekonstruktion före konkurs)", () => {
     expect(next.portfolio.length).toBe(1);
   });
 });
+
+describe("gameOverReason vid insolvens", () => {
+  it("insolvens sätter en pedagogisk orsak med siffror", () => {
+    const s = makeState({ portfolio: [], cash: -2_000_000, debt: 15_000_000 });
+    const next = advanceMonth(s);
+    expect(next.gameOver).toBe(true);
+    expect(next.gameOverReason).toBeDefined();
+    expect(next.gameOverReason!.title).toContain("insolvent");
+    expect(next.gameOverReason!.text).toContain("15.0 MSEK"); // skulden
+    expect(next.gameOverReason!.text).toContain("over-leveraged");
+  });
+});

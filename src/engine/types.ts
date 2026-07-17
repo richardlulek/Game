@@ -733,6 +733,10 @@ export interface GameState {
   log: LogEntry[];
   history: HistoryPoint[];
   gameOver: boolean;
+  /** Varför spelet tog slut – visas på slutskärmen (GameOverModal).
+   *  Sätts på varje plats som sätter gameOver; saknas i gamla sparfiler
+   *  (UI:t har en generisk fallback). */
+  gameOverReason?: { icon: string; title: string; text: string };
   offers: Offer[];
   /** Aktiva säljpaket (portföljförsäljningar). */
   salePackages?: SalePackage[];

@@ -1075,7 +1075,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
             : pp,
         );
       }
-      if (e.gameOver) s.gameOver = true;
+      if (e.gameOver) {
+        s.gameOver = true;
+        // Beslutets egen logtext förklarar slutet (t.ex. "bolaget såldes...").
+        s.gameOverReason = { icon: "📜", title: "The company changed hands", text: e.log };
+      }
       // Berättelseläget: flaggor med sidoeffekter + kedjade brev.
       if (e.storyFlag) s = applyStoryFlag(s, e.storyFlag);
       if (e.nextDecisionId) {
@@ -2698,6 +2702,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
         return {
           ...s2,
           gameOver: true,
+          gameOverReason: {
+            icon: "💥",
+            title: "Bankruptcy",
+            text: `You handed the keys to the receiver, but even a full fire-sale could not cover the shortfall — cash ended at ${kr(s2.cash)} with ${msek(s2.debt)} of debt still unbacked. The company was too leveraged for a restructuring to work. Next run: keep an equity cushion so a crisis is survivable.`,
+          },
           log: [{ t: "💥 BANKRUPTCY! Even the receiver's liquidation could not cover the shortfall. The game is over.", kind: "warn" }, ...s2.log],
         };
       }
@@ -2727,6 +2736,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         receivership: undefined,
         gameOver: true,
+        gameOverReason: {
+          icon: "💥",
+          title: "Bankruptcy — by choice",
+          text: `You chose to fold the company rather than sell it off piece by piece. Cash stood at ${kr(state.cash)} with ${msek(state.debt)} of debt when the receiver took the keys. Sometimes walking away is the honest call — next run, the crisis menu offers sales, credit and a bridge loan before it comes to this.`,
+        },
         log: [{ t: "💥 BANKRUPTCY: you chose to fold the company rather than sell it off piece by piece. The game is over.", kind: "warn" }, ...state.log],
       };
     }

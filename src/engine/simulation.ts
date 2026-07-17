@@ -38,6 +38,7 @@ import {
   RESTRUCTURING_MONTHS,
   imposeRestructuringTerms,
   isInsolvent,
+  maxRaisable,
   receiverAutoLiquidate,
 } from "./receivership";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
@@ -1206,6 +1207,11 @@ export function advanceMonth(state: GameState): GameState {
       }
       if (stake >= ACTIVIST_TAKEOVER_AT) {
         s.gameOver = true;
+        s.gameOverReason = {
+          icon: "🦈",
+          title: "Hostile takeover",
+          text: `Kronfelt Capital reached ${ACTIVIST_TAKEOVER_AT}% ownership and voted you off the board. After the IPO, weak shareholder returns fed the activists — dividends and profitability were too low to keep them out. Next run: after listing, pay dividends and keep returns up, or stay private longer.`,
+        };
         events.push({
           t: `🦈 HOSTILE TAKEOVER: Kronfelt Capital reaches ${ACTIVIST_TAKEOVER_AT}% and votes you off the board. The empire is no longer yours.`,
           kind: "warn",
@@ -2377,6 +2383,11 @@ export function advanceMonth(state: GameState): GameState {
     for (const rival of s.competitors) {
       if (rivalWinsScenario(rival, s.scenarioId, s)) {
         s.gameOver = true;
+        s.gameOverReason = {
+          icon: "🏳️",
+          title: "You lost the race",
+          text: `${rival.name} reached the scenario goal before you. The city's rivals grow every month — watch the leaderboard in the Rivals hub, and slow the leader down by outbidding them on listings they want. Next run: expand a little faster, and never leave cash idle.`,
+        };
         s.log = [
           { t: `🏳️ ${rival.name} reached the goal "${s.scenarioId}" before you — you lost the race!`, kind: "warn" },
           ...s.log,
@@ -2450,13 +2461,25 @@ export function advanceMonth(state: GameState): GameState {
         }
         if (s.cash < BANKRUPTCY_FLOOR) {
           s.gameOver = true;
+          s.gameOverReason = {
+            icon: "💥",
+            title: "Bankruptcy",
+            text: `The receivership failed: the receiver sold what could be sold, but cash was still ${kr(s.cash)} — below the ${kr(BANKRUPTCY_FLOOR)} floor. The remaining debt of ${msek(s.debt)} had no assets left behind it. Next run: act in the crisis menu before the deadline, and keep an equity cushion so a receiver has something to work with.`,
+          };
           s.log = [{ t: "💥 BANKRUPTCY! Nothing left to sell and cash below −1,000,000 kr — the company is insolvent. The game is over.", kind: "warn" }, ...s.log];
         }
       }
     } else if (s.cash < BANKRUPTCY_FLOOR) {
       if (isInsolvent(s)) {
         // Inte ens allt sålt räcker: äkta insolvens → konkurs direkt.
+        // Slutskärmen förklarar med siffror varför ingen meny kunde hjälpa.
+        const raisable = maxRaisable(s);
         s.gameOver = true;
+        s.gameOverReason = {
+          icon: "💥",
+          title: "Bankruptcy — insolvent",
+          text: `Debts of ${msek(s.debt)} exceeded everything the company owned: with cash at ${kr(s.cash)}, even a full fire-sale liquidation (≈${msek(raisable)} net) could not lift the account above the ${kr(BANKRUPTCY_FLOOR)} floor. The company was over-leveraged — with no equity cushion left, there was nothing for a receiver to restructure around. Next run: keep loan-to-value lower and hold a cash buffer before expanding.`,
+        };
         s.log = [{ t: "💥 BANKRUPTCY! Debts exceed everything the company owns — not even a full liquidation could cover the shortfall. The game is over.", kind: "warn" }, ...s.log];
       } else {
         // Krisen bryter ut: spelet pausar och menyn öppnas. Engångssmällen

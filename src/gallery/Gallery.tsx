@@ -35,6 +35,7 @@ import { MilestonesPanel } from "../components/MilestonesPanel";
 import { NewsFeedPanel } from "../components/NewsFeedPanel";
 import { FinancialStatements } from "../components/FinancialStatements";
 import { ReceivershipModal } from "../components/ReceivershipModal";
+import { GameOverModal } from "../components/GameOverModal";
 
 const noop = () => {};
 
@@ -115,6 +116,25 @@ export function Gallery() {
                 ),
               }}
               dispatch={noop}
+            />
+          </div>
+        </Section>
+        {/* Slutskärmen (insolvens-varianten) – samma transform-trick. */}
+        <Section id="g-gameover" title="Slutskärm (game over)" width={620}>
+          <div style={{ position: "relative", transform: "translate(0,0)", height: 700, overflow: "hidden", borderRadius: 8 }}>
+            <GameOverModal
+              state={{
+                ...state,
+                gameOver: true,
+                debt: 42_000_000,
+                gameOverReason: {
+                  icon: "💥",
+                  title: "Bankruptcy — insolvent",
+                  text: "Debts of 42.0 MSEK exceeded everything the company owned: with cash at −2,500,000 kr, even a full fire-sale liquidation (≈18.5 MSEK net) could not lift the account above the −1,000,000 kr floor. The company was over-leveraged — with no equity cushion left, there was nothing for a receiver to restructure around. Next run: keep loan-to-value lower and hold a cash buffer before expanding.",
+                },
+              }}
+              onNewGame={noop}
+              onDismiss={noop}
             />
           </div>
         </Section>

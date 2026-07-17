@@ -3,7 +3,7 @@ import {
   isSoundEnabled, setSoundEnabled,
   startMusic, stopMusic, setMusicMood, setMusicTempo,
   playLevelUp, playMilestone, playBell, playAlert, playBuild, playTick,
-  playCarArrive, playChapter,
+  playCarArrive, playChapter, playImpact,
 } from "../audio/sound";
 import { canUpgrade, tierForLevel, unlockLevelFor, unlockedWindows } from "../engine/company";
 import { formatGameDate } from "../engine/date";
@@ -56,6 +56,7 @@ import { CompanyHub } from "./CompanyHub";
 import { NewspaperModal } from "./NewspaperModal";
 import { AuctionModal } from "./AuctionModal";
 import { ReceivershipModal } from "./ReceivershipModal";
+import { GameOverModal } from "./GameOverModal";
 import { PolicyPanel } from "./PolicyPanel";
 
 /** Ikon per fönster (Capitalism-stil ikonverktygsrad). */
@@ -312,6 +313,19 @@ export default function FastighetsImperium() {
     if (state.gameWon && !prevWon.current) { setShowVictory(true); }
     prevWon.current = !!state.gameWon;
   }, [state.gameWon]);
+
+  // Game-over detection: slutskärmen visas EN gång per slut (kan stängas
+  // för att titta på staden; bannern + Play again finns kvar).
+  const [showGameOver, setShowGameOver] = useState(false);
+  const prevOver = useRef(false);
+  useEffect(() => {
+    if (state.gameOver && !prevOver.current) {
+      setShowGameOver(true);
+      if (soundOn && started) playImpact();
+    }
+    prevOver.current = !!state.gameOver;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.gameOver]);
 
   // ── Ambient-musik: startar när spelet är igång och ljud på ──────────────
   useEffect(() => {
@@ -729,6 +743,15 @@ export default function FastighetsImperium() {
             background: `radial-gradient(circle at 50% 0%, ${BURGUNDY}22, transparent 60%)`,
             animation: "fi-month-pulse 0.7s ease-out",
           }}
+        />
+      )}
+
+      {/* ── Game-over overlay: vad gick fel + nytt spel ─────── */}
+      {showGameOver && state.gameOver && (
+        <GameOverModal
+          state={state}
+          onNewGame={() => { setShowGameOver(false); dispatch({ type: "RESET" }); setStarted(false); }}
+          onDismiss={() => setShowGameOver(false)}
         />
       )}
 

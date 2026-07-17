@@ -159,7 +159,11 @@ suite("SPELTEST: rekonstruktionsflödet ände till ände", () => {
       const broke = advanceMonth({ ...s, portfolio: [], worldPool: [], cash: -5_000_000, debt: 50_000_000 });
       expect(broke.gameOver).toBe(true);
       expect(broke.receivership).toBeUndefined();
-      log(`Insolvens: konkurs direkt utan meny – korrekt`);
+      // Slutskärmen förklarar VAD som gick fel, med siffror.
+      expect(broke.gameOverReason?.title).toContain("insolvent");
+      expect(broke.gameOverReason?.text).toMatch(/Debts of \d+\.\d MSEK/);
+      expect(broke.gameOverReason?.text).toContain("fire-sale");
+      log(`Insolvens: konkurs direkt utan meny + förklarande slutskärm – korrekt`);
     }
   });
 });
