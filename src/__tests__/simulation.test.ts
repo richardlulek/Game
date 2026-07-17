@@ -140,7 +140,7 @@ describe("gameOverReason vid insolvens", () => {
     expect(next.gameOver).toBe(true);
     expect(next.gameOverReason).toBeDefined();
     expect(next.gameOverReason!.title).toContain("insolvent");
-    expect(next.gameOverReason!.text).toContain("15.0 MSEK"); // skulden
+    expect(next.gameOverReason!.text).toContain("$15.0M"); // skulden
     expect(next.gameOverReason!.text).toContain("over-leveraged");
   });
 });

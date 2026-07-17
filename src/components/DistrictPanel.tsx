@@ -187,7 +187,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
               {/* Invest in district */}
               <div style={{ borderTop: `1px solid ${C.brass}44`, paddingTop: 10, marginTop: 8 }}>
                 <div style={{ fontSize: 11, color: C.creamSoft, marginBottom: 6 }}>
-                  Area investment: +1% development per 25 MSEK (max +5%), done in 6–9 mo
+                  Area investment: +1% development per $25M (max +5%), done in 6–9 mo
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input

@@ -31,7 +31,7 @@ export interface EditorNote {
   priority: number;
 }
 
-const MSEK = (n: number) => `${(n / 1e6).toLocaleString("en-US", { maximumFractionDigits: 1 })} MSEK`;
+const MSEK = (n: number) => `$${(n / 1e6).toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
 
 /** Var en artikel leder vid klick – gör tidningen till en navigeringsyta. */
 export type NavIntent =

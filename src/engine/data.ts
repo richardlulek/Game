@@ -308,12 +308,12 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "first_buy",    title: "First acquisition",     desc: "Buy your first property.",                          check: (s) => s.portfolio.length >= 1,                                   reward: "Reputation +3" },
   { id: "first_office", title: "Office debut",          desc: "Own an office property.",                           check: (s) => s.portfolio.some((p) => p.type === "kontor"),              reward: "Access to the Investment Bank" },
   { id: "5props",       title: "Estate agent",          desc: "Own at least 5 completed properties.",              check: (s) => s.portfolio.filter((p) => p.status === "klar").length >= 5, reward: "Reputation +5" },
-  { id: "first_10m",    title: "The 10 Million Club",   desc: "Reach 10 MSEK in equity.",                          check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 10_000_000, reward: "Reputation +5" },
+  { id: "first_10m",    title: "The 10 Million Club",   desc: "Reach $10M in equity.",                          check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 10_000_000, reward: "Reputation +5" },
   { id: "district_dom", title: "District leader",       desc: "Own the most properties in a district.",            check: (s) => checkDistrictLead(s),                                      reward: "District appeal +5%" },
   { id: "first_build",  title: "The developer",         desc: "Build your first property from scratch.",           check: (s) => s.portfolio.some((p) => (p.txHistory ?? []).some((t) => t.type === "built")), reward: "Build time −1 month" },
   { id: "no_debt",      title: "Debt-free",             desc: "Hold zero debt with at least 3 properties.",        check: (s) => s.debt === 0 && s.portfolio.length >= 3,                   reward: "Reputation +10" },
   { id: "50_rep",       title: "Established name",       desc: "Reach 50 reputation.",                              check: (s) => s.reputation >= 50,                                        reward: "Rate discount via a better lender" },
-  { id: "50m_equity",   title: "Property empire",       desc: "Reach 50 MSEK in equity.",                          check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 50_000_000, reward: "Reputation +15" },
+  { id: "50m_equity",   title: "Property empire",       desc: "Reach $50M in equity.",                          check: (s) => (s.cash + s.portfolio.reduce((a, p) => a + p.askPrice, 0) - s.debt) >= 50_000_000, reward: "Reputation +15" },
   { id: "full_coverage",title: "Citywide",              desc: "Own properties in at least 5 of the city's 7 districts.", check: (s) => new Set(s.portfolio.map((p) => p.district)).size >= 5,     reward: "District diversification −5% vacancy" },
 ];
 

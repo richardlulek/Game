@@ -200,7 +200,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                   );
                 })}
               </div>
-              <Line l="Amortization requirement" v={ai.monthly > 0 ? `−${kr(ai.monthly)}/mo` : "0 kr (no amortization)"} accent={ai.monthly > 0 ? "#c0392b" : "#27660a"} />
+              <Line l="Amortization requirement" v={ai.monthly > 0 ? `−${kr(ai.monthly)}/mo` : "$0 (no amortization)"} accent={ai.monthly > 0 ? "#c0392b" : "#27660a"} />
               <Line l="Interest bank + bonds + credit" v={`−${kr(bankInterestMo + bondInterestMo + revInterestMo)}/mo`} />
               <Line l="Debt monthly cost" v={`−${kr(totalDebtCostMo)}/mo`} bold />
               {ai.amortToNextBreak != null && ai.amortToNextBreak > 0 && ai.nextBreakLtv != null && (

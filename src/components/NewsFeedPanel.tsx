@@ -87,7 +87,7 @@ export function NewsFeedPanel({ state, onBuyPr }: Props) {
   const prAbs = year * 12 + month;
   const prCooldownLeft = state.lastPrMonth != null ? Math.max(0, 6 - (prAbs - state.lastPrMonth)) : 0;
   const prDisabled = prCooldownLeft > 0 || state.cash < prCost;
-  const prCostLabel = `${(prCost / 1e6).toLocaleString("en-US", { maximumFractionDigits: 1 })} MSEK`;
+  const prCostLabel = `$${(prCost / 1e6).toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
 
   const Kicker = ({ e }: { e: LogEntry }) => (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "baseline", fontSize: 9.5, letterSpacing: 2, fontWeight: 800 }}>
@@ -136,8 +136,8 @@ export function NewsFeedPanel({ state, onBuyPr }: Props) {
         <div style={{ fontSize: 11.5, color: sepia, display: "flex", justifyContent: "center", gap: 16, borderTop: `1px solid ${rule}55`, paddingTop: 6, marginTop: 2 }}>
           <span>Vol. {year} · No. {String(month).padStart(2, "0")}</span>
           <span>{formatMonthYear(month, year)}</span>
-          <span>Est. 1925</span>
-          <span>Price 2 kr</span>
+          <span>Morning edition</span>
+          <span>Price $2.00</span>
         </div>
       </div>
 

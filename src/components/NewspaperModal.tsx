@@ -109,7 +109,7 @@ export function NewspaperModal({
         <div style={N.dateline}>
           <span>{formatMonthYear(state.month, state.year)}</span>
           <span>Business</span>
-          <span>Price 2 kr</span>
+          <span>Price $2.00</span>
         </div>
         <div style={N.headline}>{headline}</div>
         <div style={N.sub}>{sub}</div>

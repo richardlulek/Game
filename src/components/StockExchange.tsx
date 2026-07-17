@@ -225,7 +225,7 @@ function LimitOrderForm({
           </div>
         </div>
         <div>
-          <div style={subLabel}>Limit price (kr)</div>
+          <div style={subLabel}>Limit price ($)</div>
           <input type="number" min={0.01} step={0.5} value={price} onChange={(e) => setPrice(Math.max(0.01, +e.target.value))} style={{ ...qtyInput, width: 100 }} />
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>

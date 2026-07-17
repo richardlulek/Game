@@ -866,7 +866,7 @@ export default function FastighetsImperium() {
               ⚡ BIDDING WAR{cb.round && cb.round > 1 ? ` · ROUND ${cb.round}` : ""}
             </div>
             <div style={{ fontSize: 13, color: C.parchment, marginBottom: 12 }}>
-              {cb.rivalName} bid <strong style={{ color: C.gold }}>{(cb.amount / 1_000_000).toFixed(1)} MSEK</strong>
+              {cb.rivalName} bid <strong style={{ color: C.gold }}>${(cb.amount / 1_000_000).toFixed(1)}M</strong>
               {listing ? ` on ${listing.typeLabel} in ${listing.districtName}` : ""}.
               Raise your bid 2% to push them – they can counter for up to three rounds.
             </div>
@@ -875,7 +875,7 @@ export default function FastighetsImperium() {
                 onClick={() => dispatch({ type: "ACCEPT_COMPETING_BID" })}
                 style={{ flex: 1, padding: "9px", background: BURGUNDY, color: C.parchment, border: "none", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontFamily: FONTS.body, fontSize: 13 }}
               >
-                Raise the bid ({((cb.amount * 1.02) / 1_000_000).toFixed(1)} MSEK)
+                Raise the bid (${((cb.amount * 1.02) / 1_000_000).toFixed(1)}M)
               </button>
               <button
                 onClick={() => dispatch({ type: "PASS_COMPETING_BID" })}

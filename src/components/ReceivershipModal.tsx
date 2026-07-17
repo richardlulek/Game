@@ -239,7 +239,7 @@ export function ReceivershipModal({
           <div key={st.id} style={R.row}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 14 }}>Shares: {st.name}</div>
-              <div style={{ fontSize: 12, color: "#6a6250" }}>{st.owned} shares @ {st.price.toFixed(2)} kr</div>
+              <div style={{ fontSize: 12, color: "#6a6250" }}>{st.owned} shares @ ${st.price.toFixed(2)}</div>
             </div>
             <button
               style={{ ...R.sellBtn, background: "#5a3a00" }}

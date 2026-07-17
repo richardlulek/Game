@@ -42,7 +42,7 @@ export function initState(opts?: InitOptions): GameState {
     competitors: [],
     log: [
       {
-        t: `You start with ${(startCash / 1e6).toLocaleString("en-US")} MSEK in equity${
+        t: `You start with $${(startCash / 1e6).toLocaleString("en-US")}M in equity${
           opts?.difficulty && opts.difficulty !== "normal" ? ` (difficulty: ${opts.difficulty})` : ""
         }. Good luck!`,
         kind: "info",
@@ -224,9 +224,9 @@ export function agendaFor(
     case "tillväxt":
       return { kind: "units", target: 25, label: "wants to own 25 properties" };
     case "värde":
-      return { kind: "equity", target: 120_000_000, label: "chasing 120 MSEK in equity" };
+      return { kind: "equity", target: 120_000_000, label: "chasing $120M in equity" };
     default:
-      return { kind: "equity", target: 80_000_000, label: "building cash flow toward 80 MSEK" };
+      return { kind: "equity", target: 80_000_000, label: "building cash flow toward $80M" };
   }
 }
 

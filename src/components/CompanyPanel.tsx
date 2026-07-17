@@ -177,7 +177,7 @@ export function CompanyPanel({
         <div style={P.statRow}>
           <div style={P.stat}>
             <div style={P.statLabel}>Office cost</div>
-            <div style={P.statValue}>{tier.monthlyOverhead > 0 ? `${kr(tier.monthlyOverhead)}/mo` : "0 kr (the kitchen table)"}</div>
+            <div style={P.statValue}>{tier.monthlyOverhead > 0 ? `${kr(tier.monthlyOverhead)}/mo` : "$0 (the kitchen table)"}</div>
           </div>
           <div style={{ ...P.stat, minWidth: 220 }}>
             <div style={P.statLabel}>Self-managed properties</div>

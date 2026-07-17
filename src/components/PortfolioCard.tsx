@@ -171,7 +171,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           value={`${yieldPct.toFixed(1)} %`}
           color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#c07f16" : "#c0392b"}
         />
-        <Stat label="Invested" value={`${(invested / 1e6).toFixed(1)} MSEK`} />
+        <Stat label="Invested" value={`$${(invested / 1e6).toFixed(1)}M`} />
         {cashOnCash !== null && (
           <Stat
             label="Total return"
@@ -818,7 +818,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             {p.insurance ? "🛡️ Insured" : "⚠️ Not insured"}
           </span>
           <span style={{ fontSize: 11, color: C.inkSoft, marginLeft: 6 }}>
-            {p.insurance ? "(2,000 kr/mo)" : "(fire, water, liability)"}
+            {p.insurance ? "($2,000/mo)" : "(fire, water, liability)"}
           </span>
         </div>
         <button

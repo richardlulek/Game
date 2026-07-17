@@ -335,7 +335,7 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
                   <Row label="Estimated capital raised" value={msek(raised)} accent="#27660a" />
                   <Row label="Reputation bonus" value="+10" accent={BURGUNDY} />
                   <div style={{ fontSize: 12, color: C.inkSoft, margin: "8px 0" }}>
-                    An IPO raises 20% of the portfolio value in new capital. Requires at least 5 MSEK portfolio value.
+                    An IPO raises 20% of the portfolio value in new capital. Requires at least $5M portfolio value.
                   </div>
                   <button
                     onClick={() => dispatch({ type: "DO_IPO" })}

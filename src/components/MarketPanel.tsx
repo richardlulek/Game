@@ -253,7 +253,7 @@ export function MarketPanel({ state, dispatch }: MarketPanelProps) {
         <strong style={{ color: C.ink }}>How the market works:</strong>{" "}
         New properties appear every month and sell automatically if not bought in time.
         Listings flagged with a warning expire soon.
-        Hire a broker (75,000 kr) to access off-market properties that{" "}
+        Hire a broker ($75,000) to access off-market properties that{" "}
         competitors can't see. Alternatively, place a lower bid with the "Place bid" button
         on each card.
       </div>

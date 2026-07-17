@@ -43,7 +43,7 @@ const TEMPLATES: Template[] = [
     options: [
       {
         label: `Hire a PR agency (${msek(150_000)})`,
-        detail: "−150,000 kr · Reputation +6",
+        detail: "−$150,000 · Reputation +6",
         effect: { cash: -150_000, reputation: 6, log: "A positive feature is published – your reputation strengthens.", logKind: "income" },
       },
       {
@@ -62,7 +62,7 @@ const TEMPLATES: Template[] = [
     options: [
       {
         label: `Invest in solar panels (${msek(400_000)})`,
-        detail: "−400,000 kr · lower tax burden",
+        detail: "−$400,000 · lower tax burden",
         effect: { cash: -400_000, taxMod: 0.97, log: "Invested in solar panels – net operating income stabilizes.", logKind: "upg" },
       },
       {
@@ -103,7 +103,7 @@ const TEMPLATES: Template[] = [
     options: [
       {
         label: `Settle (${msek(200_000)})`,
-        detail: "−200,000 kr · Reputation +2",
+        detail: "−$200,000 · Reputation +2",
         effect: { cash: -200_000, reputation: 2, log: "Settlement reached in the water-damage case – goodwill preserved.", logKind: "expense" },
       },
       {
@@ -125,8 +125,8 @@ const INDUSTRY_TEMPLATES: Template[] = [
     text: "A leading hotel guide invites you to apply for a higher star rating – but requires renovation and service improvements.",
     options: [
       {
-        label: `Invest in an upgrade (500,000 kr)`,
-        detail: "−500,000 kr · Reputation +6",
+        label: `Invest in an upgrade ($500,000)`,
+        detail: "−$500,000 · Reputation +6",
         effect: { cash: -500_000, reputation: 6, log: "The hotel’s star rating may be raised – impressive!", logKind: "upg" },
       },
       {
@@ -144,8 +144,8 @@ const INDUSTRY_TEMPLATES: Template[] = [
     text: "An influencer published a negative review of one of your hotels. Reputation drops fast if you don’t act.",
     options: [
       {
-        label: "Invite the reviewer (25,000 kr)",
-        detail: "−25,000 kr · Reputation +2",
+        label: "Invite the reviewer ($25,000)",
+        detail: "−$25,000 · Reputation +2",
         effect: { cash: -25_000, reputation: 2, log: "Invited the critic – a positive follow-up was published.", logKind: "income" },
       },
       {
@@ -163,8 +163,8 @@ const INDUSTRY_TEMPLATES: Template[] = [
     text: "A new inquiry proposes cutting green certificates. You can lobby to preserve the subsidy or accept the change.",
     options: [
       {
-        label: "Lobby (150,000 kr, 60% chance of success)",
-        detail: "−150,000 kr · possible preserved subsidy",
+        label: "Lobby ($150,000, 60% chance of success)",
+        detail: "−$150,000 · possible preserved subsidy",
         effect: { cash: -150_000, reputation: 1, log: "Lobbied against cutting green certificates – the outcome is decided in parliament.", logKind: "expense" },
       },
       {
@@ -182,8 +182,8 @@ const INDUSTRY_TEMPLATES: Template[] = [
     text: "The national grid offers a grid upgrade for your park, but requires co-financing.",
     options: [
       {
-        label: "Invest in a grid upgrade (800,000 kr)",
-        detail: "−800,000 kr · Reputation +3 · higher capacity potential",
+        label: "Invest in a grid upgrade ($800,000)",
+        detail: "−$800,000 · Reputation +3 · higher capacity potential",
         effect: { cash: -800_000, reputation: 3, log: "Grid connection strengthened – a capacity increase is possible.", logKind: "upg" },
       },
       {
@@ -201,8 +201,8 @@ const INDUSTRY_TEMPLATES: Template[] = [
     text: "A leading robotics vendor offers a complete automation system at 30% off – but the deal must close now.",
     options: [
       {
-        label: "Buy the automation system (600,000 kr)",
-        detail: "−600,000 kr · Reputation +2 · immediate automation boost",
+        label: "Buy the automation system ($600,000)",
+        detail: "−$600,000 · Reputation +2 · immediate automation boost",
         effect: { cash: -600_000, reputation: 2, log: "Invested in an automation system – logistics efficiency rises.", logKind: "upg" },
       },
       {
@@ -220,8 +220,8 @@ const INDUSTRY_TEMPLATES: Template[] = [
     text: "The union demands a pay raise. If you refuse, you risk broken contracts and serious reputation damage.",
     options: [
       {
-        label: "Raise wages (300,000 kr one-off cost)",
-        detail: "−300,000 kr · avoid the strike",
+        label: "Raise wages ($300,000 one-off cost)",
+        detail: "−$300,000 · avoid the strike",
         effect: { cash: -300_000, reputation: 1, log: "Reached an agreement with the union – strike avoided.", logKind: "expense" },
       },
       {

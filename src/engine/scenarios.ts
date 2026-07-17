@@ -30,7 +30,7 @@ export const SCENARIOS: Scenario[] = [
     id: "arvet",
     title: "Grandpa's Inheritance",
     subtitle: "Story mode · 9 chapters",
-    desc: "You inherit a run-down house on Villa Hill and 850,000 kr from grandpa's freezer. The campaign teaches everything – with Gus, Ruth at the bank and Rog Flint.",
+    desc: "You inherit a run-down house on Villa Hill and $850,000 from grandpa's freezer. The campaign teaches everything – with Gus, Ruth at the bank and Rog Flint.",
     icon: "📜",
     check: (s) => !!s.story?.done,
     progress: (s) => {
@@ -42,25 +42,25 @@ export const SCENARIOS: Scenario[] = [
   {
     id: "equity50",
     title: "The Quick Start",
-    subtitle: "50 MSEK equity",
-    desc: "Build up 50 MSEK in equity. A good fit for learning the game.",
+    subtitle: "$50M equity",
+    desc: "Build up $50M in equity. A good fit for learning the game.",
     icon: "⚡",
     check: (s) => equityOf(s) >= 50_000_000,
     progress: (s) => {
       const eq = Math.max(0, equityOf(s));
-      return { value: Math.min(eq, 50_000_000), max: 50_000_000, label: `${msek(eq)} / 50 MSEK` };
+      return { value: Math.min(eq, 50_000_000), max: 50_000_000, label: `${msek(eq)} / $50M` };
     },
   },
   {
     id: "equity200",
     title: "Property Mogul",
-    subtitle: "200 MSEK equity",
-    desc: "Raise an empire worth 200 MSEK. A long challenge for seasoned players.",
+    subtitle: "$200M equity",
+    desc: "Raise an empire worth $200M. A long challenge for seasoned players.",
     icon: "🏆",
     check: (s) => equityOf(s) >= 200_000_000,
     progress: (s) => {
       const eq = Math.max(0, equityOf(s));
-      return { value: Math.min(eq, 200_000_000), max: 200_000_000, label: `${msek(eq)} / 200 MSEK` };
+      return { value: Math.min(eq, 200_000_000), max: 200_000_000, label: `${msek(eq)} / $200M` };
     },
   },
   {
@@ -117,8 +117,8 @@ export const SCENARIOS: Scenario[] = [
   {
     id: "energyBaron",
     title: "Rise of the Energy Baron",
-    subtitle: "500 MWh/mo and 5 MSEK/mo",
-    desc: "Build an energy empire: 500 MWh/month and at least 5 MSEK/month from renewable energy.",
+    subtitle: "500 MWh/mo and $5M/mo",
+    desc: "Build an energy empire: 500 MWh/month and at least $5M/month from renewable energy.",
     icon: "⚡🌱",
     check: (s) => {
       const energyAssets = (s.industryPortfolio ?? []).filter((a) => a.sector === "energi" && a.status === "klar");
@@ -131,7 +131,7 @@ export const SCENARIOS: Scenario[] = [
       const energyAssets = (s.industryPortfolio ?? []).filter((a) => a.sector === "energi" && a.status === "klar");
       const totalRev = energyAssets.reduce((sum, a) => sum + a.monthlyRevenue, 0);
       const pct = Math.min(100, Math.round(totalRev / 50_000));
-      return { value: pct, max: 100, label: `${msek(totalRev)} / 5 MSEK revenue` };
+      return { value: pct, max: 100, label: `${msek(totalRev)} / $5M revenue` };
     },
   },
   {

@@ -217,7 +217,7 @@ function SectorInfo() {
         </div>
         <div>
           <div style={{ fontWeight: 700, color: "#1a6b3a", marginBottom: 2 }}>⚡ Renewable energy</div>
-          Solar and wind power. Sign PPA contracts for stable income or take the spot price. Green certificates give +85 kr/MWh.
+          Solar and wind power. Sign PPA contracts for stable income or take the spot price. Green certificates give +$85/MWh.
         </div>
         <div>
           <div style={{ fontWeight: 700, color: "#1a3a7b", marginBottom: 2 }}>📦 Logistics</div>

@@ -1822,7 +1822,7 @@ export function advanceMonth(state: GameState): GameState {
           },
           {
             label: "PR offensive",
-            detail: "2 MSEK · pressure −40 · rep +8",
+            detail: "$2M · pressure −40 · rep +8",
             effect: {
               cash: -2_000_000,
               reputation: 8,
@@ -2466,7 +2466,7 @@ export function advanceMonth(state: GameState): GameState {
             title: "Bankruptcy",
             text: `The receivership failed: the receiver sold what could be sold, but cash was still ${kr(s.cash)} — below the ${kr(BANKRUPTCY_FLOOR)} floor. The remaining debt of ${msek(s.debt)} had no assets left behind it. Next run: act in the crisis menu before the deadline, and keep an equity cushion so a receiver has something to work with.`,
           };
-          s.log = [{ t: "💥 BANKRUPTCY! Nothing left to sell and cash below −1,000,000 kr — the company is insolvent. The game is over.", kind: "warn" }, ...s.log];
+          s.log = [{ t: "💥 BANKRUPTCY! Nothing left to sell and cash below -$1,000,000 — the company is insolvent. The game is over.", kind: "warn" }, ...s.log];
         }
       }
     } else if (s.cash < BANKRUPTCY_FLOOR) {
@@ -2494,7 +2494,7 @@ export function advanceMonth(state: GameState): GameState {
     }
   } else if (s.cash < BANKRUPTCY_FLOOR && s.settings?.noBankruptcy) {
     if (s.cash > -1_100_000)
-      s.log = [{ t: "💥 Cash below −1,000,000 kr – bankruptcy is disabled, but the bank rolls its eyes.", kind: "warn" }, ...s.log];
+      s.log = [{ t: "💥 Cash below -$1,000,000 – bankruptcy is disabled, but the bank rolls its eyes.", kind: "warn" }, ...s.log];
   }
   // Rekonstruktionsvillkoren löper ut: banken återgår till normala villkor.
   if (s.restructuringTerms && !s.receivership && s.year * 12 + s.month >= s.restructuringTerms.untilAbs) {

@@ -130,7 +130,7 @@ export function Gallery() {
                 gameOverReason: {
                   icon: "💥",
                   title: "Bankruptcy — insolvent",
-                  text: "Debts of 42.0 MSEK exceeded everything the company owned: with cash at −2,500,000 kr, even a full fire-sale liquidation (≈18.5 MSEK net) could not lift the account above the −1,000,000 kr floor. The company was over-leveraged — with no equity cushion left, there was nothing for a receiver to restructure around. Next run: keep loan-to-value lower and hold a cash buffer before expanding.",
+                  text: "Debts of $42.0M exceeded everything the company owned: with cash at -$2,500,000, even a full fire-sale liquidation (≈$18.5M net) could not lift the account above the -$1,000,000 floor. The company was over-leveraged — with no equity cushion left, there was nothing for a receiver to restructure around. Next run: keep loan-to-value lower and hold a cash buffer before expanding.",
                 },
               }}
               onNewGame={noop}

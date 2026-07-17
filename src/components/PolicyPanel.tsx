@@ -173,7 +173,7 @@ export function PolicyPanel({
               {[1, 2, 5, 10].map((m) => (
                 <button key={m} style={chipStyle(am.cashFloor === m * 1_000_000)}
                   onClick={() => set({ autoAmort: { ...am, cashFloor: m * 1_000_000 } })}>
-                  {m} MSEK
+                  ${m}M
                 </button>
               ))}
             </div>
@@ -236,7 +236,7 @@ export function PolicyPanel({
           <span style={{ fontSize: 11.5, color: "#777" }}>
             {hasDirector
               ? `Fee ${kr(gmFee)}/mo — manages the whole portfolio per the instructions below.`
-              : `Fee ${kr(gmFee)}/mo (15,000 kr + 1,500 kr per property). Without a director you manage yourself – free, but above the office capacity an extra cost applies.`}
+              : `Fee ${kr(gmFee)}/mo ($15,000 + $1,500 per property). Without a director you manage yourself – free, but above the office capacity an extra cost applies.`}
           </span>
         </div>
         <div style={P.row}>

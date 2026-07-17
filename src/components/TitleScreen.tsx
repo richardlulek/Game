@@ -122,7 +122,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
       <div style={frame}>
         {phase === "start" && (
           <>
-            <div style={overline}>· ESTABLISHED 1925 ·</div>
+            <div style={overline}>· ESTABLISHED 2000 ·</div>
             <div style={title}>PROPERTY&shy;EMPIRE</div>
             <div style={rule}>
               <span style={diamond}>◆</span>

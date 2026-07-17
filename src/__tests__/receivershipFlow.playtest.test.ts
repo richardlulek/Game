@@ -161,7 +161,7 @@ suite("SPELTEST: rekonstruktionsflödet ände till ände", () => {
       expect(broke.receivership).toBeUndefined();
       // Slutskärmen förklarar VAD som gick fel, med siffror.
       expect(broke.gameOverReason?.title).toContain("insolvent");
-      expect(broke.gameOverReason?.text).toMatch(/Debts of \d+\.\d MSEK/);
+      expect(broke.gameOverReason?.text).toMatch(/Debts of \$\d+\.\dM/);
       expect(broke.gameOverReason?.text).toContain("fire-sale");
       log(`Insolvens: konkurs direkt utan meny + förklarande slutskärm – korrekt`);
     }

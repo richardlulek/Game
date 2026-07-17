@@ -10,7 +10,7 @@
    5. Konjunkturen   – räntehöjning, cykler, fryspåse-bailout
    6. Bolaget        – bolagsnivå 2, kontor, Bolagsverket-skämtet
    7. Revanschen     – budkrig mot Rog Flint om grannhuset
-   8. Dynastin       – nivå 3 + 20 MSEK → epilog och morfars klocka
+   8. Dynastin       – nivå 3 + $20M → epilog och morfars klocka
 
    Allt story-tillstånd är ren, sparbar data (StoryState i types.ts).
    Breven levereras som PendingDecision (pausar klockan gratis) och
@@ -177,7 +177,7 @@ export const STORY_BEATS: StoryBeat[] = [
     letterId: "rogge_surbrev",
     objectives: [
       { text: "Reach company level 3", check: (s) => (s.companyLevel ?? 1) >= 3 },
-      { text: "Reach 20 MSEK in equity", check: (s) => equityOf(s) >= 20_000_000 },
+      { text: "Reach $20M in equity", check: (s) => equityOf(s) >= 20_000_000 },
     ],
     hint: "More properties, kept rented, and reasonable leverage. Grandpa had patience – so should you.",
   },
@@ -236,19 +236,19 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
     title: "The Oakley & Sons Law Firm (no sons)",
     text:
       "”Dear heir. Your grandfather Gordon has, as you may have noted at the funeral, passed away. " +
-      "You hereby inherit: one (1) property in Villa Hill, referred to as 'the house', plus cash of 850,000 kr " +
+      "You hereby inherit: one (1) property in Villa Hill, referred to as 'the house', plus cash of $850,000 " +
       "found in the freezer in bags labeled 'ground beef 1994'. Forensic technicians have confirmed it is not ground beef.” " +
-      "— Invoice enclosed: Drafting of this letter, 900 kr. Postage, 12 kr. Emotional support, 0 kr (not ordered).",
+      "— Invoice enclosed: Drafting of this letter, $900. Postage, $12. Emotional support, $0 (not ordered).",
     options: [
       {
         label: "Accept the inheritance",
-        detail: "The house + 850,000 kr",
+        detail: "The house + $850,000",
         effect: { nextDecisionId: "brev_morfar_1", log: "Accepted the inheritance from Grandpa Gordon.", logKind: "event" },
       },
       {
         label: "Ask if there is more money",
         detail: "There isn't",
-        effect: { nextDecisionId: "brev_morfar_1", log: "Oakley: ”No. Billing for the question: 300 kr.” (included in the inheritance)", logKind: "info" },
+        effect: { nextDecisionId: "brev_morfar_1", log: "Oakley: ”No. Billing for the question: $300.” (included in the inheritance)", logKind: "info" },
       },
     ],
   }),
@@ -277,7 +277,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
     title: "🕶️ Visit: Roger ”Rog” Flint, Flint Properties",
     text:
       "A man in white loafers clomps into the funeral reception and hands out business cards between the canapés. " +
-      "”Rog Flint, Flint Properties. Sorry for your loss and so on. I'll give you 1.2 million for the shack – cash, tomorrow. " +
+      "”Rog Flint, Flint Properties. Sorry for your loss and so on. I'll give you $1.2 million for the shack – cash, tomorrow. " +
       "That's over market, trust me, I have a driver's license and a pool.” " +
       "The house is worth more than four times that. Also: clause 7b of the will forbids a sale for the first 24 months.",
     options: [
@@ -289,7 +289,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
       {
         label: "Consider the offer... no. NO.",
         detail: "Clause 7b forbids it anyway",
-        effect: { storyFlag: "prolog_läst", log: "Considered Rog's offer until Oakley cleared his throat and pointed at clause 7b. Invoice: 900 kr. (included)", logKind: "info" },
+        effect: { storyFlag: "prolog_läst", log: "Considered Rog's offer until Oakley cleared his throat and pointed at clause 7b. Invoice: $900. (included)", logKind: "info" },
       },
     ],
   }),
@@ -321,12 +321,12 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
     text:
       "”I hear there's renovating going on,” Gus says suspiciously, holding up a thermos as a shield. " +
       "”Ran water to the upper floor? A dishwasher? I'm no count.” " +
-      "Gus has lived here since 2009. Rent: 500 kr/mo (Grandpa's buddy price, last adjusted never). " +
+      "Gus has lived here since 2009. Rent: $500/mo (Grandpa's buddy price, last adjusted never). " +
       "He always pays on time, never complains, and guards the house. But the unit he lives in is worth 15 times more on the open market.",
     options: [
       {
         label: "”You stay, Gus. The buddy price holds.”",
-        detail: "Keep Gus · 500 kr/mo · loyal forever · Reputation +2",
+        detail: "Keep Gus · $500/mo · loyal forever · Reputation +2",
         effect: {
           reputation: 2, storyFlag: "gosta_kvar", nextDecisionId: "brev_kap2",
           log: "Gus stays. He nodded slowly and offered coffee from the thermos. It was strong enough to light up the basement.", logKind: "event",
@@ -428,13 +428,13 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
     title: "🧊 A find in the freezer",
     text:
       "You're looking for something edible in Grandpa's old freezer and find, at the very bottom under an icy bag of herring, " +
-      "another bag. Labeled 'CHRISTMAS HAM 1997'. It contains 400,000 kr and a post-it: " +
+      "another bag. Labeled 'CHRISTMAS HAM 1997'. It contains $400,000 and a post-it: " +
       "”I knew you'd look here sooner or later. Either you're hungry or broke. Both pass. — Grandpa”",
     options: [
       {
         label: "Thanks, Grandpa.",
         detail: `+${kr(BAILOUT_AMOUNT)} · happens only once`,
-        effect: { cash: BAILOUT_AMOUNT, log: "Found Grandpa's last freezer bag: +400,000 kr. The herring stayed put.", logKind: "income" },
+        effect: { cash: BAILOUT_AMOUNT, log: "Found Grandpa's last freezer bag: +$400,000. The herring stayed put.", logKind: "income" },
       },
     ],
   }),
@@ -489,7 +489,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
     options: [
       {
         label: "Frame the letter",
-        detail: "Final goal: level 3 + 20 MSEK equity",
+        detail: "Final goal: level 3 + $20M equity",
         effect: { reputation: 2, log: "Chapter 8: The Dynasty. Rog pivoted to padel. Your street remains – and your growing empire.", logKind: "event" },
       },
     ],
@@ -563,7 +563,7 @@ const STORY_DECISIONS: Record<string, StoryDecisionFactory> = {
       "and 'Gordon's boy' has become someone people call BEFORE the bank. I'm not surprised. I'm something else that starts with proud. " +
       "In the envelope is my watch. It's run wrong since 1979, but it runs – and that's the whole secret of this trade: " +
       "the important thing isn't to keep the right time, the important thing is not to stop. Keep building. The city is yours now.” — Grandpa. " +
-      "(Oakley's final invoice enclosed: ”Storage of a watch, 26 years: 0 kr. For Gordon: everything was 0 kr.”)",
+      "(Oakley's final invoice enclosed: ”Storage of a watch, 26 years: $0. For Gordon: everything was $0.”)",
     options: [
       {
         label: "⌚ Accept Grandpa's watch",
@@ -661,7 +661,7 @@ export function seedStory(fresh: GameState): GameState {
     tutorialDismissed: true,
     pendingDecision: STORY_DECISIONS.brev_ekelof(fresh),
     log: [
-      { t: "📜 THE INHERITANCE: Grandpa Gordon's house in Villa Hill is yours – along with 850,000 kr from the freezer.", kind: "event" },
+      { t: "📜 THE INHERITANCE: Grandpa Gordon's house in Villa Hill is yours – along with $850,000 from the freezer.", kind: "event" },
       ...fresh.log,
     ],
   };
@@ -1067,7 +1067,7 @@ export const MEMORY_NOTES: MemoryNote[] = [
     title: "The Neighbor's Apple Tree",
     text:
       "”The neighbor's apple tree. The branches hanging over the fence are legally yours – " +
-      "I checked with Oakley (invoice 900 kr, worth it). Harvest with a clear conscience.” — Grandpa",
+      "I checked with Oakley (invoice $900, worth it). Harvest with a clear conscience.” — Grandpa",
   },
 ];
 

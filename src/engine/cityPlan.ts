@@ -130,7 +130,7 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
           options: [
             {
               label: "Settle with the neighbors",
-              detail: "1.5 MSEK · −5 mo · rep +2",
+              detail: "$1.5M · −5 mo · rep +2",
               effect: {
                 cash: -1_500_000,
                 reputation: 2,
@@ -141,7 +141,7 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
             },
             {
               label: "Await the court",
-              detail: "0 kr · full wait",
+              detail: "$0 · full wait",
               effect: {
                 planSettle: { blockId: p.blockId, monthsDelta: 0 },
                 log: `⚖️ You await the land and environment court's ruling in ${p.districtName}.`,
@@ -157,7 +157,7 @@ export function planTick(proc: PlanProcess, state: GameState, rand: () => number
       p.challenges.push("arkeologi");
       p.monthsLeft += 4;
       cost += 800_000;
-      events.push({ t: `🏺 Archaeological finds in ${p.districtName}! An excavation is required before the plan can be adopted (+4 mo, 0.8 MSEK).`, kind: "warn" });
+      events.push({ t: `🏺 Archaeological finds in ${p.districtName}! An excavation is required before the plan can be adopted (+4 mo, $0.8M).`, kind: "warn" });
     }
   }
 

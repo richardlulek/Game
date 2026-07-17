@@ -26,7 +26,7 @@ describe("ui-bibliotek", () => {
         <SectionHeading>Rubrik</SectionHeading>
         <GoldRule />
         <MetricGrid>
-          <Metric label="Kurs" value="100 kr" />
+          <Metric label="Kurs" value="$100" />
           <Metric label="Δ" value="+2 %" color={trendColor(0.02)} sub="idag" />
         </MetricGrid>
         <Sparkline data={[1, 2, 3, 2, 4]} color="#000" />

@@ -214,7 +214,7 @@ describe("gameOverReason (slutskärmens förklaring)", () => {
     const next = reducer(crisisState({ debt: 7_000_000 }), { type: "ACCEPT_BANKRUPTCY" });
     expect(next.gameOverReason).toBeDefined();
     expect(next.gameOverReason!.title).toContain("by choice");
-    expect(next.gameOverReason!.text).toContain("7.0 MSEK");
+    expect(next.gameOverReason!.text).toContain("$7.0M");
   });
 
   it("RECEIVER_AUTO som inte når golvet sätter konkursorsak", () => {

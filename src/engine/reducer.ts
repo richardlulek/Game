@@ -329,7 +329,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!p) return state;
       // Villkor 7b i morfars testamente: huset får inte säljas under kampanjen.
       if (p.storyTag === "arvet" && state.story && !state.story.done)
-        return log(state, "Clause 7b: Grandpa's house may not be sold. Oakley bills 900 kr for the reminder. (included)", "warn");
+        return log(state, "Clause 7b: Grandpa's house may not be sold. Oakley bills $900 for the reminder. (included)", "warn");
       const value = propMarketValue(p, state);
       const salePrice = Math.round(value * QUICK_SALE_FACTOR);
       const payoff = Math.min(state.debt, (p.purchasePrice || salePrice) * 0.6);
@@ -1008,7 +1008,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ),
         log: [
           {
-            t: `📣 Ad campaign started for ${p.typeLabel} in ${p.districtName} (25,000 kr) – applications expected at month-end.`,
+            t: `📣 Ad campaign started for ${p.typeLabel} in ${p.districtName} ($25,000) – applications expected at month-end.`,
             kind: "upg",
           },
           ...state.log,
@@ -1018,14 +1018,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "HIRE_BROKER": {
       const BROKER_FEE = 75_000;
       if (state.cash < BROKER_FEE)
-        return log(state, "The broker fee is 75,000 kr – not enough cash.", "warn");
+        return log(state, "The broker fee is $75,000 – not enough cash.", "warn");
       const extra = genListing(state);
       return {
         ...state,
         cash: state.cash - BROKER_FEE,
         listings: [...state.listings, extra],
         log: [
-          { t: `Hired a broker (75,000 kr). New off-market property: ${extra.typeLabel} in ${extra.districtName}.`, kind: "buy" },
+          { t: `Hired a broker ($75,000). New off-market property: ${extra.typeLabel} in ${extra.districtName}.`, kind: "buy" },
           ...state.log,
         ],
       };
@@ -1033,14 +1033,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "HIRE_BROKER_LOTS": {
       const BROKER_FEE = 75_000;
       if (state.cash < BROKER_FEE)
-        return log(state, "The broker fee is 75,000 kr – not enough cash.", "warn");
+        return log(state, "The broker fee is $75,000 – not enough cash.", "warn");
       const extra = genLot(state);
       return {
         ...state,
         cash: state.cash - BROKER_FEE,
         lots: [...state.lots, extra],
         log: [
-          { t: `Hired a land broker (75,000 kr). A new off-market lot was found in ${extra.districtName}.`, kind: "buy" },
+          { t: `Hired a land broker ($75,000). A new off-market lot was found in ${extra.districtName}.`, kind: "buy" },
           ...state.log,
         ],
       };
@@ -1699,7 +1699,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         portfolio: state.portfolio.map((x) => x.id === action.id ? { ...x, insurance: true } : x),
-        log: [{ t: `🛡️ Insurance taken out for ${p.typeLabel} in ${p.districtName} (2,000 kr/mo).`, kind: "info" }, ...state.log],
+        log: [{ t: `🛡️ Insurance taken out for ${p.typeLabel} in ${p.districtName} ($2,000/mo).`, kind: "info" }, ...state.log],
       };
     }
     case "CANCEL_INSURANCE": {
@@ -1724,7 +1724,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (room < 1_000_000)
         return log(state, `📜 The bond program is full (${msek(outstanding)} of ${msek(info.bondCap)} at rating ${info.rating}). Redeem or improve the rating.`, "warn");
       const amount = Math.min(action.amount, room);
-      if (amount < 1_000_000) return log(state, "The minimum bond is 1 MSEK.", "warn");
+      if (amount < 1_000_000) return log(state, "The minimum bond is $1M.", "warn");
       const rate = bondRateFor(state, info.rating);
       const matureAbs = state.year * 12 + state.month + action.years * 12;
       const newBond = { id: String(Date.now()), amount, rate, matureAbs };
@@ -1918,7 +1918,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "PAY_DIVIDEND": {
       const amt = Math.min(action.amount, state.cash);
-      if (amt <= 100000) return log(state, "The minimum dividend is 100,000 kr.", "warn");
+      if (amt <= 100000) return log(state, "The minimum dividend is $100,000.", "warn");
       // Utdelningen hamnar i ägarens privata förmögenhet (Bolag → Arv)
       // och blidkar kapitalmarknaden om en aktivistfond bygger position.
       const relief = dividendRelief(amt, equityOf(state));
@@ -2272,7 +2272,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ? state.stocks
           : [...state.stocks, playerStock],
         log: [{
-          t: `🎉 IPO completed! ${msek(raised)} raised (20% of portfolio value). 10M shares issued, 3M in public trading @ ${sharePrice.toFixed(2)} kr/share. Reputation +10.`,
+          t: `🎉 IPO completed! ${msek(raised)} raised (20% of portfolio value). 10M shares issued, 3M in public trading @ $${sharePrice.toFixed(2)}/share. Reputation +10.`,
           kind: "income",
         }, ...state.log],
       };
@@ -2293,7 +2293,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           stocks: state.stocks.map((s) =>
             s.id === action.stockId ? { ...s, owned: newOwned, avgCost: newAvg } : s,
           ),
-          log: [{ t: `📈 Market order: bought ${action.qty} shares in ${st.name} @ ${st.price.toFixed(2)} kr. Total ${kr(cost)}.`, kind: "income" }, ...state.log],
+          log: [{ t: `📈 Market order: bought ${action.qty} shares in ${st.name} @ $${st.price.toFixed(2)}. Total ${kr(cost)}.`, kind: "income" }, ...state.log],
         };
       } else {
         if (st.owned < action.qty) return log(state, "Not enough shares to sell.", "warn");
@@ -2304,7 +2304,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
           stocks: state.stocks.map((s) =>
             s.id === action.stockId ? { ...s, owned: s.owned - action.qty } : s,
           ),
-          log: [{ t: `📉 Market order: sold ${action.qty} shares in ${st.name} @ ${st.price.toFixed(2)} kr. Received ${kr(proceeds)}.`, kind: "expense" }, ...state.log],
+          log: [{ t: `📉 Market order: sold ${action.qty} shares in ${st.name} @ $${st.price.toFixed(2)}. Received ${kr(proceeds)}.`, kind: "expense" }, ...state.log],
         };
       }
     }
