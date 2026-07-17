@@ -10,7 +10,7 @@ import { MeshStandardMaterial } from "three";
 import { PARCELS } from "../engine/city";
 import { cityProfileById } from "../engine/cityProjects";
 import { useGameStore } from "../store/gameStore";
-import { windowTexture } from "./textures";
+import { windowEmissiveTexture, windowTexture } from "./textures";
 
 const CRANE = "#d98e2b";
 const CONCRETE = "#b9b4a8";
@@ -37,6 +37,9 @@ function useFacade(color: string, cols: number, floors: number) {
   return useMemo(() => {
     const m = new MeshStandardMaterial({ color, roughness: 0.6 });
     m.map = windowTexture(Math.max(2, cols), Math.max(2, floors));
+    m.emissiveMap = windowEmissiveTexture(Math.max(2, cols), Math.max(2, floors));
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.5;
     return m;
   }, [color, cols, floors]);
 }

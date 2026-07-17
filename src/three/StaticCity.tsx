@@ -38,7 +38,14 @@ import {
 } from "./colors";
 import { ambientColorFor, districtFloors } from "./districtBuildings";
 import { ambientProfile } from "../engine/landDeals";
-import { facadeTexture, glassTexture, type FacadeKind, type FacadeVariant } from "./textures";
+import {
+  facadeEmissiveTexture,
+  facadeTexture,
+  glassEmissiveTexture,
+  glassTexture,
+  type FacadeKind,
+  type FacadeVariant,
+} from "./textures";
 
 interface CityProps {
   /** Tomter med spelinnehåll (ägt/till salu/tomt/rival) – ritas i ParcelNode. */
@@ -332,11 +339,19 @@ function AmbientBuildings({ occupied, lockedBlocks, grown, onAmbientClick }: Cit
     for (const kind of AMBIENT_BUCKETS) {
       for (const variant of ["normal", "sliten"] as const) {
         if (kind === "glas" && variant === "sliten") continue;
+        // Emissivkaklet får även dekorstadens tända fönster att glöda;
+        // vertexfärgerna tintar bara diffusen, inte glöden.
         facade.set(
           `${kind}:${variant}`,
           kind === "glas"
-            ? new MeshStandardMaterial({ vertexColors: true, map: glassTexture(4, 4), roughness: 0.35, metalness: 0.25 })
-            : new MeshStandardMaterial({ vertexColors: true, map: facadeTexture(kind, variant), roughness: 0.82, metalness: 0.02 }),
+            ? new MeshStandardMaterial({
+                vertexColors: true, map: glassTexture(4, 4), roughness: 0.3, metalness: 0.32,
+                emissiveMap: glassEmissiveTexture(4, 4), emissive: "#ffffff", emissiveIntensity: 0.5,
+              })
+            : new MeshStandardMaterial({
+                vertexColors: true, map: facadeTexture(kind, variant), roughness: 0.82, metalness: 0.02,
+                emissiveMap: facadeEmissiveTexture(kind, variant), emissive: "#ffffff", emissiveIntensity: 0.5,
+              }),
         );
       }
     }

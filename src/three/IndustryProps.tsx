@@ -17,7 +17,7 @@ import type { IndustryAsset } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
 import { iconTexture } from "./textures";
-import { windowTexture } from "./textures";
+import { windowEmissiveTexture, windowTexture } from "./textures";
 
 const CREAM = "#e8e0cd";
 const PANEL = "#2e4a6b";
@@ -28,6 +28,9 @@ function useFacade(color: string, cols: number, floors: number) {
   return useMemo(() => {
     const m = new MeshStandardMaterial({ color, roughness: 0.7 });
     m.map = windowTexture(Math.max(2, cols), Math.max(2, floors));
+    m.emissiveMap = windowEmissiveTexture(Math.max(2, cols), Math.max(2, floors));
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.5;
     return m;
   }, [color, cols, floors]);
 }

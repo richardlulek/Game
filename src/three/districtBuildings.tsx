@@ -26,7 +26,15 @@ import {
   PALETTE_FUNKIS,
   PALETTE_TEGEL,
 } from "./colors";
-import { facadeTexture, glassTexture, storefrontTexture, type FacadeVariant } from "./textures";
+import {
+  facadeEmissiveTexture,
+  facadeTexture,
+  glassEmissiveTexture,
+  glassTexture,
+  storefrontEmissiveTexture,
+  storefrontTexture,
+  type FacadeVariant,
+} from "./textures";
 
 /** Antal våningar per distrikt – deterministiskt ur hash + läge. */
 export function districtFloors(parcel: Parcel, hash: number, area?: number): number {
@@ -62,6 +70,15 @@ export function districtFloors(parcel: Parcel, hash: number, area?: number): num
  * i fasadboxens UV:er – se facadeBoxGeometry). Kaklet väljs efter
  * fastighetstyp och tillståndsvariant; texturerna är cachade och delas.
  */
+/** Ytkaraktär per fastighetstyp: puts är matt, betong halvmatt,
+ *  industriplåt blank och lätt metallisk. Glaset sätts separat. */
+const FACADE_ROUGHNESS: Partial<Record<PropTypeKey, number>> = {
+  bostad: 0.85, kontor: 0.74, butik: 0.7, industri: 0.55,
+};
+const FACADE_METALNESS: Partial<Record<PropTypeKey, number>> = {
+  bostad: 0.02, kontor: 0.04, butik: 0.04, industri: 0.3,
+};
+
 function useFacade(
   color: string,
   windows: boolean,
@@ -73,16 +90,34 @@ function useFacade(
   const mat = useMemo(() => {
     const m = new MeshStandardMaterial({
       color,
-      roughness: glass ? 0.35 : 0.82,
-      metalness: glass ? 0.25 : 0.02,
+      roughness: glass ? 0.3 : (FACADE_ROUGHNESS[kind] ?? 0.82),
+      metalness: glass ? 0.32 : (FACADE_METALNESS[kind] ?? 0.02),
     });
-    if (windows) m.map = glass ? glassTexture(4, 4) : facadeTexture(kind, variant); // repeat 1×1 – UV:erna styr
+    if (windows) {
+      m.map = glass ? glassTexture(4, 4) : facadeTexture(kind, variant); // repeat 1×1 – UV:erna styr
+      // Tända fönster glöder på riktigt: emissivkaklet är svart utom
+      // de tända rutorna, så glöden tintas inte ner av fasadfärgen.
+      m.emissiveMap = glass ? glassEmissiveTexture(4, 4) : facadeEmissiveTexture(kind, variant);
+      m.emissive.set("#ffffff");
+      m.emissiveIntensity = 0.55;
+    }
     return m;
   }, [color, windows, glass, kind, variant]);
   useEffect(() => {
-    mat.emissive.set(selected ? "#ffffff" : "#000000");
-    mat.emissiveIntensity = selected ? (glass ? 0.22 : 0.18) : 0;
-  }, [selected, glass, mat]);
+    // Vald byggnad markeras med helfasadsglöd – emissivkaklet kopplas ur
+    // så hela ytan lyser, inte bara de tända fönstren. Att byta emissiveMap
+    // ändrar shaderns defines, därav needsUpdate.
+    if (selected) {
+      mat.emissiveMap = null;
+      mat.emissive.set("#ffffff");
+      mat.emissiveIntensity = glass ? 0.22 : 0.18;
+    } else {
+      mat.emissiveMap = mat.map ? (glass ? glassEmissiveTexture(4, 4) : facadeEmissiveTexture(kind, variant)) : null;
+      mat.emissive.set("#ffffff");
+      mat.emissiveIntensity = mat.map ? 0.55 : 0;
+    }
+    mat.needsUpdate = true;
+  }, [selected, glass, kind, variant, mat]);
   useEffect(
     () => () => {
       // Texturen är cachad och delad – disposa bara materialet.
@@ -331,7 +366,7 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
       <mesh position={[offX + sx * (mainW / 2 + 0.06), 1.7, offZ + sz * (mainD / 2 + 0.06)]}>
         <boxGeometry args={[sx !== 0 ? 0.3 : mainW * 0.98, 3.4, sz !== 0 ? 0.3 : mainD * 0.98]} />
         {type === "butik" ? (
-          <meshStandardMaterial map={storefrontTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissive="#c8b070" emissiveIntensity={0.14} roughness={0.5} />
+          <meshStandardMaterial map={storefrontTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissiveMap={storefrontEmissiveTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissive="#ffffff" emissiveIntensity={0.55} roughness={0.5} />
         ) : (
           <meshStandardMaterial color={new Color(color).multiplyScalar(0.62).getStyle()} />
         )}
@@ -497,7 +532,7 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
       {/* Butiksband i bottenplan mot gatan – skyltfönsterglas med entréer */}
       <mesh position={[sx * (w / 2 + 0.05), 1.5, sz * (d / 2 + 0.05)]}>
         <boxGeometry args={[sx !== 0 ? 0.28 : w * 0.94, 3, sz !== 0 ? 0.28 : d * 0.94]} />
-        <meshStandardMaterial map={storefrontTexture((sx !== 0 ? d : w) * 0.94)} emissive="#c8b070" emissiveIntensity={0.16} roughness={0.5} />
+        <meshStandardMaterial map={storefrontTexture((sx !== 0 ? d : w) * 0.94)} emissiveMap={storefrontEmissiveTexture((sx !== 0 ? d : w) * 0.94)} emissive="#ffffff" emissiveIntensity={0.55} roughness={0.5} />
       </mesh>
       {(type === "butik" || seed % 3 === 0) && (
         <mesh castShadow position={[sx * (w / 2 + 0.75), 3.05, sz * (d / 2 + 0.75)]}>

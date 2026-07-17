@@ -6,8 +6,30 @@
 
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three";
 
-let sharedWindowCanvas: HTMLCanvasElement | null = null;
-let sharedGlassCanvas: HTMLCanvasElement | null = null;
+/** Kakelpar: färgkakel + emissivt tvillingkakel (svart utom tända fönster).
+ *  Emissivkaklet används som emissiveMap så tänt verkligen GLÖDER i stället
+ *  för att bara vara en ljus färg som tintas ner av materialet. */
+interface TilePair { color: HTMLCanvasElement; emissive: HTMLCanvasElement }
+
+/** Skapar ett 2×-skalat canvas-par i 256-rummet (512 px verkligt). */
+function makeTilePair(width = 256, height = 256): { pair: TilePair; g: CanvasRenderingContext2D; e: CanvasRenderingContext2D } {
+  const color = document.createElement("canvas");
+  color.width = width * 2;
+  color.height = height * 2;
+  const g = color.getContext("2d")!;
+  g.scale(2, 2);
+  const emissive = document.createElement("canvas");
+  emissive.width = width * 2;
+  emissive.height = height * 2;
+  const e = emissive.getContext("2d")!;
+  e.scale(2, 2);
+  e.fillStyle = "#000000";
+  e.fillRect(0, 0, width, height);
+  return { pair: { color, emissive }, g, e };
+}
+
+let sharedWindowPair: TilePair | null = null;
+let sharedGlassPair: TilePair | null = null;
 let sharedGroundCanvas: HTMLCanvasElement | null = null;
 
 /** Texturer cachas per repeat-nyckel: hus med samma mått delar GPU-textur.
@@ -31,12 +53,8 @@ function mulberry32(seed: number) {
  * glasnyans och ett fåtal lyser varmt – fasaderna ser bebodda ut.
  * Vit bakgrund tintas av materialfärgen.
  */
-function drawWindowTile(): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 512;
-  const g = c.getContext("2d")!;
-  g.scale(2, 2); // ritlogiken ligger kvar i 256-rummet – dubbel upplösning
+function drawWindowTile(): TilePair {
+  const { pair, g, e } = makeTilePair();
   const rand = mulberry32(1337);
   g.fillStyle = "#ffffff";
   g.fillRect(0, 0, 256, 256);
@@ -56,6 +74,8 @@ function drawWindowTile(): HTMLCanvasElement {
         warm.addColorStop(1, "#e8b45f");
         g.fillStyle = warm;
         g.fillRect(x + 17, y + 19, 30, 28);
+        e.fillStyle = "#ffd9a0";
+        e.fillRect(x + 17, y + 19, 30, 28);
       } else {
         // Släckt glas – blågrå gradient med individuell nyans
         const shade = 1.0 + rand() * 0.35;
@@ -79,12 +99,14 @@ function drawWindowTile(): HTMLCanvasElement {
       // Fönsterpost
       g.fillStyle = "#454d55";
       g.fillRect(x + 30, y + 19, 3, 28);
+      e.fillStyle = "#000000"; // posten mörk även i glödkaklet
+      e.fillRect(x + 30, y + 19, 3, 28);
       // Bjälklagsskugga nederst på våningen
       g.fillStyle = "rgba(0,0,0,0.10)";
       g.fillRect(x, y + 58, CELL, 6);
     }
   }
-  return c;
+  return pair;
 }
 
 /**
@@ -96,8 +118,23 @@ export function windowTexture(repeatX: number, repeatY: number): CanvasTexture {
   const key = `win:${repeatX}x${repeatY}`;
   const hit = textureCache.get(key);
   if (hit) return hit;
-  if (!sharedWindowCanvas) sharedWindowCanvas = drawWindowTile();
-  const tex = new CanvasTexture(sharedWindowCanvas);
+  if (!sharedWindowPair) sharedWindowPair = drawWindowTile();
+  const tex = new CanvasTexture(sharedWindowPair.color);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(repeatX / 4, repeatY / 4);
+  tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
+  return tex;
+}
+
+/** Emissiv tvilling till windowTexture – svart utom de tända fönstren. */
+export function windowEmissiveTexture(repeatX: number, repeatY: number): CanvasTexture {
+  const key = `wine:${repeatX}x${repeatY}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  if (!sharedWindowPair) sharedWindowPair = drawWindowTile();
+  const tex = new CanvasTexture(sharedWindowPair.emissive);
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(repeatX / 4, repeatY / 4);
@@ -125,7 +162,7 @@ export function windowTileTexture(): CanvasTexture {
 export type FacadeKind = "bostad" | "kontor" | "butik" | "industri";
 export type FacadeVariant = "normal" | "tänt" | "släckt" | "sliten";
 
-const facadeCanvasCache = new Map<string, HTMLCanvasElement>();
+const facadeCanvasCache = new Map<string, TilePair>();
 
 /** Andel tända fönster per variant (multipliceras per typ). */
 const LIT_SHARE: Record<FacadeVariant, number> = {
@@ -159,12 +196,8 @@ function slabShadow(g: CanvasRenderingContext2D, x: number, y: number) {
   g.fillRect(x, y + 51, 64, 13);
 }
 
-function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 512;
-  const g = c.getContext("2d")!;
-  g.scale(2, 2); // ritlogiken ligger kvar i 256-rummet – dubbel upplösning
+function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): TilePair {
+  const { pair, g, e } = makeTilePair();
   const rand = mulberry32(kind.length * 1000 + variant.length * 77 + 42);
   const CELL = 64;
   g.fillStyle = "#ffffff";
@@ -195,15 +228,20 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
           warm.addColorStop(1, "#e8b45f");
           g.fillStyle = warm;
           g.fillRect(wx, wy, ww, wh);
+          e.fillStyle = "#ffd9a0";
+          e.fillRect(wx, wy, ww, wh);
         } else {
           g.fillStyle = `rgb(${120 + rand() * 40 | 0},${130 + rand() * 40 | 0},${140 + rand() * 40 | 0})`;
           g.fillRect(wx, wy, ww, wh);
         }
-        // Gardiner i sidorna
+        // Gardiner i sidorna – dämpar även glöden
         if (!door && rand() < 0.65) {
           g.fillStyle = CURTAIN_COLORS[(rand() * CURTAIN_COLORS.length) | 0];
           g.fillRect(wx, wy, 6, wh);
           g.fillRect(wx + ww - 6, wy, 6, wh);
+          e.fillStyle = "rgba(0,0,0,0.6)";
+          e.fillRect(wx, wy, 6, wh);
+          e.fillRect(wx + ww - 6, wy, 6, wh);
         }
         windowRecess(g, wx, wy, ww, wh);
         // Fönsterbleck – ljus kant under öppningen
@@ -242,10 +280,15 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
         if (lit(0.12)) {
           g.fillStyle = "#e8f0f8";
           g.fillRect(wx, wy, 48, 28);
+          e.fillStyle = "#cfe0ec"; // kontor lyser kallvitt
+          e.fillRect(wx, wy, 48, 28);
           // Takarmaturer – två ljusa band i taket på tända kontor
           g.fillStyle = "rgba(255,255,255,0.85)";
           g.fillRect(wx + 4, wy + 3, 17, 2.5);
           g.fillRect(wx + 27, wy + 3, 17, 2.5);
+          e.fillStyle = "#ffffff";
+          e.fillRect(wx + 4, wy + 3, 17, 2.5);
+          e.fillRect(wx + 27, wy + 3, 17, 2.5);
           g.fillStyle = "rgba(150,160,170,0.5)";
           g.fillRect(wx + 22, wy, 3, 28); // interiörpost
         } else {
@@ -256,11 +299,13 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
           g.fillStyle = glass;
           g.fillRect(wx, wy, 48, 28);
         }
-        // Persienner halvt nerdragna i hälften av cellerna
+        // Persienner halvt nerdragna i hälften av cellerna – skymmer glöden
         if (rand() < 0.5) {
           const drop = 8 + rand() * 14;
           g.fillStyle = "rgba(226,222,208,0.92)";
           g.fillRect(wx, wy, 48, drop);
+          e.fillStyle = "rgba(0,0,0,0.85)";
+          e.fillRect(wx, wy, 48, drop);
           g.strokeStyle = "rgba(120,116,104,0.5)";
           g.lineWidth = 1;
           for (let l = 3; l < drop; l += 3.5) {
@@ -288,8 +333,12 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
           glow.addColorStop(1, "#d8b878");
           g.fillStyle = glow;
           g.fillRect(wx + 12, wy, 28, 38);
+          e.fillStyle = "#e8cd94";
+          e.fillRect(wx + 12, wy, 28, 38);
           g.fillStyle = "#2e3338";
           g.fillRect(wx + 25, wy, 2, 38); // dörrpost
+          e.fillStyle = "#000000";
+          e.fillRect(wx + 25, wy, 2, 38);
           g.fillStyle = "rgba(40,40,36,0.9)";
           g.fillRect(wx + 21, wy + 18, 2, 8); // handtag
           g.fillRect(wx + 29, wy + 18, 2, 8);
@@ -303,11 +352,20 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
           glow.addColorStop(1, "#e8c47f");
           g.fillStyle = glow;
           g.fillRect(wx, wy, 52, 38);
-          // Silhuetter av varor i fönstret
-          g.fillStyle = "rgba(90,70,50,0.55)";
-          g.fillRect(wx + 6 + rand() * 8, wy + 20, 8, 18);
-          g.fillRect(wx + 28 + rand() * 8, wy + 24, 10, 14);
-          g.fillRect(wx + 18 + rand() * 6, wy + 26, 6, 12);
+          e.fillStyle = "#f4d698";
+          e.fillRect(wx, wy, 52, 38);
+          // Silhuetter av varor i fönstret – mörka även i glöden
+          const goods: [number, number, number, number][] = [
+            [wx + 6 + rand() * 8, wy + 20, 8, 18],
+            [wx + 28 + rand() * 8, wy + 24, 10, 14],
+            [wx + 18 + rand() * 6, wy + 26, 6, 12],
+          ];
+          for (const [gx, gy, gw, gh] of goods) {
+            g.fillStyle = "rgba(90,70,50,0.55)";
+            g.fillRect(gx, gy, gw, gh);
+            e.fillStyle = "rgba(0,0,0,0.55)";
+            e.fillRect(gx, gy, gw, gh);
+          }
         } else {
           g.fillStyle = `rgb(${110 + rand() * 30 | 0},${118 + rand() * 30 | 0},${126 + rand() * 30 | 0})`;
           g.fillRect(wx, wy, 52, 38);
@@ -334,6 +392,8 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
         if (lit(0.14)) {
           g.fillStyle = "#f4e8be";
           g.fillRect(x + 8, y + 10, 48, 10);
+          e.fillStyle = "#e0d29c";
+          e.fillRect(x + 8, y + 10, 48, 10);
         } else {
           g.fillStyle = `rgb(${128 + rand() * 26 | 0},${136 + rand() * 26 | 0},${142 + rand() * 26 | 0})`;
           g.fillRect(x + 8, y + 10, 48, 10);
@@ -374,7 +434,23 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): HTMLCanvasEle
       g.fillRect(sx, sy, 3 + rand() * 3, 10 + rand() * 16);
     }
   }
-  return c;
+
+  // Garanterat svart emissiv texel där fasadboxens topp/botten-UV pekar
+  // (solid-punkten [0.123, 0.87] i facadeBoxGeometry) – annars kan tak
+  // börja glöda om cell (0,0) råkar vara tänd.
+  e.fillStyle = "#000000";
+  e.fillRect(28, 29, 8, 8);
+  return pair;
+}
+
+function facadePair(kind: FacadeKind, variant: FacadeVariant): TilePair {
+  const ck = `${kind}:${variant}`;
+  let p = facadeCanvasCache.get(ck);
+  if (!p) {
+    p = drawFacadeTile(kind, variant);
+    facadeCanvasCache.set(ck, p);
+  }
+  return p;
 }
 
 /** Fasadkakel per typ+variant, repeat (1,1) – UV:erna styr upprepningen. */
@@ -382,13 +458,21 @@ export function facadeTexture(kind: FacadeKind, variant: FacadeVariant = "normal
   const key = `fac:${kind}:${variant}`;
   const hit = textureCache.get(key);
   if (hit) return hit;
-  const ck = `${kind}:${variant}`;
-  let canvas = facadeCanvasCache.get(ck);
-  if (!canvas) {
-    canvas = drawFacadeTile(kind, variant);
-    facadeCanvasCache.set(ck, canvas);
-  }
-  const tex = new CanvasTexture(canvas);
+  const tex = new CanvasTexture(facadePair(kind, variant).color);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(1, 1);
+  tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
+  return tex;
+}
+
+/** Emissiv tvilling till facadeTexture – svart utom tända fönster/skyltar. */
+export function facadeEmissiveTexture(kind: FacadeKind, variant: FacadeVariant = "normal"): CanvasTexture {
+  const key = `face:${kind}:${variant}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  const tex = new CanvasTexture(facadePair(kind, variant).emissive);
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(1, 1);
@@ -401,12 +485,8 @@ export function facadeTexture(kind: FacadeKind, variant: FacadeVariant = "normal
  * Glasfasad (curtain wall) för skyskrapor: heltäckande glaspaneler med
  * smala poster, spegling i band och enstaka tända rutor. 4×4 paneler.
  */
-function drawGlassTile(): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 512;
-  const g = c.getContext("2d")!;
-  g.scale(2, 2); // ritlogiken ligger kvar i 256-rummet – dubbel upplösning
+function drawGlassTile(): TilePair {
+  const { pair, g, e } = makeTilePair();
   const rand = mulberry32(90210);
   const CELL = 64;
   for (let row = 0; row < 4; row++) {
@@ -417,10 +497,16 @@ function drawGlassTile(): HTMLCanvasElement {
       if (lit) {
         g.fillStyle = "#ffe2a8";
         g.fillRect(x, y, CELL, CELL);
+        e.fillStyle = "#f0d090";
+        e.fillRect(x, y, CELL, CELL);
         // Interiörsilhuett: bjälklag + pelare skymtar i tända paneler
+        const px = x + 18 + rand() * 24;
         g.fillStyle = "rgba(120,90,40,0.25)";
         g.fillRect(x, y + CELL - 8, CELL, 8);
-        g.fillRect(x + 18 + rand() * 24, y + 12, 5, CELL - 12);
+        g.fillRect(px, y + 12, 5, CELL - 12);
+        e.fillStyle = "rgba(0,0,0,0.35)";
+        e.fillRect(x, y + CELL - 8, CELL, 8);
+        e.fillRect(px, y + 12, 5, CELL - 12);
       } else {
         // Glas med vertikal gradient + horisontellt himmelsband
         const shade = 0.88 + rand() * 0.28;
@@ -441,13 +527,19 @@ function drawGlassTile(): HTMLCanvasElement {
       recess.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = recess;
       g.fillRect(x, y, CELL, 5);
-      // Poster (mörka linjer mellan paneler)
+      // Poster (mörka linjer mellan paneler) – ramar in även glöden
       g.strokeStyle = "rgba(30,40,50,0.8)";
       g.lineWidth = 3;
       g.strokeRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
+      e.strokeStyle = "#000000";
+      e.lineWidth = 3;
+      e.strokeRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
     }
   }
-  return c;
+  // Svart texel vid tornens takdäcks-UV ([0.5, 0.965]) – se facadeTile.
+  e.fillStyle = "#000000";
+  e.fillRect(124, 5, 8, 8);
+  return pair;
 }
 
 /** Curtain wall-textur; repeat i paneler (bredd) × våningar (höjd), /4 internt. */
@@ -455,8 +547,23 @@ export function glassTexture(repeatX: number, repeatY: number): CanvasTexture {
   const key = `glass:${repeatX}x${repeatY}`;
   const hit = textureCache.get(key);
   if (hit) return hit;
-  if (!sharedGlassCanvas) sharedGlassCanvas = drawGlassTile();
-  const tex = new CanvasTexture(sharedGlassCanvas);
+  if (!sharedGlassPair) sharedGlassPair = drawGlassTile();
+  const tex = new CanvasTexture(sharedGlassPair.color);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(repeatX / 4, repeatY / 4);
+  tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
+  return tex;
+}
+
+/** Emissiv tvilling till glassTexture – tända paneler i tornen glöder. */
+export function glassEmissiveTexture(repeatX: number, repeatY: number): CanvasTexture {
+  const key = `glasse:${repeatX}x${repeatY}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  if (!sharedGlassPair) sharedGlassPair = drawGlassTile();
+  const tex = new CanvasTexture(sharedGlassPair.emissive);
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(repeatX / 4, repeatY / 4);
@@ -471,14 +578,10 @@ export function glassTexture(repeatX: number, repeatY: number): CanvasTexture {
    och en och annan glasdörr – i stället för en platt mörk låda.
    ============================================================ */
 
-let sharedStorefrontCanvas: HTMLCanvasElement | null = null;
+let sharedStorefrontPair: TilePair | null = null;
 
-function drawStorefrontTile(): HTMLCanvasElement {
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 128;
-  const g = c.getContext("2d")!;
-  g.scale(2, 2); // 256×64-rummet – 4 sektioner à 64 px
+function drawStorefrontTile(): TilePair {
+  const { pair, g, e } = makeTilePair(256, 64); // 4 sektioner à 64 px
   const rand = mulberry32(2468);
   const CELL = 64;
   for (let s = 0; s < 4; s++) {
@@ -498,8 +601,12 @@ function drawStorefrontTile(): HTMLCanvasElement {
       glow.addColorStop(1, "#d8b878");
       g.fillStyle = glow;
       g.fillRect(x + 21, 8, 22, 50);
+      e.fillStyle = "#e0c68e";
+      e.fillRect(x + 21, 8, 22, 50);
       g.fillStyle = "#2e3338";
       g.fillRect(x + 31, 8, 2, 50); // dörrpost
+      e.fillStyle = "#000000";
+      e.fillRect(x + 31, 8, 2, 50);
       g.fillStyle = "rgba(40,40,36,0.9)";
       g.fillRect(x + 27, 30, 2, 10); // handtag
       g.fillRect(x + 35, 30, 2, 10);
@@ -512,10 +619,19 @@ function drawStorefrontTile(): HTMLCanvasElement {
         glow.addColorStop(1, "#e0bc72");
         g.fillStyle = glow;
         g.fillRect(wx, 8, 54, 50);
-        g.fillStyle = "rgba(90,70,50,0.55)";
-        g.fillRect(wx + 6 + rand() * 6, 30, 9, 24);
-        g.fillRect(wx + 24 + rand() * 6, 36, 11, 18);
-        g.fillRect(wx + 40 + rand() * 4, 32, 7, 22);
+        e.fillStyle = "#f0d494";
+        e.fillRect(wx, 8, 54, 50);
+        const goods: [number, number, number, number][] = [
+          [wx + 6 + rand() * 6, 30, 9, 24],
+          [wx + 24 + rand() * 6, 36, 11, 18],
+          [wx + 40 + rand() * 4, 32, 7, 22],
+        ];
+        for (const [gx, gy, gw, gh] of goods) {
+          g.fillStyle = "rgba(90,70,50,0.55)";
+          g.fillRect(gx, gy, gw, gh);
+          e.fillStyle = "rgba(0,0,0,0.55)";
+          e.fillRect(gx, gy, gw, gh);
+        }
       } else {
         g.fillStyle = `rgb(${112 + rand() * 26 | 0},${120 + rand() * 26 | 0},${128 + rand() * 26 | 0})`;
         g.fillRect(wx, 8, 54, 50);
@@ -525,6 +641,8 @@ function drawStorefrontTile(): HTMLCanvasElement {
       // Mittpost i breda partier
       g.fillStyle = "#2e3338";
       g.fillRect(x + 31, 8, 2, 50);
+      e.fillStyle = "#000000";
+      e.fillRect(x + 31, 8, 2, 50);
     }
     // Fejkad AO under taklisten + sockelplåt nederst
     const recess = g.createLinearGradient(0, 8, 0, 15);
@@ -534,8 +652,10 @@ function drawStorefrontTile(): HTMLCanvasElement {
     g.fillRect(wx, 8, 54, 7);
     g.fillStyle = "rgba(10,12,14,0.85)";
     g.fillRect(x, 58, CELL, 6);
+    e.fillStyle = "rgba(0,0,0,0.85)";
+    e.fillRect(x, 58, CELL, 6);
   }
-  return c;
+  return pair;
 }
 
 /**
@@ -548,8 +668,24 @@ export function storefrontTexture(width: number): CanvasTexture {
   const key = `store:${sections}`;
   const hit = textureCache.get(key);
   if (hit) return hit;
-  if (!sharedStorefrontCanvas) sharedStorefrontCanvas = drawStorefrontTile();
-  const tex = new CanvasTexture(sharedStorefrontCanvas);
+  if (!sharedStorefrontPair) sharedStorefrontPair = drawStorefrontTile();
+  const tex = new CanvasTexture(sharedStorefrontPair.color);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(sections / 4, 1);
+  tex.colorSpace = SRGBColorSpace;
+  textureCache.set(key, tex);
+  return tex;
+}
+
+/** Emissiv tvilling till storefrontTexture – skyltfönstren glöder varmt. */
+export function storefrontEmissiveTexture(width: number): CanvasTexture {
+  const sections = Math.max(2, Math.round(width / 4));
+  const key = `storee:${sections}`;
+  const hit = textureCache.get(key);
+  if (hit) return hit;
+  if (!sharedStorefrontPair) sharedStorefrontPair = drawStorefrontTile();
+  const tex = new CanvasTexture(sharedStorefrontPair.emissive);
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
   tex.repeat.set(sections / 4, 1);

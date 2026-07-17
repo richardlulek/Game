@@ -7,7 +7,7 @@ import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { MeshStandardMaterial, type Group } from "three";
 import { useGameStore } from "../store/gameStore";
-import { windowTexture } from "./textures";
+import { windowEmissiveTexture, windowTexture } from "./textures";
 
 const POS: [number, number, number] = [-225, 0, 215];
 const CREAM = "#e8e0cd";
@@ -47,6 +47,9 @@ function Tower({
   const mats = useMemo(() => {
     const side = new MeshStandardMaterial({ color: CREAM, roughness: 0.8 });
     side.map = windowTexture(Math.max(2, Math.round(w / 4)), floors);
+    side.emissiveMap = windowEmissiveTexture(Math.max(2, Math.round(w / 4)), floors);
+    side.emissive.set("#ffffff");
+    side.emissiveIntensity = 0.5;
     const top = new MeshStandardMaterial({ color: "#b3aa93", roughness: 0.95 });
     return [side, side, top, top, side, side];
   }, [w, floors]);
