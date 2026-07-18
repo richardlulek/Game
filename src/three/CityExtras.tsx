@@ -101,14 +101,14 @@ const CONCRETE = "#b9b4a8";
 const CONTAINER_COLORS = ["#b6413a", "#3c6ca8", "#c9a13b", "#4d8b52", "#7a5c8f", "#3f3f3f"];
 
 /** Hamnkran vid kajen – större än byggkranarna, långsamt svängande arm. */
-function HarborCrane({ x, z, phase }: { x: number; z: number; phase: number }) {
+function HarborCrane({ x, z, y = 0, phase }: { x: number; z: number; y?: number; phase: number }) {
   const jib = useRef<Group>(null);
   useFrame((state) => {
     if (jib.current)
       jib.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.15 + phase) * 0.9;
   });
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, y, z]}>
       <mesh castShadow position={[0, 9, 0]}>
         <boxGeometry args={[2.2, 18, 2.2]} />
         <meshStandardMaterial color="#c05a2e" />
@@ -131,21 +131,28 @@ function HarborCrane({ x, z, phase }: { x: number; z: number; phase: number }) {
   );
 }
 
-/** Stapel med fraktcontainrar. */
-function Containers({ x, z, seed }: { x: number; z: number; seed: number }) {
+/** Stapel med fraktcontainrar. `y` = kajdäckets överkant så att lådorna
+ *  står PÅ däcket; varje övre låda står rakt ovanför en cell i lagret
+ *  under (inga svävande eller nedsjunkna containrar). */
+function Containers({ x, z, y = 0, seed }: { x: number; z: number; y?: number; seed: number }) {
   const boxes = useMemo(() => {
     const out: { x: number; y: number; z: number; c: string }[] = [];
-    for (let i = 0; i < 7; i++) {
-      const col = (seed * 7 + i * 13) % CONTAINER_COLORS.length;
-      out.push({
-        x: (i % 3) * 5.4 - 5.4,
-        y: 1.1 + Math.floor(i / 3) * 2.2,
-        z: ((i * 7) % 2) * 2.6 - 1.3,
-        c: CONTAINER_COLORS[col],
-      });
-    }
+    const color = (n: number) => CONTAINER_COLORS[n % CONTAINER_COLORS.length];
+    // Bottenlager: 2×2 celler med luftspalt mellan lådorna
+    const cells: Array<[number, number]> = [[-2.7, -1.3], [2.7, -1.3], [-2.7, 1.3], [2.7, 1.3]];
+    cells.forEach(([cx, cz], i) => {
+      out.push({ x: cx, y: y + 1.1, z: cz, c: color(seed * 7 + i * 13) });
+    });
+    // Lager 2: två lådor på var sin bottencell (seed och seed+2 ger alltid olika celler)
+    const t1 = [seed % 4, (seed + 2) % 4];
+    t1.forEach((ci, i) => {
+      out.push({ x: cells[ci][0], y: y + 3.3, z: cells[ci][1], c: color(seed * 5 + i * 11 + 3) });
+    });
+    // Lager 3: en låda ovanpå en av lager 2-lådorna
+    const top = cells[t1[seed % 2]];
+    out.push({ x: top[0], y: y + 5.5, z: top[1], c: color(seed * 3 + 7) });
     return out;
-  }, [seed]);
+  }, [seed, y]);
   return (
     <group position={[x, 0, z]}>
       {boxes.map((b, i) => (
@@ -384,10 +391,10 @@ function CargoShip({ x, z, phase }: { x: number; z: number; phase: number }) {
   );
 }
 
-/** Lastbil med släp på kajen. */
-function Truck({ x, z, ry = 0, cab = "#b6413a" }: { x: number; z: number; ry?: number; cab?: string }) {
+/** Lastbil med släp på kajen. `y` = kajdäckets överkant. */
+function Truck({ x, z, y = 0, ry = 0, cab = "#b6413a" }: { x: number; z: number; y?: number; ry?: number; cab?: string }) {
   return (
-    <group position={[x, 0, z]} rotation-y={ry}>
+    <group position={[x, y, z]} rotation-y={ry}>
       <mesh castShadow position={[0, 1.6, -2]}>
         <boxGeometry args={[3.6, 2.6, 7]} />
         <meshStandardMaterial color="#c9c3b6" />
@@ -520,7 +527,7 @@ export function Harbor() {
       {/* Containergård i rader på kajen – första gruppen flyttad så den
           går fri från gantrykranens ben vid (63, 322) */}
       {([[72, 316], [100, 328], [130, 320], [160, 328]] as const).map(([cx, cz]) => (
-        <Containers key={cx} x={cx} z={cz} seed={cx} />
+        <Containers key={cx} x={cx} z={cz} y={1.2} seed={cx} />
       ))}
       {/* Hamnterminal: den gamla 96 m långa släta grå monoliten är delad i
           två hallar med industrifasad (fönsterband i plåt), lastportar på
@@ -531,13 +538,13 @@ export function Harbor() {
       <Tank x={-100} z={306} r={4} h={9} />
       <Tank x={-112} z={306} r={4} h={9} />
       {/* Lastbilar på kajen */}
-      <Truck x={0} z={318} ry={Math.PI / 2} cab="#b6413a" />
-      <Truck x={200} z={318} ry={-Math.PI / 2} cab="#3c6ca8" />
+      <Truck x={0} z={318} y={1.0} ry={Math.PI / 2} cab="#b6413a" />
+      <Truck x={200} z={318} y={1.0} ry={-Math.PI / 2} cab="#3c6ca8" />
 
       {/* Ursprungliga kranar/containrar/fartyg (östra + västra kajen) */}
-      <HarborCrane x={-90} z={312} phase={2.2} />
-      <HarborCrane x={250} z={312} phase={4.1} />
-      <Containers x={-170} z={312} seed={4} />
+      <HarborCrane x={-90} z={312} y={1.0} phase={2.2} />
+      <HarborCrane x={250} z={312} y={1.0} phase={4.1} />
+      <Containers x={-170} z={312} y={1.0} seed={4} />
       <Boat x={-40} z={356} phase={0.4} color="#38556a" />
       <Boat x={235} z={366} phase={2.8} color="#6a4a38" />
     </>

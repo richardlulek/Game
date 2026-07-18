@@ -5,7 +5,7 @@
 
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import { ExtrudeGeometry, Shape, type Group, type Mesh } from "three";
+import { ExtrudeGeometry, Shape, type Group } from "three";
 import { useGameStore } from "../store/gameStore";
 
 /** Riktigt sadeltak: extruderad triangel (fyllda gavlar) längs takåsen (x). */
@@ -70,16 +70,41 @@ function Wheel({ x, z, side }: { x: number; z: number; side: number }) {
   );
 }
 
-/** Låg, bred grand tourer i italienskt rött som sakta kryssar framför kontoret. */
-function SportsCar() {
+/** Låg, bred grand tourer i italienskt rött som sakta kryssar framför kontoret.
+ *  (Exporterad för modellbiblioteket ?models – kör i världskoordinater.) */
+export function SportsCar() {
   const ref = useRef<Group>(null);
   useFrame(({ clock }) => {
     const g = ref.current;
     if (!g) return;
-    const t = clock.elapsedTime * 0.18;
-    const span = 46;
-    g.position.x = HQ[0] + Math.sin(t) * span;
-    g.rotation.y = Math.cos(t) >= 0 ? Math.PI / 2 : -Math.PI / 2;
+    // Stadionslinga på gatan söder om HK-gården: två raksträckor med
+    // U-svängar i ändarna, nosen följer banans tangent. Banan ligger i den
+    // fria remsan mellan gårdsplanen (z 226), kajvägarna och Hamnens
+    // västligaste tomter (x −184.5) med ≥10 enheters marginal åt alla håll.
+    const CX = HQ[0];
+    const CZ = HQ[1] + 29;
+    const H = 24;   // halva raksträckan
+    const G = 6;    // halva avståndet mellan raksträckorna = svängradie
+    const L = H * 2;
+    const P = 2 * L + 2 * Math.PI * G;
+    const s = (clock.elapsedTime * 5) % P;
+    let x: number, z: number, hx: number, hz: number;
+    if (s < L) {
+      x = CX - H + s; z = CZ - G; hx = 1; hz = 0;
+    } else if (s < L + Math.PI * G) {
+      const a = (s - L) / G;
+      x = CX + H + Math.sin(a) * G; z = CZ - Math.cos(a) * G;
+      hx = Math.cos(a); hz = Math.sin(a);
+    } else if (s < 2 * L + Math.PI * G) {
+      x = CX + H - (s - L - Math.PI * G); z = CZ + G; hx = -1; hz = 0;
+    } else {
+      const a = (s - 2 * L - Math.PI * G) / G;
+      x = CX - H - Math.sin(a) * G; z = CZ + Math.cos(a) * G;
+      hx = -Math.cos(a); hz = -Math.sin(a);
+    }
+    g.position.x = x;
+    g.position.z = z;
+    g.rotation.y = Math.atan2(-hz, hx);
   });
   const RED = "#c81f16";
   const paint = { color: RED, metalness: 0.6, roughness: 0.18 };
@@ -288,13 +313,14 @@ function SummerVilla() {
 
 /* ── Helikopter ───────────────────────────────────────────────────── */
 
-/** Privat helikopter på en helipad bredvid kontoret; rotorerna snurrar. */
-function Helicopter() {
+/** Privat helikopter på en helipad bredvid kontoret; rotorerna snurrar.
+ *  (Exporterad för modellbiblioteket ?models – står i världskoordinater.) */
+export function Helicopter() {
   const rotor = useRef<Group>(null);
-  const tail = useRef<Mesh>(null);
+  const tail = useRef<Group>(null);
   useFrame((_, dt) => {
     if (rotor.current) rotor.current.rotation.y += dt * 4.5;
-    if (tail.current) tail.current.rotation.x += dt * 9;
+    if (tail.current) tail.current.rotation.z += dt * 9;
   });
   const BODY = "#1b2530";
   const TRIM = "#c9a13b";
@@ -347,23 +373,29 @@ function Helicopter() {
       {/* Navigationsljus */}
       <mesh position={[3.2, 2.05, 0]}><sphereGeometry args={[0.12, 8, 8]} /><meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.9} /></mesh>
 
-      {/* Stjärtbom – avsmalnande */}
-      <mesh castShadow position={[-3.4, 2.5, 0]}>
+      {/* Stjärtbom – LIGGANDE avsmalnande cylinder bakåt. Utan rotationen
+          stod bommen rakt upp som en skorsten och hela stjärtpartiet
+          (fena, stabilisator, rotor) svävade löst i luften bakom skrovet. */}
+      <mesh castShadow position={[-3.3, 2.35, 0]} rotation-z={Math.PI / 2}>
         <cylinderGeometry args={[0.28, 0.55, 4.2, 12]} />
         <meshStandardMaterial color={BODY} metalness={0.4} roughness={0.35} />
       </mesh>
-      {/* Vertikalt fena */}
-      <mesh castShadow position={[-5.4, 3.0, 0]} rotation-z={0.5}>
-        <boxGeometry args={[1.6, 1.4, 0.18]} />
+      {/* Svept vertikal fena i bommens slut */}
+      <mesh castShadow position={[-5.45, 2.95, 0]} rotation-z={0.45}>
+        <boxGeometry args={[1.4, 1.5, 0.18]} />
         <meshStandardMaterial color={BODY} metalness={0.4} roughness={0.35} />
       </mesh>
-      {/* Horisontell stabilisator */}
-      <mesh position={[-5.0, 2.5, 0]}><boxGeometry args={[0.8, 0.14, 2.2]} /><meshStandardMaterial color={BODY} /></mesh>
-      {/* Stjärtrotor */}
-      <mesh ref={tail} position={[-5.5, 2.9, 0.35]} rotation-y={Math.PI / 2}>
-        <boxGeometry args={[2.4, 0.09, 0.28]} />
-        <meshStandardMaterial color="#15191d" />
+      {/* Horisontell stabilisator PÅ bommen */}
+      <mesh position={[-4.6, 2.4, 0]}><boxGeometry args={[0.8, 0.14, 2.2]} /><meshStandardMaterial color={BODY} /></mesh>
+      {/* Stjärtrotor: nav + två korsade blad som snurrar kring tväraxeln */}
+      <mesh position={[-5.75, 3.0, 0.24]} rotation-x={Math.PI / 2}>
+        <cylinderGeometry args={[0.12, 0.12, 0.24, 8]} />
+        <meshStandardMaterial color="#31383f" metalness={0.6} />
       </mesh>
+      <group ref={tail} position={[-5.75, 3.0, 0.34]}>
+        <mesh><boxGeometry args={[1.9, 0.09, 0.06]} /><meshStandardMaterial color="#15191d" /></mesh>
+        <mesh rotation-z={Math.PI / 2}><boxGeometry args={[1.9, 0.09, 0.06]} /><meshStandardMaterial color="#15191d" /></mesh>
+      </group>
 
       {/* Motorhus + rotoraxel på taket */}
       <mesh castShadow position={[0.2, 3.45, 0]}><boxGeometry args={[1.8, 0.7, 1.3]} /><meshStandardMaterial color="#2a323b" metalness={0.5} roughness={0.4} /></mesh>

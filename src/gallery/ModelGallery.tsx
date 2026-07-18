@@ -15,6 +15,7 @@ import { DistrictBuilding, HeirloomHouse, districtFloors } from "../three/distri
 import { Hotel, SolarPark, WindFarm, Warehouse } from "../three/IndustryProps";
 import { OfficeCluster, ResidentialBlock, CultureDistrict, ConstructionSite } from "../three/SignatureBlocks";
 import { Arena, Campus, Hospital } from "../three/MegaProjects";
+import { Helicopter, SportsCar } from "../three/OwnerLuxuries";
 import {
   HarborTerminal,
   LmArena,
@@ -184,6 +185,14 @@ export function ModelGallery() {
     <group key="lm7" position={[600, 0, rz]}><LmPariserhjul x={0} z={0} /><Label text="Landmärke: Pariserhjulet" y={-3} /></group>,
     <group key="lm8" position={[807, 0, rz - 305]}><HarborTerminal /></group>,
     <group key="lm8b" position={[770, 0, rz]}><Label text="Landmärke: Hamnterminalen" y={-3} /></group>,
+  );
+  rz += 90;
+  // Ägarlyx (positionerar sig själva i världskoordinater vid HK → offsetta hit)
+  rows.push(
+    <group key="lux1" position={[225, 0, rz - 244]}><SportsCar /></group>,
+    <group key="lux1b" position={[0, 0, rz]}><Label text="Ägarlyx: Sportbilen (kör varv)" y={-2} /></group>,
+    <group key="lux2" position={[275, 0, rz - 201]}><Helicopter /></group>,
+    <group key="lux2b" position={[70, 0, rz]}><Label text="Ägarlyx: Helikoptern" y={-2} /></group>,
   );
 
   return (
