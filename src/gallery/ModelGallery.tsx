@@ -16,6 +16,7 @@ import { Hotel, SolarPark, WindFarm, Warehouse } from "../three/IndustryProps";
 import { OfficeCluster, ResidentialBlock, CultureDistrict, ConstructionSite } from "../three/SignatureBlocks";
 import { Arena, Campus, Hospital } from "../three/MegaProjects";
 import {
+  HarborTerminal,
   LmArena,
   LmKyrka,
   LmPariserhjul,
@@ -181,6 +182,8 @@ export function ModelGallery() {
     <group key="lm5" position={[330, 0, rz]}><LmStadspark x={0} z={0} /><Label text="Landmärke: Stadsparken" y={-3} /></group>,
     <group key="lm6" position={[460, 0, rz]}><LmArena x={0} z={0} /><Label text="Landmärke: Idrottsarenan" y={-3} /></group>,
     <group key="lm7" position={[600, 0, rz]}><LmPariserhjul x={0} z={0} /><Label text="Landmärke: Pariserhjulet" y={-3} /></group>,
+    <group key="lm8" position={[807, 0, rz - 305]}><HarborTerminal /></group>,
+    <group key="lm8b" position={[770, 0, rz]}><Label text="Landmärke: Hamnterminalen" y={-3} /></group>,
   );
 
   return (

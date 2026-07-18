@@ -1,8 +1,10 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import type { Group, Mesh, MeshStandardMaterial } from "three";
+import { MeshStandardMaterial as StdMaterial, type Group, type Mesh, type MeshStandardMaterial } from "three";
 import { useGameStore } from "../store/gameStore";
+import { facadeBoxGeometry } from "./BuildingShapes";
 import { LANDMARKS } from "./landmarks";
+import { facadeEmissiveTexture, facadeTexture, nameSignTexture } from "./textures";
 
 /** En rökpuff som stiger, växer och tonar ut i loop. */
 function Puff({ x, y, z, phase, drift }: { x: number; y: number; z: number; phase: number; drift: number }) {
@@ -181,13 +183,28 @@ function Boat({ x, z, phase, color }: { x: number; z: number; phase: number; col
         <meshStandardMaterial color="#b6413a" />
       </mesh>
       <Smoke x={-4.5} y={5.8} z={0} />
-      {/* Containrar på däck */}
-      {[0, 1, 2].map((i) => (
-        <mesh key={i} castShadow position={[1.5 + i * 2.6, 2.6, 0]}>
-          <boxGeometry args={[2.4, 1.4, 3.6]} />
-          <meshStandardMaterial color={CONTAINER_COLORS[(i + Math.round(phase)) % 6]} />
-        </mesh>
-      ))}
+      {/* Containrar på däck i två rader + ett andra lager */}
+      {[0, 1, 2].flatMap((i) =>
+        [-0.95, 0.95].map((pz, r) => (
+          <mesh key={`${i}-${r}`} castShadow position={[1.5 + i * 2.6, 2.6, pz]}>
+            <boxGeometry args={[2.4, 1.4, 1.7]} />
+            <meshStandardMaterial color={CONTAINER_COLORS[(i * 2 + r + Math.round(phase)) % 6]} />
+          </mesh>
+        )),
+      )}
+      <mesh castShadow position={[4.1, 4.0, 0]}>
+        <boxGeometry args={[2.4, 1.4, 1.7]} />
+        <meshStandardMaterial color={CONTAINER_COLORS[(1 + Math.round(phase)) % 6]} />
+      </mesh>
+      {/* Lastbom i fören */}
+      <mesh castShadow position={[6.8, 3.4, 0]}>
+        <cylinderGeometry args={[0.12, 0.16, 4.4, 6]} />
+        <meshStandardMaterial color="#8f9398" metalness={0.4} roughness={0.5} />
+      </mesh>
+      <mesh castShadow position={[5.6, 4.9, 0]} rotation-z={0.5}>
+        <cylinderGeometry args={[0.08, 0.1, 3.2, 6]} />
+        <meshStandardMaterial color="#8f9398" metalness={0.4} roughness={0.5} />
+      </mesh>
     </group>
   );
 }
@@ -325,10 +342,12 @@ function CargoShip({ x, z, phase }: { x: number; z: number; phase: number }) {
   });
   const stacks = useMemo(() => {
     const out: { px: number; py: number; pz: number; c: string }[] = [];
+    // Staplarna börjar vid −28 så de går fria från brygghuset (östkant
+    // −32,5) – med start −32 klippte första kolumnen rakt in i det.
     for (let cx = 0; cx < 9; cx++)
       for (let cz = 0; cz < 3; cz++)
         for (let cy = 0; cy < 2 + ((cx * 7 + cz * 3) % 3); cy++)
-          out.push({ px: -32 + cx * 8, py: 5 + cy * 2.3, pz: (cz - 1) * 4.6, c: CONTAINER_COLORS[(cx * 5 + cz * 3 + cy) % CONTAINER_COLORS.length] });
+          out.push({ px: -28 + cx * 8, py: 5 + cy * 2.3, pz: (cz - 1) * 4.6, c: CONTAINER_COLORS[(cx * 5 + cz * 3 + cy) % CONTAINER_COLORS.length] });
     return out;
   }, []);
   return (
@@ -403,6 +422,79 @@ function Tank({ x, z, r = 4, h = 9, color = "#b7bcc0" }: { x: number; z: number;
   );
 }
 
+/** Hamnterminalen på kajplan: två hallar med industrifasad, lastportar
+ *  på båda långsidorna, blått företagsband, takfläktar och hamnskylt. */
+export function HarborTerminal() {
+  const hallMat = useMemo(() => {
+    const m = new StdMaterial({ color: "#aab2b8", roughness: 0.55, metalness: 0.3 });
+    m.map = facadeTexture("industri");
+    m.emissiveMap = facadeEmissiveTexture("industri");
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.5;
+    return m;
+  }, []);
+  const signMat = useMemo(() => {
+    const m = new StdMaterial({ map: nameSignTexture("CITY PORT"), side: 2, roughness: 0.5 });
+    m.emissiveMap = m.map;
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.3;
+    return m;
+  }, []);
+  const halls: Array<{ x: number; w: number; h: number }> = [
+    { x: -64, w: 48, h: 11 },
+    { x: -10, w: 40, h: 9 },
+  ];
+  return (
+    <group>
+      {halls.map(({ x, w, h }) => (
+        <group key={x} position={[x, 0, 305]}>
+          <mesh castShadow receiveShadow material={hallMat} geometry={facadeBoxGeometry(w, h, 13)} position={[0, h / 2, 0]} dispose={null} />
+          {/* Företagsband + takplatta */}
+          <mesh position={[0, h - 0.45, 0]}>
+            <boxGeometry args={[w + 0.12, 0.6, 13.12]} />
+            <meshStandardMaterial color="#2e4a6b" roughness={0.6} />
+          </mesh>
+          <mesh castShadow position={[0, h + 0.3, 0]}>
+            <boxGeometry args={[w + 0.4, 0.6, 13.4]} />
+            <meshStandardMaterial color="#5c6469" />
+          </mesh>
+          {/* Lastportar på båda långsidorna */}
+          {[-1, 1].flatMap((side) =>
+            Array.from({ length: Math.floor(w / 14) }, (_, i) => {
+              const px = -w / 2 + (i + 0.5) * (w / Math.floor(w / 14));
+              return (
+                <mesh key={`${side}-${i}`} position={[px, 2.1, side * 6.56]}>
+                  <boxGeometry args={[4.6, 4.2, 0.12]} />
+                  <meshStandardMaterial color="#5f6771" roughness={0.7} metalness={0.25} />
+                </mesh>
+              );
+            }),
+          )}
+          {/* Takfläktar */}
+          {[-w * 0.25, w * 0.22].map((vx) => (
+            <mesh key={vx} castShadow position={[vx, h + 1.0, 0]}>
+              <boxGeometry args={[1.8, 0.9, 1.4]} />
+              <meshStandardMaterial color="#9aa0a4" metalness={0.3} roughness={0.6} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {/* Hamnskylt på den högre hallens tak */}
+      <group position={[-64, 13.3, 305]}>
+        {[-2.6, 2.6].map((px) => (
+          <mesh key={px} position={[px, -1.0, 0]}>
+            <cylinderGeometry args={[0.09, 0.11, 1.6, 6]} />
+            <meshStandardMaterial color="#8f9398" metalness={0.5} roughness={0.5} />
+          </mesh>
+        ))}
+        <mesh material={signMat}>
+          <planeGeometry args={[7.5, 1.4]} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 /** Kajen: kommersiell hamn framför hamnkvarteret + rekreationsfartyg.
  *  All hamnverksamhet ligger söder om hamnzonen (z ≥ 298) och i vattnet. */
 export function Harbor() {
@@ -425,22 +517,19 @@ export function Harbor() {
       <GantryCrane x={80} z={330} />
       <GantryCrane x={165} z={330} />
       <CargoShip x={120} z={366} phase={0.6} />
-      {/* Containergård i rader på kajen */}
-      {([70, 100, 130, 160] as const).map((cx, i) => (
-        <Containers key={cx} x={cx} z={320 + (i % 2) * 8} seed={cx} />
+      {/* Containergård i rader på kajen – första gruppen flyttad så den
+          går fri från gantrykranens ben vid (63, 322) */}
+      {([[72, 316], [100, 328], [130, 320], [160, 328]] as const).map(([cx, cz]) => (
+        <Containers key={cx} x={cx} z={cz} seed={cx} />
       ))}
-      {/* Hamnterminal / magasin på kajplan (söder om hamnzonen) */}
-      <mesh castShadow receiveShadow position={[-40, 5.5, 305]}>
-        <boxGeometry args={[96, 11, 13]} />
-        <meshStandardMaterial color="#8f9aa1" metalness={0.2} roughness={0.7} />
-      </mesh>
-      <mesh position={[-40, 11.4, 305]}>
-        <boxGeometry args={[97, 0.6, 14]} />
-        <meshStandardMaterial color="#5c6469" />
-      </mesh>
-      {/* Bränsletankar vid terminalen */}
+      {/* Hamnterminal: den gamla 96 m långa släta grå monoliten är delad i
+          två hallar med industrifasad (fönsterband i plåt), lastportar på
+          båda långsidorna, blått företagsband, takfläktar och hamnskylt. */}
+      <HarborTerminal />
+      {/* Bränsletankar vid terminalen – väster om, fria från terminalväggen
+          (den gamla vid x −90 skar in i västgaveln) */}
       <Tank x={-100} z={306} r={4} h={9} />
-      <Tank x={-90} z={306} r={4} h={9} />
+      <Tank x={-112} z={306} r={4} h={9} />
       {/* Lastbilar på kajen */}
       <Truck x={0} z={318} ry={Math.PI / 2} cab="#b6413a" />
       <Truck x={200} z={318} ry={-Math.PI / 2} cab="#3c6ca8" />
