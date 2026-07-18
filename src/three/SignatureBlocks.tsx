@@ -10,11 +10,10 @@ import { MeshStandardMaterial } from "three";
 import { PARCELS } from "../engine/city";
 import { cityProfileById } from "../engine/cityProjects";
 import { useGameStore } from "../store/gameStore";
-import { windowEmissiveTexture, windowTexture } from "./textures";
+import { glassEmissiveTexture, glassTexture, windowEmissiveTexture, windowTexture } from "./textures";
 
 const CRANE = "#d98e2b";
 const CONCRETE = "#b9b4a8";
-const GLASS = "#6f93b4";
 const BRICK = "#a8674f";
 const PLASTER = "#ddd2b8";
 const CULTURE = "#8f4f43";
@@ -42,6 +41,32 @@ function useFacade(color: string, cols: number, floors: number) {
     m.emissiveIntensity = 0.5;
     return m;
   }, [color, cols, floors]);
+}
+
+/** Curtain wall-material för kontorsklustrets glastorn – samma kakel
+ *  som Finansdistriktets torn så landmärket talar samma formspråk. */
+function useGlassFacade(tint: string, panels: number, floors: number) {
+  return useMemo(() => {
+    const m = new MeshStandardMaterial({ color: tint, roughness: 0.3, metalness: 0.32 });
+    m.map = glassTexture(Math.max(3, panels), Math.max(3, floors));
+    m.emissiveMap = glassEmissiveTexture(Math.max(3, panels), Math.max(3, floors));
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.5;
+    return m;
+  }, [tint, panels, floors]);
+}
+
+/** Valmat tak (skal-efter-rotation-knepet – se HipRoof i districtBuildings). */
+function HipRoofS({ w, d, y, rise, color }: { w: number; d: number; y: number; rise: number; color: string }) {
+  const base = Math.max(w, d);
+  return (
+    <group position={[0, y, 0]} scale={[(w * 1.06) / base, 1, (d * 1.06) / base]}>
+      <mesh castShadow rotation-y={Math.PI / 4}>
+        <coneGeometry args={[base * 0.72, rise, 4]} />
+        <meshStandardMaterial color={color} roughness={0.85} />
+      </mesh>
+    </group>
+  );
 }
 
 /** Enkel tornkran – mast, bom och motvikt. */
@@ -93,11 +118,13 @@ export function ConstructionSite({ b, progress, floors }: { b: Bounds; progress:
   );
 }
 
-/** Kontorskluster: tre glastorn i olika höjd kring ett upphöjt podium. */
+/** Kontorskluster: tre curtain wall-torn i olika höjd kring ett podium
+ *  med glasad entré – flaggskeppet talar samma formspråk som
+ *  Finansdistriktets torn men i egna blånyanser. */
 export function OfficeCluster({ b, floors }: { b: Bounds; floors: number }) {
-  const tall = useFacade(GLASS, 6, floors);
-  const mid = useFacade(GLASS, 5, Math.round(floors * 0.75));
-  const low = useFacade(GLASS, 4, Math.round(floors * 0.5));
+  const tall = useGlassFacade("#8fb0c8", 6, floors);
+  const mid = useGlassFacade("#9db8cc", 5, Math.round(floors * 0.75));
+  const low = useGlassFacade("#7fa3c0", 4, Math.round(floors * 0.5));
   const h1 = floors * 3, h2 = h1 * 0.75, h3 = h1 * 0.5;
   return (
     <group position={[b.x, 0, b.z]}>
@@ -105,8 +132,17 @@ export function OfficeCluster({ b, floors }: { b: Bounds; floors: number }) {
         <boxGeometry args={[b.w * 0.96, 4.4, b.d * 0.96]} />
         <meshStandardMaterial color={PLASTER} roughness={0.85} />
       </mesh>
-      <mesh castShadow material={tall} position={[-b.w * 0.22, 4.4 + h1 / 2, -b.d * 0.16]}>
-        <boxGeometry args={[b.w * 0.34, h1, b.d * 0.4]} />
+      {/* Glasad entréfront i podiet */}
+      <mesh position={[0, 1.9, b.d * 0.48 + 0.1]}>
+        <boxGeometry args={[b.w * 0.5, 3.4, 0.3]} />
+        <meshStandardMaterial color="#9fc0d4" metalness={0.4} roughness={0.25} emissive="#cfe0ec" emissiveIntensity={0.15} />
+      </mesh>
+      {/* Högsta tornet med indragen topp */}
+      <mesh castShadow material={tall} position={[-b.w * 0.22, 4.4 + (h1 * 0.78) / 2, -b.d * 0.16]}>
+        <boxGeometry args={[b.w * 0.34, h1 * 0.78, b.d * 0.4]} />
+      </mesh>
+      <mesh castShadow material={tall} position={[-b.w * 0.22, 4.4 + h1 * 0.78 + (h1 * 0.22) / 2, -b.d * 0.16]}>
+        <boxGeometry args={[b.w * 0.26, h1 * 0.22, b.d * 0.32]} />
       </mesh>
       <mesh castShadow material={mid} position={[b.w * 0.24, 4.4 + h2 / 2, b.d * 0.18]}>
         <boxGeometry args={[b.w * 0.3, h2, b.d * 0.36]} />
@@ -114,10 +150,14 @@ export function OfficeCluster({ b, floors }: { b: Bounds; floors: number }) {
       <mesh castShadow material={low} position={[b.w * 0.22, 4.4 + h3 / 2, -b.d * 0.24]}>
         <boxGeometry args={[b.w * 0.26, h3, b.d * 0.3]} />
       </mesh>
-      {/* Krona på högsta tornet */}
+      {/* Krona + antenn på högsta tornet */}
       <mesh position={[-b.w * 0.22, 4.4 + h1 + 0.8, -b.d * 0.16]}>
-        <boxGeometry args={[b.w * 0.28, 1.6, b.d * 0.34]} />
+        <boxGeometry args={[b.w * 0.22, 1.6, b.d * 0.28]} />
         <meshStandardMaterial color="#c9a13b" metalness={0.5} roughness={0.4} emissive="#c9a13b" emissiveIntensity={0.25} />
+      </mesh>
+      <mesh castShadow position={[-b.w * 0.22, 4.4 + h1 + 4.6, -b.d * 0.16]}>
+        <cylinderGeometry args={[0.12, 0.2, 7, 6]} />
+        <meshStandardMaterial color="#7a8288" metalness={0.6} roughness={0.4} />
       </mesh>
     </group>
   );
@@ -137,17 +177,26 @@ export function ResidentialBlock({ b, floors }: { b: Bounds; floors: number }) {
         [-(b.w - t) / 2, 0, t, b.d - 2 * t, south, 0.85],
         [(b.w - t) / 2, 0, t, b.d - 2 * t, north, 0.95],
       ] as const).map(([px, pz, w, d, mat, hk], i) => (
-        <group key={i}>
-          <mesh castShadow receiveShadow material={mat} position={[px, (h * hk) / 2, pz]}>
+        <group key={i} position={[px, 0, pz]}>
+          <mesh castShadow receiveShadow material={mat} position={[0, (h * hk) / 2, 0]}>
             <boxGeometry args={[w, h * hk, d]} />
           </mesh>
-          {/* Sadeltaksås i falu */}
-          <mesh castShadow position={[px, h * hk + 0.9, pz]}>
-            <boxGeometry args={[w + 0.6, 1.8, d + 0.6]} />
-            <meshStandardMaterial color="#7d3b31" roughness={0.85} />
-          </mesh>
+          {/* Riktigt valmat falutak i stället för platt sarg */}
+          <HipRoofS w={w} d={d} y={h * hk + 0.9} rise={2.4} color="#7d3b31" />
+          {/* Skorstenar på längorna */}
+          {w > d && [-w * 0.28, w * 0.28].map((cx) => (
+            <mesh key={cx} castShadow position={[cx, h * hk + 2.2, 0]}>
+              <boxGeometry args={[0.9, 1.6, 0.9]} />
+              <meshStandardMaterial color="#8a5a43" roughness={0.9} />
+            </mesh>
+          ))}
         </group>
       ))}
+      {/* Portvalv genom södra längan in till gården */}
+      <mesh position={[0, 2.4, (b.d - t) / 2]}>
+        <boxGeometry args={[4.2, 4.8, t + 0.3]} />
+        <meshStandardMaterial color="#4a4238" roughness={0.85} />
+      </mesh>
       {/* Gården: gräs och träd */}
       <mesh receiveShadow position={[0, 0.25, 0]} rotation-x={-Math.PI / 2}>
         <planeGeometry args={[b.w - 2 * t, b.d - 2 * t]} />
@@ -195,16 +244,37 @@ export function CultureDistrict({ b, floors }: { b: Bounds; floors: number }) {
           ))}
         </group>
       ))}
-      {/* Torget mellan hallarna */}
+      {/* Torget mellan hallarna med fanor och ljusslinga */}
       <mesh receiveShadow position={[0, 0.22, 0]} rotation-x={-Math.PI / 2}>
         <planeGeometry args={[b.w * 0.9, b.d * 0.14]} />
         <meshStandardMaterial color="#cfc4ae" roughness={0.95} />
       </mesh>
-      {/* Kampanil (klocktorn) i hörnet */}
+      {[[-b.w * 0.3, "#b6413a"], [-b.w * 0.05, "#3c6ca8"], [b.w * 0.2, "#c9a13b"]].map(([px, col], i) => (
+        <group key={i} position={[px as number, 0, 0]}>
+          <mesh castShadow position={[0, 3.2, 0]}>
+            <cylinderGeometry args={[0.08, 0.12, 6.4, 6]} />
+            <meshStandardMaterial color="#e6e0d0" />
+          </mesh>
+          <mesh position={[0.75, 5.6, 0]}>
+            <planeGeometry args={[1.4, 0.8]} />
+            <meshStandardMaterial color={col as string} side={2} />
+          </mesh>
+        </group>
+      ))}
+      {/* Ljusslinga tvärs över torget */}
+      <mesh position={[0, 4.6, 0]}>
+        <boxGeometry args={[b.w * 0.78, 0.09, 0.09]} />
+        <meshStandardMaterial color="#c8b070" emissive="#ffd27a" emissiveIntensity={0.6} />
+      </mesh>
+      {/* Kampanil (klocktorn) i hörnet med guldur */}
       <group position={[b.w * 0.38, 0, 0]}>
         <mesh castShadow position={[0, h * 1.1, 0]}>
           <boxGeometry args={[2.6, h * 2.2, 2.6]} />
           <meshStandardMaterial color={CULTURE} roughness={0.8} />
+        </mesh>
+        <mesh position={[-1.4, h * 2, 0]} rotation-z={Math.PI / 2}>
+          <cylinderGeometry args={[0.9, 0.9, 0.16, 14]} />
+          <meshStandardMaterial color="#c9a13b" metalness={0.5} roughness={0.4} emissive="#c9a13b" emissiveIntensity={0.2} />
         </mesh>
         <mesh castShadow position={[0, h * 2.2 + 1.2, 0]} rotation-y={Math.PI / 4}>
           <coneGeometry args={[2.4, 2.8, 4]} />

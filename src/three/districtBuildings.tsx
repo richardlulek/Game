@@ -1019,6 +1019,65 @@ export function HeirloomHouse({
         <boxGeometry args={[1.8, 0.18, 0.6]} />
         <meshStandardMaterial color="#7d6a52" />
       </mesh>
+      {/* Vitt spjälstaket mot gatan med grind – lite skevt tills renoverat */}
+      <group rotation-z={renovated ? 0 : 0.02}>
+        {[0.5, 0.85].map((ry) => (
+          <mesh key={ry} position={[0.4, ry, d * 0.95]}>
+            <boxGeometry args={[parcel.w * 0.92, 0.1, 0.07]} />
+            <meshStandardMaterial color={renovated ? "#eae4d4" : "#c8bfa8"} roughness={0.85} />
+          </mesh>
+        ))}
+        {[-0.42, -0.21, 0.13, 0.3, 0.46].map((t) => (
+          <mesh key={t} castShadow position={[t * parcel.w, 0.55, d * 0.95]}>
+            <boxGeometry args={[0.12, 1.1, 0.12]} />
+            <meshStandardMaterial color={renovated ? "#eae4d4" : "#c8bfa8"} roughness={0.85} />
+          </mesh>
+        ))}
+      </group>
+      {/* Grusgång från grinden till förstukvisten */}
+      <mesh receiveShadow position={[-w * 0.1, 0.05, d * 0.85]}>
+        <boxGeometry args={[1.3, 0.08, d * 0.26]} />
+        <meshStandardMaterial color="#b8ac94" roughness={0.95} />
+      </mesh>
+      {/* Brevlåda vid grinden */}
+      <group position={[-w * 0.28, 0, d * 0.99]}>
+        <mesh castShadow position={[0, 0.55, 0]}>
+          <boxGeometry args={[0.09, 1.1, 0.09]} />
+          <meshStandardMaterial color="#6f5648" />
+        </mesh>
+        <mesh castShadow position={[0, 1.15, 0]}>
+          <boxGeometry args={[0.52, 0.34, 0.3]} />
+          <meshStandardMaterial color={renovated ? "#3a66b0" : "#5d594f"} roughness={0.6} />
+        </mesh>
+      </group>
+      {/* Morfars äppelträd på baksidan */}
+      <group position={[w * 0.85, 0, -d * 0.75]}>
+        <mesh castShadow position={[0, 1.2, 0]}>
+          <cylinderGeometry args={[0.22, 0.32, 2.4, 6]} />
+          <meshStandardMaterial color="#7a5a3a" />
+        </mesh>
+        <mesh castShadow position={[0, 3.1, 0]}>
+          <sphereGeometry args={[1.7, 8, 6]} />
+          <meshStandardMaterial color="#5e7f4e" roughness={1} />
+        </mesh>
+        <mesh position={[0.9, 3.4, 0.6]}>
+          <sphereGeometry args={[1.0, 7, 5]} />
+          <meshStandardMaterial color="#6f8f57" roughness={1} />
+        </mesh>
+      </group>
+      {/* Mormors rabatt längs förstukvisten – blommar när huset rustats */}
+      {renovated && (
+        <group position={[w * 0.24, 0, d * 0.72]}>
+          <mesh position={[0, 0.16, 0]}>
+            <boxGeometry args={[2.6, 0.32, 0.6]} />
+            <meshStandardMaterial color="#5c4a38" roughness={1} />
+          </mesh>
+          <mesh position={[0, 0.42, 0]}>
+            <boxGeometry args={[2.3, 0.22, 0.4]} />
+            <meshStandardMaterial color="#b6413a" roughness={0.9} />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 }
