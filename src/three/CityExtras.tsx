@@ -654,9 +654,11 @@ function Tree({ x, z, s = 1 }: { x: number; z: number; s?: number }) {
 
 /** Stadspark: gräsyta, korsande grusgångar, fontän och träd. */
 export function LmStadspark({ x, z }: { x: number; z: number }) {
+  // Trädplaceringar avstämda mot damm (r 8,4 vid −20,14), lusthus (r 5 vid
+  // 20,−13), rabatter (r 3) och gångarna – inga stammar i vatten eller hus.
   const trees = useMemo(
     () =>
-      [[-24, -18], [-14, 12], [18, -14], [26, 16], [-28, 15], [10, 20], [22, -22], [-6, -20]].map(
+      [[-24, -18], [-12, 6], [12, -9], [26, 16], [-28, -8], [13, 24], [22, -22], [-6, -20]].map(
         ([tx, tz], i) => ({ tx, tz, s: 0.8 + ((i * 7) % 5) * 0.12 }),
       ),
     [],
@@ -675,15 +677,16 @@ export function LmStadspark({ x, z }: { x: number; z: number }) {
         <planeGeometry args={[6, 56]} />
         <meshStandardMaterial color="#c8bfa6" />
       </mesh>
-      {/* Fontän: två skålar med vatten och en pelare. Vattnet är ogenomskinligt
-          och ligger en bit under skålkanten – transparent, kantlinjerat vatten
-          z-fightade mot skålen och blinkade. */}
+      {/* Fontän: två skålar med vatten och en pelare. Vattenytan ligger
+          strax ÖVER betongens topplock (cylindrarna är solida – låg yta
+          hamnade inuti betongen och syntes aldrig); den smalare radien
+          lämnar en synlig kantring och undviker z-fight. */}
       <mesh castShadow position={[0, 0.6, 0]}>
         <cylinderGeometry args={[5, 5.4, 1.2, 20]} />
         <meshStandardMaterial color={CONCRETE} />
       </mesh>
-      <mesh position={[0, 0.85, 0]}>
-        <cylinderGeometry args={[4.4, 4.4, 0.3, 20]} />
+      <mesh position={[0, 0.75, 0]}>
+        <cylinderGeometry args={[4.4, 4.4, 0.96, 20]} />
         <meshStandardMaterial color="#3f7fb8" roughness={0.3} metalness={0.1} />
       </mesh>
       <mesh position={[0, 1.9, 0]}>
@@ -694,13 +697,13 @@ export function LmStadspark({ x, z }: { x: number; z: number }) {
         <cylinderGeometry args={[1.6, 1.6, 0.25, 16]} />
         <meshStandardMaterial color="#3f7fb8" roughness={0.3} metalness={0.1} />
       </mesh>
-      {/* Damm med stenkant */}
+      {/* Damm med stenkant – vattenytan över kantens topplock (se fontänen) */}
       <mesh castShadow position={[-20, 0.35, 14]}>
         <cylinderGeometry args={[8.4, 8.4, 0.7, 24]} />
         <meshStandardMaterial color={CONCRETE} />
       </mesh>
-      <mesh position={[-20, 0.45, 14]}>
-        <cylinderGeometry args={[7.6, 7.6, 0.4, 24]} />
+      <mesh position={[-20, 0.4, 14]}>
+        <cylinderGeometry args={[7.6, 7.6, 0.66, 24]} />
         <meshStandardMaterial color="#3f7fb8" roughness={0.3} metalness={0.1} />
       </mesh>
       {/* Lusthus (paviljong) */}
@@ -720,22 +723,23 @@ export function LmStadspark({ x, z }: { x: number; z: number }) {
           <meshStandardMaterial color="#7a5a48" />
         </mesh>
       </group>
-      {/* Blomsterrabatter */}
-      {([[-24, -8, "#c94f7a"], [26, 9, "#d7a63a"], [8, 22, "#7a5c8f"]] as const).map(([fx, fz, fc], i) => (
+      {/* Blomsterrabatter (fria från trädstammar) */}
+      {([[-24, -8, "#c94f7a"], [26, 9, "#d7a63a"], [7, 21, "#7a5c8f"]] as const).map(([fx, fz, fc], i) => (
         <mesh key={`fb-${i}`} receiveShadow rotation-x={-Math.PI / 2} position={[fx, 0.15, fz]}>
           <circleGeometry args={[3, 16]} />
           <meshStandardMaterial color={fc} />
         </mesh>
       ))}
-      {/* Bänkar runt fontänen + lyktor och en staty */}
-      <Bench x={0} z={9} ry={Math.PI} />
-      <Bench x={0} z={-9} ry={0} />
-      <Bench x={9} z={0} ry={-Math.PI / 2} />
-      <Bench x={-9} z={0} ry={Math.PI / 2} />
-      {([[16, 16], [-16, 16], [16, -16], [-16, -16]] as const).map(([lx, lz], i) => (
+      {/* Bänkar BREDVID gångarna (inte mitt på dem), vända mot fontänen */}
+      <Bench x={4.6} z={9} ry={Math.PI} />
+      <Bench x={-4.6} z={-9} ry={0} />
+      <Bench x={9} z={-4.6} ry={-Math.PI / 2} />
+      <Bench x={-9} z={4.6} ry={Math.PI / 2} />
+      {/* Lyktor – ute ur dammen och av lusthusets platta */}
+      {([[16, 16], [-8, 18], [14, -18], [-16, -16]] as const).map(([lx, lz], i) => (
         <PierLamp key={`pl-${i}`} x={lx} z={lz} />
       ))}
-      <group position={[26, 0, -22]}>
+      <group position={[28, 0, -23]}>
         <mesh castShadow position={[0, 1, 0]}>
           <boxGeometry args={[2, 2, 2]} />
           <meshStandardMaterial color={CONCRETE} />

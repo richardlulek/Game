@@ -94,8 +94,8 @@ export function Arena() {
         {Array.from({ length: 8 }, (_, i) => {
           const a = (i / 8) * Math.PI * 2;
           return (
-            <mesh key={i} castShadow position={[Math.cos(a) * 29.5, 13, Math.sin(a) * 29.5]}>
-              <cylinderGeometry args={[0.35, 0.35, 7, 6]} />
+            <mesh key={i} castShadow position={[Math.cos(a) * 29.5, 12.7, Math.sin(a) * 29.5]}>
+              <cylinderGeometry args={[0.35, 0.35, 7.6, 6]} />
               <meshStandardMaterial color="#8f9398" metalness={0.4} roughness={0.5} />
             </mesh>
           );
@@ -208,8 +208,10 @@ export function Campus() {
         <boxGeometry args={[3, 0.1, 22]} />
         <meshStandardMaterial color="#cfc4ae" roughness={0.95} />
       </mesh>
+      {/* Tvärgång mellan flyglarna – slutar vid deras fasader (x ±7),
+          den gamla 42-breda gick in under båda husen */}
       <mesh receiveShadow position={[0, 0.12, -8]}>
-        <boxGeometry args={[42, 0.1, 2.4]} />
+        <boxGeometry args={[13, 0.1, 2.4]} />
         <meshStandardMaterial color="#cfc4ae" roughness={0.95} />
       </mesh>
       {/* Aulans klocktorn med guldur */}
