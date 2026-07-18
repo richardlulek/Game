@@ -456,7 +456,7 @@ export function Harbor() {
 }
 
 /** Stadshusets klocktorn. */
-function LmStadshus({ x, z }: { x: number; z: number }) {
+export function LmStadshus({ x, z }: { x: number; z: number }) {
   return (
     <group position={[x, 0, z]}>
       {/* Torg framför stadshuset */}
@@ -479,7 +479,7 @@ function LmStadshus({ x, z }: { x: number; z: number }) {
           <meshStandardMaterial color="#c4b48f" />
         </mesh>
       ))}
-      {/* Fönsterrader */}
+      {/* Fönsterrader – huvudfasad och ändpaviljonger */}
       {[-10, -5, 5, 10].flatMap((px) =>
         [3, 7.5].map((py) => (
           <mesh key={`${px}-${py}`} position={[px, py, 5.6]}>
@@ -488,6 +488,19 @@ function LmStadshus({ x, z }: { x: number; z: number }) {
           </mesh>
         )),
       )}
+      {[-13, 13].flatMap((px) =>
+        [3.4, 8.4].map((py) => (
+          <mesh key={`p${px}-${py}`} position={[px, py, 7.65]}>
+            <boxGeometry args={[2.2, 3, 0.3]} />
+            <meshStandardMaterial color="#5a6b74" />
+          </mesh>
+        )),
+      )}
+      {/* Entrédörr bakom kolonnerna */}
+      <mesh position={[0, 2.3, 5.62]}>
+        <boxGeometry args={[3.2, 4.6, 0.2]} />
+        <meshStandardMaterial color="#4a4238" roughness={0.85} />
+      </mesh>
       {/* Entré: trappa + portik med pelare + entablement */}
       <mesh receiveShadow position={[0, 0.4, 7.4]}>
         <boxGeometry args={[13, 0.8, 3]} />
@@ -507,11 +520,17 @@ function LmStadshus({ x, z }: { x: number; z: number }) {
         <boxGeometry args={[11, 1.6, 2.6]} />
         <meshStandardMaterial color="#d8ccae" />
       </mesh>
-      {/* Klocktorn reser sig ur fasaden */}
+      {/* Klocktorn reser sig ur fasaden – med ljudgluggar under uret */}
       <mesh castShadow position={[0, 19, 2]}>
         <boxGeometry args={[7, 22, 7]} />
         <meshStandardMaterial color="#c9b896" />
       </mesh>
+      {[-1.6, 1.6].map((gx) => (
+        <mesh key={gx} position={[gx, 16, 5.6]}>
+          <boxGeometry args={[1.1, 2.4, 0.2]} />
+          <meshStandardMaterial color="#4f4a3e" />
+        </mesh>
+      ))}
       <mesh position={[0, 25, 5.6]} rotation-x={Math.PI / 2}>
         <cylinderGeometry args={[1.7, 1.7, 0.3, 16]} />
         <meshStandardMaterial color="#f3ead3" emissive="#3a3a30" emissiveIntensity={0.3} />
@@ -526,7 +545,7 @@ function LmStadshus({ x, z }: { x: number; z: number }) {
 }
 
 /** Vattentorn på ben. */
-function LmVattentorn({ x, z }: { x: number; z: number }) {
+export function LmVattentorn({ x, z }: { x: number; z: number }) {
   return (
     <group position={[x, 0, z]}>
       {/* Grusad inhägnad kringutrustning på landsbygdssidan */}
@@ -542,10 +561,14 @@ function LmVattentorn({ x, z }: { x: number; z: number }) {
           </mesh>
         ),
       )}
-      {/* Litet pumphus */}
+      {/* Litet pumphus med dörr */}
       <mesh castShadow position={[-13, 1.6, 13]}>
         <boxGeometry args={[6, 3.2, 5]} />
         <meshStandardMaterial color="#b7ac96" />
+      </mesh>
+      <mesh position={[-13, 1.0, 15.56]}>
+        <boxGeometry args={[1.2, 2.0, 0.12]} />
+        <meshStandardMaterial color="#4a4238" roughness={0.85} />
       </mesh>
       <mesh castShadow position={[-13, 3.4, 13]} rotation-y={Math.PI / 4}>
         <coneGeometry args={[4.4, 1.6, 4]} />
@@ -563,6 +586,11 @@ function LmVattentorn({ x, z }: { x: number; z: number }) {
           <meshStandardMaterial color="#8a8f8a" />
         </mesh>
       ))}
+      {/* Stigarrör i mitten upp till tanken */}
+      <mesh castShadow position={[0, 6, 0]}>
+        <cylinderGeometry args={[0.45, 0.55, 12.5, 8]} />
+        <meshStandardMaterial color="#7d8a7a" metalness={0.3} roughness={0.6} />
+      </mesh>
       <mesh castShadow position={[0, 14, 0]}>
         <cylinderGeometry args={[5.5, 4.5, 5, 12]} />
         <meshStandardMaterial color="#aab4ac" />
@@ -576,7 +604,7 @@ function LmVattentorn({ x, z }: { x: number; z: number }) {
 }
 
 /** Enskild fabriksskorsten med rök. */
-function LmSkorsten({ x, z }: { x: number; z: number }) {
+export function LmSkorsten({ x, z }: { x: number; z: number }) {
   return (
     <group position={[x, 0, z]}>
       {/* Grusad industriplan runt skorstenen */}
@@ -625,7 +653,7 @@ function Tree({ x, z, s = 1 }: { x: number; z: number; s?: number }) {
 }
 
 /** Stadspark: gräsyta, korsande grusgångar, fontän och träd. */
-function LmStadspark({ x, z }: { x: number; z: number }) {
+export function LmStadspark({ x, z }: { x: number; z: number }) {
   const trees = useMemo(
     () =>
       [[-24, -18], [-14, 12], [18, -14], [26, 16], [-28, 15], [10, 20], [22, -22], [-6, -20]].map(
@@ -729,7 +757,7 @@ function LmStadspark({ x, z }: { x: number; z: number }) {
 }
 
 /** Kyrka med långhus, sadeltak och torn med spira. */
-function LmKyrka({ x, z }: { x: number; z: number }) {
+export function LmKyrka({ x, z }: { x: number; z: number }) {
   return (
     <group position={[x, 0, z]}>
       {/* Kyrkogård: gräs, grusgång, låg stenmur, gravstenar och träd */}
@@ -760,10 +788,30 @@ function LmKyrka({ x, z }: { x: number; z: number }) {
       <Tree x={-14} z={-16} s={0.9} />
       <Tree x={14} z={-16} s={0.9} />
       <Tree x={-15} z={11} s={0.8} />
+      {/* Sockel + långhus */}
+      <mesh receiveShadow position={[0, 0.4, -2]}>
+        <boxGeometry args={[12.6, 0.8, 20.6]} />
+        <meshStandardMaterial color="#c9c2b2" roughness={0.9} />
+      </mesh>
       <mesh castShadow receiveShadow position={[0, 5, -2]}>
         <boxGeometry args={[12, 10, 20]} />
         <meshStandardMaterial color="#e6e0d4" />
       </mesh>
+      {/* Höga spetsfönster längs långhusets båda sidor – varmt kyrkglas */}
+      {[-8, -2, 4].flatMap((wz) =>
+        [-1, 1].map((s) => (
+          <group key={`${wz}-${s}`} position={[s * 6.05, 5.8, wz]}>
+            <mesh>
+              <boxGeometry args={[0.18, 4.6, 1.5]} />
+              <meshStandardMaterial color="#4a4a44" />
+            </mesh>
+            <mesh position={[s * 0.08, 0, 0]}>
+              <boxGeometry args={[0.14, 4.2, 1.1]} />
+              <meshStandardMaterial color="#7f95a8" roughness={0.4} emissive="#aa8f5c" emissiveIntensity={0.15} />
+            </mesh>
+          </group>
+        )),
+      )}
       {/* Valmat tak med taksprång – skalan i yttergruppen appliceras efter
           konens 45°-rotation (samma knep som HipRoof i districtBuildings).
           De gamla två lutande skivorna lät vägghörnen sticka igenom taket
@@ -774,11 +822,40 @@ function LmKyrka({ x, z }: { x: number; z: number }) {
           <meshStandardMaterial color="#7a4a38" />
         </mesh>
       </group>
-      {/* Torn längst fram */}
+      {/* Torn längst fram med portal, rosettfönster och ljudgluggar */}
       <mesh castShadow position={[0, 11, 10]}>
         <boxGeometry args={[7, 22, 7]} />
         <meshStandardMaterial color="#ded7c8" />
       </mesh>
+      {/* Huvudportal med stenomfattning och trappa */}
+      <mesh position={[0, 2.3, 13.52]}>
+        <boxGeometry args={[3.2, 4.6, 0.14]} />
+        <meshStandardMaterial color="#c9c2b2" />
+      </mesh>
+      <mesh position={[0, 2.0, 13.6]}>
+        <boxGeometry args={[2.4, 4.0, 0.14]} />
+        <meshStandardMaterial color="#5c4633" roughness={0.85} />
+      </mesh>
+      <mesh receiveShadow position={[0, 0.2, 14.4]}>
+        <boxGeometry args={[3.8, 0.4, 1.6]} />
+        <meshStandardMaterial color="#c9c2b2" roughness={0.9} />
+      </mesh>
+      {/* Rosettfönster med guldring */}
+      <mesh position={[0, 8.6, 13.55]} rotation-x={Math.PI / 2}>
+        <cylinderGeometry args={[1.5, 1.5, 0.12, 14]} />
+        <meshStandardMaterial color="#c9a13b" metalness={0.5} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 8.6, 13.62]} rotation-x={Math.PI / 2}>
+        <cylinderGeometry args={[1.15, 1.15, 0.12, 14]} />
+        <meshStandardMaterial color="#7f95a8" roughness={0.4} emissive="#aa8f5c" emissiveIntensity={0.18} />
+      </mesh>
+      {/* Ljudgluggar i klockvåningen */}
+      {[-1.4, 1.4].map((gx) => (
+        <mesh key={gx} position={[gx, 18.6, 13.55]}>
+          <boxGeometry args={[1.0, 2.2, 0.12]} />
+          <meshStandardMaterial color="#3f4448" />
+        </mesh>
+      ))}
       <mesh castShadow position={[0, 25, 10]} rotation-y={Math.PI / 4}>
         <coneGeometry args={[4.6, 9, 4]} />
         <meshStandardMaterial color="#5a6b62" />
@@ -797,7 +874,7 @@ function LmKyrka({ x, z }: { x: number; z: number }) {
 }
 
 /** Idrottsarena: elliptisk läktarring, grön plan och strålkastarmaster. */
-function LmArena({ x, z }: { x: number; z: number }) {
+export function LmArena({ x, z }: { x: number; z: number }) {
   const N = 28;
   const stands = useMemo(
     () =>
@@ -979,7 +1056,7 @@ function SailBoat({ x, z, phase, hull, sail }: { x: number; z: number; phase: nu
 }
 
 /** Pariserhjul + strandpromenad, pir och småbåtshamn – ett trevligt kajområde. */
-function LmPariserhjul({ x, z }: { x: number; z: number }) {
+export function LmPariserhjul({ x, z }: { x: number; z: number }) {
   const wheel = useRef<Group>(null);
   useFrame((state) => {
     if (wheel.current) wheel.current.rotation.z = state.clock.elapsedTime * 0.22;

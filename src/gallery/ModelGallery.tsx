@@ -15,6 +15,15 @@ import { DistrictBuilding, HeirloomHouse, districtFloors } from "../three/distri
 import { Hotel, SolarPark, WindFarm, Warehouse } from "../three/IndustryProps";
 import { OfficeCluster, ResidentialBlock, CultureDistrict, ConstructionSite } from "../three/SignatureBlocks";
 import { Arena, Campus, Hospital } from "../three/MegaProjects";
+import {
+  LmArena,
+  LmKyrka,
+  LmPariserhjul,
+  LmSkorsten,
+  LmStadshus,
+  LmStadspark,
+  LmVattentorn,
+} from "../three/CityExtras";
 import type { FacadeVariant } from "../three/textures";
 
 /** Fabricerad tomtruta för uppställningen. */
@@ -161,6 +170,17 @@ export function ModelGallery() {
     <group key="m1" position={[0, 0, rz]}><Arena /><Label text="Megaprojekt: Imperium Arena" y={-3} /></group>,
     <group key="m2" position={[170, 0, rz]}><Campus /><Label text="Megaprojekt: Universitetscampus" y={-3} /></group>,
     <group key="m3" position={[320, 0, rz]}><Hospital /><Label text="Megaprojekt: Sjukhuskvarteret" y={-3} /></group>,
+  );
+  rz += 130;
+  // Stadens landmärken (dekor med fasta platser på kartan)
+  rows.push(
+    <group key="lm1" position={[0, 0, rz]}><LmStadshus x={0} z={0} /><Label text="Landmärke: Stadshuset" y={-3} /></group>,
+    <group key="lm2" position={[70, 0, rz]}><LmKyrka x={0} z={0} /><Label text="Landmärke: Kyrkan" y={-3} /></group>,
+    <group key="lm3" position={[150, 0, rz]}><LmVattentorn x={0} z={0} /><Label text="Landmärke: Vattentornet" y={-3} /></group>,
+    <group key="lm4" position={[230, 0, rz]}><LmSkorsten x={0} z={0} /><Label text="Landmärke: Fabriksskorstenen" y={-3} /></group>,
+    <group key="lm5" position={[330, 0, rz]}><LmStadspark x={0} z={0} /><Label text="Landmärke: Stadsparken" y={-3} /></group>,
+    <group key="lm6" position={[460, 0, rz]}><LmArena x={0} z={0} /><Label text="Landmärke: Idrottsarenan" y={-3} /></group>,
+    <group key="lm7" position={[600, 0, rz]}><LmPariserhjul x={0} z={0} /><Label text="Landmärke: Pariserhjulet" y={-3} /></group>,
   );
 
   return (
