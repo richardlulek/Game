@@ -16,8 +16,9 @@ import { ENERGY_SITES } from "../engine/industryData";
 import type { IndustryAsset } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
+import { facadeBoxGeometry } from "./BuildingShapes";
 import { iconTexture } from "./textures";
-import { windowEmissiveTexture, windowTexture } from "./textures";
+import { facadeEmissiveTexture, facadeTexture, windowEmissiveTexture, windowTexture } from "./textures";
 
 const CREAM = "#e8e0cd";
 const PANEL = "#2e4a6b";
@@ -169,15 +170,52 @@ export function WindFarm({ pc, mw }: { pc: { w: number; d: number }; mw: number 
 
 export function Warehouse({ pc }: { pc: { w: number; d: number } }) {
   const w = pc.w * 0.82, d = pc.d * 0.62, h = 6;
+  // Hallen bär industrifasadens profilplåt med högt fönsterband i stället
+  // för att vara en naken grå låda; kontorsdelen på gaveln får kontorsglas.
+  const hallMat = useMemo(() => {
+    const m = new MeshStandardMaterial({ color: "#b9bec4", roughness: 0.55, metalness: 0.3 });
+    m.map = facadeTexture("industri");
+    m.emissiveMap = facadeEmissiveTexture("industri");
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.5;
+    return m;
+  }, []);
+  const officeMat = useMemo(() => {
+    const m = new MeshStandardMaterial({ color: CREAM, roughness: 0.74 });
+    m.map = facadeTexture("kontor");
+    m.emissiveMap = facadeEmissiveTexture("kontor");
+    m.emissive.set("#ffffff");
+    m.emissiveIntensity = 0.5;
+    return m;
+  }, []);
   return (
     <group>
-      <mesh castShadow receiveShadow position={[0, h / 2, -pc.d * 0.12]}>
-        <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color="#b9bec4" roughness={0.85} />
+      <mesh castShadow receiveShadow material={hallMat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, -pc.d * 0.12]} dispose={null} />
+      {/* Företagsband i mörkblått längs takkanten */}
+      <mesh position={[0, h - 0.45, -pc.d * 0.12]}>
+        <boxGeometry args={[w + 0.12, 0.6, d + 0.12]} />
+        <meshStandardMaterial color={PANEL} roughness={0.6} />
       </mesh>
       <mesh castShadow position={[0, h + 0.3, -pc.d * 0.12]}>
         <boxGeometry args={[w + 0.4, 0.6, d + 0.4]} />
         <meshStandardMaterial color="#7d838a" />
+      </mesh>
+      {/* Taklanterniner som släpper in dagsljus */}
+      {[-d * 0.18, d * 0.18].map((sz) => (
+        <mesh key={sz} position={[0, h + 0.68, -pc.d * 0.12 + sz]}>
+          <boxGeometry args={[w * 0.7, 0.14, 1.1]} />
+          <meshStandardMaterial color="#cfe0ec" roughness={0.35} emissive="#cfe0ec" emissiveIntensity={0.12} />
+        </mesh>
+      ))}
+      {/* Kontorsdel på västra gaveln med fönster och entrédörr */}
+      <mesh castShadow receiveShadow material={officeMat} geometry={facadeBoxGeometry(3.6, 5.4, d * 0.6)} position={[-w / 2 - 1.8, 2.7, -pc.d * 0.12]} dispose={null} />
+      <mesh position={[-w / 2 - 1.8, 5.55, -pc.d * 0.12]}>
+        <boxGeometry args={[3.9, 0.3, d * 0.6 + 0.3]} />
+        <meshStandardMaterial color="#7d838a" />
+      </mesh>
+      <mesh position={[-w / 2 - 1.8, 1.0, -pc.d * 0.12 + d * 0.3 + 0.06]}>
+        <boxGeometry args={[1.1, 2.0, 0.12]} />
+        <meshStandardMaterial color="#4a4238" roughness={0.85} />
       </mesh>
       {/* Asfalterad lastgård framför portarna */}
       <mesh receiveShadow position={[0, 0.04, pc.d * 0.26]}>

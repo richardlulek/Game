@@ -884,11 +884,13 @@ export function LmArena({ x, z }: { x: number; z: number }) {
       }),
     [],
   );
+  // Två rader om nio bilar – ryms med marginal inne på p-rutan (den gamla
+  // tredje raden hamnade utanför både rutan och torget).
   const cars = useMemo(
     () =>
       Array.from({ length: 18 }, (_, i) => ({
-        cx: -22 + (i % 6) * 8,
-        cz: 26 + Math.floor(i / 6) * 6,
+        cx: -20 + (i % 9) * 5,
+        cz: 25.5 + Math.floor(i / 9) * 6.5,
         c: GONDOLA_COLORS[(i * 3) % GONDOLA_COLORS.length],
       })),
     [],
@@ -924,7 +926,7 @@ export function LmArena({ x, z }: { x: number; z: number }) {
       ))}
       {/* Parkering med bilar (söder om arenan) */}
       <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, 0.1, 29]}>
-        <planeGeometry args={[52, 16]} />
+        <planeGeometry args={[50, 15]} />
         <meshStandardMaterial color="#5b5f63" roughness={1} />
       </mesh>
       {cars.map((c, i) => (
