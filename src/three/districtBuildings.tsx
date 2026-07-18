@@ -974,28 +974,87 @@ export function HeirloomHouse({
         <boxGeometry args={[w * 0.68, 0.18, d * 0.76]} />
         <meshStandardMaterial color={ROOF_DARK} roughness={0.95} />
       </mesh>
+      {/* Flygelns detaljer: två fönster med karm mot gatan och en
+          takfotslist under papptaket */}
+      {[w * 0.62, w * 0.94].map((wx) => (
+        <group key={wx} position={[wx, 1.6, d * 0.45 + 0.05]}>
+          <mesh>
+            <boxGeometry args={[1.0, 1.1, 0.1]} />
+            <meshStandardMaterial color="#4a4a44" />
+          </mesh>
+          <mesh position={[0, 0, 0.04]}>
+            <boxGeometry args={[0.8, 0.9, 0.06]} />
+            <meshStandardMaterial color="#8fa3ad" roughness={0.4} metalness={0.1} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[w * 0.78, FLOOR_HEIGHT - 0.12, d * 0.1]}>
+        <boxGeometry args={[w * 0.64, 0.16, d * 0.72]} />
+        <meshStandardMaterial color={new Color(color).multiplyScalar(0.7).getStyle()} />
+      </mesh>
       {/* Tillbyggnad 1978: låg förstukvist mot gatan (indragen från
-          staketet så den inte längre sticker igenom spjälorna) */}
+          staketet) med pulpettak, ytterdörr, litet fönster och trappsteg */}
       <mesh castShadow receiveShadow position={[-w * 0.2, 1.3, d * 0.58]}>
         <boxGeometry args={[w * 0.5, 2.6, d * 0.38]} />
         <meshStandardMaterial color={annexColor} />
       </mesh>
-      {/* Tillbyggnad 1983: snickarboden på baksidan */}
+      <mesh castShadow position={[-w * 0.2, 2.76, d * 0.58]} rotation-x={0.1}>
+        <boxGeometry args={[w * 0.54, 0.14, d * 0.42]} />
+        <meshStandardMaterial color={ROOF_DARK} roughness={0.95} />
+      </mesh>
+      <mesh position={[-w * 0.14, 0.95, d * 0.77 + 0.05]}>
+        <boxGeometry args={[0.95, 1.9, 0.1]} />
+        <meshStandardMaterial color="#5c4633" roughness={0.85} />
+      </mesh>
+      <group position={[-w * 0.36, 1.6, d * 0.77 + 0.05]}>
+        <mesh>
+          <boxGeometry args={[0.7, 0.8, 0.1]} />
+          <meshStandardMaterial color="#4a4a44" />
+        </mesh>
+        <mesh position={[0, 0, 0.04]}>
+          <boxGeometry args={[0.54, 0.64, 0.06]} />
+          <meshStandardMaterial color="#8fa3ad" roughness={0.4} metalness={0.1} />
+        </mesh>
+      </group>
+      <mesh receiveShadow position={[-w * 0.14, 0.14, d * 0.77 + 0.35]}>
+        <boxGeometry args={[1.1, 0.28, 0.55]} />
+        <meshStandardMaterial color="#b8b2a4" roughness={0.95} />
+      </mesh>
+      {/* Tillbyggnad 1983: snickarboden på baksidan – med pulpettak,
+          plankdörr och ett litet verkstadsfönster */}
       <mesh castShadow receiveShadow position={[-w * 0.66, 1.1, -d * 0.62]}>
         <boxGeometry args={[3.4, 2.2, 2.6]} />
         <meshStandardMaterial color="#7d6a52" />
       </mesh>
-      {/* Presenning över taknocken tills huset rustats */}
+      <mesh castShadow position={[-w * 0.66, 2.28, -d * 0.62]} rotation-x={-0.09}>
+        <boxGeometry args={[3.7, 0.13, 2.95]} />
+        <meshStandardMaterial color={ROOF_DARK} roughness={0.95} />
+      </mesh>
+      <mesh position={[-w * 0.56, 0.85, -d * 0.62 + 1.35]}>
+        <boxGeometry args={[0.85, 1.7, 0.08]} />
+        <meshStandardMaterial color="#5c4633" roughness={0.9} />
+      </mesh>
+      <mesh position={[-w * 0.84, 1.45, -d * 0.62 + 1.35]}>
+        <boxGeometry args={[0.6, 0.5, 0.08]} />
+        <meshStandardMaterial color="#8fa3ad" roughness={0.4} />
+      </mesh>
+      {/* Presenning över taktoppen tills huset rustats. Samma 4-sidiga
+          kon som taket, samma lutning, ett par decimeter utanför – duken
+          ligger PARALLELLT över spetsen i stället för att taket sticker
+          igenom. Tyngdslanorna ligger horisontellt längs dukens nederkant
+          som man faktiskt surrar en presenning. */}
       {!renovated && (
-        <group position={[-w * 0.16, h + 1.85, 0]} rotation-z={0.12}>
-          <mesh castShadow rotation-y={Math.PI / 4}>
-            <coneGeometry args={[w * 0.5, 1.4, 4]} />
+        <group>
+          <mesh castShadow position={[0, h + 2.0, 0]} rotation-y={Math.PI / 4}>
+            <coneGeometry args={[2.3, 1.46, 4]} />
             <meshStandardMaterial color="#3d6da8" roughness={0.6} />
           </mesh>
-          {/* Brädan som håller presenningen – ligger PÅ takfallet i stället
-              för att sticka upp genom duken */}
-          <mesh position={[1.2, 0.08, 0.25]} rotation-z={-0.5}>
-            <boxGeometry args={[2.4, 0.14, 0.24]} />
+          <mesh castShadow position={[0, h + 1.34, 1.56]}>
+            <boxGeometry args={[2.2, 0.11, 0.22]} />
+            <meshStandardMaterial color="#8a7454" />
+          </mesh>
+          <mesh castShadow position={[1.56, h + 1.34, 0]}>
+            <boxGeometry args={[0.22, 0.11, 2.2]} />
             <meshStandardMaterial color="#8a7454" />
           </mesh>
         </group>
@@ -1017,11 +1076,17 @@ export function HeirloomHouse({
           </mesh>
         )}
       </group>
-      {/* Morfars bänk på gaveln */}
-      <mesh castShadow position={[-w * 0.78, 0.55, d * 0.3]}>
-        <boxGeometry args={[1.8, 0.18, 0.6]} />
+      {/* Morfars bänk på gaveln – sits på två ben, inte svävande */}
+      <mesh castShadow position={[-w * 0.78, 0.5, d * 0.3]}>
+        <boxGeometry args={[1.8, 0.14, 0.6]} />
         <meshStandardMaterial color="#7d6a52" />
       </mesh>
+      {[-0.65, 0.65].map((bx) => (
+        <mesh key={bx} position={[-w * 0.78 + bx, 0.22, d * 0.3]}>
+          <boxGeometry args={[0.14, 0.44, 0.5]} />
+          <meshStandardMaterial color="#6a5a45" />
+        </mesh>
+      ))}
       {/* Vitt spjälstaket mot gatan med öppen grind framför grusgången –
           delade räcken så varken gång eller brevlåda skär genom spjälorna.
           Lite skevt tills huset rustats. */}
