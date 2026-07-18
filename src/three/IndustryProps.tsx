@@ -54,7 +54,7 @@ export function Hotel({ pc, stars }: { pc: { w: number; d: number }; stars: numb
         <boxGeometry args={[Math.min(6, w * 0.6), 1.4, 0.4]} />
         <meshStandardMaterial color="#c9a13b" emissive="#c9a13b" emissiveIntensity={0.35} metalness={0.5} roughness={0.4} />
       </mesh>
-      {/* Entrémarkis */}
+      {/* Entrémarkis med glasad entré och stjärnklass ovanför */}
       <mesh castShadow position={[0, 2.6, d / 2 + 1]}>
         <boxGeometry args={[4.4, 0.3, 2.2]} />
         <meshStandardMaterial color="#6e1a2a" />
@@ -63,6 +63,16 @@ export function Hotel({ pc, stars }: { pc: { w: number; d: number }; stars: numb
         <mesh key={i} position={[x, 1.3, d / 2 + 1.8]}>
           <cylinderGeometry args={[0.1, 0.1, 2.6, 6]} />
           <meshStandardMaterial color="#c9a13b" metalness={0.6} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.35, d / 2 + 0.08]}>
+        <boxGeometry args={[3.6, 2.7, 0.25]} />
+        <meshStandardMaterial color="#9fc0d4" metalness={0.4} roughness={0.25} emissive="#cfe0ec" emissiveIntensity={0.2} />
+      </mesh>
+      {Array.from({ length: stars }, (_, i) => (
+        <mesh key={`s${i}`} position={[(i - (stars - 1) / 2) * 0.75, 3.7, d / 2 + 0.1]}>
+          <boxGeometry args={[0.45, 0.45, 0.12]} />
+          <meshStandardMaterial color="#c9a13b" emissive="#c9a13b" emissiveIntensity={0.3} metalness={0.5} roughness={0.4} />
         </mesh>
       ))}
     </group>
@@ -93,6 +103,15 @@ export function SolarPark({ pc }: { pc: { w: number; d: number } }) {
         <boxGeometry args={[2.4, 2, 2]} />
         <meshStandardMaterial color="#9aa0a6" />
       </mesh>
+      {/* Områdesstaket – halvtransparent grått läser som gunnebostängsel */}
+      {([[0, -pc.d / 2, pc.w, 0.12], [0, pc.d / 2, pc.w, 0.12], [-pc.w / 2, 0, 0.12, pc.d], [pc.w / 2, 0, 0.12, pc.d]] as const).map(
+        ([fx, fz, fw, fd], i) => (
+          <mesh key={`f${i}`} position={[fx, 0.6, fz]}>
+            <boxGeometry args={[fw, 1.2, fd]} />
+            <meshStandardMaterial color="#9aa0a6" transparent opacity={0.45} metalness={0.3} roughness={0.6} />
+          </mesh>
+        ),
+      )}
     </group>
   );
 }
@@ -105,6 +124,11 @@ function Turbine({ x, z, h, phase }: { x: number; z: number; h: number; phase: n
   });
   return (
     <group position={[x, 0, z]}>
+      {/* Betongfundament */}
+      <mesh receiveShadow position={[0, 0.15, 0]}>
+        <cylinderGeometry args={[2.2, 2.6, 0.3, 10]} />
+        <meshStandardMaterial color="#b9b4a8" roughness={0.9} />
+      </mesh>
       <mesh castShadow position={[0, h / 2, 0]}>
         <cylinderGeometry args={[0.35, 0.7, h, 8]} />
         <meshStandardMaterial color={STEEL} roughness={0.5} />
@@ -155,11 +179,27 @@ export function Warehouse({ pc }: { pc: { w: number; d: number } }) {
         <boxGeometry args={[w + 0.4, 0.6, d + 0.4]} />
         <meshStandardMaterial color="#7d838a" />
       </mesh>
-      {/* Lastportar mot gården */}
+      {/* Asfalterad lastgård framför portarna */}
+      <mesh receiveShadow position={[0, 0.04, pc.d * 0.26]}>
+        <boxGeometry args={[pc.w * 0.9, 0.08, pc.d * 0.42]} />
+        <meshStandardMaterial color="#6b6f75" roughness={0.95} />
+      </mesh>
+      {/* Lastportar mot gården, under en genomgående portkanopi */}
       {Array.from({ length: Math.max(2, Math.floor(w / 5)) }, (_, i) => (
         <mesh key={i} position={[-w / 2 + (i + 0.5) * (w / Math.max(2, Math.floor(w / 5))), 1.8, -pc.d * 0.12 + d / 2 + 0.05]}>
           <boxGeometry args={[2.6, 3.6, 0.1]} />
           <meshStandardMaterial color="#5f6771" />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0, 4.15, -pc.d * 0.12 + d / 2 + 0.7]}>
+        <boxGeometry args={[w * 0.94, 0.16, 1.5]} />
+        <meshStandardMaterial color="#7d838a" />
+      </mesh>
+      {/* Takfläktar */}
+      {[-w * 0.25, w * 0.2].map((vx) => (
+        <mesh key={vx} castShadow position={[vx, h + 1.0, -pc.d * 0.12]}>
+          <boxGeometry args={[1.6, 0.9, 1.3]} />
+          <meshStandardMaterial color="#9aa0a4" metalness={0.3} roughness={0.6} />
         </mesh>
       ))}
       {/* Containerstaplar på gården */}

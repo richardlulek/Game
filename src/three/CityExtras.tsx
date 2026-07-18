@@ -737,8 +737,8 @@ function LmKyrka({ x, z }: { x: number; z: number }) {
         <planeGeometry args={[36, 38]} />
         <meshStandardMaterial color="#4f7d4a" />
       </mesh>
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.07, 13]}>
-        <planeGeometry args={[3.5, 12]} />
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.07, 12.4]}>
+        <planeGeometry args={[3.5, 10.8]} />
         <meshStandardMaterial color="#c8bfa6" />
       </mesh>
       {([[0, -19, 36, 0.5], [-17, 0, 0.5, 38], [17, 0, 0.5, 38], [-11, 18, 13, 0.5], [11, 18, 13, 0.5]] as const).map(
@@ -764,13 +764,16 @@ function LmKyrka({ x, z }: { x: number; z: number }) {
         <boxGeometry args={[12, 10, 20]} />
         <meshStandardMaterial color="#e6e0d4" />
       </mesh>
-      {/* Sadeltak: två lutande takfall */}
-      {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[s * 3.1, 11.2, -2]} rotation-z={s * -0.86}>
-          <boxGeometry args={[8, 0.6, 20]} />
+      {/* Valmat tak med taksprång – skalan i yttergruppen appliceras efter
+          konens 45°-rotation (samma knep som HipRoof i districtBuildings).
+          De gamla två lutande skivorna lät vägghörnen sticka igenom taket
+          och gapade i nocken. */}
+      <group position={[0, 11.4, -2]} scale={[(12 * 1.1) / 20, 1, (20 * 1.1) / 20]}>
+        <mesh castShadow rotation-y={Math.PI / 4}>
+          <coneGeometry args={[20 * 0.72, 3.8, 4]} />
           <meshStandardMaterial color="#7a4a38" />
         </mesh>
-      ))}
+      </group>
       {/* Torn längst fram */}
       <mesh castShadow position={[0, 11, 10]}>
         <boxGeometry args={[7, 22, 7]} />

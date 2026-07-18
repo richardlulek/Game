@@ -964,18 +964,20 @@ export function HeirloomHouse({
         <boxGeometry args={[0.8, 1.8, 0.8]} />
         <meshStandardMaterial color="#6f5648" />
       </mesh>
-      {/* Tillbyggnad 1971: envånings flygel åt öster */}
+      {/* Tillbyggnad 1971: envånings flygel åt öster. Papptak med svag
+          lutning – 70-talstypiskt, och pyramidtaket skar in i husväggen. */}
       <mesh castShadow receiveShadow position={[w * 0.78, FLOOR_HEIGHT / 2, d * 0.1]}>
         <boxGeometry args={[w * 0.62, FLOOR_HEIGHT, d * 0.7]} />
         <meshStandardMaterial color={annexColor} />
       </mesh>
-      <mesh castShadow position={[w * 0.78, FLOOR_HEIGHT + 0.5, d * 0.1]} rotation-y={Math.PI / 4}>
-        <coneGeometry args={[w * 0.46, 1.1, 4]} />
-        <meshStandardMaterial color={ROOF_RED} />
+      <mesh castShadow position={[w * 0.78, FLOOR_HEIGHT + 0.08, d * 0.1]} rotation-z={-0.04}>
+        <boxGeometry args={[w * 0.68, 0.18, d * 0.76]} />
+        <meshStandardMaterial color={ROOF_DARK} roughness={0.95} />
       </mesh>
-      {/* Tillbyggnad 1978: låg förstukvist mot gatan */}
-      <mesh castShadow receiveShadow position={[-w * 0.2, 1.3, d * 0.72]}>
-        <boxGeometry args={[w * 0.5, 2.6, d * 0.5]} />
+      {/* Tillbyggnad 1978: låg förstukvist mot gatan (indragen från
+          staketet så den inte längre sticker igenom spjälorna) */}
+      <mesh castShadow receiveShadow position={[-w * 0.2, 1.3, d * 0.58]}>
+        <boxGeometry args={[w * 0.5, 2.6, d * 0.38]} />
         <meshStandardMaterial color={annexColor} />
       </mesh>
       {/* Tillbyggnad 1983: snickarboden på baksidan */}
@@ -990,9 +992,10 @@ export function HeirloomHouse({
             <coneGeometry args={[w * 0.5, 1.4, 4]} />
             <meshStandardMaterial color="#3d6da8" roughness={0.6} />
           </mesh>
-          {/* Brädan som håller presenningen */}
-          <mesh position={[0, 0.75, 0]} rotation-z={0.5}>
-            <boxGeometry args={[2.6, 0.16, 0.24]} />
+          {/* Brädan som håller presenningen – ligger PÅ takfallet i stället
+              för att sticka upp genom duken */}
+          <mesh position={[1.2, 0.08, 0.25]} rotation-z={-0.5}>
+            <boxGeometry args={[2.4, 0.14, 0.24]} />
             <meshStandardMaterial color="#8a7454" />
           </mesh>
         </group>
@@ -1019,28 +1022,39 @@ export function HeirloomHouse({
         <boxGeometry args={[1.8, 0.18, 0.6]} />
         <meshStandardMaterial color="#7d6a52" />
       </mesh>
-      {/* Vitt spjälstaket mot gatan med grind – lite skevt tills renoverat */}
+      {/* Vitt spjälstaket mot gatan med öppen grind framför grusgången –
+          delade räcken så varken gång eller brevlåda skär genom spjälorna.
+          Lite skevt tills huset rustats. */}
       <group rotation-z={renovated ? 0 : 0.02}>
-        {[0.5, 0.85].map((ry) => (
-          <mesh key={ry} position={[0.4, ry, d * 0.95]}>
-            <boxGeometry args={[parcel.w * 0.92, 0.1, 0.07]} />
-            <meshStandardMaterial color={renovated ? "#eae4d4" : "#c8bfa8"} roughness={0.85} />
-          </mesh>
-        ))}
-        {[-0.42, -0.21, 0.13, 0.3, 0.46].map((t) => (
-          <mesh key={t} castShadow position={[t * parcel.w, 0.55, d * 0.95]}>
+        {([[-3.15, 2.9], [2.15, 4.9]] as const).map(([cx, cw]) =>
+          [0.5, 0.85].map((ry) => (
+            <mesh key={`${cx}-${ry}`} position={[cx, ry, d * 0.95]}>
+              <boxGeometry args={[cw, 0.1, 0.07]} />
+              <meshStandardMaterial color={renovated ? "#eae4d4" : "#c8bfa8"} roughness={0.85} />
+            </mesh>
+          )),
+        )}
+        {[-4.4, -3.0, 1.2, 2.7, 4.4].map((px) => (
+          <mesh key={px} castShadow position={[px, 0.55, d * 0.95]}>
             <boxGeometry args={[0.12, 1.1, 0.12]} />
             <meshStandardMaterial color={renovated ? "#eae4d4" : "#c8bfa8"} roughness={0.85} />
           </mesh>
         ))}
+        {/* Grindstolpar på var sida om öppningen */}
+        {[-1.7, -0.3].map((px) => (
+          <mesh key={px} castShadow position={[px, 0.65, d * 0.95]}>
+            <boxGeometry args={[0.16, 1.3, 0.16]} />
+            <meshStandardMaterial color={renovated ? "#eae4d4" : "#c8bfa8"} roughness={0.85} />
+          </mesh>
+        ))}
       </group>
-      {/* Grusgång från grinden till förstukvisten */}
-      <mesh receiveShadow position={[-w * 0.1, 0.05, d * 0.85]}>
-        <boxGeometry args={[1.3, 0.08, d * 0.26]} />
+      {/* Grusgång från grinden till förstukvisten – slutar VID staketlinjen */}
+      <mesh receiveShadow position={[-w * 0.2, 0.05, d * 0.85]}>
+        <boxGeometry args={[1.2, 0.08, d * 0.2]} />
         <meshStandardMaterial color="#b8ac94" roughness={0.95} />
       </mesh>
-      {/* Brevlåda vid grinden */}
-      <group position={[-w * 0.28, 0, d * 0.99]}>
+      {/* Brevlåda innanför staketet, till vänster om grinden */}
+      <group position={[-2.3, 0, d * 0.88]}>
         <mesh castShadow position={[0, 0.55, 0]}>
           <boxGeometry args={[0.09, 1.1, 0.09]} />
           <meshStandardMaterial color="#6f5648" />
