@@ -77,49 +77,95 @@ function useMerged(build: () => BufferGeometry[]): BufferGeometry | null {
 
 const LAND_MAT = new MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
 
-/* ── Åkerlappar: lapptäcke av odlad mark närmast staden ────────────── */
+/* ── Gemensam landskapslayout ──────────────────────────────────────────
+   Åkrar, kullar och skog låg tidigare i tre oberoende ringar som
+   överlappade varandra: kullar reste sig ur åkerlappar, åkrar skar i
+   varandra (z-fight – topparna ligger på samma höjd) och skogens träd
+   planterades på y=0 INUTI kullarna. Nu beräknas en gemensam layout
+   deterministiskt en gång, och varje lager stäms av mot de föregående. */
 
 const FIELD_COLORS = ["#a8b06a", "#c2b06b", "#8ca35f", "#b5a874", "#95a86b", "#c9bd7e"];
+const HILL_GREENS = ["#7d9468", "#87a070", "#6f8a5e", "#93a878"];
+
+interface FieldRect { x: number; z: number; w: number; d: number; color: string }
+interface Hill { x: number; z: number; r: number; sx: number; sy: number; color: string }
+
+/** Vindkraftverkens positioner – kullar får inte svälja dem. */
+const TURBINE_SPOTS: ReadonlyArray<readonly [number, number]> = [[600, -330], [668, -238], [615, -140]];
+
+const LAYOUT = (() => {
+  // Åkrarna först, utan inbördes överlapp (4 enheters dike emellan).
+  const frand = makeRand(4711);
+  const fields: FieldRect[] = [];
+  let guard = 0;
+  while (fields.length < 34 && guard++ < 800) {
+    const [x, z] = ringPoint(frand, 460, 800);
+    const w = 55 + frand() * 85;
+    const d = 45 + frand() * 75;
+    const color = FIELD_COLORS[Math.floor(frand() * FIELD_COLORS.length)];
+    if (!onLand(x, z, Math.max(w, d) / 2)) continue;
+    if (fields.some((f) => Math.abs(f.x - x) < (f.w + w) / 2 + 4 && Math.abs(f.z - z) < (f.d + d) / 2 + 4)) continue;
+    fields.push({ x, z, w, d, color });
+  }
+  // Kullarna därefter: fria från åkrar och vindkraftverk. Marginalen
+  // räknar med x-sträckningen – annars kunde en 1,5× utdragen kulle
+  // skjuta in i stad, vatten eller åker trots godkänt centrum.
+  const hrand = makeRand(1337);
+  const hills: Hill[] = [];
+  guard = 0;
+  while (hills.length < 18 && guard++ < 800) {
+    const [x, z] = ringPoint(hrand, 540, 980);
+    const r = 38 + hrand() * 55;
+    const sx = 1 + hrand() * 0.5;
+    const sy = 0.22 + hrand() * 0.16;
+    const color = HILL_GREENS[Math.floor(hrand() * HILL_GREENS.length)];
+    if (!onLand(x, z, r * sx)) continue;
+    if (fields.some((f) => Math.abs(f.x - x) < f.w / 2 + r * sx - 6 && Math.abs(f.z - z) < f.d / 2 + r - 6)) continue;
+    if (TURBINE_SPOTS.some(([tx, tz]) => Math.hypot(tx - x, tz - z) < r * sx + 14)) continue;
+    hills.push({ x, z, r, sx, sy, color });
+  }
+  return { fields, hills };
+})();
+
+/** Kullens höjd i en punkt (0 utanför) – skogen planteras PÅ sluttningen. */
+function hillHeightAt(x: number, z: number): number {
+  let y = 0;
+  for (const h of LAYOUT.hills) {
+    const dx = (x - h.x) / h.sx;
+    const dz = z - h.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < h.r * h.r) y = Math.max(y, h.sy * Math.sqrt(h.r * h.r - d2));
+  }
+  return y;
+}
+
+const insideField = (x: number, z: number, m = 0) =>
+  LAYOUT.fields.some((f) => Math.abs(f.x - x) < f.w / 2 + m && Math.abs(f.z - z) < f.d / 2 + m);
+
+/* ── Åkerlappar: lapptäcke av odlad mark närmast staden ────────────── */
 
 function Fields() {
-  const geo = useMerged(() => {
-    const rand = makeRand(4711);
-    const parts: BufferGeometry[] = [];
-    let guard = 0;
-    while (parts.length < 34 && guard++ < 400) {
-      const [x, z] = ringPoint(rand, 460, 800);
-      const w = 55 + rand() * 85;
-      const d = 45 + rand() * 75;
-      if (!onLand(x, z, Math.max(w, d) / 2)) continue;
-      const g = new BoxGeometry(w, 0.6, d);
-      g.translate(x, 0.2, z);
-      parts.push(withColor(g, new Color(FIELD_COLORS[Math.floor(rand() * FIELD_COLORS.length)])));
-    }
-    return parts;
-  });
+  const geo = useMerged(() =>
+    LAYOUT.fields.map((f) => {
+      const g = new BoxGeometry(f.w, 0.6, f.d);
+      g.translate(f.x, 0.2, f.z);
+      return withColor(g, new Color(f.color));
+    }),
+  );
   return geo ? <mesh geometry={geo} material={LAND_MAT} /> : null;
 }
 
 /* ── Kullar nära + bergskedja vid horisonten ───────────────────────── */
 
-const HILL_GREENS = ["#7d9468", "#87a070", "#6f8a5e", "#93a878"];
-
 function Hills() {
-  const geo = useMerged(() => {
-    const rand = makeRand(1337);
-    const parts: BufferGeometry[] = [];
-    let guard = 0;
-    while (parts.length < 18 && guard++ < 400) {
-      const [x, z] = ringPoint(rand, 540, 980);
-      const r = 38 + rand() * 55;
-      if (!onLand(x, z, r)) continue;
-      const g = new SphereGeometry(r, 14, 10);
-      g.scale(1 + rand() * 0.5, 0.22 + rand() * 0.16, 1);
-      g.translate(x, 0, z);
-      parts.push(withColor(g, new Color(HILL_GREENS[Math.floor(rand() * HILL_GREENS.length)])));
-    }
-    return parts;
-  });
+  const geo = useMerged(() =>
+    LAYOUT.hills.map((h) => {
+      const g = new SphereGeometry(h.r, 14, 10);
+      g.scale(h.sx, h.sy, 1);
+      g.translate(h.x, 0, h.z);
+      return withColor(g, new Color(h.color));
+    }),
+  );
   return geo ? <mesh geometry={geo} material={LAND_MAT} /> : null;
 }
 
@@ -161,6 +207,8 @@ function ForestBelt() {
     const crowns: Inst[] = [];
     let guard = 0;
     // Skog växer i dungar: slumpa dungcentra, fyll varje med träd.
+    // Träden håller sig ur åkrarna (odlad mark) och planteras på
+    // kullarnas YTA i stället för på y=0 inuti dem.
     while (crowns.length < 950 && guard++ < 600) {
       const [cx, cz] = ringPoint(rand, 460, 880);
       if (!onLand(cx, cz, 16)) continue;
@@ -169,10 +217,12 @@ function ForestBelt() {
         const x = cx + (rand() + rand() - 1) * 42;
         const z = cz + (rand() + rand() - 1) * 42;
         if (!onLand(x, z, 4)) continue;
+        if (insideField(x, z, 2)) continue;
+        const hy = hillHeightAt(x, z);
         const s = 1.3 + rand() * 1.5;
-        trunks.push({ x, y: 1.1 * s, z, sx: s, sy: s, sz: s });
+        trunks.push({ x, y: hy + 1.1 * s, z, sx: s, sy: s, sz: s });
         crowns.push({
-          x, y: 3.5 * s, z, sx: s, sy: s, sz: s,
+          x, y: hy + 3.5 * s, z, sx: s, sy: s, sz: s,
           color: new Color(TREE_GREENS[Math.floor(rand() * TREE_GREENS.length)]),
         });
       }
