@@ -547,6 +547,9 @@ export interface Competitor {
   /** Rivalens industritillgångar (hotell, energi, logistik) – konkurrerar
    *  på industrimarknaden och följer med vid förvärv/fusion. */
   industries?: IndustryAsset[];
+  /** Aktieinnehav i andra noterade bolag – inklusive SPELARENS (FBAB).
+   *  Byggs och avvecklas av rivalhandeln i stocks.ts; ingår i equity. */
+  stockHoldings?: { stockId: string; shares: number; avgCost: number }[];
 }
 
 /** Bransch på börsen. */

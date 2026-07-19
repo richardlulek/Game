@@ -5,9 +5,9 @@
    marknaden känns levande. Ren logik, inga React-beroenden.
    ============================================================ */
 
-import { kr } from "./format";
-import { newId, random01, rnd } from "./random";
-import type { Competitor, GameState, LimitOrder, Sector, Stock, StockNews } from "./types";
+import { kr, msek } from "./format";
+import { newId, pick, random01, rnd } from "./random";
+import type { Competitor, GameState, LimitOrder, LogEntry, Sector, Stock, StockNews } from "./types";
 
 const COURTAGE = 0.003; // 0,3 % avgift per affär
 export const STOCK_CAP_RATE = 0.06; // för att kapitalisera dotterbolagsintäkt
@@ -323,6 +323,116 @@ export function stockHoldingsValue(state: { stocks?: Stock[] }): number {
 /** Kapitaliserat värde av förvärvade dotterbolag. */
 export function subsidiaryValue(state: { subsidiaries?: { monthlyIncome: number }[] }): number {
   return (state.subsidiaries ?? []).reduce((a, s) => a + (s.monthlyIncome * 12) / STOCK_CAP_RATE, 0);
+}
+
+/* ── Korsägande: rivalerna handlar aktier (à la Capitalism) ─────────── */
+
+/** En rivals FBAB-aktier. */
+export function fbabSharesOf(c: Competitor): number {
+  return (c.stockHoldings ?? [])
+    .filter((h) => h.stockId === "FBAB")
+    .reduce((a, h) => a + h.shares, 0);
+}
+
+/** Rivalernas samlade innehav i SPELARENS bolag (aktier). */
+export function rivalFbabShares(s: Pick<GameState, "competitors">): number {
+  return (s.competitors ?? []).reduce((a, c) => a + fbabSharesOf(c), 0);
+}
+
+/** Marknadsvärdet på en rivals aktieportfölj. */
+export function rivalHoldingsValue(c: Competitor, stocks: Stock[]): number {
+  return (c.stockHoldings ?? []).reduce(
+    (a, h) => a + (stocks.find((st) => st.id === h.stockId)?.price ?? 0) * h.shares,
+    0,
+  );
+}
+
+/**
+ * Rivalernas månatliga aktiehandel: kapitalstarka bolag (särskilt värde-
+ * och utdelningsstrategerna) bygger positioner i noterade bolag – varandras
+ * OCH spelarens. De säljer i bust och tar hem vinster. FBAB-köp begränsas
+ * till den FRIA floaten (aktivistens och andra rivalers aktier är inte till
+ * salu, och börsens 10 %-spridning fredas) med tak på 10 % per rival.
+ * Muterar s.competitors och returnerar loggposter.
+ */
+export function rivalShareTrading(s: GameState): LogEntry[] {
+  const events: LogEntry[] = [];
+  const phase = s.marketCycle?.phase ?? "stable";
+  s.competitors = s.competitors.map((c) => {
+    if (c.institutional) return c; // fonderna jagar fastigheter, inte aktier
+    const nc: Competitor = { ...c, stockHoldings: [...(c.stockHoldings ?? [])] };
+
+    // Sälj: bust-panik eller vinsthemtagning (>40 % upp).
+    nc.stockHoldings = nc.stockHoldings!.filter((h) => {
+      const st = s.stocks.find((x) => x.id === h.stockId);
+      if (!st) return false;
+      const gain = h.avgCost > 0 ? st.price / h.avgCost - 1 : 0;
+      const sellChance = phase === "bust" ? 0.25 : gain > 0.4 ? 0.2 : 0.02;
+      if (random01() >= sellChance) return true;
+      const proceeds = Math.round(h.shares * st.price * 0.997);
+      nc.cash += proceeds;
+      if (h.stockId === "FBAB" && s.ipoShares && h.shares >= s.ipoShares.total * 0.02)
+        events.push({
+          t: `🏦 ${nc.name} sells its ${((h.shares / s.ipoShares.total) * 100).toFixed(1)}% stake in YOUR company (${msek(proceeds)}).`,
+          kind: "event",
+          rival: nc.name,
+        });
+      return false;
+    });
+
+    // Köp: strategi- och konjunkturstyrt.
+    const appetite =
+      (nc.strategy === "värde" || nc.strategy === "utdelning" ? 0.1 : 0.05) *
+      (phase === "bust" ? 0.4 : phase === "boom" ? 1.3 : 1);
+    if (nc.cash > 10_000_000 && random01() < appetite) {
+      const candidates = s.stocks.filter(
+        (st) => st.competitorName !== nc.name && (st.id !== "FBAB" || s.ipoActive),
+      );
+      const st = candidates.length ? pick(candidates) : null;
+      if (st) {
+        const budget = Math.min(nc.cash * 0.08, 20_000_000);
+        let shares = Math.floor(budget / (st.price * 1.003));
+        if (st.id === "FBAB" && s.ipoShares) {
+          const { total, public: pub } = s.ipoShares;
+          const activistSh = Math.round((total * (s.takeoverPressure ?? 0)) / 100);
+          const otherRivalSh = rivalFbabShares(s) - fbabSharesOf(c);
+          const held = fbabSharesOf(nc);
+          const freeFloat = pub - activistSh - otherRivalSh - held - Math.ceil(total * 0.1);
+          const singleCap = Math.floor(total * 0.1) - held; // max 10 % per rival
+          shares = Math.max(0, Math.min(shares, freeFloat, singleCap));
+        }
+        if (shares > 0 && shares * st.price >= 500_000) {
+          const cost = Math.round(shares * st.price * 1.003);
+          nc.cash -= cost;
+          const existing = nc.stockHoldings!.find((h) => h.stockId === st.id);
+          if (existing) {
+            existing.avgCost =
+              (existing.avgCost * existing.shares + st.price * shares) / (existing.shares + shares);
+            existing.shares += shares;
+          } else {
+            nc.stockHoldings!.push({ stockId: st.id, shares, avgCost: st.price });
+          }
+          if (st.id === "FBAB" && s.ipoShares) {
+            const pct = (fbabSharesOf(nc) / s.ipoShares.total) * 100;
+            if (pct >= 2)
+              events.push({
+                t: `🏦 ${nc.name} buys into YOUR company — now holds ${pct.toFixed(1)}% of the shares.`,
+                kind: "event",
+                rival: nc.name,
+              });
+          } else if (st.competitorName && shares / st.sharesOutstanding >= 0.05) {
+            events.push({
+              t: `🏦 ${nc.name} takes a ${((shares / st.sharesOutstanding) * 100).toFixed(0)}% position in ${st.name}.`,
+              kind: "event",
+              rival: nc.name,
+            });
+          }
+        }
+      }
+    }
+    return nc;
+  });
+  return events;
 }
 
 /** Makroläge som kopplar börsen till den levande ekonomin (koppling 11). */

@@ -72,7 +72,7 @@ import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
 import { newId, pick, random01, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
-import { applyStockNews, executeLimitOrders, maybeListingEvents, priceStocks, quarterlyEarnings, rivalNews, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
+import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, priceStocks, quarterlyEarnings, rivalFbabShares, rivalHoldingsValue, rivalNews, rivalShareTrading, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
@@ -741,6 +741,14 @@ export function advanceMonth(state: GameState): GameState {
         cashflow(s, -amt, "utdelning (CFO-policy)");
         s.dividendsPaid = (s.dividendsPaid ?? 0) + amt;
         s.ownerWealth = (s.ownerWealth ?? 0) + ownerCut;
+        // Rivalägare (korsägandet) får sin andel kontant.
+        if (s.ipoActive && s.ipoShares) {
+          const totalSh = s.ipoShares.total;
+          s.competitors = s.competitors.map((c) => {
+            const held = fbabSharesOf(c);
+            return held > 0 ? { ...c, cash: c.cash + Math.round((amt * held) / totalSh) } : c;
+          });
+        }
         const relief = dividendRelief(amt, equityOf(s));
         if (relief > 0) s.takeoverPressure = Math.max(0, (s.takeoverPressure ?? 0) - relief);
         events.push({
@@ -1235,6 +1243,12 @@ export function advanceMonth(state: GameState): GameState {
       const shares = s.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
       const floatPct = (shares.public / shares.total) * 100;
       const playerPct = 100 - floatPct;
+      // Aktivisten kan bara köpa det som är till salu: rivalernas innehav
+      // (korsägandet) ligger utanför den fria floaten.
+      const activistCeilPct = Math.max(
+        0,
+        ((shares.public - rivalFbabShares(s)) / shares.total) * 100,
+      );
       const annualReturn = (monthlyNOI - interest) * 12;
       const tick = activistTick(s.cash, eq, annualReturn);
       let delta = tick.delta;
@@ -1248,7 +1262,7 @@ export function advanceMonth(state: GameState): GameState {
       }
       if (s.reputation > 70) delta -= 0.5;
       const before = s.takeoverPressure ?? 0;
-      s.takeoverPressure = +Math.max(0, Math.min(floatPct, before + delta)).toFixed(2);
+      s.takeoverPressure = +Math.max(0, Math.min(activistCeilPct, before + delta)).toFixed(2);
       const stake = s.takeoverPressure;
       const threshold = Math.min(ACTIVIST_TAKEOVER_AT, playerPct);
       if (delta > 0 && reasons.length && Math.floor(stake / 10) > Math.floor(before / 10)) {
@@ -1626,7 +1640,9 @@ export function advanceMonth(state: GameState): GameState {
     // retention som fastighetsdelen.
     const indVal = (nc.industries ?? []).reduce((a, x) => a + industryAssetValue(x, s), 0);
     if (indVal > 0) rivalCashflow(nc, Math.round((indVal * 0.06 * cycleNOI * retention) / 12));
-    nc.equity = nc.cash + indVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    // Aktieportföljen (korsägande) värderas till marknadskurs.
+    const holdVal = rivalHoldingsValue(nc, s.stocks);
+    nc.equity = nc.cash + indVal + holdVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     // Kapitaldisciplin: fastighetsbolag sitter inte på halva förmögenheten i
     // likvider. Kassa över ~40 % av eget kapital delas ut i takt om 8 %/mån –
     // gamla partiers uppbyggda berg smälter bort inom ett par år. (Fonderna
@@ -1635,7 +1651,7 @@ export function advanceMonth(state: GameState): GameState {
       const maxCash = Math.max(10_000_000, nc.equity * 0.4);
       if (nc.cash > maxCash) {
         nc.cash = Math.round(nc.cash - (nc.cash - maxCash) * 0.08);
-        nc.equity = nc.cash + indVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+        nc.equity = nc.cash + indVal + holdVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
       }
     }
     return nc;
@@ -1837,6 +1853,9 @@ export function advanceMonth(state: GameState): GameState {
     if (s.month % 3 === 0)
       events.push({ t: `📈 Aktieutdelning inkom: ${kr(market.dividends)}.`, kind: "income" });
   }
+  // Korsägande: rivalerna handlar aktier i varandra och i SPELARENS bolag
+  // (à la Capitalism) – strategi- och konjunkturstyrt, ur den fria floaten.
+  for (const ev of rivalShareTrading(s)) events.push(ev);
   // Kausala rivalnyheter: rivalaktier reagerar på konkurrenternas faktiska månad.
   const rivalResult = rivalNews(s.stocks, s.competitors, stockDate);
   s.stocks = rivalResult.stocks;

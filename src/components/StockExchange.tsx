@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { calYear } from "../engine/date";
 import { kr, msek, pct } from "../engine/format";
-import { COURTAGE, stockHoldingsValue } from "../engine/stocks";
+import { COURTAGE, rivalFbabShares, stockHoldingsValue } from "../engine/stocks";
 import type { Competitor, GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { AreaChart, FlashCell, GoldRule, Sparkline as Spark, signed, trendColor } from "./ui";
@@ -733,23 +733,34 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
 
       <PortfolioHistoryCard history={state.portfolioValueHistory ?? []} />
 
-      {/* Ditt börsnoterade bolag (FBAB) */}
+      {/* Ditt börsnoterade bolag (FBAB): kurs + ägarbild i sammandrag.
+          BOLAGSHANDLINGARNA (emission, återköp, privatköp) bor i
+          Bolag → Group – börsen visar marknaden, Group styr strukturen. */}
       {state.ipoActive && (() => {
         const fbab = state.stocks.find((s) => s.id === "FBAB");
-        const pressure = state.takeoverPressure ?? 0;
-        const pressureColor = pressure >= 75 ? "#f87a7a" : pressure >= 50 ? "#f5c842" : C.positive;
+        const shares = state.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
+        const activistPct = state.takeoverPressure ?? 0;
+        const rivalPct = (rivalFbabShares(state) / shares.total) * 100;
+        const floatPct = (shares.public / shares.total) * 100;
+        const playerPct = 100 - floatPct;
+        const freePct = Math.max(0, floatPct - activistPct - rivalPct);
+        const threshold = Math.min(50, playerPct);
+        const danger = activistPct >= threshold - 10;
+        const seg = (w: number, bg: string) => ({ width: `${Math.max(0, w)}%`, background: bg, height: 10 });
         return (
           <div style={{ ...card, border: `2px solid ${C.brass}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
               <div>
                 <div style={{ fontFamily: FONTS.heading, fontWeight: 700, fontSize: 17, color: BURGUNDY }}>🏛 Property Corp (FBAB) — Your company</div>
-                <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>{(state.ipoShares?.total ?? 0).toLocaleString("sv-SE")} aktier · {(state.ipoShares?.public ?? 0).toLocaleString("sv-SE")} i publik handel</div>
+                <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
+                  {(shares.total / 1e6).toFixed(1)}M shares · {(shares.public / 1e6).toFixed(1)}M in public trading
+                </div>
               </div>
               {fbab && (
                 <div style={{ textAlign: "right" }}>
                   <div style={{ ...num, fontSize: 22, fontWeight: 700, color: C.ink }}>{kr(fbab.price)}</div>
                   <div style={{ fontSize: 11, color: C.inkSoft }}>
-                    IPO-kurs: {state.ipoPrice ? kr(state.ipoPrice) : "—"}
+                    IPO price: {state.ipoPrice ? kr(state.ipoPrice) : "—"}
                     {state.ipoPrice && fbab.price !== state.ipoPrice && (
                       <span style={{ color: fbab.price >= state.ipoPrice ? C.green : "#b83030", marginLeft: 6, fontWeight: 700 }}>
                         {fbab.price >= state.ipoPrice ? "+" : ""}{(((fbab.price / state.ipoPrice) - 1) * 100).toFixed(1)} %
@@ -761,16 +772,26 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
             </div>
             {fbab && <Spark data={fbab.history} width={300} height={40} color={C.brass} />}
             <GoldRule />
-            <div style={{ marginBottom: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: pressureColor }}>Takeover pressure: {Math.round(pressure)}%</span>
-                <span style={{ fontSize: 11, color: C.inkSoft }}>{pressure >= 75 ? "🚨 Critical — activists are amassing shares!" : pressure >= 50 ? "⚠️ Elevated pressure" : "✅ Under control"}</span>
-              </div>
-              <div style={{ height: 8, background: "#2a1a0a", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ width: `${pressure}%`, height: "100%", background: pressureColor, borderRadius: 4, transition: "width 0.5s" }} />
-              </div>
+            <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.brass}`, marginBottom: 6 }}>
+              <div style={seg(playerPct, BURGUNDY)} title="You" />
+              <div style={seg(activistPct, "#8a2020")} title="Kronfelt Capital" />
+              <div style={seg(rivalPct, "#8a6a20")} title="Rival companies" />
+              <div style={seg(freePct, "#7c8894")} title="Free float" />
             </div>
-            <div style={{ fontSize: 11, color: C.inkSoft }}>Pressure rises each month. Keep reputation {">"}70 (−2/mo) and avoid market downturns to ease it.</div>
+            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 11.5, marginBottom: 6 }}>
+              <span style={{ color: BURGUNDY, fontWeight: 700 }}>You {playerPct.toFixed(0)}%</span>
+              <span style={{ color: danger ? "#f87a7a" : C.inkSoft, fontWeight: danger ? 700 : 400 }}>
+                Kronfelt {activistPct.toFixed(1)}%{danger ? " ⚠️" : ""}
+              </span>
+              <span style={{ color: C.inkSoft }}>Rivals {rivalPct.toFixed(1)}%</span>
+              <span style={{ color: C.inkSoft }}>Free float {freePct.toFixed(1)}%</span>
+            </div>
+            <div style={{ fontSize: 11, color: C.inkSoft }}>
+              {danger
+                ? `🚨 Kronfelt takes control past ${Math.round(threshold)}% — defend with dividends or buybacks.`
+                : `The activist builds on idle cash and weak returns; takeover past ${Math.round(threshold)}%.`}{" "}
+              Corporate actions (share issue, buyback, private purchases) live in Company → Group.
+            </div>
           </div>
         );
       })()}

@@ -8,7 +8,7 @@ import { useState } from "react";
 import { kr, msek, pct } from "../engine/format";
 import { equityOf, loanTerms, portfolioValue } from "../engine/finance";
 import { propNOI } from "../engine/property";
-import { STOCK_CAP_RATE, stockHoldingsValue, subsidiaryValue } from "../engine/stocks";
+import { STOCK_CAP_RATE, fbabSharesOf, rivalFbabShares, stockHoldingsValue, subsidiaryValue } from "../engine/stocks";
 import type { GameAction, GameState } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 
@@ -389,7 +389,13 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
   const activistPct = state.takeoverPressure ?? 0;
   const floatPct = (shares.public / shares.total) * 100;
   const playerPct = 100 - floatPct;
-  const freeFloatPct = Math.max(0, floatPct - activistPct);
+  // Namngivna rivalägare (korsägandet): deras aktier ligger utanför fria floaten.
+  const rivalHolders = state.competitors
+    .map((c) => ({ name: c.name, pct: (fbabSharesOf(c) / shares.total) * 100 }))
+    .filter((r) => r.pct >= 0.5)
+    .sort((a, b) => b.pct - a.pct);
+  const rivalPct = (rivalFbabShares(state) / shares.total) * 100;
+  const freeFloatPct = Math.max(0, floatPct - activistPct - rivalPct);
   const threshold = Math.min(50, playerPct);
   // Förhandsvisningar för åtgärderna
   const issueShares = Math.round(shares.total * 0.1);
@@ -410,6 +416,7 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
       <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.brass}`, marginBottom: 6 }}>
         <div style={seg(playerPct, BURGUNDY)} title="You" />
         <div style={seg(activistPct, "#8a2020")} title="Kronfelt Capital" />
+        <div style={seg(rivalPct, "#8a6a20")} title="Rival companies" />
         <div style={seg(freeFloatPct, "#7c8894")} title="Free float" />
       </div>
       <Row
@@ -419,6 +426,9 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
         bold
       />
       <Row label="◼ Kronfelt Capital (activist)" value={`${activistPct.toFixed(1)}%`} accent={activistPct >= threshold - 10 ? "#b83030" : undefined} />
+      {rivalHolders.map((r) => (
+        <Row key={r.name} label={`◼ ${r.name} (rival)`} value={`${r.pct.toFixed(1)}%`} />
+      ))}
       <Row label="◼ Free float (institutions & retail)" value={`${freeFloatPct.toFixed(1)}%`} />
       <div style={{ fontSize: 12, color: activistPct >= threshold - 10 ? "#b83030" : C.inkSoft, margin: "6px 0 10px" }}>
         {activistPct >= threshold - 10
@@ -430,7 +440,7 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
         const wealth = state.ownerWealth ?? 0;
         const activistShares = Math.round((shares.total * activistPct) / 100);
         const buyable = Math.min(
-          Math.max(0, shares.public - activistShares),
+          Math.max(0, shares.public - activistShares - rivalFbabShares(state)),
           Math.max(0, shares.public - Math.ceil(shares.total * 0.1)),
         );
         const privateBudget = Math.min(wealth, Math.round(buyable * price));

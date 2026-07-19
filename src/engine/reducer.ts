@@ -61,7 +61,7 @@ import { newId, random01 } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
 import { MEMORY_NOTES, applyStoryFlag, districtLocked, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById, suppressOrganicApplications } from "./story";
-import { COURTAGE, STOCK_CAP_RATE } from "./stocks";
+import { COURTAGE, STOCK_CAP_RATE, fbabSharesOf, rivalFbabShares } from "./stocks";
 import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
 
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
@@ -1928,9 +1928,19 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ? (state.ipoShares.total - state.ipoShares.public) / state.ipoShares.total
           : 1;
       const ownerCut = Math.round(amt * ownerPct);
+      // Rivalägare (korsägandet) får sin andel av utdelningen kontant.
+      const total = state.ipoShares?.total ?? 0;
+      const competitors =
+        state.ipoActive && total > 0
+          ? state.competitors.map((c) => {
+              const held = fbabSharesOf(c);
+              return held > 0 ? { ...c, cash: c.cash + Math.round((amt * held) / total) } : c;
+            })
+          : state.competitors;
       return {
         ...state,
         cash: state.cash - amt,
+        competitors,
         dividendsPaid: (state.dividendsPaid ?? 0) + amt,
         ownerWealth: (state.ownerWealth ?? 0) + ownerCut,
         takeoverPressure: Math.max(0, (state.takeoverPressure ?? 0) - relief),
@@ -1951,9 +1961,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const fbab = state.stocks.find((st) => st.id === "FBAB");
       const price = Math.max(0.01, (fbab?.price ?? equityOf(state) / total) * 1.003); // courtage
       const activistShares = Math.round((total * (state.takeoverPressure ?? 0)) / 100);
+      const rivalShares = rivalFbabShares(state);
       const maxShares = Math.min(
-        Math.max(0, pub - activistShares),          // bara fria floaten är till salu
-        Math.max(0, pub - Math.ceil(total * 0.1)),  // spridningskravet
+        Math.max(0, pub - activistShares - rivalShares), // bara fria floaten är till salu
+        Math.max(0, pub - Math.ceil(total * 0.1)),       // spridningskravet
       );
       const shares = Math.min(Math.floor(Math.min(action.amount, wealth) / price), maxShares);
       if (shares <= 0)
@@ -2443,9 +2454,24 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const newTotal = total - shares;
       const stakeAfter = Math.max(0, ((stakeShares - boughtFromActivist) / newTotal) * 100);
       const ownedAfter = Math.round(((newTotal - (pub - shares)) / newTotal) * 100);
+      // Rivalägare (korsägandet) säljer sin proportionella del och får betalt.
+      const competitors = state.competitors.map((c) => {
+        const held = fbabSharesOf(c);
+        if (held <= 0 || pub <= 0) return c;
+        const sold = Math.round((shares * held) / pub);
+        if (sold <= 0) return c;
+        return {
+          ...c,
+          cash: c.cash + Math.round(sold * price),
+          stockHoldings: (c.stockHoldings ?? [])
+            .map((h) => (h.stockId === "FBAB" ? { ...h, shares: h.shares - sold } : h))
+            .filter((h) => h.shares > 0),
+        };
+      });
       return {
         ...state,
         cash: state.cash - cost,
+        competitors,
         ipoShares: { total: newTotal, public: pub - shares },
         takeoverPressure: +stakeAfter.toFixed(2),
         stocks: state.stocks.map((st) =>
