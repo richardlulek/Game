@@ -78,6 +78,7 @@ export function PolicyPanel({
 
   const aa = pol.autoAccept ?? { enabled: false, minQuality: 1.0, contract: "standard" as ContractKind };
   const am = pol.autoAmort ?? { enabled: false, ltvTarget: 0.6, cashFloor: 2_000_000 };
+  const ad = pol.autoDividend ?? { enabled: false, pct: 0.25, cashFloor: 5_000_000 };
   const ai = pol.autoInsure ?? { enabled: false, minValue: 10_000_000 };
   const ae = pol.autoEnergy ?? { enabled: false, targetClass: "B" as const, cashFloor: 3_000_000 };
 
@@ -176,6 +177,38 @@ export function PolicyPanel({
                   ${m}M
                 </button>
               ))}
+            </div>
+          </>
+        )}
+        <div style={P.row}>
+          <span style={P.label}>Quarterly dividend from excess cash</span>
+          <button style={toggleStyle(ad.enabled)} onClick={() => set({ autoDividend: { ...ad, enabled: !ad.enabled } })}>
+            {ad.enabled ? "ON" : "OFF"}
+          </button>
+        </div>
+        {ad.enabled && (
+          <>
+            <div style={P.row}>
+              <span style={P.label}>Share of excess cash</span>
+              {[0.1, 0.25, 0.5].map((p) => (
+                <button key={p} style={chipStyle(ad.pct === p)}
+                  onClick={() => set({ autoDividend: { ...ad, pct: p } })}>
+                  {Math.round(p * 100)}%
+                </button>
+              ))}
+            </div>
+            <div style={P.row}>
+              <span style={P.label}>Keep cash buffer</span>
+              {[2, 5, 10, 20].map((m) => (
+                <button key={m} style={chipStyle(ad.cashFloor === m * 1_000_000)}
+                  onClick={() => set({ autoDividend: { ...ad, cashFloor: m * 1_000_000 } })}>
+                  ${m}M
+                </button>
+              ))}
+            </div>
+            <div style={P.hint}>
+              Paid every quarter. After the IPO you receive your ownership share of each dividend
+              privately — the rest goes to the market and calms the activist fund.
             </div>
           </>
         )}

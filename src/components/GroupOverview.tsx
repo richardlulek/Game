@@ -435,6 +435,8 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
         );
         const privateBudget = Math.min(wealth, Math.round(buyable * price));
         const canBuyPrivate = privateBudget > price && buyable > 0;
+        const held = state.ownerShares ?? 0;
+        const sellValue = Math.round(held * price * 0.997);
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
             <button
@@ -449,6 +451,18 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
             >
               👤 Buy shares privately · up to {msek(privateBudget)}
             </button>
+            {held > 0 && (
+              <button
+                onClick={() => dispatch({ type: "SELL_OWN_SHARES", amount: sellValue })}
+                style={{
+                  padding: "8px 14px", borderRadius: 5, border: `1px solid ${C.brass}`,
+                  background: C.wood, color: C.creamText, fontWeight: 700, fontSize: 12, cursor: "pointer",
+                }}
+                title="Sell your private shares back to the market (0.3% brokerage) — cash to your wallet, but the free float grows"
+              >
+                👤 Sell private shares · {msek(sellValue)}
+              </button>
+            )}
             <span style={{ fontSize: 11, color: C.inkSoft }}>
               Owner wallet: {kr(wealth)} (built by dividends)
             </span>

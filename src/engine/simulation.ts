@@ -56,6 +56,7 @@ import {
   SUPERVISION_FEE,
   activistTick,
   districtShareOf,
+  dividendRelief,
   fundsActive,
   shouldTriggerCrisis,
 } from "./lateGame";
@@ -726,6 +727,26 @@ export function advanceMonth(state: GameState): GameState {
           s.debt = Math.max(0, s.debt - amort);
           events.push({ t: `💼 The CFO policy amortized ${kr(amort)} (target LTV ${Math.round(pol.autoAmort.ltvTarget * 100)}%).`, kind: "info" });
         }
+      }
+    }
+    // CFO: utdelningspolicy – en andel av överskottskassan delas ut varje
+    // kvartal (pro rata till aktieägarna efter noteringen; lugnar aktivisten).
+    if (pol?.autoDividend?.enabled && hasCfo && s.month % 3 === 0) {
+      const excess = s.cash - pol.autoDividend.cashFloor;
+      const amt = Math.floor((Math.max(0, excess) * pol.autoDividend.pct) / 100_000) * 100_000;
+      if (amt >= 200_000) {
+        const ownerPct =
+          s.ipoActive && s.ipoShares ? (s.ipoShares.total - s.ipoShares.public) / s.ipoShares.total : 1;
+        const ownerCut = Math.round(amt * ownerPct);
+        cashflow(s, -amt, "utdelning (CFO-policy)");
+        s.dividendsPaid = (s.dividendsPaid ?? 0) + amt;
+        s.ownerWealth = (s.ownerWealth ?? 0) + ownerCut;
+        const relief = dividendRelief(amt, equityOf(s));
+        if (relief > 0) s.takeoverPressure = Math.max(0, (s.takeoverPressure ?? 0) - relief);
+        events.push({
+          t: `💼 The CFO policy paid a quarterly dividend of ${msek(amt)}${ownerPct < 1 ? ` — ${msek(ownerCut)} to you (${Math.round(ownerPct * 100)}% of the shares)` : ""}.`,
+          kind: "income",
+        });
       }
     }
     // Förvaltningschef: automatisk försäkring av värdefulla fastigheter.

@@ -95,6 +95,42 @@ describe("IPO 2.0: float, nyemission och återköp", () => {
     expect(s2.takeoverPressure).toBe(10);
   });
 
+  it("sälj privata aktier: plånboken fylls, floaten växer tillbaka", () => {
+    const s1 = { ...listedState(0.49), ownerWealth: 5_000_000 };
+    const s2 = reducer(s1, { type: "BUY_OWN_SHARES", amount: 5_000_000 });
+    const bought = s2.ownerShares ?? 0;
+    const s3 = reducer(s2, { type: "SELL_OWN_SHARES", amount: 1_000_000_000 });
+    expect(s3.ownerShares).toBe(0);
+    expect(s3.ipoShares!.public).toBe(4_900_000); // floaten helt återställd
+    // Rundresan kostar bara spreaden (0,3 % + 0,3 %).
+    const price = s1.stocks.find((st) => st.id === "FBAB")!.price;
+    const spreadCost = Math.round(bought * price * 1.003) - Math.round(bought * price * 0.997);
+    expect(5_000_000 - s3.ownerWealth!).toBeLessThanOrEqual(spreadCost + 2);
+    // Utan innehav: avslag.
+    expect(reducer(s3, { type: "SELL_OWN_SHARES", amount: 1_000 }).ownerShares).toBe(0);
+  });
+
+  it("ägartillskott noterat: riktad emission till ägaren – röster upp, aktivist utspädd", () => {
+    const s1 = { ...listedState(0.49), ownerWealth: 3_000_000, takeoverPressure: 20 };
+    const s2 = reducer(s1, { type: "OWNER_INJECTION", amount: 3_000_000 });
+    expect(s2.cash).toBe(s1.cash + 3_000_000);
+    expect(s2.ownerWealth).toBe(0);
+    expect(s2.ipoShares!.total).toBeGreaterThan(10_000_000);
+    expect(s2.ipoShares!.public).toBe(4_900_000); // floaten orörd
+    expect(s2.takeoverPressure!).toBeLessThan(20); // aktivisten utspädd
+    const ownedPct = (s2.ipoShares!.total - s2.ipoShares!.public) / s2.ipoShares!.total;
+    expect(ownedPct).toBeGreaterThan(0.51);
+    expect(s2.stocks.find((st) => st.id === "FBAB")!.sharesOutstanding).toBe(s2.ipoShares!.total);
+  });
+
+  it("ägartillskott onoterat: rent kassatillskott", () => {
+    const s1 = makeState({ cash: 1_000_000, ownerWealth: 2_000_000 });
+    const s2 = reducer(s1, { type: "OWNER_INJECTION", amount: 2_000_000 });
+    expect(s2.cash).toBe(3_000_000);
+    expect(s2.ownerWealth).toBe(0);
+    expect(s2.ipoShares).toBeUndefined();
+  });
+
   it("privatköpen respekterar spridningskravet och aktivistens innehav", () => {
     // Float 20 % där aktivisten äger 8 %: fria floaten är 12 %, men golvet
     // (≥10 % float) tillåter bara köp av 10 % av aktierna.

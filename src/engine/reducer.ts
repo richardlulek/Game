@@ -1972,6 +1972,76 @@ export function reducer(state: GameState, action: GameAction): GameState {
         }, ...state.log],
       };
     }
+    case "SELL_OWN_SHARES": {
+      // Ägaren säljer privata aktier tillbaka till marknaden (0,3 % courtage).
+      // Pengarna landar i plånboken – men aktierna återgår till floaten och
+      // ger aktivisten mer att bygga position i. Kontroll mot likviditet.
+      if (!state.ipoActive || !state.ipoShares) return log(state, "The company is not listed.", "warn");
+      const held = state.ownerShares ?? 0;
+      if (held <= 0) return log(state, "You hold no private shares to sell.", "warn");
+      const { total, public: pub } = state.ipoShares;
+      const fbab = state.stocks.find((st) => st.id === "FBAB");
+      const price = Math.max(0.01, (fbab?.price ?? equityOf(state) / total) * 0.997);
+      // Belopp ≥ hela innehavets värde ⇒ sälj allt (flyttalssäkert).
+      const shares =
+        action.amount >= held * price ? held : Math.min(Math.floor(action.amount / price), held);
+      if (shares <= 0) return log(state, "The amount is too small for a share sale.", "warn");
+      const proceeds = Math.round(shares * price);
+      const newPub = pub + shares;
+      const ownedPct = Math.round(((total - newPub) / total) * 100);
+      return {
+        ...state,
+        ownerWealth: (state.ownerWealth ?? 0) + proceeds,
+        ownerShares: held - shares,
+        ipoShares: { total, public: newPub },
+        log: [{
+          t: `👤 Private share sale: ${(shares / 1e6).toFixed(2)}M shares sold for ${msek(proceeds)}. Your voting control falls to ${ownedPct}% — the free float grows.`,
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "OWNER_INJECTION": {
+      // Ägartillskott: privata pengar in i bolaget. Noterat sker det som en
+      // RIKTAD EMISSION till ägaren på marknadskurs – kassan fylls, din
+      // röstandel stärks och aktivistens procent späds ut mekaniskt.
+      // Onoterat: rent tillskott till kassan.
+      const wealth = state.ownerWealth ?? 0;
+      const amt = Math.min(action.amount, wealth);
+      if (amt < 100_000) return log(state, "The minimum owner injection is $100,000.", "warn");
+      if (state.ipoActive && state.ipoShares) {
+        const { total, public: pub } = state.ipoShares;
+        const fbab = state.stocks.find((st) => st.id === "FBAB");
+        const price = Math.max(0.01, fbab?.price ?? equityOf(state) / total);
+        const newShares = Math.round(amt / price);
+        const newTotal = total + newShares;
+        const stakeAfter = ((state.takeoverPressure ?? 0) * total) / newTotal;
+        const ownedPct = Math.round(((newTotal - pub) / newTotal) * 100);
+        return {
+          ...state,
+          cash: state.cash + amt,
+          ownerWealth: wealth - amt,
+          ownerShares: (state.ownerShares ?? 0) + newShares,
+          ipoShares: { total: newTotal, public: pub },
+          takeoverPressure: +stakeAfter.toFixed(2),
+          stocks: state.stocks.map((st) =>
+            st.id === "FBAB" ? { ...st, sharesOutstanding: newTotal } : st,
+          ),
+          log: [{
+            t: `💼 Owner injection: ${msek(amt)} of private wealth becomes company capital via a directed share issue. Your voting control rises to ${ownedPct}%.`,
+            kind: "income",
+          }, ...state.log],
+        };
+      }
+      return {
+        ...state,
+        cash: state.cash + amt,
+        ownerWealth: wealth - amt,
+        log: [{
+          t: `💼 Owner injection: ${msek(amt)} of private wealth added to the company's cash.`,
+          kind: "income",
+        }, ...state.log],
+      };
+    }
     case "START_MEGA": {
       // Megaprojekt är LANDMÄRKEN med fasta platser i stadens omland –
       // de kräver inte längre ett helägt kvarter, utan stadens förtroende

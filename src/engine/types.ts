@@ -466,6 +466,9 @@ export interface CompanyPolicy {
   autoInsure?: { enabled: boolean; minValue: number };
   /** Förvaltningschefen energiuppgraderar mot målklassen när kassan tillåter. */
   autoEnergy?: { enabled: boolean; targetClass: "A" | "B"; cashFloor: number };
+  /** CFO delar ut en andel av överskottskassan varje kvartal (pro rata till
+   *  aktieägarna efter noteringen; lugnar aktivistfonden). */
+  autoDividend?: { enabled: boolean; pct: number; cashFloor: number };
 }
 
 /** En inkommen ansökan om att hyra – väntar på spelarens besked. */
@@ -959,6 +962,8 @@ export type GameAction =
   | { type: "SHARE_ISSUE"; pct: number }
   | { type: "SHARE_BUYBACK"; amount: number }
   | { type: "BUY_OWN_SHARES"; amount: number }
+  | { type: "SELL_OWN_SHARES"; amount: number }
+  | { type: "OWNER_INJECTION"; amount: number }
   | { type: "BUY_INSURANCE"; id: number }
   | { type: "CANCEL_INSURANCE"; id: number }
   | { type: "ISSUE_BOND"; amount: number; years: number }

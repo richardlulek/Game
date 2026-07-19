@@ -66,11 +66,41 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
 
       {/* ── Ägarens privata förmögenhet ──────────────────────────── */}
       <div style={P.card}>
-        <div style={P.title}>💼 Owner’s wealth: {msek(wealth)}</div>
+        {(() => {
+          const fbab = state.stocks.find((st) => st.id === "FBAB");
+          const shareVal = Math.round((state.ownerShares ?? 0) * (fbab?.price ?? 0));
+          return (
+            <>
+              <div style={P.title}>💼 Owner’s wealth: {msek(wealth + shareVal)}</div>
+              {shareVal > 0 && (
+                <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 4 }}>
+                  Cash wallet {msek(wealth)} · shares in the company {msek(shareVal)} (Company → Group)
+                </div>
+              )}
+            </>
+          );
+        })()}
         <div style={{ fontSize: 12, color: "#5d6b7c", marginBottom: 10 }}>
           Pay a dividend from the company and the money becomes yours privately — the company’s cash
-          can’t touch it. Use it for luxury and donations below.
+          can’t touch it. Use it for luxury and donations below, buy shares in your own company, or
+          inject it back when the company needs capital.
         </div>
+        {wealth >= 100_000 && (
+          <button
+            style={{
+              width: "100%", marginBottom: 12, padding: "8px", borderRadius: 6,
+              border: "1px solid #dde4ec", fontWeight: 700, fontSize: 12.5, cursor: "pointer",
+              background: "#fbfdff", color: "#2c5530",
+            }}
+            onClick={() => dispatch({ type: "OWNER_INJECTION", amount: wealth })}
+            title={state.ipoActive
+              ? "Injects your private wealth as company capital via a directed share issue to you — strengthens your voting control"
+              : "Injects your private wealth into the company's cash"}
+          >
+            💼 Owner injection: put {msek(wealth)} back into the company
+            {state.ipoActive ? " (directed share issue)" : ""}
+          </button>
+        )}
 
         {/* Utdelningskontroll – flyttad hit från Finans så allt ägar-relaterat samlas. */}
         <div style={{
