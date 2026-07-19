@@ -18,6 +18,15 @@
    ============================================================ */
 
 import { ENERGY_SITES } from "./industryData";
+import {
+  blockFootprint,
+  CLASSIC_EXPANSIONS,
+  CLASSIC_ZONES,
+  zoneFootprint,
+  type CityLayout,
+  type ExpansionDef,
+  type ZoneDef,
+} from "./cityLayout";
 import { random01 } from "./random";
 import type { GameState, IndustryAsset } from "./types";
 
@@ -55,90 +64,19 @@ export interface StreetSeg {
   district: string;
 }
 
-interface ZoneDef {
-  district: string;
-  cx: number;
-  cz: number;
-  /** Kvartersrutnät. */
-  blockCols: number;
-  blockRows: number;
-  /** Tomter per kvarter. */
-  parcelCols: number;
-  parcelRows: number;
-  /** Tomtstorlek. */
-  parcelW: number;
-  parcelD: number;
-  /** Mellanrum mellan tomter i samma kvarter (0 = delar vägg). */
-  innerGap: number;
-  /** Gatubredd mellan kvarteren. */
-  street: number;
-}
-
-const ZONES: ZoneDef[] = [
-  // ~490 tomter totalt: samma fotavtryck och byggt/obyggt-förhållande som förr,
-  // men tätare rutnät (mindre tomter + smalare gator) så staden rymmer fler.
-  // Centrum: slutna kvarter à 3×2 tomter som delar väggar
-  { district: "centrum", cx: 0, cz: 10, blockCols: 4, blockRows: 4, parcelCols: 3, parcelRows: 2, parcelW: 17, parcelD: 17, innerGap: 0, street: 12 },
-  // Finansdistriktet: skyskrapetomter i tätt rutnät, sydost mot vattnet.
-  // Skjutet österut så det syns en tydlig aveny mellan Centrum och Finans.
-  { district: "finans", cx: 280, cz: 120, blockCols: 8, blockRows: 6, parcelCols: 1, parcelRows: 1, parcelW: 19, parcelD: 19, innerGap: 0, street: 9 },
-  // Innerstaden: kvarter à 2×2 tomter norr om centrum
-  { district: "innerstad", cx: -10, cz: -185, blockCols: 7, blockRows: 4, parcelCols: 2, parcelRows: 2, parcelW: 17, parcelD: 17, innerGap: 0, street: 11 },
-  // Hamnen: kajnära rad längs vattnet (förskjuten öster om HK)
-  { district: "hamnen", cx: 40, cz: 262, blockCols: 19, blockRows: 3, parcelCols: 1, parcelRows: 1, parcelW: 17, parcelD: 17, innerGap: 0, street: 7 },
-  // Industriområdet: stora fristående tomter i nordost
-  { district: "industri", cx: 320, cz: -150, blockCols: 9, blockRows: 5, parcelCols: 1, parcelRows: 1, parcelW: 27, parcelD: 27, innerGap: 0, street: 9 },
-  // Förorten: storkvarter i väst – varje tomt är ETT helt kvarter.
-  // Dubbelt så många kvarter (30→63) med samma fotavtryck (tätare, mindre).
-  { district: "förort", cx: -295, cz: 55, blockCols: 9, blockRows: 7, parcelCols: 1, parcelRows: 1, parcelW: 22, parcelD: 24, innerGap: 0, street: 8 },
-  // Villakullen: villatomter i nordvästra hörnet.
-  // Dubbelt så många villatomter (99→192) med samma fotavtryck.
-  { district: "kulle", cx: -330, cz: -210, blockCols: 16, blockRows: 12, parcelCols: 1, parcelRows: 1, parcelW: 10, parcelD: 12, innerGap: 0, street: 6 },
-];
+// Klassiska kartan bor numera i cityLayout.ts (tillsammans med den seedade
+// layoutgeneratorn). Spelet kör tills vidare alltid den klassiska layouten;
+// *For-funktionerna nedan låter tester och kommande etapper bygga staden
+// för en genererad layout i stället.
+const ZONES: readonly ZoneDef[] = CLASSIC_ZONES;
 
 export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
-export type { ZoneDef };
+export type { ZoneDef, ExpansionDef, CityLayout };
 
-/**
- * Expansionskvarter – mark utanför de färdiga kvarteren. Två slag:
- *  · "kommunal": kommunen planlägger och släpper via detaljplaneauktion
- *  · "plan": privat råmark (åker/äng) – spelaren kan köpa marken och
- *    driva EGEN detaljplan genom planprocessen (cityPlan.ts)
- * Låsta (obyggbara) tills de vunnits i auktion respektive vunnit laga kraft.
- */
-export interface ExpansionDef {
-  blockId: string;
-  district: string;
-  cx: number;
-  cz: number;
-  parcelCols: number;
-  parcelRows: number;
-  parcelW: number;
-  parcelD: number;
-  kind: "kommunal" | "plan";
-  /** Nära vattnet → strandskydd kan bli en utmaning i planprocessen. */
-  waterfront?: boolean;
-}
-
-// Dubbelt så många tomter i varje expansionskvarter (kommunal + planmark):
-// finare uppdelning med OFÖRÄNDRAT fotavtryck, så geometrivakten håller.
-const EXPANSIONS: ExpansionDef[] = [
-  { blockId: "innerstad-exp0", district: "innerstad", cx: -73, cz: -311, parcelCols: 2, parcelRows: 4, parcelW: 24, parcelD: 12, kind: "kommunal" },
-  { blockId: "industri-exp0", district: "industri", cx: 270, cz: 0, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "kommunal" },
-  { blockId: "innerstad-exp1", district: "innerstad", cx: 53, cz: -311, parcelCols: 2, parcelRows: 4, parcelW: 24, parcelD: 12, kind: "kommunal" },
-  { blockId: "förort-exp0", district: "förort", cx: -357.5, cz: 217.5, parcelCols: 2, parcelRows: 1, parcelW: 26, parcelD: 52, kind: "kommunal" },
-  { blockId: "industri-exp1", district: "industri", cx: 370, cz: 0, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "kommunal" },
-  // Planområden: privat råmark i stadens utkanter.
-  // Planmark i luckan mellan Villakullen och Förorten – låg och centrerad i
-  // gapet så att den inte skär in i något av distrikten.
-  { blockId: "kulle-plan0", district: "kulle", cx: -420, cz: -79, parcelCols: 2, parcelRows: 4, parcelW: 22, parcelD: 8, kind: "plan" },
-  { blockId: "förort-plan0", district: "förort", cx: -462, cz: 90, parcelCols: 2, parcelRows: 1, parcelW: 26, parcelD: 52, kind: "plan" },
-  { blockId: "innerstad-plan0", district: "innerstad", cx: -10, cz: -365, parcelCols: 2, parcelRows: 4, parcelW: 24, parcelD: 12, kind: "plan" },
-  { blockId: "finans-plan0", district: "finans", cx: 445, cz: 120, parcelCols: 2, parcelRows: 4, parcelW: 26, parcelD: 13, kind: "plan" },
-  { blockId: "industri-plan0", district: "industri", cx: 510, cz: -40, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "plan" },
-  { blockId: "industri-plan1", district: "industri", cx: 510, cz: -220, parcelCols: 2, parcelRows: 1, parcelW: 19, parcelD: 38, kind: "plan" },
-  { blockId: "hamnen-plan0", district: "hamnen", cx: 300, cz: 265, parcelCols: 2, parcelRows: 2, parcelW: 24, parcelD: 12, kind: "plan", waterfront: true },
-];
+// Expansionskvarter – mark utanför de färdiga kvarteren ("kommunal" släpps
+// via detaljplaneauktion, "plan" är privat råmark för egen planprocess).
+// Definitionerna bor i cityLayout.ts tillsammans med zonerna.
+const EXPANSIONS: readonly ExpansionDef[] = CLASSIC_EXPANSIONS;
 
 /** Auktionsordningen för de KOMMUNALA expansionskvarteren. */
 export const EXPANSION_BLOCKS = EXPANSIONS.filter((e) => e.kind === "kommunal").map((e) => ({
@@ -154,29 +92,25 @@ export const PLAN_AREAS: ExpansionDef[] = EXPANSIONS.filter((e) => e.kind === "p
 export const expansionByBlock = (blockId: string): ExpansionDef | undefined =>
   EXPANSIONS.find((e) => e.blockId === blockId);
 
-function blockSize(z: ZoneDef): { w: number; d: number } {
-  return {
-    w: z.parcelCols * z.parcelW + (z.parcelCols - 1) * z.innerGap,
-    d: z.parcelRows * z.parcelD + (z.parcelRows - 1) * z.innerGap,
-  };
+const blockSize = blockFootprint;
+const zoneSize = zoneFootprint;
+
+/** Zonrektanglarna för en godtycklig zonuppsättning (genererad layout). */
+export function districtZonesFor(zones: readonly ZoneDef[]): DistrictZone[] {
+  return zones.map((z) => {
+    const s = zoneSize(z);
+    return { district: z.district, x: z.cx, z: z.cz, w: s.w, d: s.d };
+  });
 }
 
-function zoneSize(z: ZoneDef): { w: number; d: number } {
-  const b = blockSize(z);
-  return {
-    w: z.blockCols * b.w + (z.blockCols - 1) * z.street,
-    d: z.blockRows * b.d + (z.blockRows - 1) * z.street,
-  };
-}
+export const DISTRICT_ZONES: DistrictZone[] = districtZonesFor(ZONES);
 
-export const DISTRICT_ZONES: DistrictZone[] = ZONES.map((z) => {
-  const s = zoneSize(z);
-  return { district: z.district, x: z.cx, z: z.cz, w: s.w, d: s.d };
-});
-
-function buildParcels(): Parcel[] {
+function buildParcels(
+  zones: readonly ZoneDef[] = ZONES,
+  expansions: readonly ExpansionDef[] = EXPANSIONS,
+): Parcel[] {
   const out: Parcel[] = [];
-  for (const zn of ZONES) {
+  for (const zn of zones) {
     const b = blockSize(zn);
     const s = zoneSize(zn);
     let i = 0;
@@ -208,7 +142,7 @@ function buildParcels(): Parcel[] {
     }
   }
   // Expansionskvarteren – låsta tomter som öppnas via auktion.
-  for (const ex of EXPANSIONS) {
+  for (const ex of expansions) {
     let i = 0;
     const bw = ex.parcelCols * ex.parcelW;
     const bd = ex.parcelRows * ex.parcelD;
@@ -239,6 +173,11 @@ function buildParcels(): Parcel[] {
 /** Alla tomtrutor i staden. Deterministiskt – samma karta varje session. */
 export const PARCELS: Parcel[] = buildParcels();
 
+/** Tomtrutorna för en genererad layout (tester och kommande etapper). */
+export function parcelsForLayout(layout: CityLayout): Parcel[] {
+  return buildParcels(layout.zones, layout.expansions);
+}
+
 const BY_ID = new Map(PARCELS.map((p) => [p.id, p]));
 
 /** Slår upp en tomtruta via id, eller undefined om id:t är okänt. */
@@ -249,9 +188,9 @@ export const parcelsIn = (district: string): Parcel[] =>
   PARCELS.filter((p) => p.district === district);
 
 /** Kvartersgator inne i zonerna – gatorna MELLAN kvarteren. */
-export function zoneStreets(): StreetSeg[] {
+export function zoneStreets(zones: readonly ZoneDef[] = ZONES): StreetSeg[] {
   const out: StreetSeg[] = [];
-  for (const zn of ZONES) {
+  for (const zn of zones) {
     const b = blockSize(zn);
     const s = zoneSize(zn);
     const margin = 6; // gatorna sticker ut lite förbi kvarteren
