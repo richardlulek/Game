@@ -726,6 +726,9 @@ export interface GameState {
   /** Aktuellt PRNG-tillstånd. Seedas/läses av dispatch-boundaryn i gameStore
       så att samma frö + samma händelsesekvens ger identiskt utfall. */
   rng?: number;
+  /** Glidande trendankare för marknadsnivån (långsam EMA av marketMod).
+      Bubbelvakten jämför mot den – snabb avvikelse uppåt = bubbla. */
+  marketModAnchor?: number;
   /** Dag i månaden (1..antal dagar i månaden). Kalendern rullar dag för dag
       för mjukt flöde; den tunga ekonomin räknas fortfarande per månad i
       advanceMonth. Se engine/date.ts för kalenderkonvertering (spelår 1 =

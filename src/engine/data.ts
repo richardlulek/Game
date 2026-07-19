@@ -257,8 +257,24 @@ export const RARE_EVENTS: GameEvent[] = [
   },
   {
     id: "recession",
+    // Värdetappet mildrat (0,88 → 0,94): händelsen straffar redan dubbelt via
+    // tre månaders förhöjd konkursrisk. Gamla nivån gjorde de sällsynta
+    // händelserna så nettonegativa att sena partier bara såg fallande trend.
     text: "Financial crisis! A downturn squeezes tenants for the next 3 months. Default risk rises sharply.",
-    apply: (s) => ({ ...s, recessionMonthsLeft: 3, marketMod: +(s.marketMod * 0.88).toFixed(3), demandMod: +(s.demandMod * 0.92).toFixed(3) }),
+    apply: (s) => ({ ...s, recessionMonthsLeft: 3, marketMod: +(s.marketMod * 0.94).toFixed(3), demandMod: +(s.demandMod * 0.92).toFixed(3) }),
+  },
+  {
+    id: "kapitalinflode",
+    // Fjärde sällsynta händelsen – positiv motvikt så att chockerna inte är
+    // 2 mot 1 på nedsidan (kris/rally/recession gav ~−5 % i väntevärde per
+    // chock; med den här landar chockerna nära neutralt, kriser svider ändå).
+    text: "Foreign capital pours in! International funds bid up commercial property across the city.",
+    apply: (s) => ({
+      ...s,
+      marketMod: +(s.marketMod * 1.08).toFixed(3),
+      demandMod: +(s.demandMod * 1.03).toFixed(3),
+      marketSentiment: +((s.marketSentiment ?? 1) * 1.08).toFixed(3),
+    }),
   },
 ];
 

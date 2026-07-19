@@ -170,6 +170,11 @@ export function advanceMonth(state: GameState): GameState {
   const events: LogEntry[] = [];
   const prevSent = state.marketSentiment ?? 1; // sentiment innan månadens händelser
 
+  // Trendankare: långsam EMA av marknadsnivån. Bubbelvakten jämför mot den
+  // (marketMod ≫ ankaret = snabb uppgång = bubbla) i stället för mot ett
+  // absolut tak – annars halshuggs varje sekulär uppgång av en "kris".
+  s.marketModAnchor = +(((s.marketModAnchor ?? s.marketMod) + (s.marketMod - (s.marketModAnchor ?? s.marketMod)) * 0.03)).toFixed(4);
+
   // Track previous equity for delta display
   s.prevEquity = equityOf(state);
 
@@ -197,7 +202,7 @@ export function advanceMonth(state: GameState): GameState {
       events.push({ t: `📉 DOWNTURN! The market is faltering (${dur} mo left).`, kind: "warn" });
       // Bubbla som spricker: nedgång i ett uppblåst läge → fullskalig kris.
       // (Lugnt läge: kriser avstängda.)
-      if (!s.settings?.calmMode && !s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, random01())) {
+      if (!s.settings?.calmMode && !s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, random01(), s.marketModAnchor ?? 1)) {
         s.crisisMonthsLeft = CRISIS_MONTHS;
         events.push({
           t: `🚨 PROPERTY CRISIS! The bubble bursts: values fall, the credit market closes and covenants tighten. Those with cash buy cheap — the leveraged fight for their lives.`,
@@ -1227,7 +1232,11 @@ export function advanceMonth(state: GameState): GameState {
         if (s.month % 2 === 0)
           events.push({ t: `🚨 The crisis deepens: property values fall (market level ${Math.round(s.marketMod * 100)}%). ${Math.ceil(left)} mo left.`, kind: "warn" });
       } else {
-        s.marketMod = +(s.marketMod * 1.012).toFixed(3);
+        // Återhämtningen skalar mot fallet: gamla 1,012 tog bara tillbaka
+        // knappt hälften av kraschen och lämnade ett permanent ärr på ~9 %
+        // per kris – i sena partier blev trenden därför bara nedåt. 1,022
+        // gör krisen till en korrektion mot trend (~−4 % netto), inte ett hål.
+        s.marketMod = +(s.marketMod * 1.022).toFixed(3);
       }
       s.crisisMonthsLeft = left - 1;
       if (s.crisisMonthsLeft === 0)
@@ -2353,7 +2362,10 @@ export function advanceMonth(state: GameState): GameState {
   if (s.month > 12) {
     s.month = 1;
     s.year += 1;
-    s.marketMod = +(s.marketMod * rnd(0.99, 1.04)).toFixed(3);
+    // Sekulär trend: svagt positiv årsdrift (E ≈ +2 %/år – staden växer och
+    // betalningsviljan stiger). Gamla intervallet 0,99–1,04 lät slumpen äta
+    // upp driften medan chockerna drog nedåt – summan blev negativ över tid.
+    s.marketMod = +(s.marketMod * rnd(1.0, 1.045)).toFixed(3);
     // Årsbokslut: hur gick året för bolaget?
     const prevYearEq = s.history[s.history.length - 12]?.equity;
     if (prevYearEq !== undefined && prevYearEq !== 0) {

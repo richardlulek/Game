@@ -1,5 +1,5 @@
 import type { GameState, GameAction, IndustryAsset, BookingChannel } from "../engine/types";
-import { industryAssetValue, hotelMonthlyRevenue, hotelMonthlyOpex, energyMonthlyRevenue, energyMonthlyOpex, logisticsMonthlyRevenue, logisticsMonthlyOpex } from "../engine/industries";
+import { industryAssetValue, hotelMonthlyRevenue, hotelMonthlyOpex, energyMonthlyRevenue, energyMonthlyOpex, logisticsMonthlyRevenue, logisticsMonthlyOpex, BAY_CAPACITY_M3, contractedM3 } from "../engine/industries";
 import { INDUSTRY_UPGRADES, HOTEL_BOOKING_CHANNELS } from "../engine/industryData";
 import { kr, msek } from "../engine/format";
 import { C, BURGUNDY, FONTS, THEME } from "../styles/tokens";
@@ -138,6 +138,10 @@ function LogisticsSection({ asset, state }: { asset: IndustryAsset; state: GameS
   const opex = logisticsMonthlyOpex(asset, state);
   const noi = rev - opex;
   const autoLabel = ["Manual", "Semi-automatic", "Fully automated", "AI-driven"][meta.automationLevel];
+  // Beläggning: kontrakterad volym mot terminalens kapacitet – visar om
+  // terminalen väntar på fler kontrakt (inflödet sköts av simuleringen).
+  const capacity = meta.totalBays * BAY_CAPACITY_M3;
+  const utilization = Math.min(100, Math.round((contractedM3(meta) / capacity) * 100));
 
   return (
     <>
@@ -152,6 +156,12 @@ function LogisticsSection({ asset, state }: { asset: IndustryAsset; state: GameS
         <div><div style={label}>Opex/mo</div><div style={value}>{kr(opex)}</div></div>
         <div><div style={label}>NOI/mo</div><div style={{ ...value, color: noi >= 0 ? C.positive : "#b83030" }}>{kr(noi)}</div></div>
         <div><div style={label}>Contracts</div><div style={value}>{meta.throughputContracts.length}</div></div>
+        <div>
+          <div style={label}>Utilization</div>
+          <div style={{ ...value, color: utilization >= 55 ? C.positive : "#8a6a20" }}>
+            {utilization}%{utilization < 55 ? " · filling up" : ""}
+          </div>
+        </div>
       </div>
       {meta.throughputContracts.length > 0 && (
         <div style={{ marginBottom: 10 }}>

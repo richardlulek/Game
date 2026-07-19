@@ -66,8 +66,9 @@ describe("advanceMonth – tid", () => {
     const next = advanceMonth(makeState({ month: 12, year: 1, debt: 0 }));
     expect(next.month).toBe(1);
     expect(next.year).toBe(2);
-    // marketMod × rnd(0.99, 1.04) med random 0.5 → × 1.015
-    expect(next.marketMod).toBe(1.015);
+    // marketMod × rnd(1.0, 1.045) med random 0.5 → × 1.0225 (sekulär trend
+    // +2 %/år i väntevärde – se industryEconomy.test.ts för helheten)
+    expect(next.marketMod).toBe(1.022);
   });
 });
 

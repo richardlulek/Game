@@ -4,10 +4,10 @@
    Inga React-beroenden.
    ============================================================ */
 
-import { INDUSTRY_UPGRADES, HOTEL_BOOKING_CHANNELS } from "./industryData";
+import { INDUSTRY_UPGRADES, HOTEL_BOOKING_CHANNELS, LOGISTICS_CLIENT_PROFILES, PPA_CLIENT_PROFILES } from "./industryData";
 import { cityEventHotelMult, cityEventLogisticsMult, cityEventSpotMult } from "./cityEvents";
 import { hotelRevParBoost, energySpotBoost, logisticsThroughputBoost } from "./progression";
-import { random01 } from "./random";
+import { newId, pick, random01, rnd } from "./random";
 import type {
   GameState,
   IndustryAsset,
@@ -15,6 +15,9 @@ import type {
   HotelMeta,
   EnergyMeta,
   LogisticsMeta,
+  LogisticsClientProfile,
+  PpaContract,
+  ThroughputContract,
 } from "./types";
 import { kr } from "./format";
 
@@ -195,6 +198,48 @@ export function energyMarketValue(asset: IndustryAsset, state: GameState): numbe
   return Math.max(Math.round(asset.purchasePrice * 0.4), Math.round(annualNOI / 0.10));
 }
 
+/** Månatlig elproduktion (MWh) för en energipark. */
+function energyMonthlyMWh(meta: EnergyMeta): number {
+  const cf = meta.subType === "sol" ? SOLAR_CF : WIND_CF;
+  return meta.installedMW * cf * 730 * (1 - meta.degradationPct / 100);
+}
+
+const PPA_CLIENT_NAMES: Record<string, string[]> = {
+  industri_stor: ["Nordfors Steelworks", "Baltic Paper Mill", "Croneborg Foundry"],
+  kommuns: ["City Transit Authority", "Municipal Waterworks", "Harbor City Schools"],
+  dc_operatoer: ["CloudNine Datacenters", "Polar Compute", "GridByte DC"],
+  sme_batteri: ["VoltHive Storage", "Brightcell Energy", "PeakShave Ltd"],
+};
+
+/** B2B-kunder söker upp parker med ledig produktion: chans per månad att ett
+ *  nytt PPA-avtal tecknas. PPA-plattformen (uppgradering) ökar inflödet.
+ *  Fast pris i stället för spot – jämnare intäkt, men taket sätts av
+ *  produktionen så parken aldrig säljer mer än den levererar. */
+export function maybeNewPpaContract(asset: IndustryAsset, state: GameState): PpaContract | null {
+  const meta = asset.energyMeta;
+  if (!meta || asset.status !== "klar") return null;
+  const production = energyMonthlyMWh(meta);
+  const contracted = meta.ppaContracts.reduce((s, c) => s + c.mwh, 0);
+  const free = production - contracted;
+  if (free < production * 0.25) return null; // behåll spot-exponering
+  const chance = (asset.upgrades.includes("energi_ppa_portal") ? 0.32 : 0.16) *
+    (state.marketCycle?.phase === "bust" ? 0.6 : 1);
+  if (random01() >= chance) return null;
+  const profile = pick(PPA_CLIENT_PROFILES);
+  const mwh = Math.round(Math.min(free * 0.85, production * rnd(0.15, 0.3) * profile.mwhFactor));
+  if (mwh < 20) return null;
+  const term = Math.round(rnd(profile.termMin, profile.termMax));
+  return {
+    id: newId(),
+    clientName: pick(PPA_CLIENT_NAMES[profile.id] ?? ["Industrial Offtaker"]),
+    mwh,
+    pricePerMwh: Math.round(BASE_SPOT_PRICE * profile.priceFactor * rnd(0.95, 1.08)),
+    monthsLeft: term,
+    termTotal: term,
+    defaultRisk: profile.defaultRisk,
+  };
+}
+
 export function tickEnergy(asset: IndustryAsset, state: GameState): [number, number, LogEntry[]] {
   const events: LogEntry[] = [];
   const meta = asset.energyMeta!;
@@ -203,10 +248,31 @@ export function tickEnergy(asset: IndustryAsset, state: GameState): [number, num
 
   // Degradering: sol 0,5 %/år = 0,042 %/mån, vind 0,3 %/år = 0,025 %/mån
   const degradRate = meta.subType === "sol" ? 0.5 / 12 : 0.3 / 12;
-  asset.energyMeta = { ...meta, degradationPct: +(meta.degradationPct + degradRate).toFixed(4) };
+  let contracts = meta.ppaContracts;
+
+  // Motpartsrisk: klient i obestånd → avtalet upphör.
+  contracts = contracts.filter((c) => {
+    if (random01() < c.defaultRisk) {
+      events.push({ t: `⚡ Counterparty default: ${c.clientName} walks away from its PPA with ${asset.name}.`, kind: "warn" });
+      return false;
+    }
+    return true;
+  });
+
+  asset.energyMeta = { ...meta, ppaContracts: contracts, degradationPct: +(meta.degradationPct + degradRate).toFixed(4) };
+
+  // Nya PPA-avtal: fastprisintäkt bokas från nästa månad.
+  const ppa = maybeNewPpaContract(asset, state);
+  if (ppa) {
+    asset.energyMeta = { ...asset.energyMeta, ppaContracts: [...contracts, ppa] };
+    events.push({
+      t: `⚡ New PPA: ${ppa.clientName} buys ${ppa.mwh} MWh/mo at ${ppa.pricePerMwh} kr/MWh for ${ppa.termTotal} mo from ${asset.name}.`,
+      kind: "income",
+    });
+  }
 
   // PPA-förfallokontroll: om monthsLeft === 0 → ta bort (simulationsloopen dekrementerar)
-  const expiredPPA = meta.ppaContracts.filter((c) => c.monthsLeft <= 1);
+  const expiredPPA = contracts.filter((c) => c.monthsLeft <= 1);
   for (const c of expiredPPA) {
     events.push({ t: `⚡ PPA contract with ${c.clientName} expires for ${asset.name}.`, kind: "warn" });
   }
@@ -217,6 +283,55 @@ export function tickEnergy(asset: IndustryAsset, state: GameState): [number, num
 // ── Logistik ───────────────────────────────────────────────────────────────
 
 const AUTO_THROUGHPUT = [1.0, 1.08, 1.18, 1.30]; // automationLevel 0–3
+/** Kontrakterbar volym per lastport och månad (m³). Kalibrering: en fullt
+ *  kontrakterad terminal landar på ~8–10 % direktavkastning på köpeskillingen
+ *  (14 portar × 110 m³ × ~190 kr/m³ ≈ 290 tkr/mån mot ~165 tkr opex). */
+export const BAY_CAPACITY_M3 = 110;
+
+const LOGISTICS_CLIENT_NAMES: Record<LogisticsClientProfile, string[]> = {
+  ehandel: ["NordShop Online", "Parcelly", "HomeCart Express"],
+  livsmedel: ["FreshFoods Co.", "Arctic Chill Foods", "DailyGreens"],
+  industri_kund: ["SteelPartner AB", "Nordic Toolworks", "HeavyParts Group"],
+  "3pl": ["FlowLog 3PL", "TransNordic", "RelayChain Logistics"],
+};
+
+/** Summa kontrakterad volym (m³/mån). */
+export function contractedM3(meta: LogisticsMeta): number {
+  return meta.throughputContracts.reduce((s, c) => s + c.guaranteedM3, 0);
+}
+
+/** Fraktkunder söker upp terminaler med ledig kapacitet: chans per månad att
+ *  ett nytt genomflödesavtal tecknas. Konjunkturen styr inflödet (gods rullar
+ *  i boom, kunder försvinner i bust) och kylkedjekunder kräver uppgraderingen. */
+export function maybeNewLogisticsContract(asset: IndustryAsset, state: GameState): ThroughputContract | null {
+  const meta = asset.logisticsMeta;
+  if (!meta || asset.status !== "klar") return null;
+  const capacity = meta.totalBays * BAY_CAPACITY_M3;
+  const free = capacity - contractedM3(meta);
+  if (free < capacity * 0.12) return null; // fullbelagd
+  const phase = state.marketCycle?.phase;
+  const chance = (phase === "boom" ? 0.55 : phase === "bust" ? 0.22 : 0.4);
+  if (random01() >= chance) return null;
+  const eligible = LOGISTICS_CLIENT_PROFILES.filter(
+    (p) => !p.requiresKyl || asset.upgrades.includes("logistik_kyl"),
+  );
+  const profile = pick(eligible);
+  const vol = Math.round(Math.min(free, capacity * rnd(0.18, 0.4)) / 10) * 10;
+  if (vol < 80) return null;
+  const term = Math.round(rnd(profile.termMin, profile.termMax));
+  return {
+    id: newId(),
+    clientName: pick(LOGISTICS_CLIENT_NAMES[profile.id]),
+    clientProfile: profile.id,
+    guaranteedM3: vol,
+    ratePerM3: Math.round(profile.rateBase * rnd(0.92, 1.12)),
+    monthsLeft: term,
+    termTotal: term,
+    penaltyRisk: profile.penaltyRisk,
+    defaultRisk: profile.defaultRisk,
+    ...(profile.requiresKyl ? { requiresKyl: true } : {}),
+  };
+}
 
 export function logisticsMonthlyRevenue(asset: IndustryAsset, state: GameState): number {
   const meta = asset.logisticsMeta;
@@ -280,13 +395,13 @@ export function tickLogistik(asset: IndustryAsset, state: GameState): [number, n
     if (random01() < c.defaultRisk) {
       const penalty = Math.round(c.ratePerM3 * c.guaranteedM3);
       revenue = Math.max(0, revenue - penalty);
-      events.push({ t: `📦 Klientkonkurs: ${c.clientName} hos ${asset.name} – kontrakt avslutat (${kr(penalty)}).`, kind: "warn" });
+      events.push({ t: `📦 Client bankruptcy: ${c.clientName} at ${asset.name} — contract terminated (${kr(penalty)}).`, kind: "warn" });
       return null;
     }
     if (random01() < c.penaltyRisk) {
       const sla = Math.round(c.ratePerM3 * c.guaranteedM3 * 0.15);
       revenue = Math.max(0, revenue - sla);
-      events.push({ t: `⚠️ SLA-miss hos ${asset.name}: ${kr(sla)} i straffavgift.`, kind: "expense" });
+      events.push({ t: `⚠️ SLA miss at ${asset.name}: ${kr(sla)} in penalty fees.`, kind: "expense" });
     }
     return c;
   }).filter(Boolean) as typeof meta.throughputContracts;
@@ -294,6 +409,19 @@ export function tickLogistik(asset: IndustryAsset, state: GameState): [number, n
   // Aktivera Q4-peak i oktober
   const peakActive = state.month >= 10;
   asset.logisticsMeta = { ...meta, throughputContracts: updatedContracts, peakSurchargeActive: peakActive };
+
+  // Nya kontrakt: fraktkunder fyller ledig kapacitet (intäkt från nästa månad).
+  const signed = maybeNewLogisticsContract(asset, state);
+  if (signed) {
+    asset.logisticsMeta = {
+      ...asset.logisticsMeta,
+      throughputContracts: [...updatedContracts, signed],
+    };
+    events.push({
+      t: `📦 New contract: ${signed.clientName} ships ${signed.guaranteedM3} m³/mo at ${signed.ratePerM3} kr/m³ for ${signed.termTotal} mo via ${asset.name}.`,
+      kind: "income",
+    });
+  }
 
   // Förfallokontroll
   const expiredContracts = updatedContracts.filter((c) => c.monthsLeft <= 1);
@@ -356,7 +484,7 @@ export function synergySummary(state: GameState): string[] {
     terminals.set(a.district, e);
   }
   for (const [, e] of terminals)
-    out.push(`📦 Terminal i ${e.name}: +${e.n * 3} % industrihyra i distriktet`);
+    out.push(`📦 Terminal in ${e.name}: +${e.n * 3}% industrial rent in the district`);
   return out;
 }
 
@@ -399,10 +527,30 @@ export function makeIndustryAssetFromTemplate(
       commissionedAbs: absMonth,
     };
   } else {
+    // Terminalen övertas med ETT stabilt sittande kontrakt (~30 % av
+    // kapaciteten) – köpet ger kassaflöde dag ett, resten av kapaciteten
+    // fylls av kontraktsinflödet i tickLogistik. Utan detta stod terminaler
+    // helt utan intäkt: inflödet fanns inte och tomma kontraktslistor
+    // gjorde att logistiksektorn aldrig tjänade en krona.
+    const bays = template.totalBays ?? 16;
+    const sitting = pick(LOGISTICS_CLIENT_PROFILES.filter((p) => !p.requiresKyl));
+    const term = Math.round(rnd(sitting.termMin, sitting.termMax));
     logisticsMeta = {
-      totalBays: template.totalBays ?? 16,
+      totalBays: bays,
       automationLevel: 0,
-      throughputContracts: [],
+      throughputContracts: [
+        {
+          id: newId(),
+          clientName: pick(LOGISTICS_CLIENT_NAMES[sitting.id]),
+          clientProfile: sitting.id,
+          guaranteedM3: Math.round((bays * BAY_CAPACITY_M3 * rnd(0.3, 0.45)) / 10) * 10,
+          ratePerM3: Math.round(sitting.rateBase * rnd(0.92, 1.08)),
+          monthsLeft: term,
+          termTotal: term,
+          penaltyRisk: sitting.penaltyRisk,
+          defaultRisk: sitting.defaultRisk,
+        },
+      ],
       peakSurchargeActive: false,
     };
   }

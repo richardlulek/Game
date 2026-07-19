@@ -97,9 +97,13 @@ export function districtShareOf(s: GameState, district: string): number {
 
 export const CRISIS_MONTHS = 14;
 
-/** Bubbla som spricker: kris utlöses när bust inleds i ett uppblåst läge. */
-export function shouldTriggerCrisis(marketMod: number, rand: number): boolean {
-  return marketMod > 1.12 && rand < 0.6;
+/** Bubbla som spricker: kris utlöses när bust inleds i ett läge som är
+ *  uppblåst RELATIVT trenden (glidande ankare), inte mot absoluta 1,12.
+ *  Med sekulär tillväxt blev det gamla absoluttaket ett evigt bindande
+ *  lock: varje gång marknaden klev över 1,12 klipptes den av en kris,
+ *  och sena partier upplevde bara nedåtgående trend. */
+export function shouldTriggerCrisis(marketMod: number, rand: number, anchor = 1): boolean {
+  return marketMod > anchor * 1.12 && rand < 0.6;
 }
 
 /* ── C6: Megaprojekt ───────────────────────────────────────────────── */
