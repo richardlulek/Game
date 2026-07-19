@@ -868,7 +868,14 @@ export interface GameState {
   tutorialDismissed?: boolean;
   saveSlot?: number;
   debtMatureAbs?: number;
+  /** Aktiestruktur efter noteringen: total = alla utestående aktier,
+   *  public = aktier i marknaden (floaten). Spelarens andel = resten.
+   *  Nyemissioner ökar båda; återköp makulerar aktier och minskar båda. */
   ipoShares?: { total: number; public: number };
+  /** Aktivistfonden Kronfelt Capitals ägarandel i % av totala aktier.
+   *  (Fältnamnet är historiskt – det VAR ett abstrakt "uppköpstryck".)
+   *  Kan aldrig överstiga floaten; passerar den spelarens andel tas
+   *  bolaget över. */
   takeoverPressure?: number;
   ipoPrice?: number;
   industryPortfolio?: IndustryAsset[];
@@ -945,7 +952,9 @@ export type GameAction =
   | { type: "TOGGLE_SHORT_TERM"; id: number }
   | { type: "APPLY_ZONE_CHANGE"; id: number; targetType: PropTypeKey }
   | { type: "INVEST_DISTRICT"; districtId: string; amount: number }
-  | { type: "DO_IPO" }
+  | { type: "DO_IPO"; float?: number }
+  | { type: "SHARE_ISSUE"; pct: number }
+  | { type: "SHARE_BUYBACK"; amount: number }
   | { type: "BUY_INSURANCE"; id: number }
   | { type: "CANCEL_INSURANCE"; id: number }
   | { type: "ISSUE_BOND"; amount: number; years: number }

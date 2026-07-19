@@ -23,7 +23,7 @@ const HUB_TABS = [
   { id: "milestones", label: "Milestones", icon: "🏅" },
   { id: "overview", label: "Overview", icon: "📊" },
   { id: "kpi", label: "KPI", icon: "📐" },
-  { id: "group", label: "Koncern", icon: "🏛️" },
+  { id: "group", label: "Group", icon: "🏛️" },
 ] as const;
 
 type HubTab = (typeof HUB_TABS)[number]["id"];

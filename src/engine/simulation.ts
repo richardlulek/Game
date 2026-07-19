@@ -1202,29 +1202,92 @@ export function advanceMonth(state: GameState): GameState {
       return { ...c, cash: c.cash + injection };
     });
 
-    // A2/A3 · Aktivistfonden: efter börsnoteringen straffas död kassa
-    // och svag avkastning. Utdelningar (PAY_DIVIDEND) lindrar.
+    // A2/A3 · Aktivistfonden: EN enad ägarmodell efter noteringen.
+    // takeoverPressure ÄR Kronfelt Capitals ägarandel i % av aktierna:
+    // död kassa, svag avkastning, kursras och kristider bygger positionen;
+    // stark ROE, gott rykte och utdelningar krymper den. Andelen kan
+    // aldrig överstiga floaten – och tar de fler röster än du har
+    // (eller absoluta taket) röstas du bort. (Tidigare fanns TVÅ
+    // motstridiga tryckskrivare, varav en kröp +1,5/mån villkorslöst –
+    // uppköpshotet kändes därför slumpartat och oundvikligt.)
     if (s.ipoActive && !s.gameOver) {
+      const shares = s.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
+      const floatPct = (shares.public / shares.total) * 100;
+      const playerPct = 100 - floatPct;
       const annualReturn = (monthlyNOI - interest) * 12;
       const tick = activistTick(s.cash, eq, annualReturn);
+      let delta = tick.delta;
+      const reasons = tick.reason ? [tick.reason] : [];
+      if (s.marketCycle?.phase === "bust") delta += 0.5;
+      if ((s.recessionMonthsLeft ?? 0) > 0) delta += 0.5;
+      const fbab = s.stocks.find((st) => st.id === "FBAB");
+      if (fbab && (s.ipoPrice ?? 0) > 0 && fbab.price < s.ipoPrice! * 0.7) {
+        delta += 1.5;
+        reasons.push("share price collapse");
+      }
+      if (s.reputation > 70) delta -= 0.5;
       const before = s.takeoverPressure ?? 0;
-      s.takeoverPressure = Math.max(0, Math.min(100, before + tick.delta));
+      s.takeoverPressure = +Math.max(0, Math.min(floatPct, before + delta)).toFixed(2);
       const stake = s.takeoverPressure;
-      if (tick.delta > 0 && tick.reason && Math.floor(stake / 10) > Math.floor(before / 10)) {
+      const threshold = Math.min(ACTIVIST_TAKEOVER_AT, playerPct);
+      if (delta > 0 && reasons.length && Math.floor(stake / 10) > Math.floor(before / 10)) {
         events.push({
-          t: `🦈 The activist fund Kronfelt Capital now owns ${Math.round(stake)}% of the company (${tick.reason}). Pay dividends or raise returns — at ${ACTIVIST_TAKEOVER_AT}% they take over.`,
+          t: `🦈 Kronfelt Capital now owns ${Math.round(stake)}% of the company (${reasons.join(" and ")}). You hold ${Math.round(playerPct)}% — they take over past ${Math.round(threshold)}%. Dividends, buybacks or stronger returns push them out.`,
           kind: "warn",
         });
       }
-      if (stake >= ACTIVIST_TAKEOVER_AT) {
+      // Sista varningen: aktivisten närmar sig röstmajoritet → fientligt bud.
+      if (stake >= threshold - 6 && before < threshold - 6 && stake < threshold && !s.pendingDecision) {
+        const buybackCost = Math.round(Math.max(5_000_000, eq * 0.06));
+        s.pendingDecision = {
+          id: "hostile_takeover",
+          title: "Hostile takeover bid",
+          text: `Kronfelt Capital holds ${Math.round(stake)}% against your ${Math.round(playerPct)}% and demands board seats. Defend your control or sell.`,
+          options: [
+            {
+              label: "Buy back shares",
+              detail: `${msek(buybackCost)} · activist stake −15 pts · rep +3`,
+              effect: {
+                cash: -buybackCost,
+                reputation: 3,
+                takeoverPressure: -15,
+                log: "Bought back shares and defended control. The activist position shrinks sharply.",
+                logKind: "income",
+              },
+            },
+            {
+              label: "PR offensive",
+              detail: "$2M · activist stake −6 pts · rep +8",
+              effect: {
+                cash: -2_000_000,
+                reputation: 8,
+                takeoverPressure: -6,
+                log: "The PR campaign rallied shareholders behind you — the activist backs off, for now.",
+                logKind: "income",
+              },
+            },
+            {
+              label: "Accept the takeover bid",
+              detail: "The company is sold — the game ends",
+              effect: {
+                gameOver: true,
+                log: "The company was sold to Kronfelt Capital. The game is over.",
+                logKind: "warn",
+              },
+            },
+          ],
+        };
+        events.push({ t: "🚨 HOSTILE BID: Kronfelt Capital moves on the board. A decision is required immediately!", kind: "warn" });
+      }
+      if (stake >= threshold) {
         s.gameOver = true;
         s.gameOverReason = {
           icon: "🦈",
           title: "Hostile takeover",
-          text: `Kronfelt Capital reached ${ACTIVIST_TAKEOVER_AT}% ownership and voted you off the board. After the IPO, weak shareholder returns fed the activists — dividends and profitability were too low to keep them out. Next run: after listing, pay dividends and keep returns up, or stay private longer.`,
+          text: `Kronfelt Capital reached ${Math.round(stake)}% ownership against your ${Math.round(playerPct)}% and voted you off the board. Weak shareholder returns fed the activists. Next run: keep a smaller float, pay dividends, buy back shares — or keep returns up.`,
         };
         events.push({
-          t: `🦈 HOSTILE TAKEOVER: Kronfelt Capital reaches ${ACTIVIST_TAKEOVER_AT}% and votes you off the board. The empire is no longer yours.`,
+          t: `🦈 HOSTILE TAKEOVER: Kronfelt Capital reaches ${Math.round(stake)}% and votes you off the board. The empire is no longer yours.`,
           kind: "warn",
         });
       }
@@ -1815,71 +1878,18 @@ export function advanceMonth(state: GameState): GameState {
       events.push({ t: `🏛️ Dotterbolagen bidrog med ${kr(subIncome * 3)} i kvartalet.`, kind: "income" });
   }
 
-  // ── IPO: uppdatera aktiekurs + beräkna uppköpstryck ────────────
+  // ── IPO: uppdatera aktiekurs ───────────────────────────────────
   if (s.ipoActive && s.ipoShares) {
     // Uppdatera FBAB-kurs baserat på eget kapital
+    // Kursen följer eget kapital per aktie. Ägarspelet (aktivistens andel,
+    // fientliga bud, övertagande) bor i den enade aktivistmodellen ovan –
+    // det gamla parallella "uppköpstrycket" som kröp +1,5/mån villkorslöst
+    // är borttaget: uppköpshotet ska ha ORSAKER, inte en timer.
     s.stocks = s.stocks.map((st) => {
       if (st.id !== "FBAB") return st;
       const newPrice = Math.max(0.01, equityOf(s) / s.ipoShares!.total);
       return { ...st, prevPrice: st.price, price: newPrice, history: [...st.history, newPrice].slice(-32) };
     });
-    // Beräkna uppköpstryck (0–100)
-    const fbabStock = s.stocks.find((st) => st.id === "FBAB");
-    const curPrice = fbabStock?.price ?? 1;
-    const ipoRef = s.ipoPrice ?? curPrice;
-    let pressureDelta = 1.5; // bas per månad
-    if (s.marketCycle?.phase === "bust") pressureDelta += 3;
-    if ((s.recessionMonthsLeft ?? 0) > 0) pressureDelta += 2;
-    if (s.reputation > 70) pressureDelta -= 2;
-    if (ipoRef > 0 && curPrice < ipoRef * 0.70) pressureDelta += 5; // kurs rasat >30 %
-    const oldPressure = s.takeoverPressure ?? 0;
-    s.takeoverPressure = Math.max(0, Math.min(100, oldPressure + pressureDelta));
-    if (s.takeoverPressure >= 75 && oldPressure < 75) {
-      events.push({ t: `⚠️ Takeover pressure rises (${Math.round(s.takeoverPressure)}%)! Activists are accumulating shares in your company.`, kind: "warn" });
-    }
-    if (s.takeoverPressure >= 100 && !s.pendingDecision) {
-      const portVal2 = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
-      const buybackCost = Math.round(portVal2 * 0.08);
-      s.pendingDecision = {
-        id: "hostile_takeover",
-        title: "Hostile takeover bid",
-        text: "PE Nordic Activist Fund has accumulated shares and now demands the company be sold. Defend yourself or sell.",
-        options: [
-          {
-            label: "Buy back shares",
-            detail: `${msek(buybackCost)} · pressure → 20 · rep +3`,
-            effect: {
-              cash: -buybackCost,
-              reputation: 3,
-              takeoverPressure: -80,
-              log: "Bought back shares and defended control. Takeover pressure drops sharply.",
-              logKind: "income",
-            },
-          },
-          {
-            label: "PR offensive",
-            detail: "$2M · pressure −40 · rep +8",
-            effect: {
-              cash: -2_000_000,
-              reputation: 8,
-              takeoverPressure: -40,
-              log: "The PR campaign strengthened the brand and eases takeover pressure temporarily.",
-              logKind: "income",
-            },
-          },
-          {
-            label: "Accept the takeover bid",
-            detail: "The company is sold — the game ends",
-            effect: {
-              gameOver: true,
-              log: "The company was sold to PE Nordic Activist Fund. The game is over.",
-              logKind: "warn",
-            },
-          },
-        ],
-      };
-      events.push({ t: "🚨 HOSTILE BID: PE Nordic demands the company be sold. A decision is required immediately!", kind: "warn" });
-    }
   }
 
   // ── Löner (anställda) ───────────────────────────────────────────

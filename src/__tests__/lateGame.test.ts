@@ -5,7 +5,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loanTerms } from "../engine/finance";
 import {
-  ACTIVIST_TAKEOVER_AT,
   LUXURIES,
   MEGA_PROJECTS,
   activistTick,
@@ -76,16 +75,31 @@ describe("aktivistfonden", () => {
     expect(dividendRelief(1_000_000, 0)).toBe(0);
   });
 
-  it("vid 50 % ägarandel tas bolaget över — game over", () => {
+  it("passerar aktivisten spelarens röstandel tas bolaget över — game over", () => {
+    // Majoritetsfloat (65 %): spelaren håller 35 % – aktivisten kan ta över.
     const s0 = makeState({
       cash: 100_000_000, // idle kassa utan portfölj → aktivisten köper
       ipoActive: true,
-      takeoverPressure: ACTIVIST_TAKEOVER_AT - 1,
+      ipoShares: { total: 10_000_000, public: 6_500_000 },
+      takeoverPressure: 34.5,
     });
     const s1 = advanceMonth(s0);
-    expect(s1.takeoverPressure).toBeGreaterThanOrEqual(ACTIVIST_TAKEOVER_AT);
+    expect(s1.takeoverPressure).toBeGreaterThanOrEqual(35);
     expect(s1.gameOver).toBe(true);
     expect(s1.log.some((l) => l.t.includes("HOSTILE TAKEOVER"))).toBe(true);
+  });
+
+  it("med liten float kan aktivisten aldrig ta över — andelen taks av floaten", () => {
+    // Float 20 %: spelaren håller 80 % – aktivisten kan max äga hela floaten.
+    let s = makeState({
+      cash: 100_000_000,
+      ipoActive: true,
+      ipoShares: { total: 10_000_000, public: 2_000_000 },
+      takeoverPressure: 19,
+    });
+    for (let m = 0; m < 24; m++) s = advanceMonth({ ...s, pendingDecision: null, auction: undefined });
+    expect(s.takeoverPressure ?? 0).toBeLessThanOrEqual(20);
+    expect(s.gameOver).toBe(false);
   });
 
   it("PAY_DIVIDEND fyller ägarens plånbok och lugnar aktivisten", () => {

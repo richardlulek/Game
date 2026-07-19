@@ -1,0 +1,70 @@
+import { describe, expect, it } from "vitest";
+import { equityOf } from "../engine/finance";
+import { reducer } from "../engine/reducer";
+import type { GameState } from "../engine/types";
+import { makeProperty, makeState } from "./factories";
+
+/* IPO 2.0-vakt: floaten är ett VAL vid noteringen, och efter den kan
+   bolaget göra nyemissioner (utspädning mot kapital) och återköp
+   (kontroll mot kassa). Tidigare: fast 30 % float, inga verktyg, och
+   uppköpshotet kröp upp på en villkorslös timer. */
+
+function listedState(float = 0.49): GameState {
+  const s0 = makeState({ cash: 10_000_000, portfolio: [makeProperty({ id: 1 })] });
+  return reducer(s0, { type: "DO_IPO", float });
+}
+
+describe("IPO 2.0: float, nyemission och återköp", () => {
+  it("floaten väljs vid noteringen och styr likvid + kvarvarande ägande", () => {
+    const s0 = makeState({ cash: 10_000_000, portfolio: [makeProperty({ id: 1 })] });
+    const eq = equityOf(s0);
+    const small = reducer(s0, { type: "DO_IPO", float: 0.2 });
+    const big = reducer(s0, { type: "DO_IPO", float: 0.65 });
+    expect(small.ipoShares).toEqual({ total: 10_000_000, public: 2_000_000 });
+    expect(big.ipoShares).toEqual({ total: 10_000_000, public: 6_500_000 });
+    // Likviden skalar med floaten (kurs × sålda aktier × 0,96).
+    expect(small.cash - s0.cash).toBe(Math.round((eq / 10_000_000) * 2_000_000 * 0.96));
+    expect(big.cash - s0.cash).toBeGreaterThan(small.cash - s0.cash);
+  });
+
+  it("nyemission: kassa in, ägarandel utspädd, aktivistens ANDEL faller", () => {
+    const s1 = { ...listedState(0.3), takeoverPressure: 20 };
+    const s2 = reducer(s1, { type: "SHARE_ISSUE", pct: 0.1 });
+    expect(s2.ipoShares).toEqual({ total: 11_000_000, public: 4_000_000 });
+    expect(s2.cash).toBeGreaterThan(s1.cash);
+    // Spelaren: 70 % → 7M/11M ≈ 63,6 %. Aktivisten: 20 % → 20×10/11 ≈ 18,2 %.
+    expect(s2.takeoverPressure).toBeCloseTo(18.18, 1);
+    expect(s2.stocks.find((st) => st.id === "FBAB")!.sharesOutstanding).toBe(11_000_000);
+  });
+
+  it("återköp: kassa ut, aktier makuleras, aktivisten pressas ut proportionellt", () => {
+    const s1 = { ...listedState(0.49), takeoverPressure: 20, cash: 50_000_000 };
+    const s2 = reducer(s1, { type: "SHARE_BUYBACK", amount: 20_000_000 });
+    expect(s2.ipoShares!.total).toBeLessThan(10_000_000);
+    expect(s2.ipoShares!.public).toBeLessThan(4_900_000);
+    expect(s2.cash).toBeLessThan(s1.cash);
+    // Aktivistens andel av totalen ska inte STIGA av ett proportionellt återköp.
+    expect(s2.takeoverPressure!).toBeLessThanOrEqual(20.01);
+    // Spelarens andel stärks.
+    const ownedPct = ((s2.ipoShares!.total - s2.ipoShares!.public) / s2.ipoShares!.total) * 100;
+    expect(ownedPct).toBeGreaterThan(51);
+  });
+
+  it("börsens spridningskrav: återköp stoppas under 10 % float", () => {
+    const s1 = { ...listedState(0.2), cash: 500_000_000 };
+    const s2 = reducer(s1, { type: "SHARE_BUYBACK", amount: 400_000_000 });
+    // Maximalt återköp lämnar exakt ≥10 % float kvar.
+    const floatPct = s2.ipoShares!.public / s2.ipoShares!.total;
+    expect(floatPct).toBeGreaterThanOrEqual(0.0999);
+    // Och ett till försök ger avslag utan att ändra strukturen.
+    const s3 = reducer(s2, { type: "SHARE_BUYBACK", amount: 100_000_000 });
+    expect(s3.ipoShares).toEqual(s2.ipoShares);
+    expect(s3.log[0].t).toContain("at least 10% free float");
+  });
+
+  it("nyemission/återköp kräver notering", () => {
+    const s0 = makeState({ cash: 10_000_000 });
+    expect(reducer(s0, { type: "SHARE_ISSUE", pct: 0.1 }).ipoShares).toBeUndefined();
+    expect(reducer(s0, { type: "SHARE_BUYBACK", amount: 1_000_000 }).ipoShares).toBeUndefined();
+  });
+});

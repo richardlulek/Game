@@ -2238,12 +2238,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "DO_IPO": {
       if (state.ipoActive) return log(state, "The company is already listed.", "warn");
-      // Noteringen baseras på aktuellt marknadsvärde, inte historiska utpriser.
       const portVal = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
-      const raised = Math.round(portVal * 0.20);
-      if (raised < 1_000_000) return log(state, "The portfolio value is too low for a stock listing.", "warn");
+      if (portVal < 5_000_000) return log(state, "The portfolio value is too low for a stock listing.", "warn");
+      // Floaten är ETT VAL: liten spridning skyddar kontrollen men reser
+      // mindre kapital; stor spridning fyller kassan men släpper in
+      // aktivisten på riktigt (passerar den din andel tas bolaget över).
+      const float = Math.min(0.65, Math.max(0.1, action.float ?? 0.3));
       const TOTAL_SHARES = 10_000_000;
+      const publicShares = Math.round(TOTAL_SHARES * float);
       const sharePrice = Math.max(0.01, equityOf(state) / TOTAL_SHARES);
+      // Emissionslikvid: sålda aktier × kurs, minus 4 % i noteringsavgifter.
+      const raised = Math.round(sharePrice * publicShares * 0.96);
+      if (raised < 1_000_000) return log(state, "The portfolio value is too low for a stock listing.", "warn");
       const playerStock: Stock = {
         id: "FBAB",
         name: "Property Corp (your company)",
@@ -2260,11 +2266,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
         history: [sharePrice],
         competitorName: "__player__",
       };
+      const floatPct = Math.round(float * 100);
       return {
         ...state,
         cash: state.cash + raised,
         ipoActive: true,
-        ipoShares: { total: TOTAL_SHARES, public: 3_000_000 },
+        ipoShares: { total: TOTAL_SHARES, public: publicShares },
         ipoPrice: sharePrice,
         takeoverPressure: 0,
         reputation: Math.min(100, state.reputation + 10),
@@ -2272,7 +2279,69 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ? state.stocks
           : [...state.stocks, playerStock],
         log: [{
-          t: `🎉 IPO completed! ${msek(raised)} raised (20% of portfolio value). 10M shares issued, 3M in public trading @ $${sharePrice.toFixed(2)}/share. Reputation +10.`,
+          t: `🎉 IPO completed! ${msek(raised)} raised at $${sharePrice.toFixed(2)}/share. Float ${floatPct}% (${(publicShares / 1e6).toFixed(1)}M of 10M shares) — you retain ${100 - floatPct}%. Reputation +10.`,
+          kind: "income",
+        }, ...state.log],
+      };
+    }
+    case "SHARE_ISSUE": {
+      // Nyemission: nya aktier säljs till marknaden med 5 % rabatt.
+      // Kassan fylls – men din ägarandel späds ut och floaten växer,
+      // vilket ger aktivisten mer att bygga position i.
+      if (!state.ipoActive || !state.ipoShares) return log(state, "The company is not listed.", "warn");
+      const pct = Math.min(0.25, Math.max(0.05, action.pct));
+      const { total, public: pub } = state.ipoShares;
+      const fbab = state.stocks.find((st) => st.id === "FBAB");
+      const price = Math.max(0.01, (fbab?.price ?? equityOf(state) / total) * 0.95);
+      const newShares = Math.round(total * pct);
+      const proceeds = Math.round(newShares * price);
+      const newTotal = total + newShares;
+      const ownedBefore = Math.round(((total - pub) / total) * 100);
+      const ownedAfter = Math.round(((total - pub) / newTotal) * 100);
+      // Aktivistens ANDEL i % späds ut mekaniskt (samma aktier, fler totalt).
+      const stakeAfter = ((state.takeoverPressure ?? 0) * total) / newTotal;
+      return {
+        ...state,
+        cash: state.cash + proceeds,
+        ipoShares: { total: newTotal, public: pub + newShares },
+        takeoverPressure: +stakeAfter.toFixed(2),
+        stocks: state.stocks.map((st) =>
+          st.id === "FBAB" ? { ...st, sharesOutstanding: newTotal } : st,
+        ),
+        log: [{
+          t: `📜 Share issue: ${(newShares / 1e6).toFixed(1)}M new shares at $${price.toFixed(2)} raise ${msek(proceeds)}. Your stake is diluted ${ownedBefore}% → ${ownedAfter}%.`,
+          kind: "income",
+        }, ...state.log],
+      };
+    }
+    case "SHARE_BUYBACK": {
+      // Återköp: aktier köps i marknaden (3 % premie) och makuleras.
+      // Din andel stärks och aktivistens position pressas ut proportionellt –
+      // men börsens spridningskrav stoppar återköp under 10 % float.
+      if (!state.ipoActive || !state.ipoShares) return log(state, "The company is not listed.", "warn");
+      const { total, public: pub } = state.ipoShares;
+      const fbab = state.stocks.find((st) => st.id === "FBAB");
+      const price = Math.max(0.01, (fbab?.price ?? equityOf(state) / total) * 1.03);
+      const maxByFloat = Math.max(0, Math.floor((pub - 0.1 * total) / 0.9));
+      const shares = Math.min(Math.floor(Math.min(action.amount, state.cash) / price), maxByFloat);
+      if (shares <= 0)
+        return log(state, "Buyback not possible: the exchange requires at least 10% free float (or the amount is too small).", "warn");
+      const cost = Math.round(shares * price);
+      const stakeShares = Math.round((total * (state.takeoverPressure ?? 0)) / 100);
+      const boughtFromActivist = pub > 0 ? (shares * stakeShares) / pub : 0;
+      const newTotal = total - shares;
+      const stakeAfter = Math.max(0, ((stakeShares - boughtFromActivist) / newTotal) * 100);
+      const ownedAfter = Math.round(((newTotal - (pub - shares)) / newTotal) * 100);
+      return {
+        ...state,
+        cash: state.cash - cost,
+        ipoShares: { total: newTotal, public: pub - shares },
+        takeoverPressure: +stakeAfter.toFixed(2),
+        stocks: state.stocks.map((st) =>
+          st.id === "FBAB" ? { ...st, sharesOutstanding: newTotal } : st,
+        ),
+        log: [{
+          t: `🔁 Buyback: ${(shares / 1e6).toFixed(2)}M shares repurchased and retired for ${msek(cost)}. Your stake rises to ${ownedAfter}%${boughtFromActivist > 0 ? " and the activist position shrinks" : ""}.`,
           kind: "income",
         }, ...state.log],
       };

@@ -4,6 +4,7 @@
    och nyckeltal. Läser endast tillstånd, dispatchar inget.
    ============================================================ */
 
+import { useState } from "react";
 import { kr, msek, pct } from "../engine/format";
 import { equityOf, loanTerms, portfolioValue } from "../engine/finance";
 import { propNOI } from "../engine/property";
@@ -312,54 +313,141 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
         )}
       </div>
 
-      {/* ── IPO ── */}
+      {/* ── IPO & ägarstruktur ── */}
       <div style={{ ...card, marginTop: 20 }}>
         <h3 style={heading}>Stock listing (IPO)</h3>
         <GoldRule />
         {state.ipoActive ? (
-          <>
-            <Row label="Status" value="Listed ✓" accent={BURGUNDY} bold />
-            <Row label="Total paid out" value={kr(state.dividendsPaid ?? 0)} />
-            <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 8 }}>
-              The company is listed. Dividends are paid under Company → Legacy.
-            </div>
-          </>
+          <OwnershipSection state={state} dispatch={dispatch} />
         ) : (
-          <>
-            <Row label="Status" value="Not listed" />
-            {(() => {
-              const portVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
-              const raised = Math.round(portVal * 0.20);
-              return (
-                <>
-                  <Row label="Estimated capital raised" value={msek(raised)} accent="#27660a" />
-                  <Row label="Reputation bonus" value="+10" accent={BURGUNDY} />
-                  <div style={{ fontSize: 12, color: C.inkSoft, margin: "8px 0" }}>
-                    An IPO raises 20% of the portfolio value in new capital. Requires at least $5M portfolio value.
-                  </div>
-                  <button
-                    onClick={() => dispatch({ type: "DO_IPO" })}
-                    disabled={portVal < 5_000_000 || state.gameOver}
-                    style={{
-                      padding: "10px 20px",
-                      borderRadius: 5,
-                      border: `1px solid ${C.brass}`,
-                      background: portVal >= 5_000_000 ? BURGUNDY : "#888",
-                      color: C.brassBright,
-                      fontFamily: FONTS.heading,
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: portVal >= 5_000_000 ? "pointer" : "default",
-                    }}
-                  >
-                    Do stock listing
-                  </button>
-                </>
-              );
-            })()}
-          </>
+          <IpoSection state={state} dispatch={dispatch} />
         )}
       </div>
     </div>
+  );
+}
+
+/** Noteringsval: hur stor andel av bolaget säljs till marknaden?
+ *  Liten float skyddar kontrollen, stor float maximerar likviden men
+ *  släpper in aktivistfonden på riktigt. */
+function IpoSection({ state, dispatch }: GroupOverviewProps) {
+  const [float, setFloat] = useState(0.3);
+  const eq = equityOf(state);
+  const portVal = state.portfolio.reduce((a, p) => a + p.askPrice, 0);
+  const raised = Math.round(eq * float * 0.96);
+  const ok = portVal >= 5_000_000 && raised >= 1_000_000 && !state.gameOver;
+  return (
+    <>
+      <Row label="Status" value="Not listed" />
+      <div style={{ fontSize: 11, letterSpacing: 0.6, color: C.inkSoft, margin: "10px 0 4px", fontWeight: 700 }}>
+        FREE FLOAT — SHARE OF THE COMPANY SOLD TO THE MARKET
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+        {[0.2, 0.3, 0.49, 0.65].map((f) => (
+          <button
+            key={f}
+            onClick={() => setFloat(f)}
+            style={{
+              padding: "6px 12px", borderRadius: 14, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              border: `1px solid ${float === f ? BURGUNDY : C.brass}`,
+              background: float === f ? BURGUNDY : "transparent",
+              color: float === f ? C.brassBright : C.ink,
+            }}
+          >
+            {Math.round(f * 100)}%
+          </button>
+        ))}
+      </div>
+      <Row label="Capital raised (after 4% listing fees)" value={msek(raised)} accent="#27660a" />
+      <Row label="You retain" value={`${Math.round((1 - float) * 100)}% of the shares`} accent={BURGUNDY} />
+      <Row label="Reputation bonus" value="+10" />
+      <div style={{ fontSize: 12, color: C.inkSoft, margin: "8px 0" }}>
+        {float >= 0.5
+          ? "⚠️ Majority float: the activist fund CAN out-vote you if your returns slip. High risk, maximum capital."
+          : "A small float keeps control safe — the activist can never own more than the free float."}
+      </div>
+      <button
+        onClick={() => dispatch({ type: "DO_IPO", float })}
+        disabled={!ok}
+        style={{
+          padding: "10px 20px", borderRadius: 5, border: `1px solid ${C.brass}`,
+          background: ok ? BURGUNDY : "#888", color: C.brassBright,
+          fontFamily: FONTS.heading, fontWeight: 700, fontSize: 14, cursor: ok ? "pointer" : "default",
+        }}
+      >
+        List the company ({Math.round(float * 100)}% float)
+      </button>
+    </>
+  );
+}
+
+/** Ägarbilden efter noteringen + kapitalåtgärder (nyemission/återköp). */
+function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
+  const shares = state.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
+  const fbab = state.stocks.find((st) => st.id === "FBAB");
+  const price = fbab?.price ?? Math.max(0.01, equityOf(state) / shares.total);
+  const activistPct = state.takeoverPressure ?? 0;
+  const floatPct = (shares.public / shares.total) * 100;
+  const playerPct = 100 - floatPct;
+  const freeFloatPct = Math.max(0, floatPct - activistPct);
+  const threshold = Math.min(50, playerPct);
+  // Förhandsvisningar för åtgärderna
+  const issueShares = Math.round(shares.total * 0.1);
+  const issueProceeds = Math.round(issueShares * price * 0.95);
+  const buybackBudget = Math.round(Math.min(state.cash * 0.5, equityOf(state) * 0.05));
+  const canBuyback = shares.public - 0.1 * shares.total > 0 && buybackBudget > price;
+  const seg = (w: number, bg: string) => ({
+    width: `${Math.max(0, w)}%`, background: bg, height: 14,
+  });
+  return (
+    <>
+      <Row label="Status" value="Listed ✓" accent={BURGUNDY} bold />
+      <Row label="Share price" value={`$${price.toFixed(2)} · ${(shares.total / 1e6).toFixed(1)}M shares`} />
+      <Row label="Market cap" value={msek(Math.round(price * shares.total))} />
+      <div style={{ fontSize: 11, letterSpacing: 0.6, color: C.inkSoft, margin: "10px 0 4px", fontWeight: 700 }}>
+        OWNERSHIP STRUCTURE
+      </div>
+      <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.brass}`, marginBottom: 6 }}>
+        <div style={seg(playerPct, BURGUNDY)} title="You" />
+        <div style={seg(activistPct, "#8a2020")} title="Kronfelt Capital" />
+        <div style={seg(freeFloatPct, "#7c8894")} title="Free float" />
+      </div>
+      <Row label="◼ You" value={`${playerPct.toFixed(0)}%`} accent={BURGUNDY} bold />
+      <Row label="◼ Kronfelt Capital (activist)" value={`${activistPct.toFixed(1)}%`} accent={activistPct >= threshold - 10 ? "#b83030" : undefined} />
+      <Row label="◼ Free float (institutions & retail)" value={`${freeFloatPct.toFixed(1)}%`} />
+      <div style={{ fontSize: 12, color: activistPct >= threshold - 10 ? "#b83030" : C.inkSoft, margin: "6px 0 10px" }}>
+        {activistPct >= threshold - 10
+          ? `⚠️ Kronfelt takes control past ${Math.round(threshold)}%. Buy back shares, pay dividends or lift returns.`
+          : `Kronfelt Capital builds its stake on idle cash and weak returns — takeover past ${Math.round(threshold)}%.`}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          onClick={() => dispatch({ type: "SHARE_ISSUE", pct: 0.1 })}
+          style={{
+            padding: "8px 14px", borderRadius: 5, border: `1px solid ${C.brass}`,
+            background: C.wood, color: C.creamText, fontWeight: 700, fontSize: 12, cursor: "pointer",
+          }}
+          title={`Issue ${(issueShares / 1e6).toFixed(1)}M new shares at 5% discount`}
+        >
+          📜 Share issue +10% · raise ~{msek(issueProceeds)}
+        </button>
+        <button
+          onClick={() => dispatch({ type: "SHARE_BUYBACK", amount: buybackBudget })}
+          disabled={!canBuyback}
+          style={{
+            padding: "8px 14px", borderRadius: 5, border: `1px solid ${C.brass}`,
+            background: canBuyback ? BURGUNDY : "#888", color: C.brassBright,
+            fontWeight: 700, fontSize: 12, cursor: canBuyback ? "pointer" : "default",
+          }}
+          title="Repurchase and retire shares at a 3% premium (exchange requires ≥10% free float)"
+        >
+          🔁 Buyback ~{msek(buybackBudget)}
+        </button>
+      </div>
+      <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
+        A share issue dilutes you but fills the treasury; buybacks strengthen your stake and squeeze the activist.
+        Dividends are paid under Company → Legacy · Total paid out: {kr(state.dividendsPaid ?? 0)}.
+      </div>
+    </>
   );
 }
