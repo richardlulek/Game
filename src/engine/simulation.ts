@@ -1169,8 +1169,11 @@ export function advanceMonth(state: GameState): GameState {
     const eq = equityOf(s);
 
     // A1 · Institutionella fonder kliver in när spelaren drar ifrån.
+    // Krigskassan är stor nog att tävla om varje affär – men inte 90 % av
+    // spelarens equity: då toppade fonderna rankinglistan för alltid med en
+    // handfull hus, enbart i kraft av moderfondens insättningar.
     if (eq > FUND_TRIGGER_EQUITY && !fundsActive(s)) {
-      const warChest = Math.round(eq * 0.9);
+      const warChest = Math.round(eq * 0.35);
       s.competitors = [
         ...s.competitors,
         ...FUNDS.map((f) => ({
@@ -1188,10 +1191,13 @@ export function advanceMonth(state: GameState): GameState {
         kind: "warn",
       });
     }
-    // Fonderna hålls kapitaliserade i nivå med spelaren (rubber band).
+    // Fonderna hålls likvida nog att bjuda (gummiband) – som LIKVIDITETS-
+    // påfyllnad, inte förmögenhetsgaranti. Gamla bandet (fyll till 40 % av
+    // spelarens equity, +50 % per injektion) gjorde att fonderna alltid
+    // rankade över spelaren oavsett sina faktiska innehav.
     s.competitors = s.competitors.map((c) => {
-      if (!c.institutional || c.cash >= eq * 0.4) return c;
-      const injection = Math.round(eq * 0.5);
+      if (!c.institutional || c.cash >= eq * 0.15) return c;
+      const injection = Math.round(eq * 0.25);
       events.push({ t: `🌐 ${c.name} raises new capital: +${msek(injection)} from the parent fund.`, kind: "event" });
       return { ...c, cash: c.cash + injection };
     });
@@ -1427,7 +1433,13 @@ export function advanceMonth(state: GameState): GameState {
     const portVal = nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
     // Allianser ger medvind, fejder motvind (rivalCycleMult).
     nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI * rivalCycleMult(s, nc.name)) / 12);
-    rivalCashflow(nc, nc.monthlyNOI);
+    // Rivalerna behåller bara en DEL av driftnettot: resten går till bolags-
+    // kostnader, räntor och utdelning till ägarna (spelarens 6 % slåss mot
+    // opex/ränta/underhåll – rivalernas var ren vinst, och på 25 år
+    // komposterade det till kassaberg som toppade rankingen med 30 hus).
+    const retention =
+      nc.strategy === "tillväxt" ? 0.6 : nc.strategy === "utdelning" ? 0.3 : 0.45;
+    rivalCashflow(nc, Math.round(nc.monthlyNOI * retention));
     // Rivalernas byggen tickar och färdigställs (kranar på kartan).
     let finishedBuild: string | null = null;
     nc.portfolio = nc.portfolio.map((p) => {
@@ -1442,7 +1454,10 @@ export function advanceMonth(state: GameState): GameState {
       events.push({ t: `🏢 ${nc.name} completed its new build: ${finishedBuild}.`, kind: "event", rival: nc.name });
     // Nybyggnation: kapitalstarka bolag bygger i sina distrikt när det
     // inte är lågkonjunktur – staden växer även utan spelaren.
-    const buildChance = nc.strategy === "tillväxt" ? 0.05 : 0.02;
+    // Stor kassa bränner i fickan: bygglusten skalar med likviditeten så
+    // rikedom blir synliga hus på kartan i stället för osynliga kassaberg.
+    const cashAppetite = 1 + Math.min(1.5, nc.cash / 60_000_000);
+    const buildChance = (nc.strategy === "tillväxt" ? 0.05 : 0.02) * cashAppetite;
     // Bygg BARA om det finns en ledig tomtruta kvar i budgeten – annars skulle
     // huset hamna utanför kartan (spökägande). Full stad = ingen nyproduktion.
     if (landBudget > 0 && spaceDistricts.size > 0 && cyclePhase !== "bust" && nc.cash > 8_000_000 && random01() < buildChance * rateAppetite(s.interestRate)) {
@@ -1474,7 +1489,7 @@ export function advanceMonth(state: GameState): GameState {
     // egna hus i heta distrikt (uppåtgående/exklusivt) – deras hus reser sig på
     // kartan, upp till distriktets investeringstak. Stadens skyline mognar
     // därmed av faktiska investeringar, inte av sig själv.
-    if (cyclePhase !== "bust" && nc.cash > 5_000_000 && random01() < 0.035 * rateAppetite(s.interestRate)) {
+    if (cyclePhase !== "bust" && nc.cash > 5_000_000 && random01() < 0.035 * cashAppetite * rateAppetite(s.interestRate)) {
       const idx = nc.portfolio.findIndex((p) => {
         if (p.status !== "klar") return false;
         const tier = tierOfDev(s.districtDev?.[p.district] ?? 1).id;
@@ -1523,10 +1538,22 @@ export function advanceMonth(state: GameState): GameState {
     }
     nc.units = nc.portfolio.length;
     // Rivalens industrier tjänar pengar och ingår i det egna kapitalet –
-    // samma NOI-logik som spelarens (6 %/år på tillgångsvärdet, förenklat).
+    // samma NOI-logik som spelarens (6 %/år på tillgångsvärdet), med samma
+    // retention som fastighetsdelen.
     const indVal = (nc.industries ?? []).reduce((a, x) => a + industryAssetValue(x, s), 0);
-    if (indVal > 0) rivalCashflow(nc, Math.round((indVal * 0.06 * cycleNOI) / 12));
+    if (indVal > 0) rivalCashflow(nc, Math.round((indVal * 0.06 * cycleNOI * retention) / 12));
     nc.equity = nc.cash + indVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    // Kapitaldisciplin: fastighetsbolag sitter inte på halva förmögenheten i
+    // likvider. Kassa över ~40 % av eget kapital delas ut i takt om 8 %/mån –
+    // gamla partiers uppbyggda berg smälter bort inom ett par år. (Fonderna
+    // undantas: deras likviditet styrs av moderfondens gummiband ovan.)
+    if (!nc.institutional) {
+      const maxCash = Math.max(10_000_000, nc.equity * 0.4);
+      if (nc.cash > maxCash) {
+        nc.cash = Math.round(nc.cash - (nc.cash - maxCash) * 0.08);
+        nc.equity = nc.cash + indVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+      }
+    }
     return nc;
   });
   // ── Rivalerna konkurrerar om industriobjekten (~5 %/mån) ─────────
