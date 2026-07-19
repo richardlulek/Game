@@ -64,28 +64,30 @@ export interface StreetSeg {
   district: string;
 }
 
-// Klassiska kartan bor numera i cityLayout.ts (tillsammans med den seedade
-// layoutgeneratorn). Spelet kör tills vidare alltid den klassiska layouten;
-// *For-funktionerna nedan låter tester och kommande etapper bygga staden
-// för en genererad layout i stället.
-const ZONES: readonly ZoneDef[] = CLASSIC_ZONES;
+// Klassiska kartan bor i cityLayout.ts (tillsammans med den seedade
+// layoutgeneratorn). ZONES/EXPANSIONS är den AKTIVA stadens data –
+// muterbara kopior som setActiveCityZones byter innehåll i när ett parti
+// med slumpad karta startas/laddas (alla exporterade konstanter muteras
+// PÅ PLATS så varje konsument ser samma stad utan att importera om).
+const ZONES: ZoneDef[] = CLASSIC_ZONES.map((z) => ({ ...z }));
 
 export const ZONE_DEFS: readonly ZoneDef[] = ZONES;
 export type { ZoneDef, ExpansionDef, CityLayout };
 
 // Expansionskvarter – mark utanför de färdiga kvarteren ("kommunal" släpps
 // via detaljplaneauktion, "plan" är privat råmark för egen planprocess).
-// Definitionerna bor i cityLayout.ts tillsammans med zonerna.
-const EXPANSIONS: readonly ExpansionDef[] = CLASSIC_EXPANSIONS;
+const EXPANSIONS: ExpansionDef[] = CLASSIC_EXPANSIONS.map((e) => ({ ...e }));
 
-/** Auktionsordningen för de KOMMUNALA expansionskvarteren. */
+/** Auktionsordningen för de KOMMUNALA expansionskvarteren.
+ *  Layoutoberoende: id:n, distrikt och tomtantal är samma i varje seed. */
 export const EXPANSION_BLOCKS = EXPANSIONS.filter((e) => e.kind === "kommunal").map((e) => ({
   blockId: e.blockId,
   district: e.district,
   parcels: e.parcelCols * e.parcelRows,
 }));
 
-/** Planområdena – råmark för spelarens egen detaljplansprocess. */
+/** Planområdena – råmark för spelarens egen detaljplansprocess.
+ *  Muteras på plats vid layoutbyte (koordinaterna följer layouten). */
 export const PLAN_AREAS: ExpansionDef[] = EXPANSIONS.filter((e) => e.kind === "plan");
 
 /** Slår upp expansionskvarterets definition (kommunal eller plan). */
@@ -208,10 +210,37 @@ export function zoneStreets(zones: readonly ZoneDef[] = ZONES): StreetSeg[] {
   return out;
 }
 
-/** Beräknas en gång – gatunätet är statiskt. */
+/** Beräknas en gång – gatunätet är statiskt (per aktiv layout). */
 export const ZONE_STREETS: StreetSeg[] = zoneStreets();
 
 const ZONE_BY_DISTRICT = new Map(DISTRICT_ZONES.map((z) => [z.district, z] as const));
+
+/**
+ * Byter den AKTIVA stadens zoner/expansioner/tomter/gator till en genererad
+ * layout. Alla exporterade konstanter (ZONE_DEFS, PARCELS, DISTRICT_ZONES,
+ * ZONE_STREETS, PLAN_AREAS …) muteras PÅ PLATS så varje konsument – motor,
+ * 3D-vy, UI – ser samma stad. Anropas av engine/activeLayout.ts före
+ * placeCity när ett parti startas eller laddas; 3D-vyn monteras om via
+ * key={citySeed} så instansierade meshar byggs om.
+ */
+export function setActiveCityZones(layout: CityLayout): void {
+  ZONES.length = 0;
+  ZONES.push(...layout.zones.map((z) => ({ ...z })));
+  EXPANSIONS.length = 0;
+  EXPANSIONS.push(...layout.expansions.map((e) => ({ ...e })));
+  PLAN_AREAS.length = 0;
+  PLAN_AREAS.push(...EXPANSIONS.filter((e) => e.kind === "plan"));
+  DISTRICT_ZONES.length = 0;
+  DISTRICT_ZONES.push(...districtZonesFor(ZONES));
+  ZONE_BY_DISTRICT.clear();
+  for (const z of DISTRICT_ZONES) ZONE_BY_DISTRICT.set(z.district, z);
+  PARCELS.length = 0;
+  PARCELS.push(...buildParcels());
+  BY_ID.clear();
+  for (const p of PARCELS) BY_ID.set(p.id, p);
+  ZONE_STREETS.length = 0;
+  ZONE_STREETS.push(...zoneStreets());
+}
 
 /**
  * Grundtäthet (i %) i distriktets KÄRNA för dekorativ bebyggelse. Sänkt så att

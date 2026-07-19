@@ -15,6 +15,9 @@ interface Props {
   onContinue: (slot: number) => void;
 }
 
+/** Nytt stadsfrö – aldrig 0 (0 = klassiska kartan). */
+const rollCitySeed = (): number => 1 + Math.floor(Math.random() * 999_999);
+
 /** Friläge-anpassningar (null = följ vald svårighet orörd). */
 interface CustomOpts {
   cash: number;
@@ -36,6 +39,10 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
   const [difficulty, setDifficulty] = useState<Exclude<DifficultyId, "custom">>("normal");
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<CustomOpts | null>(null);
+  // Stadskarta: klassiska staden eller en slumpad (samma distrikt, nya
+  // lägen/storlekar). Kampanjen kör alltid den klassiska kartan.
+  const [cityMap, setCityMap] = useState<"classic" | "random">("classic");
+  const [citySeed, setCitySeed] = useState(() => rollCitySeed());
   const anySave = slots.some((s) => s.exists);
 
   const isChallenge = (id: ScenarioId) => id !== "arvet" && id !== "sandbox";
@@ -57,6 +64,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
   /** Startalternativ som skickas med RESET (arvet: inga – egen balans). */
   const buildOptions = (): InitOptions | undefined => {
     if (selectedId === "arvet") return undefined;
+    const city = cityMap === "random" ? { citySeed } : {};
     if (selectedId === "sandbox" && custom) {
       return {
         cash: eff.cash,
@@ -66,9 +74,10 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
         ...(eff.calm ? { calmMode: true } : {}),
         ...(eff.immortal ? { noBankruptcy: true } : {}),
         difficulty: "custom",
+        ...city,
       };
     }
-    return { ...preset };
+    return { ...preset, ...city };
   };
 
   return (
@@ -339,6 +348,32 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                   {custom && <span style={{ ...pill(true), cursor: "default" }}>⚙ Anpassad</span>}
                 </div>
                 <div style={{ fontSize: 11, color: C.creamSoft }}>{custom ? "Custom sandbox settings." : difficultyById(difficulty).desc}</div>
+              </div>
+            )}
+
+            {/* Stadskarta (gäller Friläge & scenarier – kampanjen kör klassiska staden) */}
+            {selectedId !== "arvet" && (
+              <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <label style={{ fontSize: 11, letterSpacing: 2, color: C.brass, fontWeight: 700 }}>CITY MAP</label>
+                <div style={pillRow}>
+                  <button style={pill(cityMap === "classic")} onClick={() => setCityMap("classic")}>
+                    🏛 Classic city
+                  </button>
+                  <button
+                    style={pill(cityMap === "random")}
+                    onClick={() => {
+                      if (cityMap === "random") setCitySeed(rollCitySeed()); // klick igen = ny stad
+                      setCityMap("random");
+                    }}
+                  >
+                    🎲 New random city{cityMap === "random" ? ` · #${citySeed}` : ""}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: C.creamSoft }}>
+                  {cityMap === "random"
+                    ? "Same seven districts in new positions and sizes. Click again to reroll."
+                    : "The hand-built classic map."}
+                </div>
               </div>
             )}
 

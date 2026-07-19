@@ -292,6 +292,9 @@ export interface InitOptions {
   difficulty?: DifficultyId;
   /** Slumpfrö för reproducerbart parti (default: tidsstämpel). */
   seed?: number;
+  /** Stadskartans frö: 0/utelämnad = klassiska kartan, annat = slumpad
+   *  stad (samma distrikt, nya lägen och storlekar). Sparas i partiet. */
+  citySeed?: number;
 }
 
 /** Spelinställningar som måste följa med sparfilen (simuleringen läser dem). */
@@ -717,6 +720,9 @@ export interface GlobalManagerSettings {
 export interface GameState {
   /** Ursprungsfröet för partiets slump (satt vid start). Bevaras för replay. */
   seed?: number;
+  /** Stadskartans frö: 0/utelämnad = klassiska kartan, annat = slumpad stad.
+      Följer sparfilen – laddning återskapar staden ur fröet (activeLayout). */
+  citySeed?: number;
   /** Aktuellt PRNG-tillstånd. Seedas/läses av dispatch-boundaryn i gameStore
       så att samma frö + samma händelsesekvens ger identiskt utfall. */
   rng?: number;

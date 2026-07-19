@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { MeshStandardMaterial as StdMaterial, type Group, type Mesh, type MeshStandardMaterial } from "three";
+import { DISTRICT_ZONES } from "../engine/city";
 import { useGameStore } from "../store/gameStore";
 import { facadeBoxGeometry } from "./BuildingShapes";
 import { LANDMARKS } from "./landmarks";
@@ -503,11 +504,18 @@ export function HarborTerminal() {
 }
 
 /** Kajen: kommersiell hamn framför hamnkvarteret + rekreationsfartyg.
- *  All hamnverksamhet ligger söder om hamnzonen (z ≥ 298) och i vattnet. */
+ *  All hamnverksamhet ligger söder om hamnzonen och i vattnet. Hela gruppen
+ *  följer den AKTIVA hamnzonen: på en slumpad karta förskjuts kajen i sidled
+ *  med distriktet och i djupled med dess södra kant (kusten är konstant, så
+ *  förskjutningen i z är liten). Koordinaterna inuti är klassiska kartans. */
 export function Harbor() {
   const hasYacht = useGameStore((s) => (s.state.ownerLuxuries ?? []).includes("yacht"));
+  // Klassisk hamnzon: centrum x 40, södra kanten z 294,5.
+  const hz = DISTRICT_ZONES.find((z) => z.district === "hamnen");
+  const dx = hz ? hz.x - 40 : 0;
+  const dz = hz ? hz.z + hz.d / 2 - 294.5 : 0;
   return (
-    <>
+    <group position={[dx, 0, dz]}>
       {/* Kajkant i betong längs vattnet, söder om hamnkvarteren */}
       <mesh castShadow receiveShadow position={[20, 0.5, 312]}>
         <boxGeometry args={[640, 1, 16]} />
@@ -547,7 +555,7 @@ export function Harbor() {
       <Containers x={-170} z={312} y={1.0} seed={4} />
       <Boat x={-40} z={356} phase={0.4} color="#38556a" />
       <Boat x={235} z={366} phase={2.8} color="#6a4a38" />
-    </>
+    </group>
   );
 }
 

@@ -55,6 +55,17 @@ export const CLASSIC_ROADS: RoadSeg[] = [
   { x: -233, z: 274, w: 126, d: 12 }, // Västra kajvägen → Hamnen (gata z274)
 ];
 
+/** Det AKTIVA vägnätet – muterbar kopia som spelet renderar (three/roadNet
+ *  re-exporterar den som ROADS). Byts på plats av setActiveRoads vid
+ *  kartbyte, så alla konsumenter ser samma nät utan omimport. */
+export const ACTIVE_ROADS: RoadSeg[] = CLASSIC_ROADS.map((r) => ({ ...r }));
+
+/** Byter det aktiva vägnätet (anropas av engine/activeLayout.ts). */
+export function setActiveRoads(segs: RoadSeg[]): void {
+  ACTIVE_ROADS.length = 0;
+  ACTIVE_ROADS.push(...segs.map((r) => ({ ...r })));
+}
+
 /** De nio logiska kopplingarna (samma topologi som klassiska nätet). */
 const LINKS: Array<{ a: string; b: string; w: number }> = [
   { a: "innerstad", b: "centrum", w: 14 },

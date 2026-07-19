@@ -25,6 +25,8 @@ export function initState(opts?: InitOptions): GameState {
   const seed = (opts?.seed ?? (Date.now() >>> 0)) >>> 0;
   const base: GameState = {
     seed,
+    // Stadskartans frö följer partiet (0/utelämnat = klassiska kartan).
+    ...(opts?.citySeed ? { citySeed: opts.citySeed } : {}),
     rng: seed,
     day: 1, // 1 januari (spelår 1 = kalenderår 2000, se engine/date.ts)
     month: 1,

@@ -6,9 +6,9 @@
    nät spelet kör – tills vidare den klassiska kartans leder.
    ============================================================ */
 
-import { CLASSIC_ROADS, type RoadSeg } from "../engine/roadGen";
+import { ACTIVE_ROADS, type RoadSeg } from "../engine/roadGen";
 
 export type { RoadSeg };
 
-/** Huvudlederna mellan distrikten (klassiska kartan). */
-export const ROADS: RoadSeg[] = CLASSIC_ROADS;
+/** Huvudlederna mellan distrikten (den aktiva stadens nät). */
+export const ROADS: RoadSeg[] = ACTIVE_ROADS;

@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import { initState, reducer } from "../engine";
+import { setActiveCityLayout } from "../engine/activeLayout";
 import { placeCity } from "../engine/city";
 import { formatMonthYear } from "../engine/date";
 import { readRng, seedRng } from "../engine/random";
@@ -76,6 +77,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // händelsesekvens ger identiskt utfall (determinism/replay).
   dispatch: (action) =>
     set((s) => {
+      // Kartbytet måste ske FÖRE reducer/placeCity: nytt parti (RESET) och
+      // importerat tillstånd (LOAD) kan bära ett annat stadsfrö, och
+      // placeCity delar ut tomter ur den aktiva kartan. Kampanjen ("story")
+      // kör alltid klassiska kartan.
+      if (action.type === "RESET")
+        setActiveCityLayout(action.mode === "story" ? undefined : action.options?.citySeed);
+      else if (action.type === "LOAD") setActiveCityLayout(action.state.citySeed);
       seedRng(s.state.rng ?? s.state.seed ?? (Date.now() >>> 0));
       const next = placeCity(advanceStory(reducer(s.state, action)));
       return { state: { ...next, rng: readRng(), log: stampLog(next.log, next.month, next.year) } };
@@ -86,6 +94,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const loaded = loadGame(s);
     if (loaded) {
       setActiveSlot(s);
+      // Sparfilens stadsfrö avgör vilken karta tomterna delas ut ur.
+      setActiveCityLayout(loaded.citySeed);
       set({ state: placeCity(loaded), activeSlot: s });
       return true;
     }

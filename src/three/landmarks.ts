@@ -7,9 +7,9 @@
    kartans landmärken.
    ============================================================ */
 
-import { CLASSIC_LANDMARKS, type LandmarkAnchor, type LandmarkType } from "../engine/landmarkGen";
+import { ACTIVE_LANDMARKS, type LandmarkAnchor, type LandmarkType } from "../engine/landmarkGen";
 
 export type { LandmarkAnchor, LandmarkType };
 
-/** Stadens landmärken (klassiska kartan). */
-export const LANDMARKS: LandmarkAnchor[] = CLASSIC_LANDMARKS;
+/** Stadens landmärken (den aktiva kartans). */
+export const LANDMARKS: LandmarkAnchor[] = ACTIVE_LANDMARKS;

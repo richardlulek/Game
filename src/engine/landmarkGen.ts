@@ -57,6 +57,16 @@ export const CLASSIC_LANDMARKS: LandmarkAnchor[] = [
   { id: "pariserhjul", type: "pariserhjul", x: -235, z: 285,  w: 36, d: 14 }, // västra kajen (pir/marina går ut i vattnet)
 ];
 
+/** De AKTIVA landmärkena – muterbar kopia som spelet renderar
+ *  (three/landmarks re-exporterar den som LANDMARKS). */
+export const ACTIVE_LANDMARKS: LandmarkAnchor[] = CLASSIC_LANDMARKS.map((l) => ({ ...l }));
+
+/** Byter de aktiva landmärkena (anropas av engine/activeLayout.ts). */
+export function setActiveLandmarks(landmarks: LandmarkAnchor[]): void {
+  ACTIVE_LANDMARKS.length = 0;
+  ACTIVE_LANDMARKS.push(...landmarks.map((l) => ({ ...l })));
+}
+
 interface Rect { x0: number; x1: number; z0: number; z1: number }
 
 function zoneRectOf(z: ZoneDef): Rect {
