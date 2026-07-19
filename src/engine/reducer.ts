@@ -1919,16 +1919,57 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "PAY_DIVIDEND": {
       const amt = Math.min(action.amount, state.cash);
       if (amt <= 100000) return log(state, "The minimum dividend is $100,000.", "warn");
-      // Utdelningen hamnar i ägarens privata förmögenhet (Bolag → Arv)
-      // och blidkar kapitalmarknaden om en aktivistfond bygger position.
+      // Utdelningen betalas PER AKTIE: efter noteringen får ägaren sin
+      // röstandel av beloppet – resten går till marknadens aktieägare
+      // (och blidkar aktivistfonden, dividendRelief). Onoterat: allt.
       const relief = dividendRelief(amt, equityOf(state));
+      const ownerPct =
+        state.ipoActive && state.ipoShares
+          ? (state.ipoShares.total - state.ipoShares.public) / state.ipoShares.total
+          : 1;
+      const ownerCut = Math.round(amt * ownerPct);
       return {
         ...state,
         cash: state.cash - amt,
         dividendsPaid: (state.dividendsPaid ?? 0) + amt,
-        ownerWealth: (state.ownerWealth ?? 0) + amt,
+        ownerWealth: (state.ownerWealth ?? 0) + ownerCut,
         takeoverPressure: Math.max(0, (state.takeoverPressure ?? 0) - relief),
-        log: [{ t: `💰 Dividend: ${msek(amt)} to the owner${relief >= 1 ? ` – the activist fund is calmed (−${Math.round(relief)} bp)` : ""}.`, kind: "income" }, ...state.log],
+        log: [{
+          t: `💰 Dividend: ${msek(amt)} paid out${ownerPct < 1 ? ` — ${msek(ownerCut)} to you (${Math.round(ownerPct * 100)}% of the shares)` : " to the owner"}${relief >= 1 ? ` – the activist fund is calmed (−${Math.round(relief)} bp)` : ""}.`,
+          kind: "income",
+        }, ...state.log],
+      };
+    }
+    case "BUY_OWN_SHARES": {
+      // Ägaren köper aktier i sitt EGET bolag privat – med utdelade pengar
+      // (ownerWealth), inte bolagets kassa. Aktierna lämnar floaten och
+      // stärker röstandelen mot aktivisten. Börsens spridningskrav (≥10 %
+      // float) och aktivistens innehav begränsar hur mycket som finns att köpa.
+      if (!state.ipoActive || !state.ipoShares) return log(state, "The company is not listed.", "warn");
+      const wealth = state.ownerWealth ?? 0;
+      const { total, public: pub } = state.ipoShares;
+      const fbab = state.stocks.find((st) => st.id === "FBAB");
+      const price = Math.max(0.01, (fbab?.price ?? equityOf(state) / total) * 1.003); // courtage
+      const activistShares = Math.round((total * (state.takeoverPressure ?? 0)) / 100);
+      const maxShares = Math.min(
+        Math.max(0, pub - activistShares),          // bara fria floaten är till salu
+        Math.max(0, pub - Math.ceil(total * 0.1)),  // spridningskravet
+      );
+      const shares = Math.min(Math.floor(Math.min(action.amount, wealth) / price), maxShares);
+      if (shares <= 0)
+        return log(state, "Private purchase not possible: too little owner wealth, or no free float above the exchange's 10% requirement.", "warn");
+      const cost = Math.round(shares * price);
+      const newPub = pub - shares;
+      const ownedPct = Math.round(((total - newPub) / total) * 100);
+      return {
+        ...state,
+        ownerWealth: wealth - cost,
+        ownerShares: (state.ownerShares ?? 0) + shares,
+        ipoShares: { total, public: newPub },
+        log: [{
+          t: `👤 Private share purchase: ${(shares / 1e6).toFixed(2)}M shares for ${msek(cost)} from your own wallet. Your voting control rises to ${ownedPct}%.`,
+          kind: "income",
+        }, ...state.log],
       };
     }
     case "START_MEGA": {
@@ -2349,7 +2390,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "MARKET_ORDER": {
       const st = state.stocks.find((s) => s.id === action.stockId);
       if (!st) return state;
-      if (st.competitorName === "__player__") return log(state, "Du kan inte handla aktier i ditt eget bolag.", "warn");
+      if (st.competitorName === "__player__")
+        return log(state, "Own-company shares are bought privately with owner wealth — see Company → Group.", "warn");
       const COURTAGE = 0.003;
       if (action.side === "buy") {
         const cost = Math.round(st.price * action.qty * (1 + COURTAGE));

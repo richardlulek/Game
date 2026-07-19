@@ -67,4 +67,46 @@ describe("IPO 2.0: float, nyemission och återköp", () => {
     expect(reducer(s0, { type: "SHARE_ISSUE", pct: 0.1 }).ipoShares).toBeUndefined();
     expect(reducer(s0, { type: "SHARE_BUYBACK", amount: 1_000_000 }).ipoShares).toBeUndefined();
   });
+
+  it("utdelning betalas PER AKTIE efter noteringen – ägaren får sin röstandel", () => {
+    const s1 = { ...listedState(0.49), cash: 10_000_000 };
+    const s2 = reducer(s1, { type: "PAY_DIVIDEND", amount: 1_000_000 });
+    expect(s2.cash).toBe(s1.cash - 1_000_000);
+    expect(s2.dividendsPaid).toBe(1_000_000);
+    expect(s2.ownerWealth).toBe(510_000); // 51 % av aktierna
+    // Onoterat: hela beloppet (befintligt beteende).
+    const p1 = makeState({ cash: 10_000_000 });
+    expect(reducer(p1, { type: "PAY_DIVIDEND", amount: 1_000_000 }).ownerWealth).toBe(1_000_000);
+  });
+
+  it("privata aktieköp: ägarplånboken köper ur fria floaten och stärker rösterna", () => {
+    const s1 = { ...listedState(0.49), takeoverPressure: 10, ownerWealth: 5_000_000 };
+    const price = s1.stocks.find((st) => st.id === "FBAB")!.price;
+    const s2 = reducer(s1, { type: "BUY_OWN_SHARES", amount: 5_000_000 });
+    expect(s2.ownerShares ?? 0).toBeGreaterThan(0);
+    expect(s2.ownerWealth!).toBeLessThan(5_000_000);
+    expect(s2.ipoShares!.public).toBe(4_900_000 - (s2.ownerShares ?? 0));
+    expect(s2.ipoShares!.total).toBe(10_000_000); // aktierna byter bara händer
+    // Bolagets kassa orörd – köpet är PRIVAT.
+    expect(s2.cash).toBe(s1.cash);
+    // Kursen inkluderar courtage.
+    expect(s2.ownerWealth).toBe(5_000_000 - Math.round((s2.ownerShares ?? 0) * price * 1.003));
+    // Aktivistens andel i % är oförändrad (samma aktier, samma total).
+    expect(s2.takeoverPressure).toBe(10);
+  });
+
+  it("privatköpen respekterar spridningskravet och aktivistens innehav", () => {
+    // Float 20 % där aktivisten äger 8 %: fria floaten är 12 %, men golvet
+    // (≥10 % float) tillåter bara köp av 10 % av aktierna.
+    const s1 = {
+      ...listedState(0.2),
+      takeoverPressure: 8,
+      ownerWealth: 1_000_000_000,
+    };
+    const s2 = reducer(s1, { type: "BUY_OWN_SHARES", amount: 1_000_000_000 });
+    expect(s2.ipoShares!.public / s2.ipoShares!.total).toBeGreaterThanOrEqual(0.0999);
+    // Och utan notering: avslag.
+    const p1 = makeState({ ownerWealth: 1_000_000 });
+    expect(reducer(p1, { type: "BUY_OWN_SHARES", amount: 1_000_000 }).ownerShares).toBeUndefined();
+  });
 });

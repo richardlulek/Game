@@ -775,6 +775,9 @@ export interface GameState {
   signatureBlocks?: { blockId: string; profile: string }[];
   /** Ägarens privata förmögenhet – byggs av utdelningar. */
   ownerWealth?: number;
+  /** Aktier i egna bolaget köpta PRIVAT (ur ownerWealth). De ingår i
+   *  röstandelen (total − public) men ligger utanför bolagets balansräkning. */
+  ownerShares?: number;
   /** Ägarens köpta lyx och donationer (lyx-id:n). */
   ownerLuxuries?: string[];
   /** Planområden (råmark) som spelaren köpt men ännu inte planlagt. */
@@ -955,6 +958,7 @@ export type GameAction =
   | { type: "DO_IPO"; float?: number }
   | { type: "SHARE_ISSUE"; pct: number }
   | { type: "SHARE_BUYBACK"; amount: number }
+  | { type: "BUY_OWN_SHARES"; amount: number }
   | { type: "BUY_INSURANCE"; id: number }
   | { type: "CANCEL_INSURANCE"; id: number }
   | { type: "ISSUE_BOND"; amount: number; years: number }

@@ -412,7 +412,12 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
         <div style={seg(activistPct, "#8a2020")} title="Kronfelt Capital" />
         <div style={seg(freeFloatPct, "#7c8894")} title="Free float" />
       </div>
-      <Row label="◼ You" value={`${playerPct.toFixed(0)}%`} accent={BURGUNDY} bold />
+      <Row
+        label={`◼ You${(state.ownerShares ?? 0) > 0 ? ` (of which ${(((state.ownerShares ?? 0) / shares.total) * 100).toFixed(1)}% held privately)` : ""}`}
+        value={`${playerPct.toFixed(0)}%`}
+        accent={BURGUNDY}
+        bold
+      />
       <Row label="◼ Kronfelt Capital (activist)" value={`${activistPct.toFixed(1)}%`} accent={activistPct >= threshold - 10 ? "#b83030" : undefined} />
       <Row label="◼ Free float (institutions & retail)" value={`${freeFloatPct.toFixed(1)}%`} />
       <div style={{ fontSize: 12, color: activistPct >= threshold - 10 ? "#b83030" : C.inkSoft, margin: "6px 0 10px" }}>
@@ -420,6 +425,36 @@ function OwnershipSection({ state, dispatch }: GroupOverviewProps) {
           ? `⚠️ Kronfelt takes control past ${Math.round(threshold)}%. Buy back shares, pay dividends or lift returns.`
           : `Kronfelt Capital builds its stake on idle cash and weak returns — takeover past ${Math.round(threshold)}%.`}
       </div>
+      {(() => {
+        // Privatköp: ägarens plånbok (utdelningar) köper aktier ur fria floaten.
+        const wealth = state.ownerWealth ?? 0;
+        const activistShares = Math.round((shares.total * activistPct) / 100);
+        const buyable = Math.min(
+          Math.max(0, shares.public - activistShares),
+          Math.max(0, shares.public - Math.ceil(shares.total * 0.1)),
+        );
+        const privateBudget = Math.min(wealth, Math.round(buyable * price));
+        const canBuyPrivate = privateBudget > price && buyable > 0;
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <button
+              onClick={() => dispatch({ type: "BUY_OWN_SHARES", amount: privateBudget })}
+              disabled={!canBuyPrivate}
+              style={{
+                padding: "8px 14px", borderRadius: 5, border: `1px solid ${C.brass}`,
+                background: canBuyPrivate ? "#27660a" : "#888", color: C.brassBright,
+                fontWeight: 700, fontSize: 12, cursor: canBuyPrivate ? "pointer" : "default",
+              }}
+              title="Buy shares from the free float with your private dividend wealth — strengthens your voting control without touching company cash"
+            >
+              👤 Buy shares privately · up to {msek(privateBudget)}
+            </button>
+            <span style={{ fontSize: 11, color: C.inkSoft }}>
+              Owner wallet: {kr(wealth)} (built by dividends)
+            </span>
+          </div>
+        );
+      })()}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button
           onClick={() => dispatch({ type: "SHARE_ISSUE", pct: 0.1 })}
