@@ -1928,7 +1928,17 @@ export function advanceMonth(state: GameState): GameState {
     s.stocks = s.stocks.map((st) => {
       if (st.id !== "FBAB") return st;
       const newPrice = Math.max(0.01, equityOf(s) / s.ipoShares!.total);
-      return { ...st, prevPrice: st.price, price: newPrice, history: [...st.history, newPrice].slice(-32) };
+      // targetPrice MÅSTE följa med: dagssteget drar kursen mot ankaret, och
+      // utan detta ägde priceStocks slumpvandring ankaret – kursen tappade
+      // kontakten med bolagsvärdet och fastnade på $1-golvet.
+      return {
+        ...st,
+        monthClose: st.price,
+        prevPrice: st.price,
+        price: newPrice,
+        targetPrice: newPrice,
+        history: [...st.history, newPrice].slice(-32),
+      };
     });
   }
 

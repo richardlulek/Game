@@ -483,6 +483,12 @@ export function priceStocks(
   };
   let dividends = 0;
   const next = stocks.map((st) => {
+    // SPELARENS aktie prissätts av IPO-blocket i advanceMonth (eget kapital
+    // per aktie) – den ska INTE slumpvandra här. Buggen: den här vandringen
+    // satte FBAB:s targetPrice, dagssteget drog kursen dit (15 %/dag), och
+    // kursen frikopplades helt från fundamenta – bolag värda miljarder
+    // handlades till golvet $1 medan "kursen kollapsar"-larmen haglade.
+    if (st.competitorName === "__player__") return st;
     const noise = rnd(-st.volatility, st.volatility);
     const ret = st.drift + st.beta * sentReturn + sectorTrend[st.sector] + macroBias(st.sector, macro) + noise;
     let price = Math.max(1, st.price * (1 + ret));
