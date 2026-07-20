@@ -88,7 +88,7 @@ import {
   politicalFavorActive,
 } from "./politics";
 import { maybePoachingDecision } from "./executives";
-import { SPINOFF_DIVIDEND_PAYOUT, spinoffSharePrice } from "./spinoffs";
+import { SPINOFF_DIVIDEND_PAYOUT, SPINOFF_UPKEEP_COND, SPINOFF_UPKEEP_PCT, spinoffSharePrice } from "./spinoffs";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
@@ -2054,7 +2054,18 @@ export function advanceMonth(state: GameState): GameState {
   // ── Avknoppningar: eget kassaflöde, kvartalsutdelning, substanskurs ──
   if ((s.spinOffs ?? []).length > 0) {
     s.spinOffs = (s.spinOffs ?? []).map((spin) => {
-      const net = spinoffNet[spin.id] ?? 0;
+      // Bolaget underhåller sina egna hus: kostnaden dras från nettot och
+      // skicket hålls uppe – annars ruttnar aktien bort under spelarens
+      // kvarvarande post (balansrundan: kurs 50 → 16 på tio år).
+      let upkeep = 0;
+      s.industryPortfolio = (s.industryPortfolio ?? []).map((a) => {
+        if (a.spinOffId !== spin.id || a.status !== "klar") return a;
+        upkeep += Math.round(industryAssetValue(a, s) * SPINOFF_UPKEEP_PCT);
+        return a.condition < SPINOFF_UPKEEP_COND
+          ? { ...a, condition: Math.min(SPINOFF_UPKEEP_COND, a.condition + 1.2) }
+          : a;
+      });
+      const net = (spinoffNet[spin.id] ?? 0) - upkeep;
       let ns: typeof spin = { ...spin, cash: spin.cash + net, lastMonthNet: net };
       // Kvartalsutdelning: 60 % av kassan, pro rata till alla aktieägare –
       // spelarens andel via innehavet (stock.owned).

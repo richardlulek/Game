@@ -26,9 +26,13 @@ import type { BankStance, GameState, InsurerPricing, LogEntry, OwnedBank, OwnedI
 export const BANK_MIN_PRICE = 25_000_000;
 export const INSURER_MIN_PRICE = 15_000_000;
 
-/** Köpeskilling: skalar med bolagets storlek så köpet alltid är ett beslut. */
+/** Köpeskilling: skalar med bolagets storlek så köpet alltid är ett beslut.
+ *  (Balansrundan: banken prissattes förr på 12 % av equity medan intjäningen
+ *  satt fast vid stadens 60M-tak → ROI ~0,2 %/år. Nu skalar inlåningen med
+ *  imperiet (se tickBank) och priset är 5 % → ROI ~5–13 % beroende på
+ *  hållning och konjunktur.) */
 export function bankPurchasePrice(equity: number): number {
-  return Math.max(BANK_MIN_PRICE, Math.round(equity * 0.12));
+  return Math.max(BANK_MIN_PRICE, Math.round(equity * 0.05));
 }
 export function insurerPurchasePrice(equity: number): number {
   return Math.max(INSURER_MIN_PRICE, Math.round(equity * 0.08));
@@ -39,12 +43,15 @@ const STANCE_SPREAD: Record<BankStance, number> = { försiktig: 1.8, balanserad:
 /** Månatlig kreditförlust i % av utlånat, per hållning – normalläge. */
 const STANCE_LOSS: Record<BankStance, number> = { försiktig: 0.02, balanserad: 0.05, aggressiv: 0.12 };
 
-const PRICING_GROWTH: Record<InsurerPricing, number> = { låg: 0.08, marknad: 0.045, hög: 0.02 };
+const PRICING_GROWTH: Record<InsurerPricing, number> = { låg: 0.08, marknad: 0.045, hög: 0.008 };
 const PRICING_PREMIUM: Record<InsurerPricing, number> = { låg: 0.8, marknad: 1.0, hög: 1.28 };
 /** Skadekvot (andel av premier som går till skador) per prisnivå. */
-const PRICING_LOSS_RATIO: Record<InsurerPricing, number> = { låg: 0.78, marknad: 0.62, hög: 0.52 };
+const PRICING_LOSS_RATIO: Record<InsurerPricing, number> = { låg: 0.82, marknad: 0.70, hög: 0.55 };
+/** Kundtapp per månad: höga premier eroderar boken mot en liten, fet nisch.
+ *  (Balansrundan: "hög" dominerade förr – 30 %/år utan nackdel.) */
+const PRICING_CHURN: Record<InsurerPricing, number> = { låg: 0, marknad: 0.002, hög: 0.015 };
 
-const PREMIUM_PER_POLICY = 6_500; // kr/mån vid marknadspris
+const PREMIUM_PER_POLICY = 4_200; // kr/mån vid marknadspris
 
 /* ── Värdering (ingår i eget kapital) ───────────────────────────────── */
 
@@ -73,7 +80,7 @@ export function bankMonthlyNet(bank: OwnedBank, state: GameState): number {
   const lendRate = state.interestRate + STANCE_SPREAD[bank.stance];
   const depositRate = state.interestRate * 0.5;
   const margin = (lendRate - depositRate) / 100;
-  const opex = 60_000 + bank.deposits * 0.0006;
+  const opex = 40_000 + bank.deposits * 0.0004;
   return Math.round((bank.loansOut * margin) / 12 - opex);
 }
 
@@ -86,9 +93,13 @@ export function tickBank(
 ): { bank: OwnedBank; net: number; events: LogEntry[] } {
   const events: LogEntry[] = [];
   const phase = state.marketCycle?.phase ?? "stable";
-  // Insättningsbasen: stadens välstånd (marknadsnivå + rivalernas ekonomi).
+  // Insättningsbasen: stadens välstånd (marknadsnivå + rivalernas ekonomi)
+  // PLUS ägarimperiets tyngd – en bank i en stor koncern drar stora
+  // inlåningsvolymer. Utan equity-termen fastnade banken vid stadens
+  // 60M-tak medan köpeskillingen växte med spelaren (ROI ~0).
+  const empire = Math.max(0, state.prevEquity ?? 0) * 0.15;
   const cityScale =
-    60_000_000 * state.marketMod * (1 + state.competitors.length * 0.08) *
+    (60_000_000 + empire) * state.marketMod * (1 + state.competitors.length * 0.08) *
     (phase === "boom" ? 1.1 : phase === "bust" ? 0.92 : 1);
   const deposits = Math.round(bank.deposits + (cityScale - bank.deposits) * 0.05 + rnd(-0.01, 0.01) * bank.deposits);
   const loansOut = Math.round(deposits * STANCE_UTIL[bank.stance]);
@@ -132,8 +143,11 @@ export function tickInsurer(
     state.listings.length;
   const capacity = Math.max(120, cityStock * 9); // ~9 försäkringsbara enheter per hus
   const growth = PRICING_GROWTH[ins.pricing];
+  // Nyteckning mot taket minus prisdrivet kundtapp: hög premie hittar
+  // jämvikt i en liten, lönsam nisch i stället för att äga hela boken.
+  const churned = ins.policies * (1 - PRICING_CHURN[ins.pricing]);
   const policies = Math.round(
-    Math.min(capacity, ins.policies + (capacity - ins.policies) * growth * rnd(0.7, 1.3)),
+    Math.min(capacity, churned + (capacity - churned) * growth * rnd(0.7, 1.3)),
   );
   const ni: OwnedInsurer = { ...ins, policies: Math.max(40, policies) };
 

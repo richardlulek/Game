@@ -51,9 +51,11 @@ export function execSalaryMult(exec: Executive | undefined): number {
   return exec.talent * (1 + 0.25 * exec.raises);
 }
 
-/** Chans per månad att en stjärnchef blir uppvaktad av en rival. */
+/** Chans per månad att en stjärnchef blir uppvaktad av en rival.
+ *  (Balansrundan: golvet 1,15 gjorde striderna nästan obefintliga –
+ *  3 på 20 år med fem chefer. 1,10 ger ungefär en om året.) */
 const POACH_CHANCE = 0.015;
-export const POACH_TALENT_FLOOR = 1.15;
+export const POACH_TALENT_FLOOR = 1.10;
 
 /** Rekryteringsstrid: rival försöker värva en stjärnchef (talang ≥1,15).
  *  Returnerar ett beslut eller null. Anropas när inget beslut redan väntar. */

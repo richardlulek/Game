@@ -58,21 +58,40 @@ export function spinnableAssets(s: GameState, sector: IndustrySectorKey): Indust
   );
 }
 
-/** Bolagsvärdet vid noteringen = tillgångarnas marknadsvärde. */
+/** Avkastningskrav vid intjäningsvärdering av avknoppningar. */
+export const SPINOFF_CAP_RATE = 0.10;
+
+/** Bolagsvärdet vid noteringen: det HÖGSTA av tillgångarnas marknadsvärde
+ *  och kapitaliserad intjäning (senaste månadens netto × 12 / 10 %).
+ *  Balansrundan visade att ren substansvärdering underprisar lönsamma
+ *  sektorer ~3× – floaten såldes för billigt och avknoppning blev alltid
+ *  en förlustaffär. Börsen betalar för vinster, inte bara för tegel. */
 export function spinoffValuation(s: GameState, sector: IndustrySectorKey): number {
-  return Math.round(spinnableAssets(s, sector).reduce((a, x) => a + industryAssetValue(x, s), 0));
+  const assets = spinnableAssets(s, sector);
+  const bookValue = assets.reduce((a, x) => a + industryAssetValue(x, s), 0);
+  const annualNet = assets.reduce((a, x) => a + (x.monthlyRevenue ?? 0) - (x.monthlyOpex ?? 0), 0) * 12;
+  return Math.round(Math.max(bookValue, annualNet / SPINOFF_CAP_RATE));
 }
 
 export function spinoffFee(valuation: number): number {
   return Math.max(SPINOFF_FEE_MIN, Math.round(valuation * SPINOFF_FEE_PCT));
 }
 
-/** Avknoppningens substansvärde: taggade tillgångar + egen kassa. */
+/** Underhåll: avknoppningen sköter sina egna hus (kostnad per månad som
+ *  andel av tillgångsvärdet, dras från bolagets kassa i simulationen). */
+export const SPINOFF_UPKEEP_PCT = 0.0015;
+/** Skicket som det egna underhållet håller tillgångarna vid. */
+export const SPINOFF_UPKEEP_COND = 86;
+
+/** Avknoppningens värde: max(tillgångar, kapitaliserad intjäning) + kassa –
+ *  samma intjäningslogik som noteringsvärderingen så kursen inte rasar till
+ *  tegelvärdet dagen efter börsdebuten. */
 export function spinoffEquity(s: GameState, spin: SpinOff): number {
   const assets = (s.industryPortfolio ?? [])
     .filter((a) => a.spinOffId === spin.id)
     .reduce((a, x) => a + industryAssetValue(x, s), 0);
-  return Math.round(assets + spin.cash);
+  const earningsValue = Math.max(0, spin.lastMonthNet) * 12 / SPINOFF_CAP_RATE;
+  return Math.round(Math.max(assets, earningsValue) + spin.cash);
 }
 
 /** Substanskurs per aktie – samma fundamentala modell som FBAB/rivaler. */
