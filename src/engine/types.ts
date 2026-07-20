@@ -5,6 +5,32 @@
 
 export type PropTypeKey = "bostad" | "kontor" | "butik" | "industri";
 
+// ── Finansiella institut (ägd bank + försäkringsbolag) ──────────────────────
+
+export type BankStance = "försiktig" | "balanserad" | "aggressiv";
+export type InsurerPricing = "låg" | "marknad" | "hög";
+
+export interface OwnedBank {
+  name: string;
+  /** Stadens insättningar hos banken (växer med stadens ekonomi). */
+  deposits: number;
+  /** Utlånad volym (utnyttjande av insättningarna, styrs av hållningen). */
+  loansOut: number;
+  stance: BankStance;
+  acquiredAbs: number;
+  /** Livstidsackumulerat nettoresultat (för bokslut/UI). */
+  totalNet: number;
+}
+
+export interface OwnedInsurer {
+  name: string;
+  /** Antal tecknade fastighetsförsäkringar i staden. */
+  policies: number;
+  pricing: InsurerPricing;
+  acquiredAbs: number;
+  totalNet: number;
+}
+
 export type ScenarioId =
   | "equity50" | "equity200" | "districts3" | "units25" | "sandbox"
   | "diversified" | "energyBaron" | "hotelKing" | "arvet";
@@ -864,6 +890,10 @@ export interface GameState {
   milestones?: string[];
   prevEquity?: number;
   insuranceCost?: number;
+  /** Ägt bankhus (Finans → Finansiella institut). */
+  ownedBank?: OwnedBank | null;
+  /** Ägt försäkringsbolag. */
+  ownedInsurer?: OwnedInsurer | null;
   marketCycle?: MarketCycle;
   /** Absolutmånad (år*12+månad) då senaste PR-kampanjen köptes – cooldown. */
   lastPrMonth?: number;
@@ -937,6 +967,12 @@ export type GameAction =
   | { type: "START_RESEARCH"; id: string }
   | { type: "HIRE_STAFF"; role: string }
   | { type: "FIRE_STAFF"; role: string }
+  | { type: "BUY_BANK" }
+  | { type: "SELL_BANK" }
+  | { type: "SET_BANK_STANCE"; stance: BankStance }
+  | { type: "BUY_INSURER" }
+  | { type: "SELL_INSURER" }
+  | { type: "SET_INSURER_PRICING"; pricing: InsurerPricing }
   | { type: "SELL_SUBSIDIARY"; name: string }
   | { type: "PLACE_LIMIT_ORDER"; stockId: string; qty: number; limitPrice: number; side: "buy" | "sell" }
   | { type: "CANCEL_LIMIT_ORDER"; orderId: string }

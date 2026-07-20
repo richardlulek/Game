@@ -2,6 +2,7 @@ import { useState } from "react";
 import { esgRatingOf } from "../engine/esg";
 import { LENDERS, amortInfoOf, loanTerms } from "../engine/finance";
 import { bondRateFor, creditRatingOf } from "../engine/rating";
+import { bankMonthlyNet, bankPurchasePrice, bankValue, insurerMonthlyNet, insurerPurchasePrice, insurerValue } from "../engine/finInstitutions";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
 import {
@@ -351,6 +352,83 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                   </div>
                 ))}
               </div>
+            )}
+          </>
+        )}
+
+        {/* Finansiella institut: äg banken och försäkringsbolaget */}
+        <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Financial institutions</h3>
+        {(state.companyLevel ?? 1) < 4 ? (
+          <div style={{ fontSize: 12, color: "#888" }}>Owning a bank or insurer requires company level 4.</div>
+        ) : (
+          <>
+            {state.ownedBank ? (
+              <div style={{ fontSize: 12, marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>🏦 {state.ownedBank.name}</div>
+                <div style={{ color: "#666" }}>
+                  Deposits {msek(state.ownedBank.deposits)} · loans out {msek(state.ownedBank.loansOut)} ·
+                  est. net {kr(bankMonthlyNet(state.ownedBank, state))}/mo · lifetime {msek(state.ownedBank.totalNet)}
+                </div>
+                <div style={{ display: "flex", gap: 6, margin: "6px 0", flexWrap: "wrap" }}>
+                  {(["försiktig", "balanserad", "aggressiv"] as const).map((st) => (
+                    <button key={st}
+                      style={{ fontSize: 11, cursor: "pointer", borderRadius: 10, padding: "3px 10px", fontWeight: 700,
+                        border: `1px solid ${state.ownedBank!.stance === st ? BURGUNDY : "#bbb"}`,
+                        background: state.ownedBank!.stance === st ? BURGUNDY : "transparent",
+                        color: state.ownedBank!.stance === st ? "#f0e6c8" : "#555" }}
+                      onClick={() => dispatch({ type: "SET_BANK_STANCE", stance: st })}>
+                      {st === "försiktig" ? "Cautious" : st === "balanserad" ? "Balanced" : "Aggressive"}
+                    </button>
+                  ))}
+                  <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #c0392b", background: "transparent", color: "#c0392b", borderRadius: 3, padding: "3px 8px" }}
+                    onClick={() => dispatch({ type: "SELL_BANK" })}>
+                    Sell ({msek(Math.round(bankValue(state.ownedBank, state) * 0.85))})
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: "#888" }}>
+                  Aggressive lending earns more but bleeds in downturns. Your own loan rate is 0.30% lower while you own the bank.
+                </div>
+              </div>
+            ) : (
+              <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 8 }}
+                disabled={state.cash < bankPurchasePrice(equity)}
+                onClick={() => dispatch({ type: "BUY_BANK" })}>
+                🏦 Acquire Harbor City Savings Bank ({msek(bankPurchasePrice(equity))})
+              </button>
+            )}
+            {state.ownedInsurer ? (
+              <div style={{ fontSize: 12 }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>🛡️ {state.ownedInsurer.name}</div>
+                <div style={{ color: "#666" }}>
+                  {state.ownedInsurer.policies.toLocaleString("en-US")} policies ·
+                  est. net {kr(insurerMonthlyNet(state.ownedInsurer, state))}/mo · lifetime {msek(state.ownedInsurer.totalNet)}
+                </div>
+                <div style={{ display: "flex", gap: 6, margin: "6px 0", flexWrap: "wrap" }}>
+                  {(["låg", "marknad", "hög"] as const).map((p) => (
+                    <button key={p}
+                      style={{ fontSize: 11, cursor: "pointer", borderRadius: 10, padding: "3px 10px", fontWeight: 700,
+                        border: `1px solid ${state.ownedInsurer!.pricing === p ? BURGUNDY : "#bbb"}`,
+                        background: state.ownedInsurer!.pricing === p ? BURGUNDY : "transparent",
+                        color: state.ownedInsurer!.pricing === p ? "#f0e6c8" : "#555" }}
+                      onClick={() => dispatch({ type: "SET_INSURER_PRICING", pricing: p })}>
+                      {p === "låg" ? "Low premiums" : p === "marknad" ? "Market" : "High premiums"}
+                    </button>
+                  ))}
+                  <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #c0392b", background: "transparent", color: "#c0392b", borderRadius: 3, padding: "3px 8px" }}
+                    onClick={() => dispatch({ type: "SELL_INSURER" })}>
+                    Sell ({msek(Math.round(insurerValue(state.ownedInsurer, state) * 0.85))})
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: "#888" }}>
+                  Low premiums grow the book fast on thin margins. Your own property premiums are 40% cheaper while you own the insurer.
+                </div>
+              </div>
+            ) : (
+              <button style={{ ...S.amortBtn, background: "#1a4a6b" }}
+                disabled={state.cash < insurerPurchasePrice(equity)}
+                onClick={() => dispatch({ type: "BUY_INSURER" })}>
+                🛡️ Acquire Cronvalls Insurance Co. ({msek(insurerPurchasePrice(equity))})
+              </button>
             )}
           </>
         )}

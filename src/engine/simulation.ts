@@ -74,6 +74,7 @@ import { newId, pick, random01, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
 import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, priceStocks, quarterlyEarnings, rivalFbabShares, rivalHoldingsValue, rivalNews, rivalShareTrading, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
+import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
@@ -907,13 +908,38 @@ export function advanceMonth(state: GameState): GameState {
     if (hotelRepBonus > 0) s.reputation = Math.min(100, s.reputation + hotelRepBonus);
   }
 
+  // ── Finansiella institut: ägd bank + försäkringsbolag ────────────
+  if (s.ownedBank) {
+    const r = tickBank(s.ownedBank, s);
+    s.ownedBank = { ...r.bank, totalNet: r.bank.totalNet + r.net };
+    cashflow(s, r.net, "bankrörelsen");
+    monthlyNOI += r.net;
+    r.events.forEach((e) => events.push(e));
+    if (s.month === 12)
+      events.push({
+        t: `🏦 ${s.ownedBank.name} annual summary: deposits ${msek(s.ownedBank.deposits)}, loans out ${msek(s.ownedBank.loansOut)} (${s.ownedBank.stance}).`,
+        kind: "info",
+      });
+  }
+  if (s.ownedInsurer) {
+    const r = tickInsurer(s.ownedInsurer, s);
+    s.ownedInsurer = { ...r.insurer, totalNet: r.insurer.totalNet + r.net };
+    cashflow(s, r.net, "försäkringsrörelsen");
+    monthlyNOI += r.net;
+    r.events.forEach((e) => events.push(e));
+  }
+
   // Insurance monthly cost + catastrophe events
   const insuredProps = s.portfolio.filter((p) => p.insurance && p.status === "klar");
   if (insuredProps.length > 0) {
-    // Premium: 0.40 % av marknadsvärde per år (min 2 000 kr/mån per fastighet)
-    const insCost = insuredProps.reduce(
-      (sum, p) => sum + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)),
-      0,
+    // Premium: 0.40 % av marknadsvärde per år (min 2 000 kr/mån per fastighet).
+    // Eget försäkringsbolag tecknar de egna husen till självkostnad: −40 %.
+    const ownInsurerMult = s.ownedInsurer ? OWN_INSURER_PREMIUM_MULT : 1;
+    const insCost = Math.round(
+      insuredProps.reduce(
+        (sum, p) => sum + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)),
+        0,
+      ) * ownInsurerMult,
     );
     monthlyNOI -= insCost;
     s.insuranceCost = insCost;

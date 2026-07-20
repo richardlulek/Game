@@ -57,6 +57,7 @@ import {
   buildMonthsDelta,
   hireFee,
 } from "./progression";
+import { bankPurchasePrice, bankValue, insurerPurchasePrice, insurerValue } from "./finInstitutions";
 import { newId, random01 } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
@@ -1398,6 +1399,79 @@ export function reducer(state: GameState, action: GameAction): GameState {
           { t: `🔬 Started research: ${def.name} (done in ${def.months} mo).`, kind: "upg" },
           ...state.log,
         ],
+      };
+    }
+    case "BUY_BANK": {
+      if (state.ownedBank) return log(state, "You already own a bank.", "warn");
+      if ((state.companyLevel ?? 1) < 4) return log(state, "Owning a bank requires company level 4.", "warn");
+      const price = bankPurchasePrice(equityOf(state));
+      if (state.cash < price) return log(state, "Not enough cash to acquire the bank.", "warn");
+      return {
+        ...state,
+        cash: state.cash - price,
+        ownedBank: {
+          name: "Harbor City Savings Bank",
+          deposits: 40_000_000,
+          loansOut: 26_000_000,
+          stance: "balanserad",
+          acquiredAbs: state.year * 12 + state.month,
+          totalNet: 0,
+        },
+        log: [{ t: `🏦 Acquired Harbor City Savings Bank for ${msek(price)}. Deposits, lending margins — and credit risk — are now yours. Your own loan rate drops 0.30%.`, kind: "buy" }, ...state.log],
+      };
+    }
+    case "SELL_BANK": {
+      if (!state.ownedBank) return state;
+      const proceeds = Math.round(bankValue(state.ownedBank, state) * 0.85);
+      return {
+        ...state,
+        cash: state.cash + proceeds,
+        ownedBank: null,
+        log: [{ t: `🏦 Sold ${state.ownedBank.name} for ${msek(proceeds)}.`, kind: "sell" }, ...state.log],
+      };
+    }
+    case "SET_BANK_STANCE": {
+      if (!state.ownedBank) return state;
+      return {
+        ...state,
+        ownedBank: { ...state.ownedBank, stance: action.stance },
+        log: [{ t: `🏦 ${state.ownedBank.name}: lending stance set to ${action.stance}.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "BUY_INSURER": {
+      if (state.ownedInsurer) return log(state, "You already own an insurance company.", "warn");
+      if ((state.companyLevel ?? 1) < 4) return log(state, "Owning an insurer requires company level 4.", "warn");
+      const price = insurerPurchasePrice(equityOf(state));
+      if (state.cash < price) return log(state, "Not enough cash to acquire the insurer.", "warn");
+      return {
+        ...state,
+        cash: state.cash - price,
+        ownedInsurer: {
+          name: "Cronvalls Insurance Co.",
+          policies: 220,
+          pricing: "marknad",
+          acquiredAbs: state.year * 12 + state.month,
+          totalNet: 0,
+        },
+        log: [{ t: `🛡️ Acquired Cronvalls Insurance Co. for ${msek(price)}. Premiums flow in, claims flow out — and your own property premiums drop 40%.`, kind: "buy" }, ...state.log],
+      };
+    }
+    case "SELL_INSURER": {
+      if (!state.ownedInsurer) return state;
+      const proceeds = Math.round(insurerValue(state.ownedInsurer, state) * 0.85);
+      return {
+        ...state,
+        cash: state.cash + proceeds,
+        ownedInsurer: null,
+        log: [{ t: `🛡️ Sold ${state.ownedInsurer.name} for ${msek(proceeds)}.`, kind: "sell" }, ...state.log],
+      };
+    }
+    case "SET_INSURER_PRICING": {
+      if (!state.ownedInsurer) return state;
+      return {
+        ...state,
+        ownedInsurer: { ...state.ownedInsurer, pricing: action.pricing },
+        log: [{ t: `🛡️ ${state.ownedInsurer.name}: premium level set to ${action.pricing}.`, kind: "info" }, ...state.log],
       };
     }
     case "HIRE_STAFF": {

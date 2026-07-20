@@ -11,6 +11,7 @@ import { stockHoldingsValue, subsidiaryValue } from "./stocks";
 import { industryAssetValue } from "./industries";
 import { RESTRUCTURING_EXTRA_AMORT, RESTRUCTURING_LTV_PENALTY, underRestructuringTerms } from "./receivership";
 import { bankStandingTerms } from "./standing";
+import { finInstitutionsValue, OWN_BANK_RATE_DELTA } from "./finInstitutions";
 import type { GameState, Lender, LoanTerms } from "./types";
 
 export const LENDERS: Lender[] = [
@@ -51,7 +52,9 @@ export function loanTerms(state: GameState): LoanTerms {
   const rating = creditRatingOf(state).spreadDelta;
   // Bankrelationen (standing) böjer både ränta och belåningsgrad.
   const bank = bankStandingTerms(state);
-  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating + bank.rateDelta);
+  // Egen bank (finInstitutions): koncernintern upplåning pressar spreaden.
+  const ownBank = state.ownedBank ? OWN_BANK_RATE_DELTA : 0;
+  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating + bank.rateDelta + ownBank);
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;
@@ -89,7 +92,8 @@ export function equityOf(state: GameState): number {
     lots +
     industryPortfolioValue(state) +
     stockHoldingsValue(state) +
-    subsidiaryValue(state) -
+    subsidiaryValue(state) +
+    finInstitutionsValue(state) -
     state.debt -
     bonds -
     (state.revolving?.used ?? 0)
