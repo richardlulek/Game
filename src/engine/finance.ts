@@ -74,9 +74,14 @@ export function portfolioValue(state: GameState): number {
   return state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
 }
 
-/** Summerat marknadsvärde för industritillgångar. */
+/** Summerat marknadsvärde för industritillgångar. Avknoppade tillgångar
+ *  (spinOffId) tillhör det noterade bolaget – spelarens andel av dem
+ *  räknas i stället via aktieinnehavet (stockHoldingsValue). */
 export function industryPortfolioValue(state: GameState): number {
-  return (state.industryPortfolio ?? []).reduce((a, asset) => a + industryAssetValue(asset, state), 0);
+  return (state.industryPortfolio ?? []).reduce(
+    (a, asset) => a + (asset.spinOffId ? 0 : industryAssetValue(asset, state)),
+    0,
+  );
 }
 
 /** Eget kapital = tillgångar (kassa, fastigheter, mark, industri, aktier,

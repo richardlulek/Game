@@ -43,8 +43,10 @@ export function resultatrakning(s: GameState): Resultatrakning {
     (a, p) => a + p.tenants.reduce((b, t) => b + t.rent, 0),
     0,
   );
+  // Avknoppade tillgångar tillhör det noterade bolaget – deras netto
+  // syns hos spelaren som utdelningar, inte som industrinetto.
   const industrinetto = (s.industryPortfolio ?? []).reduce(
-    (a, x) => a + (x.monthlyRevenue ?? 0) - (x.monthlyOpex ?? 0),
+    (a, x) => a + (x.spinOffId ? 0 : (x.monthlyRevenue ?? 0) - (x.monthlyOpex ?? 0)),
     0,
   );
   const utdelningar = Math.round(

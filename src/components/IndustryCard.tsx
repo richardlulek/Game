@@ -238,7 +238,14 @@ export function IndustryCard({ asset, state, dispatch }: { asset: IndustryAsset;
     <div style={card}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-        <span style={sectorBadge(asset.sector)}>{sectorIcon} {sectorName}</span>
+        <span>
+          <span style={sectorBadge(asset.sector)}>{sectorIcon} {sectorName}</span>
+          {asset.spinOffId && (
+            <span style={{ ...sectorBadge(asset.sector), background: C.burgundy, marginLeft: 6 }} title="The asset belongs to a listed spin-off — its earnings go to that company's shareholders.">
+              🔔 LISTED
+            </span>
+          )}
+        </span>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>{msek(marketValue)}</div>
           <div style={{ fontSize: 10, color: totalReturn >= 0 ? C.positive : "#b83030" }}>

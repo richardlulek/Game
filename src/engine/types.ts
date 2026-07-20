@@ -116,6 +116,23 @@ export interface IndustryAsset {
   hotelMeta: HotelMeta | null;
   energyMeta: EnergyMeta | null;
   logisticsMeta: LogisticsMeta | null;
+  /** Satt när tillgången knoppats av till ett noterat bolag (spinoffs.ts).
+   *  Tillgången står kvar på kartan men driftnettot går till avknoppningen. */
+  spinOffId?: string;
+}
+
+/** Ett avknoppat, börsnoterat sektorbolag (spinoffs.ts). */
+export interface SpinOff {
+  id: string;
+  name: string;
+  sector: IndustrySectorKey;
+  /** Aktien på börsen – spelarens innehav bor i stock.owned. */
+  stockId: string;
+  foundedAbs: number;
+  /** Bolagets egen kassa: dit driftnettot går, därifrån utdelningarna tas. */
+  cash: number;
+  lastMonthNet: number;
+  dividendsPaidToPlayer: number;
 }
 
 export interface IndustryUpgrade {
@@ -649,6 +666,8 @@ export interface Stock {
   delisting?: number;    // månader kvar till avnotering (om markerad)
   rivalPrevUnits?: number; // föregående månads bestånd – för kausala rivalnyheter
   rivalPrevNOI?: number;   // föregående månads driftnetto
+  /** Länk till en avknoppning (spinoffs.ts) – prissätts fundamentalt. */
+  spinOffId?: string;
 }
 
 /** Ett förvärvat dotterbolag som ger månadsintäkt. */
@@ -919,6 +938,8 @@ export interface GameState {
   electionResult?: string;
   /** Politik light: kampanjdonationer och politisk välvilja (politics.ts). */
   politics?: PoliticsState;
+  /** Avknoppade, börsnoterade sektorbolag (spinoffs.ts). */
+  spinOffs?: SpinOff[];
   /** Namngivna chefer per stabsroll (executives.ts). */
   executives?: Record<string, Executive>;
   milestones?: string[];
@@ -1053,6 +1074,7 @@ export type GameAction =
   | { type: "NEGOTIATE_RENEWAL"; propertyId: number; tenantId: number; action: "raise" | "keep" | "lower" | "evict" }
   | { type: "DISMISS_TUTORIAL" }
   | { type: "MARKET_ORDER"; stockId: string; side: "buy" | "sell"; qty: number }
+  | { type: "SPIN_OFF"; sector: IndustrySectorKey; floatPct: number }
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
   | { type: "BUY_INDUSTRY"; id: number }

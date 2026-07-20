@@ -489,6 +489,9 @@ export function priceStocks(
     // kursen frikopplades helt från fundamenta – bolag värda miljarder
     // handlades till golvet $1 medan "kursen kollapsar"-larmen haglade.
     if (st.competitorName === "__player__") return st;
+    // AVKNOPPNINGAR prissätts också fundamentalt (substans per aktie) – i
+    // avknoppningsblocket i advanceMonth. Ingen slumpvandring här.
+    if (st.spinOffId) return st;
     // RIVALAKTIER: ren substansprissättning (eget kapital per aktie) – ingen
     // slumpvandring där heller. Kursen andas ändå med konjunkturen eftersom
     // rivalens equity följer fastighetsvärden, kassa och innehav; nyhets-

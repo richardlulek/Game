@@ -59,12 +59,21 @@ import {
 } from "./progression";
 import { bankPurchasePrice, bankValue, insurerPurchasePrice, insurerValue } from "./finInstitutions";
 import { rollExecutive, talentStars } from "./executives";
+import {
+  SPINOFF_MIN_ASSETS,
+  SPINOFF_MIN_LEVEL,
+  spinnableAssets,
+  spinoffCompanyName,
+  spinoffFee,
+  spinoffStockSector,
+  spinoffValuation,
+} from "./spinoffs";
 import { newId, random01 } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
 import { MEMORY_NOTES, applyStoryFlag, districtLocked, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById, suppressOrganicApplications } from "./story";
 import { COURTAGE, STOCK_CAP_RATE, fbabSharesOf, rivalFbabShares } from "./stocks";
-import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, Stock } from "./types";
+import type { Auction, GameAction, GameState, IndustryAsset, LogKind, Lot, Property, SpinOff, Stock } from "./types";
 
 /** Lägger till en rad i loggen utan att ändra övrigt tillstånd. */
 function log(state: GameState, t: string, kind: LogKind): GameState {
@@ -2631,7 +2640,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "SHORT_STOCK": {
       const st = state.stocks.find((s) => s.id === action.stockId);
       if (!st) return state;
-      if (st.competitorName === "__player__") return log(state, "Kan inte blanka ditt eget bolag.", "warn");
+      if (st.competitorName === "__player__") return log(state, "You cannot short your own company.", "warn");
+      if (st.spinOffId) return log(state, "You cannot short your own spin-off.", "warn");
       if (action.qty <= 0) return state;
       const collateral = Math.round(st.price * action.qty * 1.5); // 150% marginal
       if (state.cash < collateral) return log(state, `Insufficient capital for short selling. Requires ${kr(collateral)} (150% margin).`, "warn");
@@ -2724,9 +2734,82 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case "SPIN_OFF": {
+      // Avknoppning (spinoffs.ts): en hel sektor noteras som eget bolag.
+      if ((state.companyLevel ?? 1) < SPINOFF_MIN_LEVEL)
+        return log(state, `A spin-off IPO requires company level ${SPINOFF_MIN_LEVEL} (group stage).`, "warn");
+      const assets = spinnableAssets(state, action.sector);
+      if (assets.length < SPINOFF_MIN_ASSETS)
+        return log(state, `A spin-off needs at least ${SPINOFF_MIN_ASSETS} completed assets in the sector.`, "warn");
+      const floatPct = Math.min(0.65, Math.max(0.1, action.floatPct));
+      const valuation = spinoffValuation(state, action.sector);
+      const fee = spinoffFee(valuation);
+      const proceeds = Math.round(valuation * floatPct) - fee;
+      if (proceeds <= 0) return log(state, "The sector is too small to carry the listing fees.", "warn");
+      const spinId = `spin_${newId()}`;
+      const name = spinoffCompanyName(state, action.sector);
+      // Aktieantal så att kursen landar kring $50 – samma storleksordning
+      // som resten av börslistan.
+      const sharesOutstanding = Math.max(100_000, Math.round(valuation / 50));
+      const publicShares = Math.round(sharesOutstanding * floatPct);
+      const price = Math.round((valuation / sharesOutstanding) * 100) / 100;
+      const stock: Stock = {
+        id: `spinstock_${newId()}`,
+        name,
+        sector: spinoffStockSector(action.sector),
+        price,
+        prevPrice: price,
+        monthClose: price,
+        targetPrice: price,
+        sharesOutstanding,
+        owned: sharesOutstanding - publicShares,
+        avgCost: 0,
+        dividendYield: 0,
+        beta: 0.9,
+        drift: 0,
+        volatility: 0.05,
+        history: [price],
+        listedYear: state.year,
+        listedMonth: state.month,
+        spinOffId: spinId,
+        newsHistory: [{ text: `${name} spun off from ${state.companyName ?? "the group"}`, dir: "up", day: state.day ?? 1, month: state.month, year: state.year }],
+      };
+      const spin: SpinOff = {
+        id: spinId,
+        name,
+        sector: action.sector,
+        stockId: stock.id,
+        foundedAbs: state.year * 12 + state.month,
+        cash: 0,
+        lastMonthNet: 0,
+        dividendsPaidToPlayer: 0,
+      };
+      const ids = new Set(assets.map((a) => a.id));
+      return {
+        ...state,
+        cash: state.cash + proceeds,
+        stocks: [...state.stocks, stock],
+        spinOffs: [...(state.spinOffs ?? []), spin],
+        industryPortfolio: (state.industryPortfolio ?? []).map((a) =>
+          ids.has(a.id) ? { ...a, spinOffId: spinId } : a,
+        ),
+        reputation: Math.min(100, state.reputation + 2),
+        log: [
+          {
+            t: `🔔 SPIN-OFF IPO: ${name} lists ${assets.length} assets at a ${msek(valuation)} valuation. You sold ${Math.round(floatPct * 100)}% to the market and net ${msek(proceeds)} after fees; the sector's earnings now belong to the listed company, which pays you quarterly dividends on your ${Math.round((1 - floatPct) * 100)}% stake.`,
+            kind: "income",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "SELL_INDUSTRY": {
       const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
       if (!asset) return state;
+      if (asset.spinOffId) {
+        const spin = (state.spinOffs ?? []).find((x) => x.id === asset.spinOffId);
+        return log(state, `${asset.name} belongs to the listed company ${spin?.name ?? "a spin-off"} — sell your shares on the exchange instead.`, "warn");
+      }
       const salePrice = Math.round(industryAssetValue(asset, state) * 0.95);
       return {
         ...state,

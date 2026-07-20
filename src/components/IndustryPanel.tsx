@@ -6,7 +6,15 @@
 import { useState } from "react";
 import type { GameAction, GameState, IndustryAsset, IndustrySectorKey } from "../engine/types";
 import { IndustryCard } from "./IndustryCard";
-import { kr } from "../engine/format";
+import { kr, msek } from "../engine/format";
+import {
+  SPINOFF_FLOATS,
+  SPINOFF_MIN_ASSETS,
+  SPINOFF_MIN_LEVEL,
+  spinnableAssets,
+  spinoffFee,
+  spinoffValuation,
+} from "../engine/spinoffs";
 import {
   hotelMonthlyRevenue, hotelMonthlyOpex,
   energyMonthlyRevenue, energyMonthlyOpex,
@@ -17,10 +25,10 @@ import { S } from "../styles/styles";
 import { C, FONTS } from "../styles/tokens";
 
 const SECTOR_FILTERS: { id: IndustrySectorKey | "alla"; label: string }[] = [
-  { id: "alla",     label: "Alla" },
-  { id: "hotell",   label: "🏨 Hotell" },
-  { id: "energi",   label: "⚡ Energi" },
-  { id: "logistik", label: "📦 Logistik" },
+  { id: "alla",     label: "All" },
+  { id: "hotell",   label: "🏨 Hotels" },
+  { id: "energi",   label: "⚡ Energy" },
+  { id: "logistik", label: "📦 Logistics" },
 ];
 
 function calcNOI(asset: IndustryAsset, state: GameState): number {
@@ -58,10 +66,13 @@ export function IndustryPanel({ state, dispatch }: Props) {
     ? portfolio
     : portfolio.filter((a) => a.sector === sector);
 
-  const totalNOI    = portfolio.reduce((s, a) => s + calcNOI(a, state), 0);
-  const hotelNOI    = portfolio.filter((a) => a.sector === "hotell").reduce((s, a) => s + calcNOI(a, state), 0);
-  const energiNOI   = portfolio.filter((a) => a.sector === "energi").reduce((s, a) => s + calcNOI(a, state), 0);
-  const logistikNOI = portfolio.filter((a) => a.sector === "logistik").reduce((s, a) => s + calcNOI(a, state), 0);
+  // NOI-summeringen räknar bara egna tillgångar – avknoppade bolags netto
+  // kommer som utdelningar, inte som driftnetto.
+  const own = portfolio.filter((a) => !a.spinOffId);
+  const totalNOI    = own.reduce((s, a) => s + calcNOI(a, state), 0);
+  const hotelNOI    = own.filter((a) => a.sector === "hotell").reduce((s, a) => s + calcNOI(a, state), 0);
+  const energiNOI   = own.filter((a) => a.sector === "energi").reduce((s, a) => s + calcNOI(a, state), 0);
+  const logistikNOI = own.filter((a) => a.sector === "logistik").reduce((s, a) => s + calcNOI(a, state), 0);
 
   if (portfolio.length === 0) {
     return (
@@ -87,9 +98,9 @@ export function IndustryPanel({ state, dispatch }: Props) {
       }}>
         {[
           { label: "Total NOI/mo", val: totalNOI },
-          { label: "🏨 Hotell",     val: hotelNOI },
-          { label: "⚡ Energi",     val: energiNOI },
-          { label: "📦 Logistik",   val: logistikNOI },
+          { label: "🏨 Hotels",     val: hotelNOI },
+          { label: "⚡ Energy",     val: energiNOI },
+          { label: "📦 Logistics",  val: logistikNOI },
         ].map(({ label, val }) => (
           <div key={label}>
             <div style={{ fontSize: 10, color: C.inkSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{label}</div>
@@ -115,6 +126,72 @@ export function IndustryPanel({ state, dispatch }: Props) {
           ))}
         </div>
       )}
+
+      {/* Avknoppningar – sektor-IPO:er (spinoffs.ts) */}
+      {(() => {
+        const level = state.companyLevel ?? 1;
+        const spins = state.spinOffs ?? [];
+        const sectors: IndustrySectorKey[] = ["hotell", "energi", "logistik"];
+        const eligible = sectors
+          .map((sec) => ({ sec, assets: spinnableAssets(state, sec), valuation: spinoffValuation(state, sec) }))
+          .filter((x) => x.assets.length >= SPINOFF_MIN_ASSETS);
+        if (spins.length === 0 && eligible.length === 0) return null;
+        const secLabel = (sec: IndustrySectorKey) =>
+          sec === "hotell" ? "🏨 Hotels" : sec === "energi" ? "⚡ Energy" : "📦 Logistics";
+        return (
+          <div style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            border: `1px solid ${C.brass}`,
+            borderRadius: 6,
+            background: "rgba(201,164,92,0.10)",
+          }}>
+            <div style={{ fontSize: 10, color: C.inkSoft, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+              Spin-off IPOs — list a whole sector as its own company
+            </div>
+            {spins.map((spin) => {
+              const st = state.stocks.find((x) => x.id === spin.stockId);
+              if (!st) return null;
+              const pct = Math.round((st.owned / st.sharesOutstanding) * 100);
+              const stakeValue = Math.round(st.owned * st.price);
+              return (
+                <div key={spin.id} style={{ fontSize: 12.5, padding: "6px 0", borderTop: `1px solid ${C.brassDim}44`, color: C.ink }}>
+                  <strong style={{ color: C.burgundy }}>{spin.name}</strong>{" "}
+                  · your stake {pct}% (worth {msek(stakeValue)}) · share ${st.price.toFixed(2)}
+                  <div style={{ fontSize: 11.5, color: C.inkSoft }}>
+                    Company cash {msek(spin.cash)} · last month net {kr(spin.lastMonthNet)} · dividends to you {msek(spin.dividendsPaidToPlayer)}.
+                    Trade the shares on the exchange.
+                  </div>
+                </div>
+              );
+            })}
+            {eligible.map(({ sec, assets, valuation }) => {
+              const fee = spinoffFee(valuation);
+              return (
+                <div key={sec} style={{ fontSize: 12.5, padding: "6px 0", borderTop: `1px solid ${C.brassDim}44`, color: C.ink }}>
+                  <strong>{secLabel(sec)}</strong> · {assets.length} assets · valuation {msek(valuation)} · fee {msek(fee)}
+                  {level < SPINOFF_MIN_LEVEL ? (
+                    <span style={{ color: C.inkSoft }}> · requires company level {SPINOFF_MIN_LEVEL}</span>
+                  ) : (
+                    <span style={{ marginLeft: 8, display: "inline-flex", gap: 6 }}>
+                      {SPINOFF_FLOATS.map((f) => (
+                        <button
+                          key={f}
+                          style={{ ...filterBtn(false), padding: "3px 10px" }}
+                          title={`Sell ${Math.round(f * 100)}% to the market, keep ${Math.round((1 - f) * 100)}%`}
+                          onClick={() => dispatch({ type: "SPIN_OFF", sector: sec, floatPct: f })}
+                        >
+                          List {Math.round(f * 100)}% float
+                        </button>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Sektorfilter */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>

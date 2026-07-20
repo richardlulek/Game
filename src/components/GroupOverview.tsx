@@ -267,6 +267,52 @@ export function GroupOverview({ state, dispatch }: GroupOverviewProps) {
         )}
       </div>
 
+      {/* ── Avknoppningar (spinoffs.ts) ────────────────────── */}
+      {(state.spinOffs ?? []).length > 0 && (
+        <div style={card}>
+          <h3 style={heading}>Spin-offs</h3>
+          <GoldRule />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {(state.spinOffs ?? []).map((spin, i) => {
+              const st = state.stocks.find((x) => x.id === spin.stockId);
+              if (!st) return null;
+              const share = st.owned / st.sharesOutstanding;
+              const stakeValue = Math.round(st.owned * st.price);
+              return (
+                <div
+                  key={spin.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "10px 0",
+                    borderBottom:
+                      i < (state.spinOffs ?? []).length - 1 ? "1px solid rgba(201,164,92,0.3)" : "none",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontFamily: FONTS.heading, fontSize: 15, color: C.ink }}>
+                      {spin.name}
+                    </span>
+                    <span style={subLabel}>
+                      Ownership {pct(share)} · share ${st.price.toFixed(2)} · dividends received {msek(spin.dividendsPaidToPlayer)}
+                    </span>
+                  </div>
+                  <span style={{ ...num, fontWeight: 700, color: C.green, whiteSpace: "nowrap" }}>
+                    {msek(stakeValue)}
+                  </span>
+                </div>
+              );
+            })}
+            <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 8 }}>
+              The listed company keeps its own earnings and pays quarterly dividends.
+              Trade the shares on the exchange; the buildings stay on the map.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Ägarandelar i rivaler ─────────────────────────── */}
       <div style={card}>
         <h3 style={heading}>Stakes in rivals</h3>

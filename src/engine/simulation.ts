@@ -88,6 +88,7 @@ import {
   politicalFavorActive,
 } from "./politics";
 import { maybePoachingDecision } from "./executives";
+import { SPINOFF_DIVIDEND_PAYOUT, spinoffSharePrice } from "./spinoffs";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
@@ -853,6 +854,9 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── Industrisektorer – månadsuppdatering ─────────────────────────────────
+  // Avknoppade tillgångar (spinoffs.ts) driftas som vanligt men deras
+  // netto går till avknoppningens egen kassa, inte spelarens.
+  const spinoffNet: Record<string, number> = {};
   {
     const portfolio = s.industryPortfolio ?? [];
     s.industryPortfolio = portfolio.map((asset) => {
@@ -879,7 +883,8 @@ export function advanceMonth(state: GameState): GameState {
       else if (na.sector === "logistik") [revenue, opex, tickEvents] = tickLogistik(na, s);
 
       const netNOI = revenue - opex;
-      monthlyNOI += netNOI;
+      if (na.spinOffId) spinoffNet[na.spinOffId] = (spinoffNet[na.spinOffId] ?? 0) + netNOI;
+      else monthlyNOI += netNOI;
       na = { ...na, monthlyRevenue: revenue, monthlyOpex: opex, totalRevenue: na.totalRevenue + revenue };
       tickEvents.forEach((e) => events.push(e));
 
@@ -906,9 +911,9 @@ export function advanceMonth(state: GameState): GameState {
       return na;
     });
 
-    // Aggregera ägt MW för energisynergi
+    // Aggregera ägt MW för energisynergi (avknoppade verk är inte längre dina)
     s.energyOwnedMW = s.industryPortfolio
-      .filter((a) => a.sector === "energi" && a.status === "klar")
+      .filter((a) => a.sector === "energi" && a.status === "klar" && !a.spinOffId)
       .reduce((sum, a) => sum + (a.energyMeta?.installedMW ?? 0), 0);
 
     // hotelKing-scenario: räkna månader med hög OCC på alla hotell
@@ -922,7 +927,7 @@ export function advanceMonth(state: GameState): GameState {
 
     // Hotellsynergi: hotell i centrum/kulle ger reputationsbonus
     const hotelRepBonus = s.industryPortfolio
-      .filter((a) => a.sector === "hotell" && a.status === "klar" && (a.district === "centrum" || a.district === "kulle"))
+      .filter((a) => a.sector === "hotell" && a.status === "klar" && !a.spinOffId && (a.district === "centrum" || a.district === "kulle"))
       .reduce((sum, a) => sum + (a.hotelMeta?.starRating ?? 0) * 0.05, 0);
     if (hotelRepBonus > 0) s.reputation = Math.min(100, s.reputation + hotelRepBonus);
   }
@@ -2042,6 +2047,49 @@ export function advanceMonth(state: GameState): GameState {
         price: newPrice,
         targetPrice: newPrice,
         history: [...st.history, newPrice].slice(-32),
+      };
+    });
+  }
+
+  // ── Avknoppningar: eget kassaflöde, kvartalsutdelning, substanskurs ──
+  if ((s.spinOffs ?? []).length > 0) {
+    s.spinOffs = (s.spinOffs ?? []).map((spin) => {
+      const net = spinoffNet[spin.id] ?? 0;
+      let ns: typeof spin = { ...spin, cash: spin.cash + net, lastMonthNet: net };
+      // Kvartalsutdelning: 60 % av kassan, pro rata till alla aktieägare –
+      // spelarens andel via innehavet (stock.owned).
+      if (s.month % 3 === 0 && ns.cash > 0) {
+        const st = s.stocks.find((x) => x.id === spin.stockId);
+        if (st) {
+          const div = Math.round(ns.cash * SPINOFF_DIVIDEND_PAYOUT);
+          const toPlayer = Math.round((div * st.owned) / st.sharesOutstanding);
+          ns = { ...ns, cash: ns.cash - div, dividendsPaidToPlayer: ns.dividendsPaidToPlayer + toPlayer };
+          if (toPlayer > 0) {
+            cashflow(s, toPlayer, "utdelning från avknoppning");
+            s.dividendsReceived = (s.dividendsReceived ?? 0) + toPlayer;
+            events.push({
+              t: `🔔 ${spin.name} pays a quarterly dividend: ${kr(toPlayer)} on your ${Math.round((st.owned / st.sharesOutstanding) * 100)}% stake.`,
+              kind: "income",
+            });
+          }
+        }
+      }
+      return ns;
+    });
+    // Substanskurs (tillgångsvärde + kassa per aktie) – samma fundamentala
+    // modell som FBAB och rivalaktierna, ingen slumpvandring.
+    s.stocks = s.stocks.map((st) => {
+      if (!st.spinOffId) return st;
+      const spin = (s.spinOffs ?? []).find((x) => x.stockId === st.id);
+      if (!spin) return st;
+      const price = spinoffSharePrice(s, spin, st);
+      return {
+        ...st,
+        monthClose: st.price,
+        prevPrice: st.price,
+        price,
+        targetPrice: price,
+        history: [...st.history, price].slice(-32),
       };
     });
   }
