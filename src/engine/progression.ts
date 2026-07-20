@@ -5,6 +5,7 @@
    Ren logik, inga React-beroenden.
    ============================================================ */
 
+import { execSalaryMult, talentOf } from "./executives";
 import type { GameState } from "./types";
 
 export interface ResearchDef {
@@ -60,7 +61,7 @@ export function opexMult(s: GameState): number {
   if (has(s, "gron_energi")) m *= 0.85;
   if (has(s, "smart_forvalt")) m *= 0.92;
   if (has(s, "green_cert")) m *= 0.95;
-  m *= 1 - 0.04 * lvl(s, "forvaltning");
+  m *= 1 - 0.04 * lvl(s, "forvaltning") * talentOf(s, "forvaltning");
   return m;
 }
 
@@ -68,7 +69,7 @@ export function opexMult(s: GameState): number {
 export function vacancyMult(s: GameState): number {
   let m = 1;
   if (has(s, "datauthyrning")) m *= 0.75;
-  m *= 1 - 0.03 * lvl(s, "analys");
+  m *= 1 - 0.03 * lvl(s, "analys") * talentOf(s, "analys");
   return Math.max(0.4, m);
 }
 
@@ -88,18 +89,18 @@ export function buildMonthsDelta(s: GameState): number {
 export function spreadDelta(s: GameState): number {
   let d = 0;
   if (has(s, "finansstyrka")) d += 0.4;
-  d += 0.15 * lvl(s, "cfo");
+  d += 0.15 * lvl(s, "cfo") * talentOf(s, "cfo");
   return d;
 }
 
 /** Bonus till budacceptans (inköpschef), i sannolikhetsenheter. */
 export function bidBonus(s: GameState): number {
-  return 0.05 * lvl(s, "inkop");
+  return 0.05 * lvl(s, "inkop") * talentOf(s, "inkop");
 }
 
 /** Reputation per månad (marknadschef). */
 export function monthlyReputation(s: GameState): number {
-  return 0.3 * lvl(s, "marknad");
+  return 0.3 * lvl(s, "marknad") * talentOf(s, "marknad");
 }
 
 /** Långsammare slitage om smart förvaltning är utforskat. */
@@ -107,28 +108,32 @@ export function wearMult(s: GameState): number {
   return has(s, "smart_forvalt") ? 0.7 : 1;
 }
 
-/** Total lönekostnad per månad. */
+/** Total lönekostnad per månad. Namngivna chefers talang (och
+ *  matchade rekryteringsstrider) skalar lönen – se executives.ts. */
 export function salariesTotal(s: GameState): number {
-  return STAFF_ROLES.reduce((a, r) => a + r.baseSalary * lvl(s, r.id), 0);
+  return STAFF_ROLES.reduce(
+    (a, r) => a + Math.round(r.baseSalary * lvl(s, r.id) * execSalaryMult(s.executives?.[r.id])),
+    0,
+  );
 }
 
 // ── Industrisektors-modifierare ────────────────────────────────────────────
 
 /** RevPAR-boost från hotelldirektör och Revenue Management AI. */
 export function hotelRevParBoost(s: GameState): number {
-  let boost = 1 + 0.05 * lvl(s, "hotelldirektör");
+  let boost = 1 + 0.05 * lvl(s, "hotelldirektör") * talentOf(s, "hotelldirektör");
   if (has(s, "revpro_ai")) boost += 0.15;
   return boost;
 }
 
 /** Spot-intäktsboost från energianalytiker och nätoptimering. */
 export function energySpotBoost(s: GameState): number {
-  return 1 + 0.08 * lvl(s, "energianalytiker") + (has(s, "grid_opt") ? 0.12 : 0);
+  return 1 + 0.08 * lvl(s, "energianalytiker") * talentOf(s, "energianalytiker") + (has(s, "grid_opt") ? 0.12 : 0);
 }
 
 /** Throughput-boost från logistikchef och digital tvilling. */
 export function logisticsThroughputBoost(s: GameState): number {
-  return 1 + 0.06 * lvl(s, "logistikchef") + (has(s, "warehouse_sim") ? 0.10 : 0);
+  return 1 + 0.06 * lvl(s, "logistikchef") * talentOf(s, "logistikchef") + (has(s, "warehouse_sim") ? 0.10 : 0);
 }
 
 /** Opex-multiplikator för industritillgångar (green_cert). */

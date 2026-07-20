@@ -58,6 +58,7 @@ import {
   hireFee,
 } from "./progression";
 import { bankPurchasePrice, bankValue, insurerPurchasePrice, insurerValue } from "./finInstitutions";
+import { rollExecutive, talentStars } from "./executives";
 import { newId, random01 } from "./random";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
@@ -1081,6 +1082,35 @@ export function reducer(state: GameState, action: GameAction): GameState {
         // Beslutets egen logtext förklarar slutet (t.ex. "bolaget såldes...").
         s.gameOverReason = { icon: "📜", title: "The company changed hands", text: e.log };
       }
+      // Rekryteringsstrid (executives.ts): matcha budet = permanent löneökning.
+      if (e.execRaise && s.executives?.[e.execRaise]) {
+        const exec = s.executives[e.execRaise];
+        s.executives = { ...s.executives, [e.execRaise]: { ...exec, raises: exec.raises + 1 } };
+      }
+      // ...eller släpp chefen: rollen tappar en nivå och en ersättare
+      // (slumpad talang) tar över det som är kvar av avdelningen.
+      if (e.execPoached) {
+        const staff = { ...(s.staff ?? {}) };
+        const level = (staff[e.execPoached] ?? 0) - 1;
+        const executives = { ...(s.executives ?? {}) };
+        delete executives[e.execPoached];
+        if (level <= 0) delete staff[e.execPoached];
+        else {
+          staff[e.execPoached] = level;
+          executives[e.execPoached] = rollExecutive(s);
+        }
+        s.staff = staff;
+        s.executives = executives;
+      }
+      // Kampanjdonation (politics.ts): registrera stödet inför valet.
+      if (e.campaign) {
+        s.politics = {
+          ...(s.politics ?? {}),
+          backed: e.campaign.party,
+          donation: e.campaign.amount,
+          secret: e.campaign.secret ?? false,
+        };
+      }
       // Berättelseläget: flaggor med sidoeffekter + kedjade brev.
       if (e.storyFlag) s = applyStoryFlag(s, e.storyFlag);
       if (e.nextDecisionId) {
@@ -1483,15 +1513,20 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const fee = hireFee(action.role, nextLevel);
       if (state.cash < fee)
         return log(state, `Recruiting ${role.name} costs ${msek(fee)} in an initial fee.`, "warn");
+      // Namngiven chef: nyanställning tillsätter en person med egen talang
+      // som skalar rollens effekt och lön (executives.ts). Befordran
+      // behåller samma person.
+      const exec = cur === 0 ? rollExecutive(state) : state.executives?.[action.role];
       return {
         ...state,
         cash: state.cash - fee,
         staff: { ...(state.staff ?? {}), [action.role]: nextLevel },
+        executives: exec ? { ...(state.executives ?? {}), [action.role]: exec } : state.executives,
         log: [
           {
-            t: cur === 0
-              ? `Hired ${role.name} (salary ${kr(role.baseSalary)}/mo).`
-              : `Promoted ${role.name} to level ${nextLevel}.`,
+            t: cur === 0 && exec
+              ? `Hired ${exec.name} as ${role.name} (talent ${"★".repeat(talentStars(exec.talent))} · salary ${kr(Math.round(role.baseSalary * exec.talent))}/mo).`
+              : `Promoted ${exec?.name ?? role.name} to level ${nextLevel}.`,
             kind: "buy",
           },
           ...state.log,
@@ -1503,10 +1538,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!role || !(state.staff?.[action.role] ?? 0)) return state;
       const staff = { ...(state.staff ?? {}) };
       delete staff[action.role];
+      const executives = { ...(state.executives ?? {}) };
+      const exName = executives[action.role]?.name;
+      delete executives[action.role];
       return {
         ...state,
         staff,
-        log: [{ t: `Ended the employment of ${role.name}.`, kind: "info" }, ...state.log],
+        executives,
+        log: [{ t: `Ended the employment of ${exName ?? role.name}.`, kind: "info" }, ...state.log],
       };
     }
     case "SELL_SUBSIDIARY": {

@@ -1,4 +1,6 @@
+import { execSalaryMult, talentStars } from "../engine/executives";
 import { kr, msek } from "../engine/format";
+import { ELECTION_PERIOD, politicalFavorActive } from "../engine/politics";
 import { STAFF_ROLES, hireFee, salariesTotal } from "../engine/progression";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS, THEME } from "../styles/tokens";
@@ -36,14 +38,26 @@ export function StaffPanel({ state, dispatch }: Props) {
           const atMax = level >= r.maxLevel;
           const fee = hireFee(r.id, level + 1);
           const canHire = !atMax && state.cash >= fee && !state.gameOver;
+          const exec = state.executives?.[r.id];
           return (
             <div key={r.id} style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <span style={cardTitle}>{r.name}</span>
                 <span style={{ fontSize: 12, color: C.inkSoft }}>
-                  {level > 0 ? `${kr(r.baseSalary * level)}/mo` : "not employed"}
+                  {level > 0 ? `${kr(Math.round(r.baseSalary * level * execSalaryMult(exec)))}/mo` : "not employed"}
                 </span>
               </div>
+              {level > 0 && exec && (
+                <div style={{ fontSize: 12, color: C.burgundy, marginTop: 4, fontWeight: 700 }}>
+                  {exec.name}{" "}
+                  <span style={{ color: C.brass }} title={`Talent scales the role's effect and salary`}>
+                    {"★".repeat(talentStars(exec.talent))}{"☆".repeat(5 - talentStars(exec.talent))}
+                  </span>
+                  {exec.raises > 0 && (
+                    <span style={{ color: C.inkSoft, fontWeight: 400 }}> · {exec.raises} matched raise{exec.raises > 1 ? "s" : ""}</span>
+                  )}
+                </div>
+              )}
               <div style={{ fontSize: 12.5, color: C.inkSoft, margin: "6px 0", lineHeight: 1.4 }}>{r.desc}</div>
               <span style={effectChip}>{r.effect}</span>
 
@@ -77,6 +91,37 @@ export function StaffPanel({ state, dispatch }: Props) {
           );
         })}
       </div>
+
+      {/* City Hall – politik light */}
+      {(() => {
+        const absM = state.year * 12 + state.month;
+        const toElection = (ELECTION_PERIOD - (absM % ELECTION_PERIOD)) % ELECTION_PERIOD;
+        const favor = politicalFavorActive(state);
+        return (
+          <div style={{ ...strip, marginTop: 20 }}>
+            <div>
+              <div style={stripTitle}>CITY HALL</div>
+              <div style={stripSub}>
+                {state.electionResult ? `In power: ${state.electionResult}` : "No election has been held yet"}
+                {" · "}next election in {toElection === 0 ? ELECTION_PERIOD : toElection} mo
+                {state.politics?.backed ? " · you are backing a campaign" : ""}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", fontSize: 12 }}>
+              {favor ? (
+                <span style={{ color: C.brassBright, fontWeight: 700 }}>
+                  🤝 Political favor · {state.politics!.favorMonthsLeft} mo left
+                  <div style={{ fontSize: 10.5, color: C.creamSoft, fontWeight: 400 }}>
+                    faster zoning · −8% auction opening bids{state.politics?.secret ? " · scandal risk" : ""}
+                  </div>
+                </span>
+              ) : (
+                <span style={{ color: C.creamSoft }}>No political favor</span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Advisory Board */}
       <div style={{ ...strip, marginTop: 20, flexDirection: "column", alignItems: "flex-start" }}>

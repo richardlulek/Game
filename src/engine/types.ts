@@ -290,10 +290,40 @@ export interface DecisionEffect {
   planSettle?: { blockId: string; monthsDelta: number };
   /** Kedjning: id på nästa skriptade beslut (slås upp i story-tabellen). */
   nextDecisionId?: string;
+  /** Rekryteringsstrid: matcha rivalens bud – permanent löneförhöjning. */
+  execRaise?: string;
+  /** Rekryteringsstrid: chefen går – rollen tappar en nivå. */
+  execPoached?: string;
+  /** Kampanjdonation inför kommunalvalet (politics.ts). */
+  campaign?: { party: string; amount: number; secret?: boolean };
   /** Story-flagga som sätts när alternativet väljs. */
   storyFlag?: string;
   log: string;
   logKind: LogKind;
+}
+
+/** Namngiven chef på en stabsroll (executives.ts). Talangen 0,85–1,30
+ *  skalar rollens effekt och lön; raises är antalet matchade
+ *  rekryteringsstrider (permanent +25 % lön per styck). */
+export interface Executive {
+  name: string;
+  talent: number;
+  raises: number;
+  hiredAbs: number;
+}
+
+/** Politik light (politics.ts): kampanjstöd och politisk välvilja. */
+export interface PoliticsState {
+  /** Parti-id som spelaren donerat till inför nästa val (nollas efter valet). */
+  backed?: string | null;
+  /** Donationens storlek (för loggtexter). */
+  donation?: number;
+  /** Diskret donation via stiftelse – bättre odds men skandalrisk. */
+  secret?: boolean;
+  /** Månader kvar av politisk välvilja efter en vunnen kampanj. */
+  favorMonthsLeft?: number;
+  /** Partiet som välviljan kommer ifrån (för UI:t). */
+  favorParty?: string;
 }
 
 /** Svårighetsgrad – påverkar startvillkor i Friläge och scenarier
@@ -887,6 +917,10 @@ export interface GameState {
   bonds?: Bond[];
   politicalCycle?: number;
   electionResult?: string;
+  /** Politik light: kampanjdonationer och politisk välvilja (politics.ts). */
+  politics?: PoliticsState;
+  /** Namngivna chefer per stabsroll (executives.ts). */
+  executives?: Record<string, Executive>;
   milestones?: string[];
   prevEquity?: number;
   insuranceCost?: number;

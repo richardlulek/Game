@@ -76,6 +76,18 @@ import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, p
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
+import {
+  CAMPAIGN_LEAD,
+  CAMPAIGN_WIN_OPEN,
+  CAMPAIGN_WIN_SECRET,
+  ELECTION_PERIOD,
+  FAVOR_MONTHS,
+  SECRET_SCANDAL_CHANCE,
+  campaignDecision,
+  favorAuctionMult,
+  politicalFavorActive,
+} from "./politics";
+import { maybePoachingDecision } from "./executives";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
@@ -1061,13 +1073,67 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── Politiska val var 4:e år (absolut månad % 48 === 0) ────────
+  // Politik light (politics.ts): tre månader före valet kan spelaren
+  // donera till det byggvänliga blockets kampanj – öppet eller diskret.
+  // Vinner det stödda partiet ger stadshuset politisk välvilja i 24 mån
+  // (snabbare detaljplaner, billigare planauktioner). Diskreta pengar
+  // riskerar en mutskandal så länge välviljan varar.
   {
     const absM = s.year * 12 + s.month;
-    if (absM % 48 === 0) {
-      const party = pick(POLITICAL_PARTIES);
+    if (
+      absM % ELECTION_PERIOD === ELECTION_PERIOD - CAMPAIGN_LEAD &&
+      !s.pendingDecision &&
+      (!s.story || s.story.done) &&
+      !s.settings?.calmMode
+    ) {
+      const decision = campaignDecision(s, equityOf(s));
+      s.pendingDecision = decision;
+      events.push({ t: `🗳️ Decision required: ${decision.title}`, kind: "event" });
+    }
+    if (absM % ELECTION_PERIOD === 0) {
+      const backed = s.politics?.backed ? POLITICAL_PARTIES.find((p) => p.id === s.politics!.backed) : undefined;
+      const winChance = s.politics?.secret ? CAMPAIGN_WIN_SECRET : CAMPAIGN_WIN_OPEN;
+      const party = backed && random01() < winChance ? backed : pick(POLITICAL_PARTIES);
       s = party.apply(s);
       s.electionResult = party.name;
-      events.push({ t: `🗳️ KOMMUNALVAL: ${party.name} vann. ${party.desc}`, kind: "warn" });
+      events.push({ t: `🗳️ MUNICIPAL ELECTION: ${party.name} won. ${party.desc}`, kind: "warn" });
+      if (backed && party.id === backed.id) {
+        s.politics = {
+          favorMonthsLeft: FAVOR_MONTHS,
+          favorParty: party.name,
+          secret: s.politics?.secret,
+          backed: null,
+          donation: 0,
+        };
+        events.push({
+          t: `🤝 Your campaign contribution is remembered at city hall: zoning reviews move faster and land auctions open cheaper for ${FAVOR_MONTHS} months.`,
+          kind: "income",
+        });
+      } else if (backed) {
+        s.politics = { ...(s.politics ?? {}), backed: null, donation: 0, secret: false };
+        events.push({ t: `🗳️ You backed the losing side — the donation bought nothing but goodwill with the opposition.`, kind: "warn" });
+      }
+    }
+    // Välviljan tickar ned – och diskret finansierad välvilja kan spricka.
+    if ((s.politics?.favorMonthsLeft ?? 0) > 0) {
+      s.politics = { ...s.politics, favorMonthsLeft: (s.politics!.favorMonthsLeft ?? 0) - 1 };
+      if (s.politics.secret && random01() < SECRET_SCANDAL_CHANCE) {
+        s.politics = { ...s.politics, favorMonthsLeft: 0, favorParty: undefined, secret: false };
+        s.reputation = Math.max(0, s.reputation - 10);
+        events.push({
+          t: `📰 BRIBERY SCANDAL: The newspaper traces the foundation's campaign money to ${s.companyName ?? "your company"}. City hall freezes you out (rep −10, the favor is gone).`,
+          kind: "warn",
+        });
+      }
+    }
+  }
+
+  // ── Rekryteringsstrid: rivaler uppvaktar stjärnchefer ───────────
+  if (!s.pendingDecision && (!s.story || s.story.done)) {
+    const poach = maybePoachingDecision(s);
+    if (poach) {
+      s.pendingDecision = poach;
+      events.push({ t: `🎯 Decision required: ${poach.title}`, kind: "warn" });
     }
   }
 
@@ -1517,6 +1583,11 @@ export function advanceMonth(state: GameState): GameState {
       if (res.cost > 0) cashflow(s, -res.cost, "detaljplanekostnad");
       events.push(...res.events);
       if (res.decision) s.pendingDecision = res.decision;
+      // Politisk välvilja: stadshuset prioriterar dina ärenden – en extra
+      // månad avverkas varannan månad (politics.ts).
+      if (!res.done && politicalFavorActive(s) && (s.year * 12 + s.month) % 2 === 0 && res.proc.monthsLeft > 1) {
+        res.proc.monthsLeft -= 1;
+      }
       if (!res.done) {
         remaining.push(res.proc);
         continue;
@@ -2232,7 +2303,8 @@ export function advanceMonth(state: GameState): GameState {
       const parcels = PARCELS.filter((p) => p.blockId === nextBlock.blockId);
       const d = DISTRICTS.find((x) => x.id === nextBlock.district)!;
       const landValue = parcels.reduce((a, p) => a + p.w * p.d * 2 * d.base * 0.18, 0);
-      const minBid = Math.round((landValue * s.marketMod * 0.8) / 10_000) * 10_000;
+      // Politisk välvilja sänker kommunens utgångsbud (politics.ts).
+      const minBid = Math.round((landValue * s.marketMod * 0.8 * favorAuctionMult(s)) / 10_000) * 10_000;
       s.auction = {
         blockId: nextBlock.blockId,
         district: nextBlock.district,
