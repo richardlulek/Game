@@ -86,4 +86,45 @@ describe("FBAB-KURSEN: följer eget kapital per aktie, inte en slumpvandring", (
       clearRng();
     }
   });
+
+  it("rivalaktier prissätts av substans – ingen slumpvandring", () => {
+    seedRng(13);
+    try {
+      let s: GameState = makeState({
+        cash: 10_000_000,
+        day: 1,
+        competitors: [
+          {
+            name: "Croneborg Bygg",
+            cash: 50_000_000,
+            units: 0,
+            equity: 0,
+            strategy: "värde",
+            portfolio: [],
+          },
+        ],
+        stocks: [
+          {
+            ...brokenFbab(500), // fel startkurs med avsiktligt trasigt ankare
+            id: "CRB",
+            name: "Croneborg Bygg",
+            competitorName: "Croneborg Bygg",
+            sharesOutstanding: 1_000_000,
+          },
+        ],
+      });
+      for (let d = 0; d < 40; d++)
+        s = advanceDay({ ...s, pendingDecision: null, auction: undefined });
+      const crb = s.stocks.find((st) => st.id === "CRB")!;
+      const c = s.competitors.find((x) => x.name === "Croneborg Bygg")!;
+      const book = c.equity / 1_000_000;
+      // Kursen ska ligga vid substansvärdet (±dagsbrus), inte vid gamla 500.
+      expect(book).toBeGreaterThan(1);
+      expect(crb.price).toBeGreaterThan(book * 0.7);
+      expect(crb.price).toBeLessThan(book * 1.3);
+      expect(crb.targetPrice).toBeGreaterThan(book * 0.7);
+    } finally {
+      clearRng();
+    }
+  });
 });

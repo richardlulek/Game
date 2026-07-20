@@ -489,16 +489,31 @@ export function priceStocks(
     // kursen frikopplades helt från fundamenta – bolag värda miljarder
     // handlades till golvet $1 medan "kursen kollapsar"-larmen haglade.
     if (st.competitorName === "__player__") return st;
+    // RIVALAKTIER: ren substansprissättning (eget kapital per aktie) – ingen
+    // slumpvandring där heller. Kursen andas ändå med konjunkturen eftersom
+    // rivalens equity följer fastighetsvärden, kassa och innehav; nyhets-
+    // och kvartalsknuffar ger tillfälliga avvikelser som dagssteget drar
+    // tillbaka mot substansankaret.
+    if (st.competitorName) {
+      const c = competitors.find((x) => x.name === st.competitorName);
+      if (c) {
+        const book = Math.round(Math.max(0.5, c.equity / st.sharesOutstanding) * 100) / 100;
+        dividends += (st.price * st.owned * st.dividendYield) / 12;
+        return {
+          ...st,
+          monthClose: st.price,
+          prevPrice: st.price,
+          price: book,
+          targetPrice: book,
+          history: [...st.history, book].slice(-32),
+        };
+      }
+      // Rivalen finns inte längre (uppköpt/fusionerad) → generisk vandring
+      // tills avnoteringen städar bort aktien.
+    }
     const noise = rnd(-st.volatility, st.volatility);
     const ret = st.drift + st.beta * sentReturn + sectorTrend[st.sector] + macroBias(st.sector, macro) + noise;
     let price = Math.max(1, st.price * (1 + ret));
-    if (st.competitorName && st.competitorName !== "__player__") {
-      const c = competitors.find((x) => x.name === st.competitorName);
-      if (c) {
-        const book = c.equity / st.sharesOutstanding;
-        price = price * 0.7 + book * 0.3; // dras mot substansvärde
-      }
-    }
     price = Math.round(price * 100) / 100;
     dividends += (st.price * st.owned * st.dividendYield) / 12;
     return {
