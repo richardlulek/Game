@@ -53,8 +53,13 @@ describe("RIVALBALANS: förmögenhet ska bo i husen, inte i osynliga kassaberg",
       let s: GameState = makeState({ competitors: [rival("Bergbolaget", 10, 800_000_000)], cash: 20_000_000 });
       for (let m = 0; m < 36; m++) s = tick(s);
       const c = s.competitors.find((x) => x.name === "Bergbolaget")!;
-      // Efter 3 år ska merparten av berget vara utdelat eller investerat i hus.
-      expect(c.cash).toBeLessThan(400_000_000);
+      // Efter 3 år ska berget vara utdelat eller investerat i hus: kassan
+      // ligger inom kapitaldisciplinens tak och portföljen har växt.
+      expect(c.cash, `kassa ${c.cash} vs equity ${c.equity}`).toBeLessThanOrEqual(
+        Math.max(10_000_000, c.equity * 0.45),
+      );
+      expect(c.portfolio.length, "berget ska ha blivit hus").toBeGreaterThan(10);
+      expect(c.cash).toBeLessThan(800_000_000 * 0.8);
     } finally {
       clearRng();
     }

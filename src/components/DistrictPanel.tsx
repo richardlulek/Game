@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DISTRICTS } from "../engine/data";
 import { districtTier, nextDistrictTier } from "../engine/districtTiers";
 import { msek, pct } from "../engine/format";
+import { housingPressure, populationOf } from "../engine/population";
 import { propMarketValue } from "../engine/property";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";
@@ -86,7 +87,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                   fontFamily: FONTS.heading,
                   letterSpacing: 1,
                 }}>
-                  LEDANDE
+                  LEADING
                 </div>
               )}
 
@@ -105,10 +106,26 @@ export function DistrictPanel({ state, dispatch }: Props) {
                       </span>
                       {next && (
                         <span style={{ color: C.creamSoft }}>
-                          {" "}· {Math.round(((devScore - tier.min) / (next.min - tier.min)) * 100)} % mot {next.name}
+                          {" "}· {Math.round(((devScore - tier.min) / (next.min - tier.min)) * 100)}% toward {next.name}
                         </span>
                       )}
                     </div>
+                    {/* Befolkningsloopen: invånare + bostadstryck i distriktet */}
+                    {(() => {
+                      const pop = populationOf(state, d.id);
+                      const pressure = housingPressure(state, d.id);
+                      const hot = pressure >= 1.04;
+                      const cold = pressure <= 0.92;
+                      return (
+                        <div style={{ fontSize: 11.5, marginBottom: 6, color: C.creamSoft }}>
+                          👥 {pop.toLocaleString("en-US")} residents ·{" "}
+                          <span style={{ color: hot ? C.gold : cold ? C.negativeBright : C.creamSoft, fontWeight: hot || cold ? 800 : 400 }}>
+                            {hot ? "housing shortage" : cold ? "housing surplus" : "housing balanced"}
+                          </span>{" "}
+                          ({Math.round(pressure * 100)}% occupancy of stock)
+                        </div>
+                      );
+                    })()}
                   </>
                 );
               })()}

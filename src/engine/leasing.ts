@@ -15,6 +15,7 @@
 
 import { parcelById, PARCELS } from "./city";
 import { districtTier } from "./districtTiers";
+import { pressureAppMult } from "./population";
 import { makeTenant } from "./generators";
 import { newId } from "./random";
 import type {
@@ -143,7 +144,10 @@ export function applicationRate(
   const mix = blockMixFor(p, state);
   const broker = p.brokerMandate ? 1.0 : 0.0; // garantiflöde adderas separat
   const base = free * 0.95 * price * cond * tierMult * state.demandMod * referralBonus(state) * mix.rentMult;
-  return base * (p.type === "bostad" ? seasonFactor : 1) + broker * free;
+  // Befolkningsloopen: bostadsbrist i distriktet ger fler sökande, överskott
+  // färre (population.ts – jobben driver inflyttningen som driver trycket).
+  const popMult = p.type === "bostad" ? pressureAppMult(state, p.district) : 1;
+  return base * (p.type === "bostad" ? seasonFactor : 1) * popMult + broker * free;
 }
 
 /** Skapar en ansökan till en fastighet utifrån utgångshyran.

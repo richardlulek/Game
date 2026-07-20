@@ -890,6 +890,11 @@ export interface GameState {
   milestones?: string[];
   prevEquity?: number;
   insuranceCost?: number;
+  /** Befolkning per distrikt (befolkningsloopen: jobb → inflyttning →
+   *  bostadsefterfrågan). Initieras vid första månadsticket. */
+  population?: Record<string, number>;
+  /** Befolkning vid senaste årsskiftet (för årsrapporten). */
+  populationLastYear?: number;
   /** Ägt bankhus (Finans → Finansiella institut). */
   ownedBank?: OwnedBank | null;
   /** Ägt försäkringsbolag. */

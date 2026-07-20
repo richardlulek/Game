@@ -75,6 +75,7 @@ import { attractiveness, interestChance, offerAmount, packageOfferAmount, packag
 import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, priceStocks, quarterlyEarnings, rivalFbabShares, rivalHoldingsValue, rivalNews, rivalShareTrading, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
+import { tickPopulation } from "./population";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
@@ -238,6 +239,12 @@ export function advanceMonth(state: GameState): GameState {
   if ((s.recessionMonthsLeft ?? 0) > 0) {
     s.recessionMonthsLeft = (s.recessionMonthsLeft ?? 0) - 1;
   }
+
+  // ── Befolkningsloopen: jobb → inflyttning → bostadstryck ─────────
+  // Körs tidigt så månadens uthyrning ser färskt tryck (leasing.ts läser
+  // housingPressure via pressureAppMult för bostadsfastigheter).
+  s.population = { ...(s.population ?? {}) };
+  for (const ev of tickPopulation(s)) events.push(ev);
 
   // Bond interest payments.
   // OBS: alla poster som bokförs i monthlyNOI får INTE också dras direkt
