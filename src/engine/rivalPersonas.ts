@@ -16,6 +16,9 @@ export interface RivalPersona {
   tagline: string;
   /** Signaturrepliken – karaktärens definierande ton. */
   signature: string;
+  /** Aggression 0–1 (fas 3): styr hur ofta nemesisen slår mot spelaren,
+   *  hur sent hen viker i budkrig och hur gärna hen lägger motbud. */
+  aggression: number;
   /** Stildrag som styr porträttgeneratorn (hatt/monokel/mustasch …). */
   look: { hat: boolean; glasses: boolean; mustache: boolean; hair: string; skin: string; suit: string };
   quotes: Record<QuoteKind, string[]>;
@@ -27,6 +30,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     person: "Margaret Nordhem",
     tagline: "Old-money matriarch. Has owned buildings since before you were born.",
     signature: "Northgate doesn’t back down.",
+    aggression: 0.7,
     look: { hat: false, glasses: true, mustache: false, hair: "#d8d3c8", suit: "#3a4a5a", skin: "#e8c39e" },
     quotes: {
       budkrig: ["”I’ve been buying buildings since before you were born.”", "”Northgate doesn’t back down.”"],
@@ -42,6 +46,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     person: "Caspar Brunn",
     tagline: "Spreadsheet shark. Bids by the numbers until your bank calls.",
     signature: "Excel always wins.",
+    aggression: 0.5,
     look: { hat: false, glasses: false, mustache: false, hair: "#3a2c20", suit: "#20242c", skin: "#e3b58c" },
     quotes: {
       budkrig: ["”The math says you lose on this one.”", "”I’ll bid until your bank calls.”"],
@@ -57,6 +62,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     person: "Maya Seaborg",
     tagline: "Owns the waterfront and wants you to know it.",
     signature: "Everything by the water is mine. Everyone knows that.",
+    aggression: 0.6,
     look: { hat: true, glasses: false, mustache: false, hair: "#8a5a30", suit: "#2c4a56", skin: "#eec9a4" },
     quotes: {
       budkrig: ["”Everything by the water is mine. Everyone knows that.”"],
@@ -72,6 +78,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     person: "Henry Stead",
     tagline: "Old-guard downtown traditionalist. Looks down on new money.",
     signature: "Downtown without City Core? Unthinkable.",
+    aggression: 0.5,
     look: { hat: false, glasses: true, mustache: true, hair: "#4a4a4a", suit: "#40342a", skin: "#e0b795" },
     quotes: {
       budkrig: ["”Downtown without City Core? Unthinkable.”"],
@@ -87,6 +94,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     person: "Rio Harborwick",
     tagline: "Aggressive fast-money operator. Always raises.",
     signature: "I raise. I always raise.",
+    aggression: 0.9,
     look: { hat: false, glasses: false, mustache: false, hair: "#1c1c1c", suit: "#5a2c3a", skin: "#c98d5f" },
     quotes: {
       budkrig: ["”I raise. I always raise.”", "”Your ceiling is my floor.”"],
@@ -102,6 +110,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     person: "Beatrice Silverberg",
     tagline: "Discreet syndicate. Deals close over a handshake at the club.",
     signature: "My partners pay whatever it takes.",
+    aggression: 0.6,
     look: { hat: true, glasses: true, mustache: false, hair: "#c9c9c9", suit: "#2a2a34", skin: "#ecd2b8" },
     quotes: {
       budkrig: ["”My partners pay whatever it takes.”"],
@@ -117,6 +126,7 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
     person: "Sonny Lund",
     tagline: "Self-made builder. Rebuilt the Suburbs with his own hands.",
     signature: "Hard work beats a fancy office.",
+    aggression: 0.3,
     look: { hat: false, glasses: false, mustache: true, hair: "#7a5a3a", suit: "#3a4a3a", skin: "#e8bd96" },
     quotes: {
       budkrig: ["”I rebuilt the whole Suburbs with these hands.”"],
@@ -131,6 +141,11 @@ export const RIVAL_PERSONAS: RivalPersona[] = [
 
 export function personaFor(company: string): RivalPersona | undefined {
   return RIVAL_PERSONAS.find((p) => p.company === company);
+}
+
+/** Aggression 0–1 för ett bolag – okända aktörer (fonder m.fl.) är neutrala. */
+export function aggressionOf(company: string): number {
+  return personaFor(company)?.aggression ?? 0.5;
 }
 
 /** Replik för en händelse – deterministisk variation via seed. */

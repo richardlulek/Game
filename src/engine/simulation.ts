@@ -44,7 +44,7 @@ import {
 } from "./receivership";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
 import { hasRelation, nemesisOf, pickMerger, rivalCycleMult } from "./rivalArcs";
-import { adjustStanding } from "./standing";
+import { adjustStanding, rivalStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
 import { ageWearFactor, buildingAge } from "./lifecycle";
@@ -94,7 +94,7 @@ import {
 } from "./finance";
 import { covenantBreach, creditRatingOf } from "./rating";
 import { tickCityEvent } from "./cityEvents";
-import { rivalQuote } from "./rivalPersonas";
+import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { kr, msek } from "./format";
 import { calYear, daysInMonth, formatMonthYear } from "./date";
 import { pendingWork, propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
@@ -1447,8 +1447,10 @@ export function advanceMonth(state: GameState): GameState {
   const rivalIsClose = leadProgress > 0.75; // rival within striking distance
 
   // ── Competing bid on active listing (~12 % chans/mån) ──────────
-  // En nemesis budar oftare mot dig och lägger sig gärna i dina affärer.
-  const nemesisBidBoost = s.nemesis && s.competitors.some((c) => c.name === s.nemesis) ? 0.06 : 0;
+  // En nemesis budar oftare mot dig – hur mycket beror på personligheten
+  // (Harborwick lägger sig i allt, Sonny Lund bygger hellre själv).
+  const nemesisBidBoost =
+    s.nemesis && s.competitors.some((c) => c.name === s.nemesis) ? 0.12 * aggressionOf(s.nemesis) : 0;
   if (!s.competingBid && s.competitors.length > 0 && s.listings.length > 0 && random01() < (rivalIsClose ? 0.28 : 0.12) + nemesisBidBoost) {
     const target = pick(s.listings.filter((p) => p.status === "klar"));
     if (target) {
@@ -1976,9 +1978,13 @@ export function advanceMonth(state: GameState): GameState {
     // Räntetäckningsvakt: NOI under räntekostnaden i tre månader i följd
     // tvingar fram en nödförsäljning (blocket för distressed sales).
     nc.icrBadMonths = rivalICR(s, nc) < 1 ? (nc.icrBadMonths ?? 0) + 1 : 0;
-    // Amortering ur överskottskassan – utdelningsbolag mest, tillväxt minst,
-    // och i bust amorterar de försiktiga dubbelt (strategyBias).
-    if ((nc.debt ?? 0) > 0 && nc.cash > RIVAL_CASH_BUFFER) {
+    // Amortering ur överskottskassan – men BARA under press (ICR < 1.8)
+    // eller i bust: friska fastighetsbolag rullar sina lån, de betalar inte
+    // av dem (30-årsmätningen visade att villkorslös amortering nollade
+    // hela rivalskulden och släckte räntekänsligheten systemet ska ha).
+    // Utdelningsbolag amorterar mest, tillväxt minst (strategyBias i bust).
+    const icrNow = rivalICR(s, nc);
+    if ((nc.debt ?? 0) > 0 && nc.cash > RIVAL_CASH_BUFFER && (icrNow < 1.8 || cyclePhase === "bust")) {
       const amortBias = strategyBias(nc, cyclePhase as "boom" | "bust" | "stable").amort;
       const pay = Math.min(nc.debt ?? 0, Math.round((nc.cash - RIVAL_CASH_BUFFER) * rivalAmortShare(nc) * amortBias));
       if (pay > 0) {
@@ -2727,6 +2733,65 @@ export function advanceMonth(state: GameState): GameState {
     if (s.nemesis && random01() < 0.12) {
       const q = rivalQuote(s.nemesis, "budkrig", absNow);
       events.push({ t: `🗣️ ${s.nemesis} vows to outmaneuver you in the months ahead.${q ? " " + q : ""}`, kind: "warn", rival: s.nemesis });
+    }
+    // ── Nemesis-eskalering (fas 3): fientligheten har en trappa ──────
+    // Nivå 1 (≤ −40): fler motbud (nemesisBidBoost ovan). Nivå 2 (≤ −60):
+    // hyresgästvärvning och svartmålning. Nivå 3 (≤ −80): nemesisen samlar
+    // staden mot dig i en allians. Aggressionen skalar frekvensen.
+    if (s.nemesis && s.competitors.some((c) => c.name === s.nemesis)) {
+      const nem = s.nemesis;
+      const hostility = rivalStanding(s, nem);
+      const agg = aggressionOf(nem);
+      if (hostility <= -60 && random01() < 0.07 * agg) {
+        const withTenants = s.portfolio.filter((p) => p.status === "klar" && p.tenants.length > 0);
+        if (withTenants.length > 0 && random01() < 0.5) {
+          // Värvning: nemesisen lockar över en av dina hyresgäster.
+          const p = withTenants[Math.floor(random01() * withTenants.length)];
+          const idx = Math.floor(random01() * p.tenants.length);
+          const lured = p.tenants[idx];
+          s.portfolio = s.portfolio.map((x) =>
+            x.id === p.id ? { ...x, tenants: x.tenants.filter((_, i) => i !== idx) } : x,
+          );
+          const q = rivalQuote(nem, "budkrig", absNow);
+          events.push({
+            t: `🕵️ ${nem} poaches your tenant: ${lured.name} leaves ${p.typeLabel} in ${p.districtName} for a sweetheart lease across the street.${q ? " " + q : ""}`,
+            kind: "warn",
+            rival: nem,
+          });
+        } else {
+          // Svartmålning: planterade artiklar värmer pressen och naggar ryktet.
+          s.pressHeat = +((s.pressHeat ?? 0) + 1.5).toFixed(2);
+          s.reputation = Math.max(0, +(s.reputation - 1).toFixed(1));
+          events.push({
+            t: `📰 ${nem} plants a smear piece about your upkeep standards — the papers are sniffing around (rep −1).`,
+            kind: "warn",
+            rival: nem,
+          });
+        }
+      }
+      if (hostility <= -80 && random01() < 0.05 * agg) {
+        const partner = [...s.competitors]
+          .filter((c) => c.name !== nem && !hasRelation(s, nem, c.name))
+          .sort((a, b) => b.equity - a.equity)[0];
+        if (partner) {
+          s.rivalRelations = [...(s.rivalRelations ?? []), { a: nem, b: partner.name, kind: "alliance", since: absNow }];
+          events.push({
+            t: `⚔️ THE CITY TURNS: ${nem} forges an alliance with ${partner.name} — openly aimed at breaking your grip on the market.`,
+            kind: "warn",
+            rival: nem,
+          });
+        }
+      }
+    }
+    // Standing förfaller sakta mot neutralt: fejder svalnar om ingen
+    // häller bensin på dem – och gamla tjänster glöms också bort.
+    if (s.standing?.rivals) {
+      const decayed: Record<string, number> = {};
+      for (const [name, v] of Object.entries(s.standing.rivals)) {
+        const nv = Math.abs(v) <= 0.3 ? 0 : +(v - Math.sign(v) * 0.3).toFixed(1);
+        if (nv !== 0) decayed[name] = nv;
+      }
+      s.standing = { ...s.standing, rivals: decayed };
     }
     // Rival-mot-rival: bilda eller bryt en relation (sällsynt).
     if (s.competitors.length >= 2 && random01() < 0.05) {

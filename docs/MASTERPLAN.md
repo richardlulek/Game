@@ -35,14 +35,31 @@ Balansutfall: boom 7–11 %, stabilt 53–62 %, bust 27–36 % över 30 år.
   30-årsmätningen visade att en absolut formel inflaterade alla distrikt
   till Exklusivt. Snabb uppgång + stor lågprisstock ⇒ protesthändelser.
 
-Kvarstående balansnotering: districtDev har en långsam stadsvid uppdrift
-från äldre källor (rivalpåbyggnader, distrikthändelser) – följ upp i Fas 3.
+## Fas 3 — Rivaler 3.0 ✅ (commits 517e9e9…)
 
-## Fas 3 — Rivaler 3.0 ⬜
-
-Rivalerna får riktiga balansräkningar (skuld, räntekänslighet), strategier
-som reagerar på konjunkturfasen, förvärv/fusioner mellan rivaler, samt
-personlighetsdriven aggression mot spelaren (nemesis-bågar fördjupas).
+* **Balansräkningar** (`rivalFinance.ts`): köp/byggen/påbyggnader/budkrigs-
+  vinster belånas (strategiberoende LTV 45–65 %, fonder 0), skulden kostar
+  marknadsränta + spread (storlek/strategi) varje månad, equity räknas
+  netto och fusioner tar över målets skuld. Räntetäckning < 1 i tre
+  månader ⇒ nödförsäljning med skuldnedbetalning. Friska bolag RULLAR
+  sina lån – amortering sker bara under press (ICR < 1.8) eller i bust
+  (villkorslös amortering nollade hela rivalskulden i 30-årsmätningen).
+* **Konjunkturmedvetna strategier** (`strategyBias`): värdebolag är
+  kontracykliska (×1.8 köplust i bust, ×0.5 i boom), tillväxt jagar boomen
+  och fryser byggen i bust, utdelningsbolag amorterar ×2.2 i bust.
+* **Motivdriven M&A** (`pickMerger`): opportunistiskt uppköp av nödställda
+  (2 %/mån), fientligt övertagande vid fejd + 3× styrkeövertag (1 %),
+  vänskaplig fusion av allierade som utmanar ledaren (0.5 %). Ingen
+  konsolidering under 4 aktörer.
+* **Nemesis 2.0**: personor har aggression 0–1 (Harborwick 0.9 … Sonny
+  Lund 0.3) som styr budkrigsuthållighet (vikchans skalas) och motbuds-
+  frekvens. Eskaleringstrappa efter standing: ≤ −40 fler motbud, ≤ −60
+  hyresgästvärvning/svartmålning, ≤ −80 allians mot spelaren. Standing
+  förfaller 0.3/mån mot neutralt så fejder kan svalna.
+* **Balansfix från fas 2**: områdesbruset var asymmetriskt (−0.0025…
+  +0.004) och inflaterade hela staden till Exklusivt på 30 år; nu
+  väntevärdesneutralt. Mätutfall: centrum ligger kvar på ~1.00 i 30 år,
+  tiers sprids (Stable×3, Rising×4) och bara infra-distrikt klättrar.
 
 ## Fas 4 — Innehåll & slutspel ⬜
 

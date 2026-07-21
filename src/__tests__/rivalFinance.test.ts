@@ -133,23 +133,33 @@ describe("SIMULERINGEN: räntan biter varje månad", () => {
     }
   });
 
-  it("överskottskassa amorterar ned skulden", () => {
+  it("i bust amorterar utdelningsbolaget ned skulden – i goda tider rullas lånen", () => {
     seedRng(31);
     try {
       // Stort bestånd ger NOI som täcker räntan; kassa långt över bufferten.
       const houses = Array.from({ length: 4 }, (_, i) =>
         makeProperty({ id: 9910 + i, owned: false, askPrice: 40_000_000 }),
       );
-      let s = makeState({
-        interestRate: 3.0,
-        competitors: [
-          makeRival({ name: "Amorterarna", strategy: "utdelning", debt: 60_000_000, cash: 45_000_000, portfolio: houses }),
-        ],
-      });
-      s = tick(s);
-      const c = s.competitors.find((x) => x.name === "Amorterarna")!;
-      expect(c.debt!).toBeLessThan(60_000_000);
-      expect(c.icrBadMonths ?? 0).toBe(0);
+      const base = () =>
+        makeState({
+          interestRate: 3.0,
+          competitors: [
+            makeRival({ name: "Amorterarna", strategy: "utdelning", debt: 60_000_000, cash: 45_000_000, portfolio: [...houses] }),
+          ],
+        });
+      // Bust: balansräkningen skyddas – skulden betalas ned.
+      let bust = base();
+      bust.marketCycle = { phase: "bust", monthsRemaining: 6, age: 1 };
+      bust = tick(bust);
+      const cb = bust.competitors.find((x) => x.name === "Amorterarna")!;
+      expect(cb.debt!).toBeLessThan(60_000_000);
+      expect(cb.icrBadMonths ?? 0).toBe(0);
+      // Stabilt läge med god räntetäckning: lånen rullas, inget amorteras.
+      let calm = base();
+      calm.marketCycle = { phase: "stable", monthsRemaining: 6, age: 1 };
+      calm = tick(calm);
+      const cc = calm.competitors.find((x) => x.name === "Amorterarna")!;
+      expect(cc.debt!).toBe(60_000_000);
     } finally {
       clearRng();
     }

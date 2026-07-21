@@ -56,10 +56,17 @@ export function isObsolete(p: Property, state: GameState): boolean {
    Budgivningar eskalerar: rivalen kan kontra spelarens motbud i upp till tre
    rundor innan de ger sig. */
 
-/** Rivalens motbud i nästa runda – ökar 8–16 % och tröttnar efter runda 3. */
-export function nextBidRound(amount: number, round: number): { amount: number; fold: boolean } {
+/** Rivalens motbud i nästa runda – ökar 8–16 % och tröttnar efter runda 3.
+ *  Aggressionen (rivalPersonas, 0–1) skalar vikbenägenheten: Harborwick
+ *  (0.9) viker hälften så ofta som snittet, Sonny Lund (0.3) tröttnar fort. */
+export function nextBidRound(
+  amount: number,
+  round: number,
+  aggression = 0.5,
+): { amount: number; fold: boolean } {
   if (round >= 3) return { amount, fold: true };
-  const foldChance = round === 1 ? 0.25 : round === 2 ? 0.5 : 0.8;
+  const base = round === 1 ? 0.25 : round === 2 ? 0.5 : 0.8;
+  const foldChance = Math.min(0.95, base * (1.4 - aggression * 0.9));
   if (random01() < foldChance) return { amount, fold: true };
   return { amount: Math.round(amount * rnd(1.08, 1.16)), fold: false };
 }

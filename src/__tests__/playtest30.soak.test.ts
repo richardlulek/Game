@@ -55,6 +55,14 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
         if (l.t.includes("total renovation in")) bump("renovräkning-erbjuden");
         if (l.t.includes("RENOVICTION")) bump("renovräkning-vald");
         if (l.t.includes("Protests in")) bump("gentrifieringsprotest");
+        // Fas 3 – rivaler 3.0:
+        if (l.t.includes("HOSTILE TAKEOVER")) bump("mna-fientlig");
+        if (l.t.includes("MERGER:")) bump("mna-vänskaplig");
+        if (l.t.includes("ACQUISITION:")) bump("mna-opportunistisk");
+        if (l.t.includes("the interest burden broke them")) bump("nödförsäljning-via-ränta");
+        if (l.t.includes("poaches your tenant")) bump("nemesis-värvning");
+        if (l.t.includes("smear piece")) bump("nemesis-svartmålning");
+        if (l.t.includes("THE CITY TURNS")) bump("nemesis-allians");
       }
     };
 
@@ -259,7 +267,7 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
       "",
       "MAKRO:",
       `  Riksbanken: marknadsränta ${s.interestRate.toFixed(2)}%`,
-      `  Konkurrenter: ${s.competitors.length} st, ${rivalUnits} hus totalt`,
+      `  Konkurrenter: ${s.competitors.length} st, ${rivalUnits} hus totalt · samlad rivalskuld ${(s.competitors.reduce((a, c) => a + (c.debt ?? 0), 0) / 1e6).toFixed(0)} MSEK`,
       "",
       "HÄNDELSER UNDER 30 ÅR (räknade ur loggen):",
       ...Object.entries(ev).sort((a, b) => b[1] - a[1]).map(([k, v]) => `  ${k}: ${v}`),

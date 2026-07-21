@@ -68,7 +68,7 @@ import {
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "./rating";
-import { rivalQuote } from "./rivalPersonas";
+import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
 import {
@@ -2342,7 +2342,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (state.cash < down)
         return log(state, `You need ${msek(down)} as a down payment to raise the bid to ${msek(myBid)}.`, "warn");
       const round = cb.round ?? 1;
-      const response = nextBidRound(myBid, round);
+      // Personligheten avgör uthålligheten i budkriget (rivalPersonas).
+      const response = nextBidRound(myBid, round, aggressionOf(cb.rivalName));
       if (!response.fold) {
         // Rivalen kontrar – budkriget eskalerar, spelaren betalar inget ännu.
         return {
