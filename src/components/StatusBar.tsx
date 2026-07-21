@@ -117,10 +117,12 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
         <Chip label="Recession" value={`${state.recessionMonthsLeft} mo`} valueColor="#f87a7a" />
       )}
       {state.marketCycle?.phase === "boom" && (
-        <Chip label="Cycle" value={`📈 BOOM (${state.marketCycle.monthsRemaining} mo)`} valueColor="#80e080" />
+        <Chip label="Cycle" value={`📈 BOOM (${state.marketCycle.age ?? 0} mo in)`} valueColor="#80e080"
+          title="The cycle is emergent: booms last as long as the imbalances that feed them (credit, vacancy, construction, rates)." />
       )}
       {state.marketCycle?.phase === "bust" && (
-        <Chip label="Cycle" value={`📉 BUST (${state.marketCycle.monthsRemaining} mo)`} valueColor="#f87a7a" />
+        <Chip label="Cycle" value={`📉 BUST (${state.marketCycle.age ?? 0} mo in)`} valueColor="#f87a7a"
+          title="The cycle is emergent: the bust ends when the imbalances clear (vacancy, over-supply, restrictive rates)." />
       )}
       {(state.pendingRenewals ?? []).length > 0 && (
         <Chip label="Renewals" value={`⏰ ${state.pendingRenewals!.length} leases`} valueColor="#f5c842" />

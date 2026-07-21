@@ -777,7 +777,17 @@ export interface LoanTerms {
 /** Konjunkturcykel – styr marknadspriser och efterfrågan. */
 export interface MarketCycle {
   phase: "boom" | "stable" | "bust";
+  /** Kvarleva från timer-cykeln – används numera som mjuk UI-uppskattning. */
   monthsRemaining: number;
+  /** Månader i nuvarande fas (hysteres i den emergenta cykeln, cycle.ts). */
+  age?: number;
+  /** Utbudsöverhäng: lagrad byggtakt som slår tillbaka som bust-tryck. */
+  overhang?: number;
+  /** Konjunkturvärmen: integrerat nettotryck (cycle.ts nextHeat). */
+  heat?: number;
+  /** Vakansankare (EMA): cykeln reagerar på AVVIKELSER från stadens
+   *  strukturella vakansnivå, inte på nivån i sig. */
+  vacAnchor?: number;
 }
 
 /** En kontraktsförnyelse som väntar på spelarens beslut. */

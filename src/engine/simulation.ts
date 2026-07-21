@@ -94,6 +94,7 @@ import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnerg
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
 import { centralBankDecision, curveInverted, longRate, tickInflation } from "./centralBank";
+import { cyclePressures, nextHeat, nextOverhang, nextPhase, nextVacAnchor } from "./cycle";
 import {
   CAMPAIGN_LEAD,
   CAMPAIGN_WIN_OPEN,
@@ -212,39 +213,45 @@ export function advanceMonth(state: GameState): GameState {
   // Track previous equity for delta display
   s.prevEquity = equityOf(state);
 
-  // Market cycle management (boom / stable / bust)
+  // ── Den emergenta konjunkturcykeln (cycle.ts) ────────────────────
+  // Boom och bust härleds ur stadens obalanser (kredit, byggtakt, vakans,
+  // räntegap, sentiment) i stället för den gamla slumptimern. Hysteresen
+  // (minst 6 mån/fas) hindrar fladder; en boom kan krascha rakt i bust.
   if (!s.marketCycle) {
-    s.marketCycle = { phase: "stable", monthsRemaining: 18 };
+    s.marketCycle = { phase: "stable", monthsRemaining: 12, age: 0, overhang: 0 };
   }
-  s.marketCycle = { ...s.marketCycle, monthsRemaining: s.marketCycle.monthsRemaining - 1 };
-  if (s.marketCycle.monthsRemaining <= 0) {
+  {
+    const pressures = cyclePressures(s);
+    const heat = nextHeat(s.marketCycle.heat ?? 0, pressures, s.marketCycle.phase, s.marketCycle.age ?? 0);
     const cur = s.marketCycle.phase;
-    const next: "boom" | "stable" | "bust" = cur === "stable"
-      ? (random01() < 0.55 ? "boom" : "bust")
-      : "stable";
-    const dur = next === "boom" ? 10 + Math.floor(random01() * 14)
-              : next === "bust" ? 6 + Math.floor(random01() * 10)
-              : 12 + Math.floor(random01() * 12);
-    s.marketCycle = { phase: next, monthsRemaining: dur };
-    if (next === "boom") {
-      s.marketMod = +(s.marketMod * 1.08).toFixed(3);
-      s.demandMod = +(s.demandMod * 1.04).toFixed(3);
-      events.push({ t: `📈 UPTURN! The property market is rising (${dur} mo left).`, kind: "income" });
-    } else if (next === "bust") {
-      s.marketMod = +(s.marketMod * 0.92).toFixed(3);
-      s.demandMod = +(s.demandMod * 0.96).toFixed(3);
-      events.push({ t: `📉 DOWNTURN! The market is faltering (${dur} mo left).`, kind: "warn" });
-      // Bubbla som spricker: nedgång i ett uppblåst läge → fullskalig kris.
-      // (Lugnt läge: kriser avstängda.)
-      if (!s.settings?.calmMode && !s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, random01(), s.marketModAnchor ?? 1)) {
-        s.crisisMonthsLeft = CRISIS_MONTHS;
-        events.push({
-          t: `🚨 PROPERTY CRISIS! The bubble bursts: values fall, the credit market closes and covenants tighten. Those with cash buy cheap — the leveraged fight for their lives.`,
-          kind: "warn",
-        });
+    const next = nextPhase(cur, s.marketCycle.age ?? 0, heat);
+    const overhang = nextOverhang(s);
+    const vacAnchor = nextVacAnchor(s);
+    if (next !== cur) {
+      const why = pressures.drivers.length > 0 ? ` Drivers: ${pressures.drivers.slice(0, 3).join(", ")}.` : "";
+      s.marketCycle = { phase: next, monthsRemaining: 12, age: 0, overhang, heat, vacAnchor };
+      if (next === "boom") {
+        s.marketMod = +(s.marketMod * 1.08).toFixed(3);
+        s.demandMod = +(s.demandMod * 1.04).toFixed(3);
+        events.push({ t: `📈 UPTURN! The city's imbalances tip into a boom.${why}`, kind: "income" });
+      } else if (next === "bust") {
+        s.marketMod = +(s.marketMod * 0.92).toFixed(3);
+        s.demandMod = +(s.demandMod * 0.96).toFixed(3);
+        events.push({ t: `📉 DOWNTURN! The market rolls over.${why}`, kind: "warn" });
+        // Bubbla som spricker: nedgång i ett uppblåst läge → fullskalig kris.
+        // (Lugnt läge: kriser avstängda.)
+        if (!s.settings?.calmMode && !s.crisisMonthsLeft && shouldTriggerCrisis(s.marketMod, random01(), s.marketModAnchor ?? 1)) {
+          s.crisisMonthsLeft = CRISIS_MONTHS;
+          events.push({
+            t: `🚨 PROPERTY CRISIS! The bubble bursts: values fall, the credit market closes and covenants tighten. Those with cash buy cheap — the leveraged fight for their lives.`,
+            kind: "warn",
+          });
+        }
+      } else {
+        events.push({ t: `📊 The economy finds its balance — steady state.${why}`, kind: "event" });
       }
     } else {
-      events.push({ t: `📊 The economy stabilizes — steady state (${dur} mo).`, kind: "event" });
+      s.marketCycle = { ...s.marketCycle, age: (s.marketCycle.age ?? 0) + 1, overhang, heat, vacAnchor };
     }
   }
   const cyclePhaseNow = s.marketCycle.phase;
