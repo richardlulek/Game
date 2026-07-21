@@ -43,7 +43,7 @@ import {
   receiverAutoLiquidate,
 } from "./receivership";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
-import { hasRelation, nemesisOf, rivalCycleMult } from "./rivalArcs";
+import { hasRelation, nemesisOf, pickMerger, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
@@ -1489,15 +1489,17 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
-  // ── Rival merger (~2 % chans/mån) ──────────────────────────────
-  // Fusioner är numera sällsynta (0,4 %/mån) och sker bara medan det finns gott
-  // om aktörer (≥4) – då köper den STARKASTE upp den svagaste. Det håller
-  // marknaden mångfaldig i stället för att kollapsa till en enda jätte.
-  if (s.competitors.length >= 4 && random01() < 0.004) {
-    const ranked = s.competitors.map((c, i) => ({ c, i })).sort((a, b) => a.c.equity - b.c.equity);
-    const weakest = ranked[0];       // köps upp
-    const buyer = ranked[ranked.length - 1]; // köper
-    const ca = buyer.c, cb = weakest.c;
+  // ── Rival-M&A: motivdriven i stället för slump ─────────────────
+  // pickMerger (rivalArcs.ts) hittar en affär med MOTIV: ett nödställt
+  // byte (räntebördan), en fejd med brutalt styrkeövertag, eller en
+  // allians som formaliseras för att utmana stadens ledare. Sannolikheten
+  // beror på motivet – och under 4 aktörer konsolideras inget alls.
+  const mergerPlan = pickMerger(s);
+  const mergerGate =
+    mergerPlan?.kind === "opportunistic" ? 0.02 : mergerPlan?.kind === "hostile" ? 0.01 : 0.005;
+  if (mergerPlan && random01() < mergerGate) {
+    const ca = s.competitors.find((c) => c.name === mergerPlan.buyer)!;
+    const cb = s.competitors.find((c) => c.name === mergerPlan.target)!;
     const merged = {
       ...ca,
       cash: ca.cash + cb.cash,
@@ -1509,11 +1511,18 @@ export function advanceMonth(state: GameState): GameState {
       // Skulden följer med i affären (rivalFinance.ts) – uppköp av ett
       // skuldtyngt bolag är ingen gratislunch.
       debt: (ca.debt ?? 0) + (cb.debt ?? 0),
+      icrBadMonths: 0,
     };
-    s.competitors = s.competitors.filter((_, i) => i !== buyer.i && i !== weakest.i);
-    s.competitors = [...s.competitors, merged];
+    s.competitors = [...s.competitors.filter((c) => c.name !== ca.name && c.name !== cb.name), merged];
     const fq = rivalQuote(ca.name, "fusion", s.month);
-    events.push({ t: `🤝 ACQUISITION: ${ca.name} buys out the struggling ${cb.name}.${fq ? " " + fq : ""}`, kind: "warn", rival: ca.name });
+    const uq = rivalQuote(cb.name, "uppköpt", s.month);
+    const headline =
+      mergerPlan.kind === "hostile"
+        ? `⚔️ HOSTILE TAKEOVER: ${ca.name} swallows ${cb.name} — ${mergerPlan.reason}.`
+        : mergerPlan.kind === "friendly"
+          ? `🤝 MERGER: ${ca.name} and ${cb.name} join forces — ${mergerPlan.reason}.`
+          : `🦈 ACQUISITION: ${ca.name} buys out the struggling ${cb.name} — ${mergerPlan.reason}.`;
+    events.push({ t: `${headline}${fq ? " " + fq : ""}${uq ? " " + uq : ""}`, kind: "warn", rival: ca.name });
     // Det uppköpta bolagets aktie avnoteras: spelarens innehav löses ut
     // till kurs och ev. blankning stängs – annars blir aktien ett zombie-
     // papper utan bolag bakom som driver på ren slump.
