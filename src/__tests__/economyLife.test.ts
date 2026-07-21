@@ -30,11 +30,13 @@ const rival = (over: Partial<Competitor> = {}): Competitor => ({
 });
 
 describe("1. Riksbanken", () => {
-  it("kvartalsbesked: räntan stegar 25 punkter mot cykelmålet", () => {
+  it("kvartalsbesked: räntan söker Taylor-målet i max 50-punkterssteg", () => {
+    // Neutralt läge: inflation ≈ mål (2 %) ⇒ Taylor-mål 3,25. Från 4,0 är
+    // gapet −0,75 ⇒ ett besked sänker max 50 punkter → 3,5 (centralBank.ts).
     const s0 = makeState({ month: 1, marketCycle: { phase: "stable", monthsRemaining: 10 } });
-    const s1 = advanceMonth(s0); // month 1 % 3 === 1 → besked (mål 3,25 vid stabilt)
-    expect(s1.interestRate).toBe(3.75);
-    expect(s1.log.some((l) => l.t.includes("central bank cuts"))).toBe(true);
+    const s1 = advanceMonth(s0); // month 1 % 3 === 1 → besked
+    expect(s1.interestRate).toBe(3.5);
+    expect(s1.log.some((l) => l.t.includes("central bank CUTS"))).toBe(true);
   });
 
   it("räntan andas i värdena: låg ränta lyfter, hög trycker", () => {

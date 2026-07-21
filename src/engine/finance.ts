@@ -118,7 +118,10 @@ export function loanTerms(state: GameState): LoanTerms {
   const covenant = state.loanCovenant ? -COVENANT_RATE_DELTA : 0;
   // Koncernintern upplåning: egen bank som motpart pressar spreaden mer.
   const internal = state.ownedBank?.internalFunding ? -INTERNAL_FUNDING_RATE_DELTA : 0;
-  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating + bank.rateDelta + ownBank + covenant + internal);
+  // Refinansieringspremien: marknadsläget vid senaste låneförfallet
+  // (simulation.ts) präglar villkoren tills nästa förfall.
+  const refi = state.refiSpreadAdj ?? 0;
+  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating + bank.rateDelta + ownBank + covenant + internal + refi);
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;

@@ -45,7 +45,7 @@ import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
 import { hasRelation, nemesisOf, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
-import { INFRA_KINDS, RATE_STEP, cityVacancyRate, movePressure, policyRateTarget, rateAppetite } from "./economyLife";
+import { INFRA_KINDS, cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
 import {
   ACTIVIST_TAKEOVER_AT,
   CRISIS_MONTHS,
@@ -93,6 +93,7 @@ import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, p
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
+import { centralBankDecision, tickInflation } from "./centralBank";
 import {
   CAMPAIGN_LEAD,
   CAMPAIGN_WIN_OPEN,
@@ -248,21 +249,14 @@ export function advanceMonth(state: GameState): GameState {
   }
   const cyclePhaseNow = s.marketCycle.phase;
 
-  // ── Riksbanken: kvartalsvisa räntebesked ─────────────────────────
-  // Styrräntan söker sig i 25-punkterssteg mot ett konjunkturstyrt
-  // mål. Räntan andas i fastighetsvärdena (rateValueFactor) och i
-  // rivalernas köpaptit – räntebindning blir ett riktigt val.
+  // ── Riksbanken 2.0: inflationsmodell + kvartalsvisa räntebesked ──
+  // Inflationen härleds ur stadens verkliga läge (överhettning, bygg-
+  // kostnader, befolkningstillväxt, cykel, chockimpulser) och styrräntan
+  // söker sig mot ett Taylor-mål – i stället för den gamla rena
+  // cykeltabellen. Se centralBank.ts.
+  tickInflation(s);
   if (s.month % 3 === 1) {
-    const target = policyRateTarget(cyclePhaseNow);
-    const diff = target - s.interestRate;
-    if (Math.abs(diff) >= RATE_STEP - 0.001) {
-      const step = Math.sign(diff) * RATE_STEP;
-      s.interestRate = +(s.interestRate + step).toFixed(2);
-      events.push({
-        t: `🏛️ The central bank ${step > 0 ? "raises" : "cuts"} the policy rate by 25 bps to ${s.interestRate.toFixed(2)}% — property values are ${step > 0 ? "pressured" : "lifted"}.`,
-        kind: step > 0 ? "warn" : "income",
-      });
-    }
+    for (const ev of centralBankDecision(s)) events.push(ev);
   }
 
   // Decrement recession counter
@@ -2802,28 +2796,33 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
-  // Lånelöptid: refinansiering var 48–72 månad. Med trancher (SPLIT_
-  // MATURITIES) omförhandlas bara EN tredjedel av ränterisken per förfall –
-  // spridda förfall i stället för hela skulden på en enda marknadsdag.
+  // Lånelöptid: refinansiering var 48–72 månad. Marknadsläget vid förfallet
+  // präglar en PERSONLIG refi-premie (refiSpreadAdj, läses av loanTerms) i
+  // stället för att som förr flytta själva styrräntan – riksbanken äger nu
+  // basräntan (centralBank.ts). Med trancher (SPLIT_MATURITIES) omförhandlas
+  // bara en tredjedel av premien per förfall.
+  const refiPremiumNow = () => {
+    const cycle = s.marketCycle?.phase ?? "stable";
+    const recSpread = (s.recessionMonthsLeft ?? 0) > 0 ? 2.0 : 0;
+    const cycleSpread = cycle === "bust" ? 1.5 : cycle === "boom" ? -0.5 : 0;
+    const repSpread = s.reputation < 40 ? 2.5 : s.reputation < 60 ? 1.0 : 0;
+    return { premium: Math.max(-1, Math.min(4, cycleSpread + recSpread + repSpread)), cycle, recSpread };
+  };
   if (s.debt > 0 && (s.debtTranches ?? []).length > 0) {
     const nowAbsT = s.year * 12 + s.month;
     const due = s.debtTranches!.filter((t) => t <= nowAbsT);
     if (due.length > 0) {
-      const cycle = s.marketCycle?.phase ?? "stable";
-      const recSpread = (s.recessionMonthsLeft ?? 0) > 0 ? 2.0 : 0;
-      const cycleSpread = cycle === "bust" ? 1.5 : cycle === "boom" ? -0.5 : 0;
-      const repSpread = s.reputation < 40 ? 2.5 : s.reputation < 60 ? 1.0 : 0;
-      const refiRate = Math.min(12, Math.max(2, loanTerms(s).rate + cycleSpread + recSpread + repSpread));
+      const { premium } = refiPremiumNow();
       const weight = due.length / Math.max(1, s.debtTranches!.length);
-      const oldRate = s.interestRate;
-      s.interestRate = +((oldRate + (refiRate - oldRate) * weight)).toFixed(2);
+      const old = s.refiSpreadAdj ?? 0;
+      s.refiSpreadAdj = +((old + (premium - old) * weight)).toFixed(2);
       s.debtTranches = [
         ...s.debtTranches!.filter((t) => t > nowAbsT),
         ...due.map(() => nowAbsT + 72),
       ].sort((a, b) => a - b);
-      const diff = +(s.interestRate - oldRate).toFixed(2);
+      const diff = +(s.refiSpreadAdj - old).toFixed(2);
       events.push({
-        t: `🏦 TRANCHE REFINANCED: ${Math.round(weight * 100)}% of the debt met the market. Blended rate ${s.interestRate.toFixed(1)}% (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}%).`,
+        t: `🏦 TRANCHE REFINANCED: ${Math.round(weight * 100)}% of the debt met the market. Refi premium now ${s.refiSpreadAdj >= 0 ? "+" : ""}${s.refiSpreadAdj.toFixed(1)}pp (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}).`,
         kind: diff > 0.25 ? "warn" : "income",
       });
     }
@@ -2832,18 +2831,14 @@ export function advanceMonth(state: GameState): GameState {
     if (!s.debtMatureAbs) {
       s.debtMatureAbs = nowAbs3 + 48 + Math.floor(random01() * 24);
     } else if (nowAbs3 >= s.debtMatureAbs) {
-      const cycle = s.marketCycle?.phase ?? "stable";
-      const recSpread = (s.recessionMonthsLeft ?? 0) > 0 ? 2.0 : 0;
-      const cycleSpread = cycle === "bust" ? 1.5 : cycle === "boom" ? -0.5 : 0;
-      const repSpread = s.reputation < 40 ? 2.5 : s.reputation < 60 ? 1.0 : 0;
-      const oldRate = s.interestRate;
-      const baseRate = loanTerms(s).rate + cycleSpread + recSpread + repSpread;
-      s.interestRate = +(Math.min(12, Math.max(2, baseRate)).toFixed(2));
+      const { premium, cycle, recSpread } = refiPremiumNow();
+      const old = s.refiSpreadAdj ?? 0;
+      s.refiSpreadAdj = premium;
       s.debtMatureAbs = nowAbs3 + 48 + Math.floor(random01() * 24);
-      const rateDiff = +(s.interestRate - oldRate).toFixed(2);
+      const diff = +(premium - old).toFixed(2);
       events.push({
-        t: `🏦 REFINANCING: The loan matures. New rate ${s.interestRate.toFixed(1)}% (${rateDiff >= 0 ? "+" : ""}${rateDiff.toFixed(1)}%). Market: ${cycle}${recSpread > 0 ? ", downturn" : ""}.`,
-        kind: rateDiff > 0.25 ? "warn" : "income",
+        t: `🏦 REFINANCING: The loan matures. Refi premium ${premium >= 0 ? "+" : ""}${premium.toFixed(1)}pp on the spread (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}). Market: ${cycle}${recSpread > 0 ? ", downturn" : ""}.`,
+        kind: diff > 0.25 ? "warn" : "income",
       });
     }
   }

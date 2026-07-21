@@ -1002,6 +1002,12 @@ export interface GameState {
   /** Lånetrancher: staggade förfall (ersätter debtMatureAbs) – varje
    *  tranch omförhandlar bara en tredjedel av ränterisken. */
   debtTranches?: number[];
+  /** Riksbanken 2.0: inflationsläge och chockimpulser (centralBank.ts). */
+  centralBank?: { inflation: number; impulse: number; popPrev?: number };
+  /** Personlig refinansieringspremie (pp) satt vid senaste låneförfallet –
+   *  marknadsläget då präglar villkoren tills nästa förfall. Ersätter den
+   *  gamla kvarlevan där refinansieringar flyttade själva styrräntan. */
+  refiSpreadAdj?: number;
   /** Investerarrelationer: månadskostnad mot +8 ratingpoäng. */
   irProgram?: boolean;
   /** Obligationer utgivna av rivalbolag som koncernen köpt. */

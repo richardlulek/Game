@@ -9,11 +9,8 @@ import type { GameState } from "./types";
    Styrräntan söker sig kvartalsvis mot ett konjunkturstyrt mål i
    steg om 25 punkter. Neutralränta 4 % = värdeneutral nivå. */
 
-export const RATE_STEP = 0.25;
-
-export function policyRateTarget(phase: "boom" | "bust" | "stable"): number {
-  return phase === "boom" ? 5.0 : phase === "bust" ? 2.0 : 3.25;
-}
+/* Styrräntans mål och steg bor numera i centralBank.ts (Taylor-regel
+   mot modellerad inflation) – den gamla cykeltabellen är utfasad. */
 
 /** Låg ränta lyfter fastighetsvärden, hög trycker dem (neutral 4 %). */
 export function rateValueFactor(interestRate: number): number {

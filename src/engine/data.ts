@@ -153,22 +153,25 @@ export const TENANT_PROFILES: TenantProfile[] = [
 ];
 
 export const EVENTS: GameEvent[] = [
+  // Riksbanken 2.0: händelser flyttar inte längre styrräntan direkt – de är
+  // INFLATIONSCHOCKER som riksbanken svarar på vid nästa räntebesked
+  // (centralBank.ts impulse-termen).
   {
     id: "rate_up",
-    text: "The central bank raises the policy rate by 0.25%. Rental demand cools and the market softens.",
+    text: "Energy prices spike — inflation pressure builds and markets brace for rate hikes.",
     apply: (s) => ({
       ...s,
-      interestRate: +(s.interestRate + 0.25).toFixed(2),
+      centralBank: { inflation: s.centralBank?.inflation ?? 2, popPrev: s.centralBank?.popPrev, impulse: +(((s.centralBank?.impulse ?? 0) + 0.9)).toFixed(2) },
       demandMod: +(s.demandMod * 0.98).toFixed(3),
       marketSentiment: +((s.marketSentiment ?? 1) * 0.985).toFixed(3),
     }),
   },
   {
     id: "rate_down",
-    text: "The central bank cuts the policy rate by 0.25%. The investment climate and the market lift.",
+    text: "Import prices fall — disinflation takes hold and markets price in rate cuts.",
     apply: (s) => ({
       ...s,
-      interestRate: Math.max(0.5, +(s.interestRate - 0.25).toFixed(2)),
+      centralBank: { inflation: s.centralBank?.inflation ?? 2, popPrev: s.centralBank?.popPrev, impulse: +(((s.centralBank?.impulse ?? 0) - 0.9)).toFixed(2) },
       demandMod: +(s.demandMod * 1.02).toFixed(3),
       marketSentiment: +((s.marketSentiment ?? 1) * 1.015).toFixed(3),
     }),
@@ -241,7 +244,9 @@ export const RARE_EVENTS: GameEvent[] = [
       ...s,
       marketMod: +(s.marketMod * 0.88).toFixed(3),
       demandMod: +(s.demandMod * 0.88).toFixed(3),
-      interestRate: +(s.interestRate + 0.5).toFixed(2),
+      // Efterfrågekollaps ⇒ disinflationsimpuls (riksbanken sänker framöver);
+      // kreditpåslagen i kris bor i rating/kris-mekaniken, inte i basräntan.
+      centralBank: { inflation: s.centralBank?.inflation ?? 2, popPrev: s.centralBank?.popPrev, impulse: +(((s.centralBank?.impulse ?? 0) - 1.2)).toFixed(2) },
       marketSentiment: +((s.marketSentiment ?? 1) * 0.80).toFixed(3),
     }),
   },

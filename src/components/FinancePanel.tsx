@@ -147,6 +147,29 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
             <Line l="Net operating income" v={kr(totalNOI)} accent="#27660a" />
             <Line l="Interest cost" v={"−" + kr(annualInterest)} accent="#c0392b" />
             <Line l="Cash flow" v={kr(totalNOI - annualInterest)} bold />
+            <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Macro (the central bank)</h3>
+            {(() => {
+              const cb = state.centralBank;
+              const inf = cb?.inflation ?? 2;
+              const toDecision = (3 - ((state.year * 12 + state.month) % 3)) % 3 || 3;
+              return (
+                <>
+                  <Line l="Policy rate" v={`${state.interestRate.toFixed(2)}%`} />
+                  <Line l="Inflation (target 2.0%)" v={`${inf.toFixed(1)}%`}
+                    accent={inf > 3.5 ? "#c0392b" : inf < 0.5 ? "#c0392b" : inf > 2.8 ? "#c9a13b" : "#27660a"} />
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    Next rate decision in {toDecision} mo. The bank follows a Taylor rule —
+                    hot markets, construction costs and population inflows push inflation,
+                    and the rate follows.
+                  </div>
+                  {(state.refiSpreadAdj ?? 0) !== 0 && (
+                    <Line l="Refinancing premium" v={`${(state.refiSpreadAdj ?? 0) >= 0 ? "+" : ""}${(state.refiSpreadAdj ?? 0).toFixed(1)}pp`}
+                      accent={(state.refiSpreadAdj ?? 0) > 0 ? "#c0392b" : "#27660a"} />
+                  )}
+                </>
+              );
+            })()}
+
             <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>
               Loan terms (reputation {Math.round(state.reputation)})
             </h3>
