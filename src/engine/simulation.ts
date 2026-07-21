@@ -48,7 +48,7 @@ import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
 import { ageWearFactor, buildingAge } from "./lifecycle";
-import { INFRA_KINDS_2, openInfra } from "./infrastructure";
+import { INFRA_KINDS_2, accessibilityOf, gentrificationDrift, openInfra } from "./infrastructure";
 import {
   ACTIVIST_TAKEOVER_AT,
   CRISIS_MONTHS,
@@ -1547,6 +1547,34 @@ export function advanceMonth(state: GameState): GameState {
         t: `${kind.icon} CONSTRUCTION START: The municipality is building ${kind.name.toLowerCase()} in ${d.name} — done in ~${months} mo. Accessibility (and rents) rise permanently at the opening. Co-financing is on the table in the District window.`,
         kind: "event",
       });
+    }
+  }
+
+  // ── Gentrifiering: läge + standard driver områdesutvecklingen ────
+  // Tillgänglighet (invigd infrastruktur) och beståndets standard
+  // RELATIVT stadssnittet ger en långsam månatlig drift i districtDev.
+  // Snabb uppgång i ett distrikt med stor lågprisstock väcker protester.
+  const cityStock = [
+    ...s.portfolio.filter((p) => p.status === "klar"),
+    ...s.competitors.flatMap((c) => (c.portfolio ?? []).filter((p) => p.status === "klar")),
+  ];
+  const cityStd =
+    cityStock.length > 0 ? cityStock.reduce((a, p) => a + propertyStandard(p), 0) / cityStock.length : 0.5;
+  for (const d of DISTRICTS) {
+    const stock = cityStock.filter((p) => p.district === d.id);
+    const avgStd = stock.length > 0 ? stock.reduce((a, p) => a + propertyStandard(p), 0) / stock.length : cityStd;
+    const drift = gentrificationDrift(accessibilityOf(s, d.id), avgStd, cityStd);
+    if (drift !== 0) {
+      const cur = s.districtDev?.[d.id] ?? 1;
+      s.districtDev = { ...(s.districtDev ?? {}), [d.id]: +Math.max(0.7, Math.min(1.6, cur + drift)).toFixed(4) };
+      const cheapStock = stock.filter((p) => propertyStandard(p) < 0.45).length;
+      if (drift > 0.0008 && cheapStock >= 3 && random01() < 0.05) {
+        s.pressHeat = +((s.pressHeat ?? 0) + 2).toFixed(2);
+        events.push({
+          t: `📢 Protests in ${d.name}: rents climb as the area gentrifies, and long-time residents march — "the city is for everyone", the banners read.`,
+          kind: "warn",
+        });
+      }
     }
   }
 

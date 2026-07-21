@@ -73,6 +73,18 @@ export function accessValueMult(s: GameState, district: string): number {
   return 1 + (accessibilityOf(s, district) - 1) * 0.4;
 }
 
+/** Gentrifiering: månatlig drift i områdesutvecklingen ur tillgänglighet
+ *  och beståndets standard RELATIVT resten av staden. Differentiell med
+ *  avsikt – ett stadssnitt som stiger överallt är ingen gentrifiering,
+ *  bara inflation (30-årsmätningen visade att en absolut formel drev
+ *  alla distrikt till Exklusivt). Utan infrastruktur är driften därmed
+ *  nära nollsumma över staden; med tunnelbana gentrifieras distriktet
+ *  på riktigt. */
+export const GENTRIFICATION_RATE = 0.0015;
+export function gentrificationDrift(access: number, avgStandard: number, cityStandard = 0.5): number {
+  return +(GENTRIFICATION_RATE * ((access - 1) * 4 + (avgStandard - cityStandard))).toFixed(6);
+}
+
 /** Medfinansiering: 20 % av notan → 25 % kortare byggtid + anseende. */
 export const COFINANCE_SHARE = 0.2;
 export const COFINANCE_SPEEDUP = 0.75;

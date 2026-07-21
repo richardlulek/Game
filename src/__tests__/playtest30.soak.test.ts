@@ -5,6 +5,7 @@ import { reducer } from "../engine/reducer";
 import { placeCity } from "../engine/city";
 import { equityOf, loanTerms, ltvOf } from "../engine/finance";
 import { propMarketValue, propPotentialRent, propAnnualOpex } from "../engine/property";
+import { accessibilityOf } from "../engine/infrastructure";
 import { obsolescenceFactor } from "../engine/lifecycle";
 import { maxDevLevel, districtTier } from "../engine/districtTiers";
 import { DISTRICTS, UPGRADES } from "../engine/data";
@@ -49,6 +50,11 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
         if (l.t.includes("damage event") || l.t.includes("Damage event")) bump("skada");
         if (l.t.includes("FUSION")) bump("rival-fusion");
         if (l.t.includes("Distress sale")) bump("nödförsäljning");
+        // Fas 2 – staden som organism:
+        if (l.t.includes("Moving chain")) bump("flyttkedjepuls");
+        if (l.t.includes("total renovation in")) bump("renovräkning-erbjuden");
+        if (l.t.includes("RENOVICTION")) bump("renovräkning-vald");
+        if (l.t.includes("Protests in")) bump("gentrifieringsprotest");
       }
     };
 
@@ -222,7 +228,7 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
       scanLog();
 
       if ((m + 1) % 60 === 0 || m === 0) {
-        const dev = DISTRICTS.map((d) => `${d.id.slice(0, 4)}:${(s.districtDev?.[d.id] ?? 1).toFixed(2)}`).join(" ");
+        const dev = DISTRICTS.map((d) => `${d.id.slice(0, 4)}:${(s.districtDev?.[d.id] ?? 1).toFixed(2)}×${accessibilityOf(s, d.id).toFixed(2)}`).join(" ");
         snapshots.push(
           `  År ${s.year} · EK ${(eq / 1e6).toFixed(0)} MSEK · kassa ${(s.cash / 1e6).toFixed(1)} · skuld ${(s.debt / 1e6).toFixed(0)} · ` +
           `hus ${s.portfolio.filter((p) => p.status === "klar").length} · ambient ${s.ambientGrown?.length ?? 0} · ` +
