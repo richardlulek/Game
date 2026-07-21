@@ -61,10 +61,30 @@ Balansutfall: boom 7–11 %, stabilt 53–62 %, bust 27–36 % över 30 år.
   väntevärdesneutralt. Mätutfall: centrum ligger kvar på ~1.00 i 30 år,
   tiers sprids (Stable×3, Rising×4) och bara infra-distrikt klättrar.
 
-## Fas 4 — Innehåll & slutspel ⬜
+## Fas 4 — Innehåll & slutspel ✅ (commits fb68830…)
 
-Scenariopaket, milstolpekedjor, slutspelsmål bortom förmögenhet
-(stadsbyggnadsarv, dynastins anseende), fler unika byggnader/industrier.
+* **Uppstickarna**: fyra små onoterade lokalbolag (Oakvale & Sons,
+  Brickstone Bros., Ladder Capital, Old Town Trust) med egna personor,
+  2–3 hus och 55 % start-LTV – stadens räntekänsligaste böcker och den
+  motivdrivna M&A:ns naturliga byten. Nya utmanare kan kliva in mitt i
+  partiet med såddkapital (~0.4 %/mån under 10 aktörer, ej i bust).
+  Rivalinställningen skalar dem proportionerligt.
+* **Milstolpekedjor** (`milestoneChains.ts`): fyra treetappskedjor med
+  permanenta belöningar – Byggmästaren (byggkostnad −3 %/nivå),
+  Hyresvärden (ansökningsflöde +2 %/nivå), Renoveraren (slitage
+  −4 %/nivå), Stadsbyggaren (områdessatsningar +15 % effekt/nivå).
+  Räknare/nivåer i additiva sparfält, visas i Milestones-panelen.
+* **Scenariopaket**: The Transit Tycoon (10 spårnära innehav – rivalerna
+  tävlar om samma lägen), The Financier (bank + försäkring, 60 M i
+  samlat institutionsresultat), The Last Empires (≤ 4 rivaler kvar vid
+  100 M equity).
+* **Slutspel bortom förmögenhet**: dynastipoängen fick pelaren
+  Stadsbyggnadsarv (stadssatsningar/byggen/projekt, tak 250 p) och
+  scenariot The City Legend (600 dynastipoäng ≈ grad A) gör arvet –
+  inte balansräkningen – till målet.
+* Mätutfall (30 år): fältet 11 → 9 aktörer via två vänskapliga fusioner,
+  samlad rivalskuld ~2.8 mdr (räntekänsligheten består), distriktstatus
+  fortsatt förtjänad (Stable×4, Rising×2, Exclusive×1).
 
 ## Fas 5 — Dynasti, prestige & NG+ ⬜
 

@@ -57,6 +57,7 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
         <div style={P.row}><span>Megaprojects</span><strong>{dyn.megaprojekt} p</strong></div>
         <div style={P.row}><span>Signature blocks</span><strong>{dyn.stadsdelar} p</strong></div>
         <div style={P.row}><span>ESG portfolio</span><strong>{dyn.esg} p</strong></div>
+        <div style={P.row}><span>City-building legacy</span><strong>{dyn.stadsbyggnad} p</strong></div>
         <div style={P.row}><span>Satisfied tenants</span><strong>{dyn.nojdhet} p</strong></div>
         <div style={P.row}><span>Regulated housing (public benefit)</span><strong>{dyn.reglerat} p</strong></div>
         <div style={P.hint}>

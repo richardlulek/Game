@@ -1,6 +1,7 @@
 import { equityOf } from "./finance";
 import { msek } from "./format";
 import { accessibilityOf } from "./infrastructure";
+import { dynastyScore } from "./lateGame";
 import { STORY_BEATS } from "./story";
 import type { Competitor, GameState, ScenarioId } from "./types";
 
@@ -169,6 +170,18 @@ export const SCENARIOS: Scenario[] = [
     progress: (s) => {
       const n = Math.max(0, institutionNet(s));
       return { value: Math.min(n, 60_000_000), max: 60_000_000, label: `${msek(n)} / $60M institution profit` };
+    },
+  },
+  {
+    id: "stadslegend",
+    title: "The City Legend",
+    subtitle: "Dynasty grade A — beyond wealth",
+    desc: "Money is not the goal, it's the tool: reach 600 dynasty points through dividends to the family, megaprojects, signature blocks, ESG, delighted tenants and what you build FOR the city. The scoreboard is your legacy, not your balance sheet.",
+    icon: "👑",
+    check: (s) => dynastyScore(s).total >= 600,
+    progress: (s) => {
+      const d = dynastyScore(s);
+      return { value: Math.min(d.total, 600), max: 600, label: `${d.total} / 600 dynasty points (grade ${d.grade})` };
     },
   },
   {

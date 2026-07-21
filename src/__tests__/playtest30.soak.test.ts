@@ -63,6 +63,9 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
         if (l.t.includes("poaches your tenant")) bump("nemesis-värvning");
         if (l.t.includes("smear piece")) bump("nemesis-svartmålning");
         if (l.t.includes("THE CITY TURNS")) bump("nemesis-allians");
+        // Fas 4 – uppstickare och kedjor:
+        if (l.t.includes("NEW PLAYER")) bump("uppstickare-inträde");
+        if (l.t.includes("CHAIN MILESTONE")) bump("kedjenivå");
       }
     };
 

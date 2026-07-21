@@ -196,6 +196,8 @@ export interface DynastyBreakdown {
   esg: number;
   nojdhet: number;
   reglerat: number;
+  /** Stadsbyggnadsarvet: byggen, utvecklingsprojekt och stadssatsningar. */
+  stadsbyggnad: number;
   total: number;
   grade: "E" | "C" | "B" | "A" | "S";
   gradeLabel: string;
@@ -224,7 +226,16 @@ export function dynastyScore(s: GameState): DynastyBreakdown {
     : 0;
   const nojdhet = avgSat >= 70 ? 100 : avgSat >= 55 ? 40 : 0;
   const reglerat = klara.filter((p) => p.regulated).length * 10;
-  const total = utdelningar + lyxOchDonationer + megaprojekt + stadsdelar + esg + nojdhet + reglerat;
+  // Stadsbyggnadsarvet (fas 4): det du BYGGT åt staden räknas – nyproduktion,
+  // utvecklingsprojekt och stadssatsningar (områdesinvesteringar, med-
+  // finansierad/lobbad infrastruktur, milestoneChains-räknarna). Kapat så
+  // dynastin inte kan köpas med enbart spadar.
+  const cc = s.chainCounters ?? {};
+  const stadsbyggnad = Math.min(
+    250,
+    (cc.cityWorks ?? 0) * 15 + (cc.builds ?? 0) * 8 + (cc.renovations ?? 0) * 5,
+  );
+  const total = utdelningar + lyxOchDonationer + megaprojekt + stadsdelar + esg + nojdhet + reglerat + stadsbyggnad;
   const grade = total >= 1000 ? "S" : total >= 600 ? "A" : total >= 300 ? "B" : total >= 100 ? "C" : "E";
   const gradeLabel =
     grade === "S" ? "Dynasty – the city bears your name"
@@ -232,5 +243,5 @@ export function dynastyScore(s: GameState): DynastyBreakdown {
     : grade === "B" ? "Patron – the city remembers you"
     : grade === "C" ? "Successful – but what do you leave behind?"
     : "Capitalist – the money died with the company";
-  return { utdelningar, lyxOchDonationer, megaprojekt, stadsdelar, esg, nojdhet, reglerat, total, grade, gradeLabel };
+  return { utdelningar, lyxOchDonationer, megaprojekt, stadsdelar, esg, nojdhet, reglerat, stadsbyggnad, total, grade, gradeLabel };
 }
