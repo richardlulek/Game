@@ -30,8 +30,11 @@ import type { GameState } from "./types";
 
 /** Minsta faslängd innan ett byte tillåts (hysteres). */
 export const MIN_PHASE_MONTHS = 6;
-/** Trycktröskeln för ett fasbyte. */
-export const PHASE_THRESHOLD = 2.5;
+/** Trycktrösklar för fasbyten – asymmetriska: boomen ska vara nåbar,
+ *  busten ska kräva riktiga obalanser (balansrundan visade 50 % bust-tid
+ *  med symmetriska trösklar). */
+export const PHASE_THRESHOLD = 2.0;
+export const BUST_THRESHOLD = 3.0;
 /** Värmens tröghet och brus: obalanser integreras månad för månad, och
  *  stokastiska stämningsvågor gör att cykler uppstår även i jämvikt –
  *  utan dem stabiliserar Taylor-regeln ekonomin till evig stiltje. */
@@ -93,7 +96,7 @@ export function cyclePressures(s: GameState): CyclePressures {
   const vac = cityVacancyRate(s);
   const vacAnchor = s.marketCycle?.vacAnchor ?? vac;
   if (vac < vacAnchor - 0.03) { boom += 1.2; drivers.push("tightening rental market"); }
-  else if (vac > vacAnchor + 0.04) { bust += 1.2; drivers.push("rising vacancies"); }
+  else if (vac > vacAnchor + 0.06) { bust += 1.2; drivers.push("rising vacancies"); }
 
   const rateGap = s.interestRate - NEUTRAL_RATE;
   if (rateGap < -0.75) { boom += 1.0; drivers.push("cheap money"); }
@@ -109,9 +112,11 @@ export function cyclePressures(s: GameState): CyclePressures {
   const overhang = s.marketCycle?.overhang ?? 0;
   if (overhang > 1.5) { bust += Math.min(1.5, overhang * 0.5); drivers.push("supply overhang"); }
 
+  // Sentimentet vägs LÄTT: busten sänker själv sentimentet, så en tung
+  // vikt här blev en självförstärkande dödsspiral åt det hållet.
   const sent = s.marketSentiment ?? 1;
-  if (sent > 1.15) boom += 0.5;
-  else if (sent < 0.85) bust += 0.5;
+  if (sent > 1.2) boom += 0.3;
+  else if (sent < 0.7) bust += 0.3;
 
   // Systemviktig spelare: när imperiet ÄR marknaden blir dess egna
   // obalanser stadens. Tomma hus och överbelåning hos den dominanta
@@ -142,7 +147,7 @@ export function cyclePressures(s: GameState): CyclePressures {
 export function nextVacAnchor(s: GameState): number {
   const vac = cityVacancyRate(s);
   const prev = s.marketCycle?.vacAnchor ?? vac;
-  return +(prev + (vac - prev) * 0.04).toFixed(4);
+  return +(prev + (vac - prev) * 0.08).toFixed(4);
 }
 
 /** Uppdatera utbudsöverhänget: hög byggtakt lagras och slår tillbaka
@@ -181,17 +186,17 @@ export function nextPhase(
 ): CyclePhase {
   if (age < MIN_PHASE_MONTHS) return current;
   if (current === "stable") {
-    if (heat <= -PHASE_THRESHOLD) return "bust";
+    if (heat <= -BUST_THRESHOLD) return "bust";
     if (heat >= PHASE_THRESHOLD) return "boom";
     return "stable";
   }
   if (current === "boom") {
     // En boom kan krascha direkt till bust vid stora obalanser.
-    if (heat <= -(PHASE_THRESHOLD + 1)) return "bust";
+    if (heat <= -(BUST_THRESHOLD + 0.5)) return "bust";
     if (heat < 0.5) return "stable";
     return "boom";
   }
   // bust
-  if (heat > -0.5) return "stable";
+  if (heat > -0.3) return "stable";
   return "bust";
 }

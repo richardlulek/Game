@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUST_THRESHOLD,
   MIN_PHASE_MONTHS,
   PHASE_THRESHOLD,
   constructionShare,
@@ -57,9 +58,11 @@ describe("EMERGENT CYKEL: obalanserna styr, inte timern", () => {
   it("hysteres: inga fasbyten före minsta faslängd; värmen styr riktningen", () => {
     expect(nextPhase("stable", 0, 5)).toBe("stable");
     expect(nextPhase("stable", MIN_PHASE_MONTHS, 5)).toBe("boom");
-    expect(nextPhase("stable", MIN_PHASE_MONTHS, -PHASE_THRESHOLD)).toBe("bust");
+    // Asymmetri: busten kräver djupare kyla än boomen kräver värme.
+    expect(nextPhase("stable", MIN_PHASE_MONTHS, -PHASE_THRESHOLD)).toBe("stable");
+    expect(nextPhase("stable", MIN_PHASE_MONTHS, -BUST_THRESHOLD)).toBe("bust");
     // Boom kraschar direkt till bust bara vid STORA obalanser.
-    expect(nextPhase("boom", 12, -(PHASE_THRESHOLD + 1.1))).toBe("bust");
+    expect(nextPhase("boom", 12, -(BUST_THRESHOLD + 0.6))).toBe("bust");
     expect(nextPhase("boom", 12, 2)).toBe("boom");
     expect(nextPhase("bust", 12, 0)).toBe("stable");
     // Ihållande tryck driver upp värmen förbi tröskeln.

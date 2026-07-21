@@ -169,6 +169,13 @@ describe("SKATT 2.0: förlustavdrag och aggressiv avskrivning", () => {
       id: 2, capacity: 2, askPrice: 30_000_000,
       tenants: [makeTenantFixture({ id: 21, rent: 900_000 }), makeTenantFixture({ id: 22, rent: 900_000 })],
     });
+    const evergreen = () => makeProperty({
+      id: 3, capacity: 2, askPrice: 30_000_000,
+      tenants: [
+        makeTenantFixture({ id: 31, rent: 900_000, monthsLeft: 9999, termTotal: 9999 }),
+        makeTenantFixture({ id: 32, rent: 900_000, monthsLeft: 9999, termTotal: 9999 }),
+      ],
+    });
     expect(TAX_DEP_AGGRESSIVE).toBeGreaterThan(TAX_DEP_NORMAL);
     seedRng(9);
     let normal = makeState({ cash: 50_000_000, portfolio: [rented()] });
@@ -179,16 +186,19 @@ describe("SKATT 2.0: förlustavdrag och aggressiv avskrivning", () => {
     agg = tick(agg);
     clearRng();
     expect(agg.totalTaxPaid ?? 0).toBeLessThan(normal.totalTaxPaid ?? 0);
-    // Revisionen slår till förr eller senare: policyn nollställs och det svider.
-    seedRng(11);
-    try {
-      let s = makeState({ cash: 500_000_000, portfolio: [rented()], taxDepreciationPolicy: "aggressiv", reputation: 80 });
-      let audited = false;
-      for (let m = 0; m < 400 && !audited; m++) {
-        s = { ...tick(s), taxDepreciationPolicy: s.taxDepreciationPolicy };
+    // Revisionen slår till förr eller senare. Många KORTA färska körningar
+    // i stället för en lång: nöjdhetssystemet tömmer ett ounderhållet hus på
+    // ~2 år, och därefter är månaderna olönsamma och revisionsgrinden stängd.
+    let audited = false;
+    for (let seed = 1; seed <= 60 && !audited; seed++) {
+      seedRng(seed * 101);
+      let s = makeState({ cash: 500_000_000, portfolio: [evergreen()], taxDepreciationPolicy: "aggressiv", reputation: 80 });
+      for (let m = 0; m < 12 && !audited; m++) {
+        s = { ...tick(s), taxDepreciationPolicy: "aggressiv" };
         if (s.log.some((l) => l.t.includes("TAX AUDIT"))) audited = true;
       }
-      expect(audited).toBe(true);
-    } finally { clearRng(); }
+      clearRng();
+    }
+    expect(audited).toBe(true);
   });
 });
