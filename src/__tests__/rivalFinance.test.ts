@@ -76,7 +76,8 @@ describe("STARTLÄGET: rivalerna föds med belånade böcker", () => {
     for (const c of s.competitors) {
       const portVal = c.portfolio.reduce((a, p) => a + p.askPrice, 0);
       expect(c.debt ?? 0).toBeGreaterThan(0);
-      expect(c.debt!).toBeLessThan(portVal * 0.55);
+      // Uppstickarna ligger på exakt 55 % start-LTV, de stora lägre.
+      expect(c.debt!).toBeLessThanOrEqual(Math.round(portVal * 0.55));
       expect(c.equity).toBe(c.cash + portVal - c.debt!);
     }
   });

@@ -26,7 +26,8 @@ import {
   satisfactionTarget,
   signContract,
 } from "./leasing";
-import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, UPGRADES } from "./data";
+import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, SMALL_AI_NAMES, UPGRADES } from "./data";
+import { agendaFor } from "./initState";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
@@ -123,7 +124,7 @@ import {
 import { maybePoachingDecision } from "./executives";
 import { SPINOFF_DIVIDEND_PAYOUT, SPINOFF_UPKEEP_COND, SPINOFF_UPKEEP_PCT, spinoffSharePrice } from "./spinoffs";
 import { INDUSTRY_TEMPLATES } from "./industryData";
-import type { GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
+import type { CompetitorStrategy, GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
 
 /**
  * Enda kanalen för att ändra spelarens kassa i månadssimuleringen. Ett positivt
@@ -1950,6 +1951,45 @@ export function advanceMonth(state: GameState): GameState {
       s.reputation = Math.min(100, s.reputation + 2);
     }
     s.planProcesses = remaining;
+  }
+
+  // ── Uppstickare kliver in (fas 4) ───────────────────────────────
+  // När marknaden inte är i bust och det finns plats i aktörsfältet kan
+  // ett nytt litet bolag dyka upp med bara såddkapital – de bygger sitt
+  // bestånd via samma köp-/byggvägar som alla andra. Staden får påfyllnad
+  // av utmanare i takt med att M&A:n äter de svaga.
+  if (
+    (s.marketCycle?.phase ?? "stable") !== "bust" &&
+    s.competitors.length < 10 &&
+    random01() < 0.004
+  ) {
+    const used = new Set(s.competitors.map((c) => c.name));
+    const name = SMALL_AI_NAMES.find((n) => !used.has(n));
+    if (name) {
+      const strategies: CompetitorStrategy[] = ["tillväxt", "värde", "distrikt", "utdelning"];
+      const strategy = strategies[Math.floor(random01() * strategies.length)];
+      const preferredDistrict = strategy === "distrikt" ? pick(DISTRICTS).id : undefined;
+      const seedCash = Math.round(rnd(8, 15) * 1e6);
+      s.competitors = [
+        ...s.competitors,
+        {
+          name,
+          cash: seedCash,
+          units: 0,
+          equity: seedCash,
+          portfolio: [],
+          strategy,
+          preferredDistrict,
+          agenda: agendaFor(strategy, preferredDistrict),
+          small: true,
+        },
+      ];
+      events.push({
+        t: `🌱 NEW PLAYER: ${name} opens an office in the city with ${msek(seedCash)} in seed capital — hungry, leveraged and looking for their first deal.`,
+        kind: "event",
+        rival: name,
+      });
+    }
   }
 
   // ── AI-konkurrenter agerar (riktiga portföljer + personligheter) ─

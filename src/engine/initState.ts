@@ -4,7 +4,7 @@
    ============================================================ */
 
 import { DEFAULT_COMPANY_NAME } from "./company";
-import { AI_NAMES, DISTRICTS } from "./data";
+import { AI_NAMES, DISTRICTS, SMALL_AI_NAMES } from "./data";
 import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { random01, rnd } from "./random";
 import { initStocks } from "./stocks";
@@ -101,22 +101,49 @@ export function initState(opts?: InitOptions): GameState {
     };
   });
 
+  // ── Uppstickarna: små, onoterade lokalbolag (fas 4) ─────────────
+  // 2–3 hus, tunn kassa och hög belåning: hungriga utmanare som kan växa
+  // till fullvärdiga rivaler – eller bli byten i den motivdrivna M&A:n.
+  const smallCount = Math.min(
+    SMALL_AI_NAMES.length,
+    Math.max(0, Math.round(((opts?.rivalCount ?? AI_NAMES.length) * SMALL_AI_NAMES.length) / AI_NAMES.length)),
+  );
+  const SMALL_STRATEGIES: CompetitorStrategy[] = ["distrikt", "värde", "tillväxt", "utdelning"];
+  const smallRivals: Competitor[] = SMALL_AI_NAMES.slice(0, smallCount).map((n, i) => {
+    const strategy = SMALL_STRATEGIES[i % SMALL_STRATEGIES.length];
+    const preferredDistrict = strategy === "distrikt" ? "förort" : undefined;
+    return {
+      name: n,
+      cash: rnd(0.8, 2) * 1e6 * rivalStrength,
+      units: 0,
+      equity: 0,
+      portfolio: [],
+      strategy,
+      preferredDistrict,
+      agenda: agendaFor(strategy, preferredDistrict),
+      small: true,
+    };
+  });
+
   let propIdx = 0;
-  for (const c of competitors) {
-    const slice = allProps.slice(propIdx, propIdx + compPortfolioSize);
+  for (const c of [...competitors, ...smallRivals]) {
+    const size = c.small ? 2 + (SMALL_AI_NAMES.indexOf(c.name) % 2) : compPortfolioSize;
+    const slice = allProps.slice(propIdx, propIdx + size);
     c.portfolio = slice.map((p) => ({ ...p, owned: false }));
     c.units = c.portfolio.length;
     const portVal = c.portfolio.reduce((a, p) => a + p.askPrice, 0);
     // Riktiga balansräkningar (rivalFinance.ts): beståndet är delvis belånat
     // från start – räntehöjningar biter på rivalerna från dag ett.
-    const startLtv =
-      c.strategy === "tillväxt" ? 0.5 : c.strategy === "distrikt" ? 0.45 : c.strategy === "utdelning" ? 0.35 : 0.3;
+    // Uppstickarna är högst belånade: hungriga, och därmed räntekänsligast.
+    const startLtv = c.small
+      ? 0.55
+      : c.strategy === "tillväxt" ? 0.5 : c.strategy === "distrikt" ? 0.45 : c.strategy === "utdelning" ? 0.35 : 0.3;
     c.debt = Math.round(portVal * startLtv);
     c.equity = c.cash + portVal - c.debt;
     c.monthlyNOI = Math.round((portVal * 0.06) / 12);
-    propIdx += compPortfolioSize;
+    propIdx += size;
   }
-  base.competitors = competitors;
+  base.competitors = [...competitors, ...smallRivals];
 
   // ── 10 fastigheter till salu (listings) ─────────────────────────
   // Garantera instegsobjekt: de tre billigaste skalas ned till en handpenning
@@ -190,7 +217,8 @@ export function initState(opts?: InitOptions): GameState {
   for (let i = 0; i < 4; i++) base.lots.push(genLot(base));
 
   // ── Aktier ──────────────────────────────────────────────────────
-  base.stocks = initStocks(base.competitors);
+  // Uppstickarna är privata familjebolag – bara de stora är börsnoterade.
+  base.stocks = initStocks(base.competitors.filter((c) => !c.small));
 
   // ── Industrimarknadslistor (5 slumpmässiga från INDUSTRY_TEMPLATES) ─
   const shuffled = [...INDUSTRY_TEMPLATES].sort(() => random01() - 0.5);

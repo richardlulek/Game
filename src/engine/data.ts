@@ -387,6 +387,16 @@ export const AI_NAMES = [
   "Grovewood Properties",
 ];
 
+/** Uppstickarna (fas 4): små, onoterade lokalbolag med 2–3 hus och tunn
+ *  kassa. De växer, blir uppköpsbyten i motivdriven M&A – och nya kan
+ *  kliva in mitt i partiet när marknaden lockar. */
+export const SMALL_AI_NAMES = [
+  "Oakvale & Sons",
+  "Brickstone Bros.",
+  "Ladder Capital",
+  "Old Town Trust",
+];
+
 /** Affärsnamn per hyresgästprofil – ger varje kontrakt en egen identitet. */
 export const TENANT_NAMES: Record<string, string[]> = {
   stat: ["Tax Authority", "Social Insurance Office", "Land Registry", "Employment Agency", "Migration Board"],

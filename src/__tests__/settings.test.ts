@@ -15,7 +15,9 @@ describe("initState med InitOptions", () => {
     const s = initState({ cash: 12_000_000, interestRate: 4.5, rivalCount: 3, rivalStrength: 1.4 });
     expect(s.cash).toBe(12_000_000);
     expect(s.interestRate).toBe(4.5);
-    expect(s.competitors).toHaveLength(3);
+    // Rivalantalet styr de stora bolagen; uppstickarna skalar med (3×4/7 ≈ 2).
+    expect(s.competitors.filter((c) => !c.small)).toHaveLength(3);
+    expect(s.competitors.filter((c) => c.small)).toHaveLength(2);
     // Styrkan skalar portföljstorleken (10 → 14).
     expect(s.competitors[0].portfolio).toHaveLength(14);
   });
@@ -29,7 +31,7 @@ describe("initState med InitOptions", () => {
     const s = initState();
     expect(s.cash).toBe(5_000_000);
     expect(s.interestRate).toBe(2.5);
-    expect(s.competitors).toHaveLength(AI_NAMES.length);
+    expect(s.competitors.filter((c) => !c.small)).toHaveLength(AI_NAMES.length);
     expect(s.settings).toBeUndefined();
   });
 

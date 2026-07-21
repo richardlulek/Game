@@ -159,6 +159,9 @@ describe("EMERGENT CYKEL: obalanserna styr, inte timern", () => {
       const mk = () => makeState({
         cash: -1_500_000,
         crisisMonthsLeft: 6,
+        // Skandal-cooldown aktiv så pressen inte hinner före stödpaketet
+        // och ockuperar beslutet (testet gäller tbtf, inte tidningen).
+        lastScandalMonth: 999,
         portfolio: Array.from({ length: 8 }, (_, i) => fullHouse(700 + i)).map((p) => ({ ...p, askPrice: 60_000_000 })),
         competitors: [{ name: "R", cash: 0, units: 1, equity: 0, strategy: "värde", portfolio: [makeProperty({ id: 800, askPrice: 30_000_000 })] }],
       });

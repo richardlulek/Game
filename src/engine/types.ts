@@ -661,6 +661,9 @@ export interface Competitor {
   debt?: number;
   /** Månader i följd med räntetäckning < 1 – tre i rad ⇒ nödförsäljning. */
   icrBadMonths?: number;
+  /** Uppstickare (fas 4): litet, onoterat lokalbolag. Startar med 2–3 hus
+   *  eller kliver in mitt i partiet med bara såddkapital. */
+  small?: boolean;
 }
 
 /** Bransch på börsen. */
