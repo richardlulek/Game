@@ -94,7 +94,7 @@ import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnerg
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
 import { centralBankDecision, curveInverted, longRate, tickInflation } from "./centralBank";
-import { cyclePressures, nextHeat, nextOverhang, nextPhase, nextVacAnchor } from "./cycle";
+import { SYSTEMIC_SHARE, TBTF_SHARE, cyclePressures, nextHeat, nextOverhang, nextPhase, nextVacAnchor, playerMarketShare } from "./cycle";
 import {
   CAMPAIGN_LEAD,
   CAMPAIGN_WIN_OPEN,
@@ -255,6 +255,20 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
   const cyclePhaseNow = s.marketCycle.phase;
+
+  // ── Systemviktighet: när imperiet blir marknaden ─────────────────
+  {
+    const share = playerMarketShare(s);
+    if (share >= SYSTEMIC_SHARE && !s.systemicNoted) {
+      s.systemicNoted = true;
+      events.push({
+        t: `🏛️ SYSTEMICALLY IMPORTANT: your empire now holds ${Math.round(share * 100)}% of the city's property values. Your vacancies and leverage move the whole cycle — and in a crisis, the state cannot let you fall.`,
+        kind: "event",
+      });
+    } else if (share < TBTF_SHARE && s.systemicNoted) {
+      s.systemicNoted = undefined;
+    }
+  }
 
   // ── Riksbanken 2.0: inflationsmodell + kvartalsvisa räntebesked ──
   // Inflationen härleds ur stadens verkliga läge (överhettning, bygg-
@@ -3013,6 +3027,44 @@ export function advanceMonth(state: GameState): GameState {
           text: `Debts of ${msek(s.debt)} exceeded everything the company owned: with cash at ${kr(s.cash)}, even a full fire-sale liquidation (≈${msek(raisable)} net) could not lift the account above the ${kr(BANKRUPTCY_FLOOR)} floor. The company was over-leveraged — with no equity cushion left, there was nothing for a receiver to restructure around. Next run: keep loan-to-value lower and hold a cash buffer before expanding.`,
         };
         s.log = [{ t: "💥 BANKRUPTCY! Debts exceed everything the company owns — not even a full liquidation could cover the shortfall. The game is over.", kind: "warn" }, ...s.log];
+      } else if (
+        (s.crisisMonthsLeft ?? 0) > 0 &&
+        playerMarketShare(s) >= TBTF_SHARE &&
+        !s.pendingDecision
+      ) {
+        // Too big to fail: när det systemviktiga imperiet vacklar mitt i
+        // krisen kan staten inte låta det falla – ett stödpaket erbjuds,
+        // med villkor. Att tacka nej öppnar den vanliga rekonstruktionen.
+        const shortfall = Math.max(0, -s.cash);
+        const aid = Math.round(shortfall * 1.5 + 2_000_000);
+        s.pendingDecision = {
+          id: "tbtf_bailout",
+          title: "Too big to fail",
+          text: `Your empire holds ${Math.round(playerMarketShare(s) * 100)}% of the city's property values — and it is failing in the middle of the crisis. The finance ministry fears a collapse would take the whole city down. A state support package of ${kr(aid)} is on the table, with strings attached: restructuring covenants for 36 months and a public humiliation. Or face the receiver like anyone else.`,
+          options: [
+            {
+              label: "Accept the support package",
+              detail: `${kr(aid)} cash · rep −10 · covenants 36 mo`,
+              effect: {
+                cash: aid,
+                reputation: -10,
+                restructureMonths: 36,
+                log: `🏛️ STATE BAILOUT: ${kr(aid)} injected into the systemically important landlord. The press is merciless (rep −10) and the bank's covenants bind for 36 months.`,
+                logKind: "warn",
+              },
+            },
+            {
+              label: "Refuse — face the receiver",
+              detail: "Ordinary receivership opens",
+              effect: {
+                forceReceivership: true,
+                log: "⚖️ You refuse the state's money. The receiver is appointed — the crisis menu opens.",
+                logKind: "warn",
+              },
+            },
+          ],
+        };
+        s.log = [{ t: "🏛️ Decision required: Too big to fail — the state offers a support package.", kind: "warn" }, ...s.log];
       } else {
         // Krisen bryter ut: spelet pausar och menyn öppnas. Engångssmällen
         // (rykte, bankförtroende, presstemperatur) tas HÄR – händelsen är

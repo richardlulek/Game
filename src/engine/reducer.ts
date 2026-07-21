@@ -1146,6 +1146,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
         s.staff = staff;
         s.executives = executives;
       }
+      // Too big to fail (cycle.ts): stödpaketets villkor respektive den
+      // avböjda vägen in i vanlig rekonstruktion.
+      if (e.restructureMonths) {
+        s.restructuringTerms = { untilAbs: s.year * 12 + s.month + e.restructureMonths };
+      }
+      if (e.forceReceivership) {
+        s.receivership = { shortfall: Math.max(0, -s.cash), enteredAbs: s.year * 12 + s.month };
+      }
       // Kampanjdonation (politics.ts): registrera stödet inför valet.
       if (e.campaign) {
         s.politics = {

@@ -8,8 +8,10 @@ import {
   nextHeat,
   nextOverhang,
   nextPhase,
+  playerMarketShare,
 } from "../engine/cycle";
 import { clearRng, seedRng } from "../engine/random";
+import { reducer } from "../engine/reducer";
 import { advanceMonth } from "../engine/simulation";
 import type { GameState } from "../engine/types";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
@@ -126,6 +128,47 @@ describe("EMERGENT CYKEL: obalanserna styr, inte timern", () => {
       expect(longest).toBeLessThan(200);
       // Hysteresen håller: inga fasbyten snabbare än minsta faslängden.
       for (const len of lens) expect(len).toBeGreaterThanOrEqual(MIN_PHASE_MONTHS - 1);
+    } finally { clearRng(); }
+  });
+
+  it("systemviktighet: hög andel + egna obalanser tynger cykeln, händelsen loggas en gång", () => {
+    seedRng(31);
+    try {
+      // Spelaren äger nästan hela staden, halvtomt och överbelånat.
+      const big = makeState({
+        debt: 900_000_000,
+        portfolio: Array.from({ length: 10 }, (_, i) => emptyHouse(500 + i)).map((p) => ({ ...p, askPrice: 100_000_000 })),
+        competitors: [{ name: "R", cash: 0, units: 1, equity: 0, strategy: "värde", portfolio: [makeProperty({ id: 600, askPrice: 20_000_000 })] }],
+      });
+      expect(playerMarketShare(big)).toBeGreaterThan(0.4);
+      const p = cyclePressures(big);
+      expect(p.drivers).toContain("the dominant landlord's empty units");
+      expect(p.drivers).toContain("systemic landlord over-leveraged");
+      const ticked = tick(big);
+      expect(ticked.log.some((l) => l.t.includes("SYSTEMICALLY IMPORTANT"))).toBe(true);
+      expect(ticked.systemicNoted).toBe(true);
+    } finally { clearRng(); }
+  });
+
+  it("too big to fail: krisande systemjätte erbjuds stödpaket i stället för rekonstruktion", () => {
+    seedRng(37);
+    try {
+      const mk = () => makeState({
+        cash: -1_500_000,
+        crisisMonthsLeft: 6,
+        portfolio: Array.from({ length: 8 }, (_, i) => fullHouse(700 + i)).map((p) => ({ ...p, askPrice: 60_000_000 })),
+        competitors: [{ name: "R", cash: 0, units: 1, equity: 0, strategy: "värde", portfolio: [makeProperty({ id: 800, askPrice: 30_000_000 })] }],
+      });
+      const s = advanceMonth({ ...mk(), auction: undefined });
+      expect(s.pendingDecision?.id).toBe("tbtf_bailout");
+      expect(s.receivership).toBeUndefined();
+      // Acceptera: kassainjektion + covenants + rep-smäll.
+      const accepted = reducer(s, { type: "RESOLVE_DECISION", optionIndex: 0 });
+      expect(accepted.cash).toBeGreaterThan(0);
+      expect(accepted.restructuringTerms).toBeDefined();
+      // Avböj: vanlig rekonstruktion öppnas.
+      const refused = reducer(s, { type: "RESOLVE_DECISION", optionIndex: 1 });
+      expect(refused.receivership).toBeDefined();
     } finally { clearRng(); }
   });
 });

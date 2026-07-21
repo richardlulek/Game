@@ -69,6 +69,19 @@ export function constructionShare(s: GameState): number {
   return stock > 0 ? building / stock : 0;
 }
 
+/** Spelarens andel av stadens fastighetsvärden – över ~40 % är
+ *  imperiet systemviktigt och dess obalanser blir stadens. */
+export const SYSTEMIC_SHARE = 0.4;
+export const TBTF_SHARE = 0.35;
+
+export function playerMarketShare(s: GameState): number {
+  const mine = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+  const rivals = s.competitors.reduce((a, c) => a + (c.portfolio ?? []).reduce((x, p) => x + propMarketValue(p, s), 0), 0);
+  const listings = s.listings.reduce((a, p) => a + propMarketValue(p, s), 0);
+  const total = mine + rivals + listings;
+  return total > 0 ? mine / total : 0;
+}
+
 /** Månadens boom-/bust-tryck ur stadens obalanser. */
 export function cyclePressures(s: GameState): CyclePressures {
   const drivers: string[] = [];
@@ -99,6 +112,28 @@ export function cyclePressures(s: GameState): CyclePressures {
   const sent = s.marketSentiment ?? 1;
   if (sent > 1.15) boom += 0.5;
   else if (sent < 0.85) bust += 0.5;
+
+  // Systemviktig spelare: när imperiet ÄR marknaden blir dess egna
+  // obalanser stadens. Tomma hus och överbelåning hos den dominanta
+  // hyresvärden tynger hela cykeln.
+  const playerShare = playerMarketShare(s);
+  if (playerShare >= SYSTEMIC_SHARE) {
+    let slots = 0, vacant = 0;
+    for (const pr of s.portfolio) {
+      if (pr.status !== "klar") continue;
+      slots += pr.capacity;
+      vacant += Math.max(0, pr.capacity - pr.tenants.length);
+    }
+    if (slots > 0 && vacant / slots > 0.15) {
+      bust += 0.6;
+      drivers.push("the dominant landlord's empty units");
+    }
+    const values = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    if (values > 0 && totalDebtOf(s) / values > 0.7) {
+      bust += 0.5;
+      drivers.push("systemic landlord over-leveraged");
+    }
+  }
 
   return { boom, bust, drivers };
 }

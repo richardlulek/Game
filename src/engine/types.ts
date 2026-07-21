@@ -332,6 +332,10 @@ export interface DecisionEffect {
   execPoached?: string;
   /** Kampanjdonation inför kommunalvalet (politics.ts). */
   campaign?: { party: string; amount: number; secret?: boolean };
+  /** Statligt stödpaket (too big to fail): rekonstruktionsvillkor i N mån. */
+  restructureMonths?: number;
+  /** Avböjt stödpaket: rekonstruktionen öppnas i stället. */
+  forceReceivership?: boolean;
   /** Story-flagga som sätts när alternativet väljs. */
   storyFlag?: string;
   log: string;
@@ -1014,6 +1018,8 @@ export interface GameState {
   debtTranches?: number[];
   /** Riksbanken 2.0: inflationsläge och chockimpulser (centralBank.ts). */
   centralBank?: { inflation: number; impulse: number; popPrev?: number; inverted?: boolean };
+  /** Systemviktighetshändelsen har redan loggats (nollas om andelen faller). */
+  systemicNoted?: boolean;
   /** Personlig refinansieringspremie (pp) satt vid senaste låneförfallet –
    *  marknadsläget då präglar villkoren tills nästa förfall. Ersätter den
    *  gamla kvarlevan där refinansieringar flyttade själva styrräntan. */
