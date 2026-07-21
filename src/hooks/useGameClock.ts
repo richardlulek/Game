@@ -34,6 +34,26 @@ export function useGameClock(): void {
   const speed = useGameStore((s) => s.clock.speed);
   const until = useGameStore((s) => s.clock.until);
 
+  // Fångstnät: spara när fliken stängs/döljs – ALLTID, inte bara medan
+  // klockan rullar. Tidigare låg lyssnaren i klockeffekten nedan och
+  // registrerades bara när klockan var igång, så allt spelaren gjorde i
+  // pausat läge (köp, försäljningar, beslut …) gick förlorat om appen
+  // stängdes – pengar och fastighetsantal "hoppade tillbaka" vid nästa
+  // laddning. started-vakten hindrar titelskärmens färska tillstånd från
+  // att skriva över en riktig sparfil.
+  useEffect(() => {
+    const onHide = () => {
+      const g = useGameStore.getState();
+      if (g.started) g.save();
+    };
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []);
+
   useEffect(() => {
     if (!running) return;
     let raf = 0;
@@ -99,14 +119,6 @@ export function useGameClock(): void {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    // Fångstnät: spara när fliken stängs/döljs så inga månader tappas.
-    const onHide = () => useGameStore.getState().save();
-    window.addEventListener("pagehide", onHide);
-    document.addEventListener("visibilitychange", onHide);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("pagehide", onHide);
-      document.removeEventListener("visibilitychange", onHide);
-    };
+    return () => cancelAnimationFrame(raf);
   }, [running, speed, until]);
 }

@@ -4,6 +4,7 @@
    in-memory-lösning (window[SAVE_KEY]).
    ============================================================ */
 
+import { equityOf } from "../engine/finance";
 import { calcCapacity } from "../engine/generators";
 import { industryListPrice } from "../engine/industries";
 import { agendaFor } from "../engine/initState";
@@ -34,6 +35,7 @@ export interface SlotInfo {
   year?: number;
   month?: number;
   equity?: number;
+  properties?: number;
 }
 
 export function listSaveSlots(): SlotInfo[] {
@@ -42,14 +44,28 @@ export function listSaveSlots(): SlotInfo[] {
       const raw = localStorage.getItem(getSaveKey(slot));
       if (!raw) return { slot, exists: false };
       const parsed = JSON.parse(raw) as Partial<SaveFile>;
-      // För gamla sparfiler (före stadskartan 3.0) visas som tomma.
-      if ((typeof parsed.version === "number" ? parsed.version : 1) < MIN_SAVE_VERSION)
-        return { slot, exists: false };
-      const st = parsed.state as GameState | undefined;
-      const equity = st
-        ? Math.round(st.cash + (st.portfolio ?? []).reduce((a, p) => a + p.askPrice, 0) - st.debt)
-        : undefined;
-      return { slot, exists: true, savedAt: parsed.savedAt, year: st?.year, month: st?.month, equity };
+      // Samma migreringsväg som riktig laddning, så siffrorna nedan räknas
+      // på ett komplett tillstånd (gamla filer före v19 ger null → tomma).
+      const st = parseSaveFile(raw);
+      if (!st) return { slot, exists: false };
+      // Samma equity som spelet visar (marknadsvärden, industrier, aktier,
+      // institut …). Tidigare visades kassa + inköpspriser − skuld, vilket
+      // kunde skilja sig rejält från siffran i spelet.
+      let equity: number;
+      try {
+        equity = Math.round(equityOf(st));
+      } catch {
+        equity = Math.round(st.cash + (st.portfolio ?? []).reduce((a, p) => a + p.askPrice, 0) - st.debt);
+      }
+      return {
+        slot,
+        exists: true,
+        savedAt: parsed.savedAt,
+        year: st.year,
+        month: st.month,
+        equity,
+        properties: (st.portfolio ?? []).length,
+      };
     } catch {
       return { slot, exists: false };
     }

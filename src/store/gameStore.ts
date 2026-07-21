@@ -31,6 +31,10 @@ export type ClockSpeed = 1 | 2 | 4 | 8;
 interface GameStore {
   state: GameState;
   activeSlot: number;
+  /** true när ett spel faktiskt pågår (nytt spel startat eller sparfil
+   *  laddad) – vaktar autosparningen så titelskärmens färska tillstånd
+   *  aldrig skriver över en riktig sparfil. */
+  started: boolean;
   /** Spelklockan: rullande månader (se hooks/useGameClock). `until` är ett
    *  månadsindex (år*12+månad) – klockan spolar dit i förhöjd takt och
    *  stannar sedan (⏭ Månad-knappen, som rullar dagarna i stället för att
@@ -52,9 +56,24 @@ interface GameStore {
   setSlot: (slot: number) => void;
 }
 
+/** Debouncad autospar efter spelarhandlingar. Månadsskiftena sparas av
+ *  klockan (useGameClock), men köp, försäljningar och andra beslut görs
+ *  ofta i PAUSAT läge och nådde tidigare aldrig localStorage förrän nästa
+ *  autospar – pengar och fastighetsantal "hoppade tillbaka" om appen
+ *  stängdes däremellan. */
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleSave(): void {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const g = useGameStore.getState();
+    if (g.started) g.save();
+  }, 800);
+}
+
 export const useGameStore = create<GameStore>((set, get) => ({
   state: placeCity(initState()),
   activeSlot: getActiveSlot(),
+  started: false,
   clock: { running: false, speed: 1, until: null },
   // Manuell paus/play nollställer alltid ett pågående månadsspolande.
   setRunning: (running) => set((s) => ({ clock: { ...s.clock, running, until: null } })),
@@ -75,7 +94,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Slumpen seedas HÄR: PRNG:n sätts från tillståndets rng före reducern och
   // det framflyttade tillståndet läses tillbaka efteråt, så samma frö + samma
   // händelsesekvens ger identiskt utfall (determinism/replay).
-  dispatch: (action) =>
+  dispatch: (action) => {
     set((s) => {
       // Kartbytet måste ske FÖRE reducer/placeCity: nytt parti (RESET) och
       // importerat tillstånd (LOAD) kan bära ett annat stadsfrö, och
@@ -86,8 +105,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       else if (action.type === "LOAD") setActiveCityLayout(action.state.citySeed);
       seedRng(s.state.rng ?? s.state.seed ?? (Date.now() >>> 0));
       const next = placeCity(advanceStory(reducer(s.state, action)));
-      return { state: { ...next, rng: readRng(), log: stampLog(next.log, next.month, next.year) } };
-    }),
+      return {
+        state: { ...next, rng: readRng(), log: stampLog(next.log, next.month, next.year) },
+        ...(action.type === "RESET" || action.type === "LOAD" ? { started: true } : {}),
+      };
+    });
+    // Spelarhandlingar autosparas debouncat; klockans dags-/månadsticks
+    // sköts av useGameClock (månadsvis, strypt).
+    if (get().started && action.type !== "NEXT_DAY" && action.type !== "NEXT_MONTH") scheduleSave();
+  },
   save: () => saveGame(get().state, get().activeSlot),
   load: (slot?: number) => {
     const s = slot ?? get().activeSlot;
@@ -96,7 +122,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       setActiveSlot(s);
       // Sparfilens stadsfrö avgör vilken karta tomterna delas ut ur.
       setActiveCityLayout(loaded.citySeed);
-      set({ state: placeCity(loaded), activeSlot: s });
+      set({ state: placeCity(loaded), activeSlot: s, started: true });
       return true;
     }
     return false;

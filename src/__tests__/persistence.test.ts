@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { equityOf } from "../engine/finance";
 import { newId } from "../engine/random";
-import { clearSave, hasSave, loadGame, SAVE_VERSION, saveGame } from "../store/persistence";
-import { makeProperty, makeState, makeTenantFixture } from "./factories";
+import { clearSave, hasSave, listSaveSlots, loadGame, SAVE_VERSION, saveGame } from "../store/persistence";
+import { makeIndustryAsset, makeProperty, makeState, makeTenantFixture } from "./factories";
 
 // Enkel localStorage-stub för node-miljön.
 function installLocalStorage() {
@@ -54,5 +55,22 @@ describe("persistens", () => {
     expect(hasSave()).toBe(true);
     clearSave();
     expect(hasSave()).toBe(false);
+  });
+
+  it("slotlistan visar SAMMA equity som spelet – inte kassa + inköpspriser", () => {
+    // Ett tillstånd där den gamla grova formeln (kassa + askPrice − skuld)
+    // ger ett helt annat tal: industrier och skulder ingår.
+    const s = makeState({
+      cash: 10_000_000,
+      debt: 8_000_000,
+      portfolio: [makeProperty({ id: 600 }), makeProperty({ id: 601 })],
+      industryPortfolio: [makeIndustryAsset({ id: 700 })],
+    });
+    saveGame(s);
+    const slot = listSaveSlots().find((x) => x.slot === 1)!;
+    expect(slot.exists).toBe(true);
+    // Samma formel som HUD:en/spelet använder.
+    expect(slot.equity).toBe(Math.round(equityOf(loadGame()!)));
+    expect(slot.properties).toBe(2);
   });
 });

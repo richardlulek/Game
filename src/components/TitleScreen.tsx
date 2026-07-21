@@ -186,6 +186,7 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
                           : calYear(sl.year)
                         : ""}<br />
                       {sl.equity !== undefined ? msek(sl.equity) : ""}
+                      {sl.properties !== undefined ? ` · ${sl.properties} properties` : ""}
                     </div>
                   ) : (
                     <div style={{ fontSize: 11, color: C.brassDim, marginTop: 4 }}>Empty slot</div>
