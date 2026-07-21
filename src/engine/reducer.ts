@@ -94,6 +94,8 @@ import {
 } from "./finInstitutions";
 import { esgRatingOf } from "./esg";
 import { rollExecutive, talentStars } from "./executives";
+import { politicalFavorActive } from "./politics";
+import { COFINANCE_SPEEDUP, cofinanceCost, infraKindById, lobbyCost } from "./infrastructure";
 import {
   SPINOFF_MIN_ASSETS,
   SPINOFF_MIN_LEVEL,
@@ -1833,6 +1835,53 @@ export function reducer(state: GameState, action: GameAction): GameState {
             : "🏛️ Group contributions deactivated.",
           kind: "info",
         }, ...state.log],
+      };
+    }
+    case "COFINANCE_INFRA": {
+      // Medfinansiera kommunens pågående bygge: 20 % av notan mot 25 %
+      // kortare byggtid och anseende (infrastructure.ts).
+      const pr = (state.infraProjects ?? []).find((x) => x.id === action.projectId);
+      if (!pr || pr.cofinanced) return state;
+      const cost = cofinanceCost(pr.kindId ?? "");
+      if (cost <= 0) return state;
+      if (state.cash < cost) return log(state, `Co-financing ${pr.name} costs ${msek(cost)}.`, "warn");
+      const newLeft = Math.max(1, Math.round(pr.monthsLeft * COFINANCE_SPEEDUP));
+      return {
+        ...state,
+        cash: state.cash - cost,
+        reputation: Math.min(100, state.reputation + 2),
+        infraProjects: (state.infraProjects ?? []).map((x) =>
+          x.id === pr.id ? { ...x, monthsLeft: newLeft, cofinanced: true } : x,
+        ),
+        log: [{ t: `🤝 You co-finance ${pr.name} in ${pr.districtName} (${msek(cost)}): completion moves up to ~${newLeft} mo and the city takes note (rep +2).`, kind: "buy" }, ...state.log],
+      };
+    }
+    case "LOBBY_INFRA": {
+      // Lobbying: politisk välvilja + 25 % av notan startar ett valfritt
+      // projekt i ett valfritt (tillåtet) distrikt. Välviljan förbrukas.
+      if (!politicalFavorActive(state))
+        return log(state, "Lobbying for infrastructure requires political favor (back the winning campaign).", "warn");
+      if ((state.infraProjects ?? []).length > 0)
+        return log(state, "The municipality is already building — one project at a time.", "warn");
+      const kind = infraKindById(action.kindId);
+      if (!kind) return state;
+      if (kind.districts && !kind.districts.includes(action.district))
+        return log(state, `${kind.name} cannot be built in that district.`, "warn");
+      const d = DISTRICTS.find((x) => x.id === action.district);
+      if (!d) return state;
+      const cost = lobbyCost(kind.id);
+      if (state.cash < cost) return log(state, `Lobbying for ${kind.name} costs ${msek(cost)} (25% of the municipal bill).`, "warn");
+      const months = Math.round((kind.months[0] + kind.months[1]) / 2);
+      const boost = +((kind.devBoost[0] + kind.devBoost[1]) / 2).toFixed(3);
+      return {
+        ...state,
+        cash: state.cash - cost,
+        politics: { ...(state.politics ?? {}), favorMonthsLeft: 0, favorParty: undefined },
+        infraProjects: [
+          ...(state.infraProjects ?? []),
+          { id: newId(), name: kind.name, district: d.id, districtName: d.name, monthsLeft: months, totalMonths: months, boost, kindId: kind.id, cofinanced: true },
+        ],
+        log: [{ t: `${kind.icon} LOBBYING PAYS OFF: the municipality green-lights ${kind.name.toLowerCase()} in ${d.name} (your share ${msek(cost)}). The political favor is spent — this is what it was for.`, kind: "buy" }, ...state.log],
       };
     }
     case "START_DEPOSIT_CAMPAIGN": {

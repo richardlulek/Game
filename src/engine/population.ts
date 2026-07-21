@@ -15,6 +15,7 @@
    React-beroenden; simulationen anropar tickPopulation månadsvis.
    ============================================================ */
 
+import { accessibilityOf } from "./infrastructure";
 import { rnd } from "./random";
 import type { GameState, LogEntry, Property } from "./types";
 
@@ -130,13 +131,15 @@ export function tickPopulation(s: GameState): LogEntry[] {
   const delta = Math.round((cappedTarget - current) * 0.035 * rnd(0.7, 1.3));
 
   if (delta !== 0) {
-    // Fördela flytten: inflyttare söker distrikt med ledigt boende OCH jobb;
-    // utflyttning sker där trycket är lägst.
+    // Fördela flytten: inflyttare söker distrikt med ledigt boende OCH jobb –
+    // och föredrar tillgängliga lägen (tunnelbana/bro/campus lyfter vikten,
+    // infrastructure.ts). Utflyttning sker där trycket är lägst.
     const weights = districts.map((d) => {
       const cap = housingCapacity(s, d);
       const pop = populationOf(s, d);
       const room = Math.max(0, cap * 1.08 - pop);
-      return delta > 0 ? room + 1 : pop * 0.01 + 1;
+      const access = accessibilityOf(s, d);
+      return delta > 0 ? (room + 1) * access : pop * 0.01 + 1;
     });
     const wSum = weights.reduce((a, b) => a + b, 0) || 1;
     districts.forEach((d, i) => {

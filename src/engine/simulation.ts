@@ -45,7 +45,8 @@ import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
 import { hasRelation, nemesisOf, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
-import { INFRA_KINDS, cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
+import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
+import { INFRA_KINDS_2, openInfra } from "./infrastructure";
 import {
   ACTIVIST_TAKEOVER_AT,
   CRISIS_MONTHS,
@@ -1515,25 +1516,27 @@ export function advanceMonth(state: GameState): GameState {
         return true;
       });
     for (const pr of done) {
-      s.districtDev = {
-        ...(s.districtDev ?? {}),
-        [pr.district]: +(((s.districtDev?.[pr.district] ?? 1) + pr.boost).toFixed(3)),
-      };
-      events.push({
-        t: `🎉 OPENED: ${pr.name} in ${pr.districtName} is complete — the area lifts (+${Math.round(pr.boost * 100)}% area development).`,
-        kind: "event",
-      });
+      // Invigning: bestående accessibility + dev-lyft (infrastructure.ts).
+      events.push(openInfra(s, pr));
     }
     if ((s.infraProjects ?? []).length === 0 && random01() < 0.015) {
-      const kind = pick(INFRA_KINDS);
-      const d = pick(DISTRICTS);
+      // Kommunen väljer projekt som passar distriktet; politisk välvilja
+      // väger upp sannolikheten att bygget hamnar där DU redan äger.
+      const kind = pick(INFRA_KINDS_2);
+      const allowed = DISTRICTS.filter((d) => !kind.districts || kind.districts.includes(d.id));
+      let d = pick(allowed.length > 0 ? allowed : DISTRICTS);
+      if (politicalFavorActive(s) && random01() < 0.5) {
+        const counts = new Map(allowed.map((x) => [x.id, s.portfolio.filter((p) => p.district === x.id).length]));
+        const best = [...allowed].sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))[0];
+        if (best) d = best;
+      }
       const months = kind.months[0] + Math.floor(random01() * (kind.months[1] - kind.months[0] + 1));
-      const boost = +(kind.boost[0] + random01() * (kind.boost[1] - kind.boost[0])).toFixed(3);
+      const boost = +(kind.devBoost[0] + random01() * (kind.devBoost[1] - kind.devBoost[0])).toFixed(3);
       s.infraProjects = [
-        { id: newId(), name: kind.name, district: d.id, districtName: d.name, monthsLeft: months, totalMonths: months, boost },
+        { id: newId(), name: kind.name, district: d.id, districtName: d.name, monthsLeft: months, totalMonths: months, boost, kindId: kind.id },
       ];
       events.push({
-        t: `🏛️ CONSTRUCTION START: The municipality is building ${kind.name.toLowerCase()} in ${d.name} — done in ~${months} mo. The location is expected to rise sharply.`,
+        t: `${kind.icon} CONSTRUCTION START: The municipality is building ${kind.name.toLowerCase()} in ${d.name} — done in ~${months} mo. Accessibility (and rents) rise permanently at the opening. Co-financing is on the table in the District window.`,
         kind: "event",
       });
     }

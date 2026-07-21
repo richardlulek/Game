@@ -280,6 +280,10 @@ export interface InfraProject {
   monthsLeft: number;
   totalMonths: number;
   boost: number;
+  /** Projekttyp (infrastructure.ts INFRA_KINDS_2) – styr accessibility. */
+  kindId?: string;
+  /** Spelaren har medfinansierat (engångserbjudandet förbrukat). */
+  cofinanced?: boolean;
 }
 
 /** Ett säljpaket: flera fastigheter som annonseras som en portfölj –
@@ -1020,6 +1024,9 @@ export interface GameState {
   centralBank?: { inflation: number; impulse: number; popPrev?: number; inverted?: boolean };
   /** Systemviktighetshändelsen har redan loggats (nollas om andelen faller). */
   systemicNoted?: boolean;
+  /** Invigd infrastruktur: bestående tillgänglighetsbidrag per distrikt
+   *  (infrastructure.ts accessibilityOf). */
+  infraBuilt?: { kind: string; district: string; access: number; openedAbs: number }[];
   /** Personlig refinansieringspremie (pp) satt vid senaste låneförfallet –
    *  marknadsläget då präglar villkoren tills nästa förfall. Ersätter den
    *  gamla kvarlevan där refinansieringar flyttade själva styrräntan. */
@@ -1126,6 +1133,8 @@ export type GameAction =
   | { type: "SET_BANK_FOCUS"; focus: "fastighet" | "blandat" | "konsument" }
   | { type: "SET_RIVAL_LENDING"; on: boolean }
   | { type: "SET_GROUP_CONTRIBUTION"; on: boolean }
+  | { type: "COFINANCE_INFRA"; projectId: number }
+  | { type: "LOBBY_INFRA"; kindId: string; district: string }
   | { type: "BUY_INSURER" }
   | { type: "SELL_INSURER" }
   | { type: "SET_INSURER_PRICING"; pricing: InsurerPricing }

@@ -8,6 +8,7 @@ import { locationFactor } from "./city";
 import { cityEventOpexMult, cityEventShopMult } from "./cityEvents";
 import { rateValueFactor } from "./economyLife";
 import { obsolescenceFactor } from "./lifecycle";
+import { accessRentMult, accessValueMult } from "./infrastructure";
 import { DISTRICTS, PROP_TYPES } from "./data";
 import {
   REGULATED_RENT,
@@ -53,7 +54,9 @@ export function propMarketValue(p: Property, state: GameState): number {
   const hood = blockConditionMult(p, state);
   // Livscykel: åldrade byggnader blir omoderna och tappar i värde.
   const obs = obsolescenceFactor(p, state);
-  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc * rate * hood * obs;
+  // Infrastruktur: invigd kollektivtrafik m.m. kapitaliseras i värdet.
+  const access = accessValueMult(state, p.district);
+  const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc * rate * hood * obs * access;
 
   if (p.status === "bygger") return Math.round(assetValue * 0.5);
 
@@ -131,7 +134,9 @@ export function propPotentialRent(p: Property, state: GameState): number {
   const hoodRent = 1 + (blockConditionMult(p, state) - 1) * 0.5;
   // Livscykel: åldrade byggnader tappar i hyra (halv effekt mot värdet).
   const obsRent = 1 + (obsolescenceFactor(p, state) - 1) * 0.5;
-  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * hotellBonus * eventBonus * blockRent * single * mix * reg * hoodRent * obsRent;
+  // Infrastruktur: tillgängligheten lyfter läget (infrastructure.ts).
+  const accessRent = accessRentMult(state, p.district);
+  const gross = p.baseRent * p.rentMult * state.demandMod * d.demand * 1.2 * clusterRentMult * devRent * locRent * logistikBonus * hotellBonus * eventBonus * blockRent * single * mix * reg * hoodRent * obsRent * accessRent;
   const vacancy = p.regulated
     ? 0
     : Math.max(

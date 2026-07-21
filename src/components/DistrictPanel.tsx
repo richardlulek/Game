@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DISTRICTS } from "../engine/data";
 import { districtTier, nextDistrictTier } from "../engine/districtTiers";
 import { msek, pct } from "../engine/format";
+import { accessibilityOf, cofinanceCost, infraKindById } from "../engine/infrastructure";
 import { housingPressure, populationOf } from "../engine/population";
 import { propMarketValue } from "../engine/property";
 import type { GameAction, GameState } from "../engine/types";
@@ -123,6 +124,43 @@ export function DistrictPanel({ state, dispatch }: Props) {
                             {hot ? "housing shortage" : cold ? "housing surplus" : "housing balanced"}
                           </span>{" "}
                           ({Math.round(pressure * 100)}% occupancy of stock)
+                        </div>
+                      );
+                    })()}
+                    {/* Infrastruktur: bestående tillgänglighet + pågående bygge */}
+                    {(() => {
+                      const access = accessibilityOf(state, d.id);
+                      const project = (state.infraProjects ?? []).find((pr) => pr.district === d.id);
+                      const built = (state.infraBuilt ?? []).filter((b) => b.district === d.id);
+                      return (
+                        <div style={{ fontSize: 11.5, marginBottom: 6, color: C.creamSoft }}>
+                          🚇 Accessibility{" "}
+                          <span style={{ fontWeight: access > 1.001 ? 800 : 400, color: access > 1.001 ? C.gold : C.creamSoft }}>
+                            ×{access.toFixed(2)}
+                          </span>
+                          {built.length > 0 && (
+                            <span> · {built.map((b) => infraKindById(b.kind)?.icon ?? "🏗️").join(" ")}</span>
+                          )}
+                          {project && (
+                            <div style={{ marginTop: 4 }}>
+                              {infraKindById(project.kindId ?? "")?.icon ?? "🏗️"} <strong>{project.name}</strong> under construction · {project.monthsLeft} mo left
+                              {!project.cofinanced && project.kindId && (
+                                <button
+                                  onClick={() => dispatch({ type: "COFINANCE_INFRA", projectId: project.id })}
+                                  disabled={state.cash < cofinanceCost(project.kindId)}
+                                  style={{
+                                    marginLeft: 8, padding: "2px 8px", fontSize: 10.5, borderRadius: 4,
+                                    border: `1px solid ${C.brass}`, background: C.burgundy, color: C.brassBright,
+                                    cursor: "pointer", fontWeight: 700,
+                                  }}
+                                  title="20% of the municipal bill: completion 25% sooner and the city takes note (rep +2)."
+                                >
+                                  Co-finance {msek(cofinanceCost(project.kindId))}
+                                </button>
+                              )}
+                              {project.cofinanced && <span style={{ color: C.positive }}> · co-financed ✓</span>}
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
