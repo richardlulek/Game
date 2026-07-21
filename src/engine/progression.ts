@@ -6,6 +6,7 @@
    ============================================================ */
 
 import { execSalaryMult, talentOf } from "./executives";
+import { chainWearMult } from "./milestoneChains";
 import type { GameState } from "./types";
 
 export interface ResearchDef {
@@ -106,7 +107,8 @@ export function monthlyReputation(s: GameState): number {
 
 /** Långsammare slitage om smart förvaltning är utforskat. */
 export function wearMult(s: GameState): number {
-  return has(s, "smart_forvalt") ? 0.7 : 1;
+  // Renoverarkedjan: vana byggteam sliter mindre på husen (milestoneChains).
+  return (has(s, "smart_forvalt") ? 0.7 : 1) * chainWearMult(s);
 }
 
 /** Total lönekostnad per månad. Namngivna chefers talang (och

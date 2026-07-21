@@ -1,4 +1,5 @@
 import { MILESTONES } from "../engine/data";
+import { CHAINS, chainLevel } from "../engine/milestoneChains";
 import type { GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";
 
@@ -29,6 +30,58 @@ export function MilestonesPanel({ state }: Props) {
           borderRadius: 4,
           transition: "width 0.5s",
         }} />
+      </div>
+
+      {/* Milstolpekedjor: fleretappersmål med permanenta belöningar */}
+      <h3 style={{ fontFamily: FONTS.heading, fontSize: 14, color: C.brassBright, marginBottom: 10 }}>
+        Milestone chains — permanent rewards
+      </h3>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 20 }}>
+        {CHAINS.map((chain) => {
+          const lvl = chainLevel(state, chain.id);
+          const metric = chain.metric(state);
+          const next = chain.steps[lvl];
+          const doneAll = lvl >= chain.steps.length;
+          return (
+            <div key={chain.id} style={{
+              background: doneAll ? "#1e2a0e" : C.wood,
+              border: `1px solid ${doneAll ? C.positive : C.brass}66`,
+              borderRadius: 6,
+              padding: "12px 14px",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, color: C.brassBright, fontSize: 13 }}>
+                  {chain.icon} {chain.title}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: lvl > 0 ? C.gold : C.creamSoft }}>
+                  {["—", "I", "II", "III"][lvl] ?? lvl}
+                </span>
+              </div>
+              <div style={{ fontSize: 11.5, color: C.creamSoft, marginBottom: 6 }}>{chain.desc}</div>
+              {!doneAll && (
+                <>
+                  <div style={{ height: 6, background: C.woodDark, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+                    <div style={{
+                      height: "100%",
+                      width: `${Math.min(100, (metric / next.target) * 100)}%`,
+                      background: C.brass,
+                      borderRadius: 3,
+                    }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: C.creamSoft }}>
+                    {Math.min(metric, next.target)} / {next.target} {chain.unit}
+                    <span style={{ color: C.gold }}> → {next.reward}</span>
+                  </div>
+                </>
+              )}
+              {doneAll && (
+                <div style={{ fontSize: 11, color: C.positive, fontWeight: 700 }}>
+                  Fully mastered: {chain.steps[chain.steps.length - 1].reward}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Remaining */}

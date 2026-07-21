@@ -28,6 +28,7 @@ import {
 } from "./leasing";
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, SMALL_AI_NAMES, UPGRADES } from "./data";
 import { agendaFor } from "./initState";
+import { CHAINS, bumpChainCounter } from "./milestoneChains";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
@@ -514,9 +515,11 @@ export function advanceMonth(state: GameState): GameState {
           }
           np.renovation = undefined;
           s.reputation = Math.min(100, s.reputation + 3);
+          bumpChainCounter(s, "renovations"); // kedjan Renoveraren
         } else {
           np.vacancyMult = Math.max(0.6, np.vacancyMult * 0.80); // nyproducerat: 20 % lägre vakans
           s.reputation = Math.min(100, s.reputation + 5);
+          bumpChainCounter(s, "builds"); // kedjan Byggmästaren
           events.push({
             t: `🏗️ Nyproduktion klar: ${np.typeLabel} i ${np.districtName}. Reputation +5.`,
             kind: "income",
@@ -3249,6 +3252,22 @@ export function advanceMonth(state: GameState): GameState {
       s.milestones = [...doneMilestones, ms.id];
       s.reputation = Math.min(100, s.reputation + 3);
       events.push({ t: `🏅 MILESTONE: ${ms.title} – ${ms.desc} (Reward: ${ms.reward})`, kind: "income" });
+    }
+  }
+
+  // Milstolpekedjor (milestoneChains.ts): fleretappersmål med permanenta
+  // belöningar – nästa nivå låses upp så fort mätvärdet passerar målet.
+  for (const chain of CHAINS) {
+    let lvl = s.chainLevels?.[chain.id] ?? 0;
+    const metric = chain.metric(s);
+    while (lvl < chain.steps.length && metric >= chain.steps[lvl].target) {
+      lvl += 1;
+      s.chainLevels = { ...(s.chainLevels ?? {}), [chain.id]: lvl };
+      s.reputation = Math.min(100, s.reputation + 2);
+      events.push({
+        t: `⛓️ CHAIN MILESTONE: ${chain.icon} ${chain.title} ${["I", "II", "III"][lvl - 1] ?? lvl} — ${chain.steps[lvl - 1].reward} (permanent).`,
+        kind: "income",
+      });
     }
   }
 

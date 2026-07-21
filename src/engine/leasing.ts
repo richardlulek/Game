@@ -15,6 +15,7 @@
 
 import { parcelById, PARCELS } from "./city";
 import { districtTier } from "./districtTiers";
+import { chainAppFlowMult } from "./milestoneChains";
 import { pressureAppMult } from "./population";
 import { makeTenant } from "./generators";
 import { newId } from "./random";
@@ -159,7 +160,8 @@ export function applicationRate(
   const std = propertyStandard(p);
   const matchMult =
     (tier.id === "eftersatt" && std > 0.75) || (tier.id === "exklusivt" && std < 0.4) ? 0.85 : 1;
-  const base = free * 0.95 * price * cond * tierMult * matchMult * state.demandMod * referralBonus(state) * mix.rentMult;
+  // Hyresvärdskedjan: ryktet om en bra värd sprider sig (milestoneChains).
+  const base = free * 0.95 * price * cond * tierMult * matchMult * state.demandMod * referralBonus(state) * chainAppFlowMult(state) * mix.rentMult;
   // Befolkningsloopen: bostadsbrist i distriktet ger fler sökande, överskott
   // färre (population.ts – jobben driver inflyttningen som driver trycket).
   const popMult = p.type === "bostad" ? pressureAppMult(state, p.district) : 1;

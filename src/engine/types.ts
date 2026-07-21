@@ -968,6 +968,10 @@ export interface GameState {
   nemesis?: string;
   /** Allianser och fejder mellan rivalbolagen (stadens maktkamp). */
   rivalRelations?: RivalRelation[];
+  /** Milstolpekedjor (milestoneChains.ts): uppnådda nivåer per kedja. */
+  chainLevels?: Record<string, number>;
+  /** Milstolpekedjornas ackumulerande räknare (byggen, projekt, stadssatsningar). */
+  chainCounters?: Record<string, number>;
   /** Pågående företagsrekonstruktion: spelet pausar och spelaren väljer
    *  vilka tillgångar som säljs (ReceivershipModal). Sätts av simulationen
    *  när kassan faller under konkursgolvet men bolaget inte är insolvent. */

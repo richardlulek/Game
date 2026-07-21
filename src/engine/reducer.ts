@@ -68,6 +68,7 @@ import {
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "./rating";
+import { bumpedCounters, chainBuildCostMult, chainInvestBoostMult } from "./milestoneChains";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
@@ -842,7 +843,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const lot = state.lots.find((x) => x.id === action.id);
       const t = PROP_TYPES[action.propType];
       if (!lot || !lot.owned || !t) return state;
-      const cost = Math.round(lot.area * t.buildCostM2 * buildCostMult(state));
+      // Byggmästarkedjan: erfarna byggteam bygger billigare (milestoneChains).
+      const cost = Math.round(lot.area * t.buildCostM2 * buildCostMult(state) * chainBuildCostMult(state));
       const buildLeft = Math.max(4, t.buildMonths + buildMonthsDelta(state));
       const { maxLtv } = loanTerms(state);
       const down = cost * (1 - maxLtv);
@@ -1870,6 +1872,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash - cost,
         reputation: Math.min(100, state.reputation + 2),
+        chainCounters: bumpedCounters(state, "cityWorks"),
         infraProjects: (state.infraProjects ?? []).map((x) =>
           x.id === pr.id ? { ...x, monthsLeft: newLeft, cofinanced: true } : x,
         ),
@@ -1897,6 +1900,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         cash: state.cash - cost,
         politics: { ...(state.politics ?? {}), favorMonthsLeft: 0, favorParty: undefined },
+        chainCounters: bumpedCounters(state, "cityWorks"),
         infraProjects: [
           ...(state.infraProjects ?? []),
           { id: newId(), name: kind.name, district: d.id, districtName: d.name, monthsLeft: months, totalMonths: months, boost, kindId: kind.id, cofinanced: true },
@@ -2904,12 +2908,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // proportion: +1 % områdesutveckling per 25 Msek, max +5 % per satsning.
       // Tidigare gav 10 Msek +10 % OMEDELBART – den som ägde mycket i
       // distriktet köpte sig ett mångdubbelt värdelyft i ett klick.
-      const boost = Math.min(0.05, +((amount / 2_500_000_000)).toFixed(4));
+      // Stadsbyggarkedjan förstärker effekten (milestoneChains).
+      const boost = +(Math.min(0.05, +((amount / 2_500_000_000)).toFixed(4)) * chainInvestBoostMult(state)).toFixed(4);
       const d = DISTRICTS.find((x) => x.id === action.districtId);
       const months = 6 + Math.round(boost * 60);
       return {
         ...state,
         cash: state.cash - amount,
+        chainCounters: bumpedCounters(state, "cityWorks"),
         infraProjects: [
           ...(state.infraProjects ?? []),
           {
