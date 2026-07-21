@@ -107,7 +107,12 @@ export function initState(opts?: InitOptions): GameState {
     c.portfolio = slice.map((p) => ({ ...p, owned: false }));
     c.units = c.portfolio.length;
     const portVal = c.portfolio.reduce((a, p) => a + p.askPrice, 0);
-    c.equity = c.cash + portVal;
+    // Riktiga balansräkningar (rivalFinance.ts): beståndet är delvis belånat
+    // från start – räntehöjningar biter på rivalerna från dag ett.
+    const startLtv =
+      c.strategy === "tillväxt" ? 0.5 : c.strategy === "distrikt" ? 0.45 : c.strategy === "utdelning" ? 0.35 : 0.3;
+    c.debt = Math.round(portVal * startLtv);
+    c.equity = c.cash + portVal - c.debt;
     c.monthlyNOI = Math.round((portVal * 0.06) / 12);
     propIdx += compPortfolioSize;
   }

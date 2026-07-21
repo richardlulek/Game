@@ -48,6 +48,16 @@ import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
 import { ageWearFactor, buildingAge } from "./lifecycle";
+import {
+  RIVAL_CASH_BUFFER,
+  RIVAL_ICR_GRACE_MONTHS,
+  applyDistressProceeds,
+  rivalAmortShare,
+  rivalFinancePurchase,
+  rivalICR,
+  rivalInterest,
+  rivalLeverage,
+} from "./rivalFinance";
 import { INFRA_KINDS_2, accessibilityOf, gentrificationDrift, openInfra } from "./infrastructure";
 import {
   ACTIVIST_TAKEOVER_AT,
@@ -1394,8 +1404,12 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // ── Distressed competitor sales ─────────────────────────────────
+  // Två vägar in: tom kassa, eller räntetäckning < 1 i tre månader i följd
+  // (rivalFinance.ts) – när riksbanken höjer tvingas skuldsatta rivaler
+  // sälja. Intäkterna betalar först ned skulden, resten stärker kassan.
   for (const comp of s.competitors) {
-    if (comp.cash < 0 && (comp.portfolio ?? []).length > 0 && random01() < 0.30) {
+    const icrForced = (comp.icrBadMonths ?? 0) >= RIVAL_ICR_GRACE_MONTHS;
+    if ((comp.cash < 0 || icrForced) && (comp.portfolio ?? []).length > 0 && random01() < 0.30) {
       const selling = comp.portfolio[Math.floor(random01() * comp.portfolio.length)];
       const distressedPrice = Math.round(selling.askPrice * rnd(0.75, 0.88));
       const born = s.year * 12 + s.month;
@@ -1403,10 +1417,18 @@ export function advanceMonth(state: GameState): GameState {
         ...s.listings,
         { ...selling, owned: false, askPrice: distressedPrice, listedMonth: born, expiresMonth: born + 2, poolAskPrice: undefined, poolBaseRent: undefined },
       ];
-      s.competitors = s.competitors.map((c) =>
-        c.name === comp.name ? { ...c, portfolio: c.portfolio.filter((p) => p.id !== selling.id) } : c,
-      );
-      events.push({ t: `🚨 Distress sale! ${comp.name} is forced to sell ${selling.typeLabel} in ${selling.districtName} for ${msek(distressedPrice)} (−${Math.round((1 - distressedPrice / selling.askPrice) * 100)}%).`, kind: "warn", rival: comp.name });
+      s.competitors = s.competitors.map((c) => {
+        if (c.name !== comp.name) return c;
+        const proceeds = applyDistressProceeds(c, distressedPrice);
+        return {
+          ...c,
+          portfolio: c.portfolio.filter((p) => p.id !== selling.id),
+          debt: proceeds.debt,
+          cash: proceeds.cash,
+          icrBadMonths: 0,
+        };
+      });
+      events.push({ t: `🚨 Distress sale! ${comp.name} is forced to sell ${selling.typeLabel} in ${selling.districtName} for ${msek(distressedPrice)} (−${Math.round((1 - distressedPrice / selling.askPrice) * 100)}%)${icrForced ? " — the interest burden broke them" : ""}.`, kind: "warn", rival: comp.name });
     }
   }
 
@@ -1445,11 +1467,20 @@ export function advanceMonth(state: GameState): GameState {
       const listing = s.listings.find((p) => p.id === s.competingBid!.listingId);
       if (listing) {
         s.listings = s.listings.filter((p) => p.id !== listing.id);
-        s.competitors = s.competitors.map((c) =>
-          c.name === s.competingBid!.rivalName
-            ? { ...c, portfolio: [...(c.portfolio ?? []), listing], units: (c.portfolio ?? []).length + 1 }
-            : c,
-        );
+        // Budsegern betalas med belånad kassa (rivalFinance.ts) – tidigare
+        // fick rivalen huset gratis, vilket gjorde budkrig till ett fribrev.
+        const bidAmount = s.competingBid.amount;
+        s.competitors = s.competitors.map((c) => {
+          if (c.name !== s.competingBid!.rivalName) return c;
+          const debtPart = Math.round(bidAmount * rivalLeverage(c));
+          return {
+            ...c,
+            cash: Math.round(c.cash - (bidAmount - debtPart)),
+            debt: (c.debt ?? 0) + debtPart,
+            portfolio: [...(c.portfolio ?? []), listing],
+            units: (c.portfolio ?? []).length + 1,
+          };
+        });
         const vq = rivalQuote(s.competingBid.rivalName, "vinst", absNow);
         events.push({ t: `🏢 ${s.competingBid.rivalName} bought ${listing.typeLabel} in ${listing.districtName} for ${msek(s.competingBid.amount)}.${vq ? " " + vq : ""}`, kind: "event", rival: s.competingBid.rivalName });
       }
@@ -1474,6 +1505,9 @@ export function advanceMonth(state: GameState): GameState {
       units: (ca.portfolio ?? []).length + (cb.portfolio ?? []).length,
       equity: ca.equity + cb.equity,
       monthlyNOI: (ca.monthlyNOI ?? 0) + (cb.monthlyNOI ?? 0),
+      // Skulden följer med i affären (rivalFinance.ts) – uppköp av ett
+      // skuldtyngt bolag är ingen gratislunch.
+      debt: (ca.debt ?? 0) + (cb.debt ?? 0),
     };
     s.competitors = s.competitors.filter((_, i) => i !== buyer.i && i !== weakest.i);
     s.competitors = [...s.competitors, merged];
@@ -1922,12 +1956,24 @@ export function advanceMonth(state: GameState): GameState {
     // Allianser ger medvind, fejder motvind (rivalCycleMult).
     nc.monthlyNOI = Math.round((portVal * 0.06 * cycleNOI * rivalCycleMult(s, nc.name)) / 12);
     // Rivalerna behåller bara en DEL av driftnettot: resten går till bolags-
-    // kostnader, räntor och utdelning till ägarna (spelarens 6 % slåss mot
-    // opex/ränta/underhåll – rivalernas var ren vinst, och på 25 år
-    // komposterade det till kassaberg som toppade rankingen med 30 hus).
+    // kostnader och utdelning till ägarna. Räntan är numera EXPLICIT
+    // (rivalFinance.ts) – skuldsatta rivaler blöder när riksbanken höjer –
+    // så retention är högre än när den även skulle täcka räntorna.
     const retention =
-      nc.strategy === "tillväxt" ? 0.6 : nc.strategy === "utdelning" ? 0.3 : 0.45;
-    rivalCashflow(nc, Math.round(nc.monthlyNOI * retention));
+      nc.strategy === "tillväxt" ? 0.75 : nc.strategy === "utdelning" ? 0.45 : 0.6;
+    const rivInterest = rivalInterest(s, nc);
+    rivalCashflow(nc, Math.round(nc.monthlyNOI * retention) - rivInterest);
+    // Räntetäckningsvakt: NOI under räntekostnaden i tre månader i följd
+    // tvingar fram en nödförsäljning (blocket för distressed sales).
+    nc.icrBadMonths = rivalICR(s, nc) < 1 ? (nc.icrBadMonths ?? 0) + 1 : 0;
+    // Amortering ur överskottskassan – utdelningsbolag mest, tillväxt minst.
+    if ((nc.debt ?? 0) > 0 && nc.cash > RIVAL_CASH_BUFFER) {
+      const pay = Math.min(nc.debt ?? 0, Math.round((nc.cash - RIVAL_CASH_BUFFER) * rivalAmortShare(nc)));
+      if (pay > 0) {
+        nc.debt = (nc.debt ?? 0) - pay;
+        nc.cash -= pay;
+      }
+    }
     // Rivalernas byggen tickar och färdigställs (kranar på kartan).
     let finishedBuild: string | null = null;
     nc.portfolio = nc.portfolio.map((p) => {
@@ -1958,8 +2004,9 @@ export function advanceMonth(state: GameState): GameState {
           : build.district;
       const dObj = DISTRICTS.find((d) => d.id === district);
       const cost = Math.round(build.askPrice * 0.85);
-      if (nc.cash >= cost) {
-        rivalCashflow(nc, -cost);
+      // Bygget belånas (rivalFinance.ts): kassan bär bara eget kapitaldelen.
+      if (nc.cash >= Math.round(cost * (1 - rivalLeverage(nc))) + 1_000_000) {
+        rivalFinancePurchase(nc, cost);
         nc.portfolio.push({
           ...build,
           district,
@@ -1987,8 +2034,9 @@ export function advanceMonth(state: GameState): GameState {
       if (idx >= 0) {
         const p = nc.portfolio[idx];
         const cost = Math.round(propMarketValue(p, s) * 0.3);
-        if (nc.cash >= cost) {
-          rivalCashflow(nc, -cost);
+        // Påbyggnaden belånas som annan capex (rivalFinance.ts).
+        if (nc.cash >= Math.round(cost * (1 - rivalLeverage(nc))) + 1_000_000) {
+          rivalFinancePurchase(nc, cost);
           nc.portfolio[idx] = {
             ...p,
             devLevel: (p.devLevel ?? 0) + 1,
@@ -2033,7 +2081,7 @@ export function advanceMonth(state: GameState): GameState {
     if (indVal > 0) rivalCashflow(nc, Math.round((indVal * 0.06 * cycleNOI * retention) / 12));
     // Aktieportföljen (korsägande) värderas till marknadskurs.
     const holdVal = rivalHoldingsValue(nc, s.stocks);
-    nc.equity = nc.cash + indVal + holdVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+    nc.equity = nc.cash + indVal + holdVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0) - (nc.debt ?? 0);
     // Kapitaldisciplin: fastighetsbolag sitter inte på halva förmögenheten i
     // likvider. Kassa över ~40 % av eget kapital delas ut i takt om 8 %/mån –
     // gamla partiers uppbyggda berg smälter bort inom ett par år. (Fonderna
@@ -2042,7 +2090,7 @@ export function advanceMonth(state: GameState): GameState {
       const maxCash = Math.max(10_000_000, nc.equity * 0.4);
       if (nc.cash > maxCash) {
         nc.cash = Math.round(nc.cash - (nc.cash - maxCash) * 0.08);
-        nc.equity = nc.cash + indVal + holdVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
+        nc.equity = nc.cash + indVal + holdVal + nc.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0) - (nc.debt ?? 0);
       }
     }
     return nc;
@@ -2126,15 +2174,21 @@ export function advanceMonth(state: GameState): GameState {
         case "tillväxt": default: return true;
       }
     });
-    if (buyable.length > 0) {
-      const taken = pick(buyable);
+    const equityShare = 1 - rivalLeverage(buyer);
+    const affordable = buyable.filter((p) => buyer.cash >= Math.round(p.askPrice * equityShare));
+    if (affordable.length > 0) {
+      const taken = pick(affordable);
       const price = Math.round(taken.askPrice * rnd(0.97, 1.05));
+      // Köpet belånas (rivalFinance.ts): kassan bär eget kapitaldelen,
+      // resten läggs på skuldsidan och kostar ränta varje månad.
+      const debtPart = Math.round(price * rivalLeverage(buyer));
       s.listings = s.listings.filter((x) => x.id !== taken.id);
       s.competitors = s.competitors.map((c) =>
         c.name === buyer.name
           ? {
               ...c,
-              cash: Math.max(0, c.cash - price),
+              cash: Math.round(c.cash - (price - debtPart)),
+              debt: (c.debt ?? 0) + debtPart,
               portfolio: [...(c.portfolio ?? []), { ...taken, owned: false, askPrice: price }],
               units: (c.portfolio ?? []).length + 1,
               lastBuy: taken.districtName,

@@ -656,6 +656,11 @@ export interface Competitor {
   /** Aktieinnehav i andra noterade bolag – inklusive SPELARENS (FBAB).
    *  Byggs och avvecklas av rivalhandeln i stocks.ts; ingår i equity. */
   stockHoldings?: { stockId: string; shares: number; avgCost: number }[];
+  /** Skuldsidan (rivalFinance.ts): köp/byggen belånas, räntan dras varje
+   *  månad och equity räknas netto. Saknas i gamla sparfiler ⇒ 0. */
+  debt?: number;
+  /** Månader i följd med räntetäckning < 1 – tre i rad ⇒ nödförsäljning. */
+  icrBadMonths?: number;
 }
 
 /** Bransch på börsen. */
