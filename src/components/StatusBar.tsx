@@ -1,4 +1,4 @@
-import { orgLoadOf, tierForLevel } from "../engine/company";
+import { OVERLOAD_COST_PER_PROP, orgLoadOf, tierForLevel } from "../engine/company";
 import { kr, msek, pct } from "../engine/format";
 import type { GameState, LoanTerms } from "../engine/types";
 import { S } from "../styles/styles";
@@ -15,9 +15,9 @@ interface StatusBarProps {
   myRank: number;
 }
 
-function Chip({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+function Chip({ label, value, valueColor, title }: { label: string; value: string; valueColor?: string; title?: string }) {
   return (
-    <div style={S.statusChip}>
+    <div style={S.statusChip} title={title}>
       <div style={S.statusLabel}>{label}</div>
       <div style={{ ...S.statusValue, ...(valueColor ? { color: valueColor } : {}) }}>{value}</div>
     </div>
@@ -81,12 +81,22 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
       <Chip label="Rank" value={`#${myRank}`} valueColor={rankColor} />
       <Chip label="Company" value={`${tierForLevel(state.companyLevel ?? 1).icon} Level ${state.companyLevel ?? 1}`} />
       {state.portfolio.length > 0 && (() => {
+        // Organisationsbelastning, inte "antal förvaltade": chippen räknar
+        // fastigheter du sköter SJÄLV mot nivåns tak. 0/30 med 69 hus betyder
+        // alltså att förvaltare/direktören täcker allt – tidigare etiketten
+        // "Management" lästes som motsatsen (uppfattades som bugg).
         const load = orgLoadOf(state);
+        const director = state.globalManager?.active;
         return (
           <Chip
-            label="Management"
-            value={`${load.selfManaged}/${load.cap}`}
+            label="Self-managed"
+            value={director ? "🎩 Director" : `${load.selfManaged}/${load.cap}`}
             valueColor={load.over > 0 ? "#f87a7a" : undefined}
+            title={
+              director
+                ? "The portfolio director's office manages the entire portfolio — nothing burdens your own organisation."
+                : `Properties without a property manager burden your own organisation: ${load.selfManaged} of ${load.cap} capacity at level ${state.companyLevel ?? 1}.${load.over > 0 ? ` Over capacity: +${kr(load.over * OVERLOAD_COST_PER_PROP)}/mo in admin costs.` : ""}`
+            }
           />
         );
       })()}
