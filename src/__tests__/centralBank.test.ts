@@ -3,10 +3,14 @@ import {
   INFLATION_TARGET,
   RATE_MAX,
   RATE_MIN,
+  TERM_PREMIUM,
   centralBankDecision,
+  curveInverted,
+  longRate,
   taylorTarget,
   tickInflation,
 } from "../engine/centralBank";
+import { bondRateFor, creditRatingOf } from "../engine/rating";
 import { EVENTS } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { clearRng, seedRng } from "../engine/random";
@@ -101,6 +105,46 @@ describe("RIKSBANKEN 2.0: inflationen driver räntan", () => {
         const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
         expect(avg(hi)).toBeGreaterThan(avg(lo));
       }
+    } finally { clearRng(); }
+  });
+
+  it("avkastningskurvan: positiv lutning i normalläge, inverterad efter höjningar när inflationen faller", () => {
+    // Normalläge: långräntan över styrräntan (löptidspremie).
+    const normal = makeState({ interestRate: 3.25, centralBank: { inflation: 2, impulse: 0 } });
+    expect(longRate(normal)).toBeGreaterThan(normal.interestRate);
+    expect(curveInverted(normal)).toBe(false);
+    // Hög styrränta + fallande inflation ⇒ marknaden prisar in sänkningar.
+    const late = makeState({ interestRate: 8, centralBank: { inflation: 0.5, impulse: 0 } });
+    expect(curveInverted(late)).toBe(true);
+    expect(longRate(late)).toBeLessThan(late.interestRate);
+    expect(TERM_PREMIUM).toBeGreaterThan(0);
+  });
+
+  it("obligationer prissätts i långa änden: billigare än korta när sänkningar väntas", () => {
+    const late = makeState({
+      interestRate: 8,
+      centralBank: { inflation: 0.5, impulse: 0 },
+      cash: 60_000_000,
+      portfolio: [makeProperty({ id: 1, tenants: [makeTenantFixture({ rent: 500_000 })] })],
+    });
+    const rating = creditRatingOf(late).rating;
+    // Långt ankare: kupongen ska ligga under styrränta + ratingspread.
+    expect(bondRateFor(late, rating)).toBeLessThan(8 + 0.6);
+    expect(bondRateFor(late, rating)).toBeCloseTo(Math.max(3, longRate(late) + (rating === "AAA" ? 0.6 : rating === "AA" ? 0.8 : rating === "A" ? 1.0 : rating === "BBB" ? 1.4 : rating === "BB" ? 2.2 : rating === "B" ? 3.2 : 5)), 2);
+  });
+
+  it("inversionen varnas en gång i simulationen och tynger sentimentet", () => {
+    seedRng(21);
+    try {
+      let s = makeState({
+        interestRate: 8,
+        centralBank: { inflation: 0.5, impulse: 0 },
+        marketSentiment: 1.2,
+        cash: 30_000_000,
+      });
+      s = tick(s);
+      expect(s.log.some((l) => l.t.includes("INVERTED YIELD CURVE"))).toBe(true);
+      expect(s.centralBank?.inverted).toBe(true);
     } finally { clearRng(); }
   });
 });

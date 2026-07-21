@@ -1003,7 +1003,7 @@ export interface GameState {
    *  tranch omförhandlar bara en tredjedel av ränterisken. */
   debtTranches?: number[];
   /** Riksbanken 2.0: inflationsläge och chockimpulser (centralBank.ts). */
-  centralBank?: { inflation: number; impulse: number; popPrev?: number };
+  centralBank?: { inflation: number; impulse: number; popPrev?: number; inverted?: boolean };
   /** Personlig refinansieringspremie (pp) satt vid senaste låneförfallet –
    *  marknadsläget då präglar villkoren tills nästa förfall. Ersätter den
    *  gamla kvarlevan där refinansieringar flyttade själva styrräntan. */

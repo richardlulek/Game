@@ -43,6 +43,8 @@ export interface CentralBankState {
   impulse: number;
   /** Föregående månads stadsbefolkning (för tillväxttermen). */
   popPrev?: number;
+  /** Kurvan var inverterad förra månaden (för engångsvarningen). */
+  inverted?: boolean;
 }
 
 export function centralBankOf(s: GameState): CentralBankState {
@@ -95,6 +97,28 @@ export function taylorTarget(inflation: number, phase: "boom" | "bust" | "stable
   const outputGap = phase === "boom" ? 0.5 : phase === "bust" ? -1.0 : 0;
   const target = NEUTRAL_RATE + 1.5 * (inflation - INFLATION_TARGET) + outputGap;
   return Math.max(RATE_MIN, Math.min(RATE_MAX, target));
+}
+
+/* ── Avkastningskurvan ──────────────────────────────────────────────
+   Kort ände = styrräntan (certifikaten prissätts där). Lång ände =
+   marknadens förväntade styrränteBANA (snittet av dagens ränta och
+   Taylor-målet) plus en löptidspremie – obligationerna prissätts där.
+   Inverterad kurva (styrräntan över långräntan) betyder att marknaden
+   prisar in sänkningar: den klassiska recessionssignalen. */
+
+export const TERM_PREMIUM = 0.8;
+
+/** Lång marknadsränta (≈10 år). */
+export function longRate(s: GameState): number {
+  const cb = centralBankOf(s);
+  const phase = s.marketCycle?.phase ?? "stable";
+  const expectedPath = (s.interestRate + taylorTarget(cb.inflation, phase)) / 2;
+  return +Math.max(RATE_MIN, expectedPath + TERM_PREMIUM).toFixed(2);
+}
+
+/** Är kurvan inverterad (recessionssignal)? */
+export function curveInverted(s: GameState): boolean {
+  return s.interestRate > longRate(s) + 0.1;
 }
 
 /** Kvartalsvis räntebesked: styrräntan söker sig mot Taylor-målet i

@@ -5,6 +5,7 @@
    program marknaden accepterar. Ren logik utan React-beroenden.
    ============================================================ */
 
+import { longRate } from "./centralBank";
 import { esgRatingOf } from "./esg";
 import { equityOf, industryPortfolioValue, portfolioValue } from "./finance";
 import { propNOI } from "./property";
@@ -104,7 +105,10 @@ export function bondRateFor(s: GameState, rating: CreditRating): number {
   const spread: Record<CreditRating, number> = {
     AAA: 0.6, AA: 0.8, A: 1.0, BBB: 1.4, BB: 2.2, B: 3.2, CCC: 5,
   };
-  return +Math.max(3.0, s.interestRate + spread[rating]).toFixed(2);
+  // Obligationer prissätts i kurvans LÅNGA ände (centralBank.longRate):
+  // väntas styrräntan falla blir lång upplåning billigare än kort – och
+  // tvärtom. Certifikaten (CP_SPREAD) bor kvar i korta änden.
+  return +Math.max(3.0, longRate(s) + spread[rating]).toFixed(2);
 }
 
 /** Covenantkontroll: bryts när skulden springer före intjäningen.

@@ -30,6 +30,7 @@ import {
   loanTerms,
 } from "../engine/finance";
 import { resultatrakning } from "../engine/bokslut";
+import { curveInverted, longRate } from "../engine/centralBank";
 import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "../engine/rating";
 import {
   bankCapitalOf,
@@ -157,6 +158,13 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                   <Line l="Policy rate" v={`${state.interestRate.toFixed(2)}%`} />
                   <Line l="Inflation (target 2.0%)" v={`${inf.toFixed(1)}%`}
                     accent={inf > 3.5 ? "#c0392b" : inf < 0.5 ? "#c0392b" : inf > 2.8 ? "#c9a13b" : "#27660a"} />
+                  <Line l="10-yr market rate (bonds)" v={`${longRate(state).toFixed(2)}%`} />
+                  {curveInverted(state) && (
+                    <div style={{ fontSize: 11, color: "#c0392b", fontWeight: 700, marginBottom: 4 }}>
+                      📉 Inverted yield curve — markets are pricing in a downturn. Long bond
+                      funding is now cheaper than short paper.
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
                     Next rate decision in {toDecision} mo. The bank follows a Taylor rule —
                     hot markets, construction costs and population inflows push inflation,

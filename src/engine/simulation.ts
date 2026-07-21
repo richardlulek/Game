@@ -93,7 +93,7 @@ import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, p
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
-import { centralBankDecision, tickInflation } from "./centralBank";
+import { centralBankDecision, curveInverted, longRate, tickInflation } from "./centralBank";
 import {
   CAMPAIGN_LEAD,
   CAMPAIGN_WIN_OPEN,
@@ -257,6 +257,19 @@ export function advanceMonth(state: GameState): GameState {
   tickInflation(s);
   if (s.month % 3 === 1) {
     for (const ev of centralBankDecision(s)) events.push(ev);
+  }
+  // Avkastningskurvan: inverterad kurva (styrränta > långränta) är
+  // marknadens recessionssignal – varnas en gång och tynger sentimentet.
+  {
+    const inv = curveInverted(s);
+    if (inv && !s.centralBank?.inverted) {
+      events.push({
+        t: `📉 INVERTED YIELD CURVE: short rates (${s.interestRate.toFixed(2)}%) are above the 10-yr rate (${longRate(s).toFixed(2)}%) — markets are pricing in a downturn.`,
+        kind: "warn",
+      });
+    }
+    if (inv) s.marketSentiment = +(Math.max(0.55, (s.marketSentiment ?? 1) * 0.995)).toFixed(3);
+    s.centralBank = { ...(s.centralBank ?? { inflation: 2, impulse: 0 }), inverted: inv };
   }
 
   // Decrement recession counter
