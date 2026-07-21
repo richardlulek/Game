@@ -6,7 +6,9 @@
    ============================================================ */
 
 import { OVERLOAD_COST_PER_PROP, orgLoadOf, tierForLevel } from "./company";
-import { industryPortfolioValue, loanTerms, portfolioValue } from "./finance";
+import { TAX_DEP_AGGRESSIVE, TAX_DEP_NORMAL, industryPortfolioValue, loanTerms, portfolioValue } from "./finance";
+import { OWN_INSURER_PREMIUM_MULT, bankRunRate, finInstitutionsValue, insurerMonthlyNet } from "./finInstitutions";
+import { SPINOFF_DIVIDEND_PAYOUT, spinoffOwnedPct } from "./spinoffs";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
 import { propAnnualOpex, propMarketValue } from "./property";
 import { salariesTotal } from "./progression";
@@ -18,6 +20,14 @@ export interface Resultatrakning {
   hyresintakter: number;
   industrinetto: number;
   utdelningar: number;
+  /** Ägd bank: förväntat netto inkl. normala kreditförluster. */
+  bankrorelse: number;
+  /** Ägt försäkringsbolag: förväntat netto (premier − skador − drift). */
+  forsakringsrorelse: number;
+  /** Dotterbolagens månadsvinst. */
+  dotterbolagsvinst: number;
+  /** Avknoppningarnas utdelningar, utslaget per månad (uppskattning). */
+  avknoppningsutdelning: number;
   summaIntakter: number;
 
   driftkostnader: number;
@@ -52,6 +62,18 @@ export function resultatrakning(s: GameState): Resultatrakning {
   const utdelningar = Math.round(
     s.stocks.reduce((a, st) => a + st.owned * st.price * st.dividendYield, 0) / 12,
   );
+  // Institut och koncernbolag: samma flöden som simulationen bokför via
+  // cashflow ("bankrörelsen", "försäkringsrörelsen", "dotterbolagsvinst",
+  // "utdelning från avknoppning") – tidigare osynliga i bokslutet.
+  const bankrorelse = s.ownedBank ? bankRunRate(s.ownedBank, s) : 0;
+  const forsakringsrorelse = s.ownedInsurer ? insurerMonthlyNet(s.ownedInsurer, s) : 0;
+  const dotterbolagsvinst = (s.subsidiaries ?? []).reduce((a, x) => a + x.monthlyIncome, 0);
+  const avknoppningsutdelning = Math.round(
+    (s.spinOffs ?? []).reduce(
+      (a, spin) => a + Math.max(0, spin.lastMonthNet) * SPINOFF_DIVIDEND_PAYOUT * spinoffOwnedPct(s, spin),
+      0,
+    ),
+  );
 
   const driftkostnader = Math.round(klara.reduce((a, p) => a + propAnnualOpex(p, s) / 12, 0));
   const forvaltare = klara
@@ -62,12 +84,15 @@ export function resultatrakning(s: GameState): Resultatrakning {
   const tier = tierForLevel(s.companyLevel ?? 1);
   const overload = orgLoadOf(s).over * OVERLOAD_COST_PER_PROP;
   const kontor = tier.monthlyOverhead + overload;
-  // Premie: 0,40 % av marknadsvärdet per år (min 2 000 kr/mån) – som i simulationen.
-  const forsakringar = klara
+  // Premie: 0,40 % av marknadsvärdet per år (min 2 000 kr/mån) – som i
+  // simulationen, inkl. 40 %-rabatten när koncernen äger försäkringsbolaget.
+  const premieMult = s.ownedInsurer ? OWN_INSURER_PREMIUM_MULT : 1;
+  const forsakringar = Math.round(klara
     .filter((p) => p.insurance)
-    .reduce((a, p) => a + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)), 0);
+    .reduce((a, p) => a + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)), 0) * premieMult);
 
-  const summaIntakter = hyresintakter + industrinetto + utdelningar;
+  const summaIntakter = hyresintakter + industrinetto + utdelningar +
+    bankrorelse + forsakringsrorelse + dotterbolagsvinst + avknoppningsutdelning;
   const summaKostnader = driftkostnader + forvaltare + direktor + personal + kontor + forsakringar;
   const rorelseresultat = summaIntakter - summaKostnader;
 
@@ -83,22 +108,30 @@ export function resultatrakning(s: GameState): Resultatrakning {
   const resultatForeSkatt = rorelseresultat - rantekostnad;
 
   // Samma skatteformel som simulationen: 22 % på positivt resultat efter
-  // avskrivningsavdrag (2 %/år av anskaffningsvärdet), −3 %-enheter med
-  // minst en fastighet i energiklass A (golv 10 %).
+  // avskrivningsavdrag enligt vald policy (normal 1,3 %/år, aggressiv 2 %),
+  // −3 %-enheter med minst en fastighet i energiklass A (golv 10 %),
+  // och sparade förlustavdrag kvittas först.
+  const depRate = s.taxDepreciationPolicy === "aggressiv" ? TAX_DEP_AGGRESSIVE : TAX_DEP_NORMAL;
   const avskrivningsavdrag = Math.round(
-    klara.reduce((a, p) => a + ((p.purchasePrice ?? p.askPrice) * 0.02) / 12, 0),
+    klara.reduce((a, p) => a + ((p.purchasePrice ?? p.askPrice) * depRate) / 12, 0),
   );
   const harEnergiA = klara.some((p) => p.energyClass === "A");
   const skattesats = Math.max(0.1, 0.22 - (harEnergiA ? 0.03 : 0));
+  const bruttoSkattepliktigt = Math.max(0, resultatForeSkatt - avskrivningsavdrag);
+  const forlustavdrag = Math.min(s.taxLossCarry ?? 0, bruttoSkattepliktigt);
   const skatt =
     resultatForeSkatt > 0
-      ? Math.round(Math.max(0, resultatForeSkatt - avskrivningsavdrag) * skattesats)
+      ? Math.round((bruttoSkattepliktigt - forlustavdrag) * skattesats)
       : 0;
 
   return {
     hyresintakter,
     industrinetto,
     utdelningar,
+    bankrorelse,
+    forsakringsrorelse,
+    dotterbolagsvinst,
+    avknoppningsutdelning,
     summaIntakter,
     driftkostnader,
     forvaltning: forvaltare + direktor,
@@ -125,6 +158,8 @@ export interface Balansrakning {
   industri: number;
   aktier: number;
   dotterbolag: number;
+  /** Värdet på ägd bank + försäkringsbolag (finInstitutions.ts). */
+  institut: number;
   summaTillgangar: number;
 
   banklan: number;
@@ -143,7 +178,10 @@ export function balansrakning(s: GameState): Balansrakning {
   const industri = Math.round(industryPortfolioValue(s));
   const aktier = Math.round(stockHoldingsValue(s));
   const dotterbolag = Math.round(subsidiaryValue(s));
-  const summaTillgangar = kassa + fastigheter + mark + industri + aktier + dotterbolag;
+  // Banken och försäkringsbolaget värderas som i equityOf – utan raden
+  // stämde balansräkningens eget kapital inte med HUD:ens siffra.
+  const institut = Math.round(finInstitutionsValue(s));
+  const summaTillgangar = kassa + fastigheter + mark + industri + aktier + dotterbolag + institut;
 
   const banklan = s.debt;
   const obligationer = (s.bonds ?? []).reduce((a, b) => a + b.amount, 0);
@@ -158,6 +196,7 @@ export function balansrakning(s: GameState): Balansrakning {
     industri,
     aktier,
     dotterbolag,
+    institut,
     summaTillgangar,
     banklan,
     obligationer,

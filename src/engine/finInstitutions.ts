@@ -178,6 +178,13 @@ export function tickInsurer(
   return { insurer: ni, net, events };
 }
 
+/** Förväntad månadstakt inkl. normala kreditförluster (för bokslutet).
+ *  bankMonthlyNet är brutto före förluster; här dras basrisken av så
+ *  resultaträkningens rad speglar vad en typisk månad faktiskt ger. */
+export function bankRunRate(bank: OwnedBank, state: GameState): number {
+  return Math.round(bankMonthlyNet(bank, state) - bank.loansOut * (STANCE_LOSS[bank.stance] / 100));
+}
+
 /* ── Inlåningskampanj (banken) ──────────────────────────────────────── */
 
 /** Kampanjens längd i månader och lyft på inlåningsmålet. */

@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { balansrakning, resultatrakning } from "../engine/bokslut";
-import { equityOf, loanTerms } from "../engine/finance";
+import { TAX_DEP_NORMAL, equityOf, loanTerms } from "../engine/finance";
 import { propAnnualOpex, propMarketValue } from "../engine/property";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 
@@ -29,8 +29,10 @@ describe("resultaträkningen", () => {
     expect(rr.driftkostnader).toBe(Math.round(propAnnualOpex(p, s) / 12));
     expect(rr.rantekostnad).toBe(Math.round((1_000_000 * (loanTerms(s).rate / 100)) / 12));
     expect(rr.rorelseresultat).toBe(rr.summaIntakter - rr.summaKostnader);
-    // Skatt: 22 % på (resultat − avskrivningsavdrag 2 %/år av anskaffningsvärdet)
-    const avdrag = Math.round((2_000_000 * 0.02) / 12);
+    // Skatt: 22 % på (resultat − avskrivningsavdrag enligt normalpolicyn)
+    // – samma sats som simulationen (bokslutet använde tidigare 2 % medan
+    // simulationen drog 1,3 %, så skatteraden ljög).
+    const avdrag = Math.round((2_000_000 * TAX_DEP_NORMAL) / 12);
     expect(rr.avskrivningsavdrag).toBe(avdrag);
     expect(rr.skatt).toBe(Math.round(Math.max(0, rr.resultatForeSkatt - avdrag) * 0.22));
     expect(rr.resultat).toBe(rr.resultatForeSkatt - rr.skatt);
@@ -74,5 +76,27 @@ describe("balansräkningen", () => {
       bonds: [{ id: "b1", amount: 500_000, rate: 8, matureAbs: 999 }], // … och skulden bokförd
     });
     expect(equityOf(med)).toBe(equityOf(utan));
+  });
+
+  it("institut syns i både resultat- och balansräkning (användarrapport)", () => {
+    const s = makeState({
+      cash: 10_000_000,
+      portfolio: [makeProperty({ id: 1, tenants: [makeTenantFixture()] })],
+      ownedBank: { name: "B", deposits: 100_000_000, loansOut: 65_000_000, stance: "balanserad", acquiredAbs: 0, totalNet: 0 },
+      ownedInsurer: { name: "F", policies: 500, pricing: "marknad", acquiredAbs: 0, totalNet: 0 },
+    });
+    const rr = resultatrakning(s);
+    // Bank- och försäkringsrörelsens löpande netto är egna intäktsrader...
+    expect(rr.bankrorelse).not.toBe(0);
+    expect(rr.forsakringsrorelse).toBeGreaterThan(0);
+    expect(rr.summaIntakter).toBe(
+      rr.hyresintakter + rr.industrinetto + rr.utdelningar +
+      rr.bankrorelse + rr.forsakringsrorelse + rr.dotterbolagsvinst + rr.avknoppningsutdelning,
+    );
+    // ...och institutens värde ligger i balansräkningen, så eget kapital
+    // stämmer med HUD:ens equityOf (gapet var användarens rapport).
+    const br = balansrakning(s);
+    expect(br.institut).toBeGreaterThan(0);
+    expect(br.egetKapital).toBe(Math.round(equityOf(s)));
   });
 });
