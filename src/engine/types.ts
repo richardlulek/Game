@@ -342,6 +342,10 @@ export interface DecisionEffect {
   forceReceivership?: boolean;
   /** Story-flagga som sätts när alternativet väljs. */
   storyFlag?: string;
+  /** Renovräkning (lifecycle): totalrenovera fastigheten – hyresgästerna
+   *  flyttar ut, skicket återställs, hyrespotentialen lyfter (halverat
+   *  om länsstyrelsen kulturmärkt huset vid erbjudandet). */
+  renovate?: { propertyId: number; heritage: boolean };
   log: string;
   logKind: LogKind;
 }
@@ -536,6 +540,8 @@ export interface Property {
   /** Beställda arbeten (underhåll, uppgraderingar, kampanjer …) som får
    *  effekt först vid kommande månadsskiften. */
   pendingWorks?: PendingWork[];
+  /** Renovräkningserbjudandet har visats (engångs per hus, lifecycle). */
+  renovOffered?: boolean;
 }
 
 /** Utvecklingsprojekt: totalrenovering, påbyggnad, lokalanpassning

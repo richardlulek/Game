@@ -47,6 +47,7 @@ import { hasRelation, nemesisOf, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
+import { ageWearFactor, buildingAge } from "./lifecycle";
 import { INFRA_KINDS_2, openInfra } from "./infrastructure";
 import {
   ACTIVIST_TAKEOVER_AT,
@@ -539,9 +540,9 @@ export function advanceMonth(state: GameState): GameState {
         }
       }
     }
-    // Building age extra wear
+    // Building age extra wear – hus över 40 år accelererar (lifecycle.ts).
     const propAge = s.year - (np.builtYear ?? s.year);
-    const ageFactor = propAge >= 30 ? 1.4 : propAge >= 15 ? 1.2 : 1.0;
+    const ageFactor = (propAge >= 30 ? 1.4 : propAge >= 15 ? 1.2 : 1.0) * ageWearFactor(np, s);
     // Seasonal effect on vacancy for residential
     const seasonFactor = np.type === "bostad" ? season : 1.0;
     // Short-term rental: higher effective rent but higher vacancy, no tenants
@@ -2725,6 +2726,53 @@ export function advanceMonth(state: GameState): GameState {
       s.lastScandalMonth = nowAbsScandal;
       s.pressHeat = 0; // stormen bryter ut – temperaturen nollställs.
       events.push({ t: `📰 Scandal: ${scandal.title}`, kind: "warn" });
+    }
+  }
+
+  // ── Livscykel: renovräkningsbeslutet ────────────────────────────
+  // Ett gammalt, nedgånget bostadshus (ålder > 40, skick < 45) ställer
+  // ägaren inför valet: totalrenovera – hyresgästerna tvingas flytta och
+  // pressen kallar det renovräkning – eller låta huset förfalla vidare.
+  // Engångserbjudande per hus; 20 % risk att länsstyrelsen kulturmärker
+  // fasaden vid erbjudandet, vilket halverar hyreslyftet.
+  if ((!s.story || s.story.done) && !s.pendingDecision) {
+    const cand = s.portfolio.find(
+      (p) =>
+        p.type === "bostad" && p.status === "klar" && !p.renovOffered &&
+        buildingAge(p, s) > 40 && p.condition < 45 && p.tenants.length > 0,
+    );
+    if (cand) {
+      const heritage = random01() < 0.2;
+      const cost = Math.round(propMarketValue(cand, s) * 0.35);
+      const lift = heritage ? "7.5% (heritage-capped)" : "15%";
+      s.portfolio = s.portfolio.map((x) => (x.id === cand.id ? { ...x, renovOffered: true } : x));
+      s.pendingDecision = {
+        id: `renovate-${cand.id}`,
+        title: "Total renovation?",
+        text: `The ${buildingAge(cand, s)}-year-old ${cand.typeLabel.toLowerCase()} in ${cand.districtName} is worn down (condition ${Math.round(cand.condition)}) — pipes, roof and frame are all due at once. A full renovation costs ${msek(cost)}, but all ${cand.tenants.length} household(s) must move out, and the press already has a word for it: renoviction.${heritage ? " The county board has heritage-listed the facade — the rent uplift is halved." : ""}`,
+        options: [
+          {
+            label: `Renovate (${msek(cost)})`,
+            detail: `Condition 95, age reset, +${lift} rent potential. Tenants move out: reputation −2, press heat +3.`,
+            effect: {
+              cash: -cost,
+              reputation: -2,
+              renovate: { propertyId: cand.id, heritage },
+              log: `🔨 RENOVICTION: ${cand.typeLabel} in ${cand.districtName} is gutted and rebuilt — the tenants have to find somewhere else.`,
+              logKind: "expense",
+            },
+          },
+          {
+            label: "Not now",
+            detail: "The building keeps aging — wear accelerates past 40 years.",
+            effect: {
+              log: `The renovation plans for ${cand.typeLabel} in ${cand.districtName} are shelved.`,
+              logKind: "info",
+            },
+          },
+        ],
+      };
+      events.push({ t: `🤔 Decision required: total renovation in ${cand.districtName}?`, kind: "event" });
     }
   }
 

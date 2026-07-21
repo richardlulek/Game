@@ -37,6 +37,14 @@ export function obsolescenceFactor(p: Property, state: GameState): number {
   return +Math.max(0.7, 1 - effOver * 0.006).toFixed(4);
 }
 
+/** Accelererat slitage för hus äldre än 40 år: stommar, stammar och tak
+ *  ger sig samtidigt. +1 % slitage per år över 40, tak ×1.6. */
+export function ageWearFactor(p: Property, state: GameState): number {
+  const age = buildingAge(p, state);
+  if (age <= 40) return 1;
+  return +Math.min(1.6, 1 + (age - 40) * 0.01).toFixed(3);
+}
+
 /** Är fastigheten mogen för rivning & nybyggnation? Kräver att den är BÅDE
  *  gammal OCH att underhåll/renovering inte längre räcker – annars är
  *  totalrenovering eller underhåll den bättre vägen. */

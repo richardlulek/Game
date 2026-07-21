@@ -1148,6 +1148,26 @@ export function reducer(state: GameState, action: GameAction): GameState {
         s.staff = staff;
         s.executives = executives;
       }
+      // Renovräkning (lifecycle): totalrenoveringen töms på hyresgäster,
+      // skicket och åldern återställs och hyrespotentialen lyfter –
+      // halverat om länsstyrelsen kulturmärkt fasaden. Pressen minns.
+      if (e.renovate) {
+        const { propertyId, heritage } = e.renovate;
+        s.pressHeat = +((s.pressHeat ?? 0) + 3).toFixed(2);
+        s.portfolio = s.portfolio.map((p) =>
+          p.id === propertyId
+            ? {
+                ...p,
+                condition: 95,
+                builtYear: s.year,
+                energyClass: "B" as const,
+                rentMult: +(p.rentMult * (heritage ? 1.075 : 1.15)).toFixed(3),
+                tenants: [],
+                applications: [],
+              }
+            : p,
+        );
+      }
       // Too big to fail (cycle.ts): stödpaketets villkor respektive den
       // avböjda vägen in i vanlig rekonstruktion.
       if (e.restructureMonths) {
