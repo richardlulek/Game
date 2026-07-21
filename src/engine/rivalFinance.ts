@@ -24,7 +24,9 @@ import type { Competitor, GameState } from "./types";
 
 /** Belåningsgrad vid köp/byggen per strategi. */
 export function rivalLeverage(c: Competitor): number {
-  if (c.institutional) return 0.3; // fonder köper mest med eget kapital
+  // Fonderna är renodlade equity-vehiklar: moderfondens gummiband sköter
+  // likviditeten, och belåning skulle låta kassan växa förbi bandets tak.
+  if (c.institutional) return 0;
   switch (c.strategy) {
     case "tillväxt": return 0.65;
     case "utdelning": return 0.5;
@@ -70,6 +72,43 @@ export function rivalAmortShare(c: Competitor): number {
 
 /** Kassabuffert som aldrig amorteras bort. */
 export const RIVAL_CASH_BUFFER = 5_000_000;
+
+/* ── Konjunkturmedvetna strategier (fas 3, batch 2) ────────────────
+   Säljsidan är redan fasmedveten (selling.ts: vinsthemtagning i boom).
+   Här får även köp, byggen och amortering en fasprofil per strategi:
+   värdebolag är kontracykliska (köper i bust, avvaktar i boom),
+   tillväxtbolag jagar boomen med full belåning, utdelningsbolag
+   skyddar balansräkningen och amorterar dubbelt i bust. */
+export function strategyBias(
+  c: Competitor,
+  phase: "boom" | "bust" | "stable",
+): { buy: number; build: number; amort: number } {
+  switch (c.strategy) {
+    case "värde":
+      return phase === "bust"
+        ? { buy: 1.8, build: 0.7, amort: 1 }
+        : phase === "boom"
+          ? { buy: 0.5, build: 0.8, amort: 1.2 }
+          : { buy: 1, build: 1, amort: 1 };
+    case "tillväxt":
+      return phase === "boom"
+        ? { buy: 1.4, build: 1.5, amort: 0.5 }
+        : phase === "bust"
+          ? { buy: 0.6, build: 0, amort: 1 }
+          : { buy: 1.1, build: 1, amort: 1 };
+    case "utdelning":
+      return phase === "bust"
+        ? { buy: 0.5, build: 0.6, amort: 2.2 }
+        : phase === "boom"
+          ? { buy: 0.9, build: 0.9, amort: 0.8 }
+          : { buy: 0.8, build: 0.8, amort: 1 };
+    case "distrikt":
+    default:
+      return phase === "bust"
+        ? { buy: 0.9, build: 0.7, amort: 1.2 }
+        : { buy: 1.1, build: 1.1, amort: 1 };
+  }
+}
 
 /** Finansiera ett köp/bygge: kassan betalar eget kapitaldelen, resten blir
  *  skuld på boken. Muterar rivalen (används i simulationens rivalblock). */

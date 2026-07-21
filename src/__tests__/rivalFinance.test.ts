@@ -39,7 +39,7 @@ describe("BALANSRÄKNINGEN: belåning, spread och räntetäckning", () => {
   it("belåningsgrad och spread följer strategi och storlek", () => {
     expect(rivalLeverage(makeRival({ strategy: "tillväxt" }))).toBe(0.65);
     expect(rivalLeverage(makeRival({ strategy: "värde" }))).toBe(0.45);
-    expect(rivalLeverage(makeRival({ institutional: true, strategy: "tillväxt" }))).toBe(0.3);
+    expect(rivalLeverage(makeRival({ institutional: true, strategy: "tillväxt" }))).toBe(0);
     // Små bolag betalar mer, tillväxtbolag därtill en riskpremie.
     expect(rivalRateSpread(makeRival({ equity: 10_000_000 }))).toBe(1.1);
     expect(rivalRateSpread(makeRival({ equity: 400_000_000 }))).toBe(0.4);

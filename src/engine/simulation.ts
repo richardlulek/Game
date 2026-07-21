@@ -57,6 +57,7 @@ import {
   rivalICR,
   rivalInterest,
   rivalLeverage,
+  strategyBias,
 } from "./rivalFinance";
 import { INFRA_KINDS_2, accessibilityOf, gentrificationDrift, openInfra } from "./infrastructure";
 import {
@@ -1966,9 +1967,11 @@ export function advanceMonth(state: GameState): GameState {
     // Räntetäckningsvakt: NOI under räntekostnaden i tre månader i följd
     // tvingar fram en nödförsäljning (blocket för distressed sales).
     nc.icrBadMonths = rivalICR(s, nc) < 1 ? (nc.icrBadMonths ?? 0) + 1 : 0;
-    // Amortering ur överskottskassan – utdelningsbolag mest, tillväxt minst.
+    // Amortering ur överskottskassan – utdelningsbolag mest, tillväxt minst,
+    // och i bust amorterar de försiktiga dubbelt (strategyBias).
     if ((nc.debt ?? 0) > 0 && nc.cash > RIVAL_CASH_BUFFER) {
-      const pay = Math.min(nc.debt ?? 0, Math.round((nc.cash - RIVAL_CASH_BUFFER) * rivalAmortShare(nc)));
+      const amortBias = strategyBias(nc, cyclePhase as "boom" | "bust" | "stable").amort;
+      const pay = Math.min(nc.debt ?? 0, Math.round((nc.cash - RIVAL_CASH_BUFFER) * rivalAmortShare(nc) * amortBias));
       if (pay > 0) {
         nc.debt = (nc.debt ?? 0) - pay;
         nc.cash -= pay;
@@ -1992,7 +1995,10 @@ export function advanceMonth(state: GameState): GameState {
     // Stor kassa bränner i fickan: bygglusten skalar med likviditeten så
     // rikedom blir synliga hus på kartan i stället för osynliga kassaberg.
     const cashAppetite = 1 + Math.min(1.5, nc.cash / 60_000_000);
-    const buildChance = (nc.strategy === "tillväxt" ? 0.05 : 0.02) * cashAppetite;
+    const buildChance =
+      (nc.strategy === "tillväxt" ? 0.05 : 0.02) *
+      cashAppetite *
+      strategyBias(nc, cyclePhase as "boom" | "bust" | "stable").build;
     // Bygg BARA om det finns en ledig tomtruta kvar i budgeten – annars skulle
     // huset hamna utanför kartan (spökägande). Full stad = ingen nyproduktion.
     if (landBudget > 0 && spaceDistricts.size > 0 && cyclePhase !== "bust" && nc.cash > 8_000_000 && random01() < buildChance * rateAppetite(s.interestRate)) {
@@ -2162,44 +2168,49 @@ export function advanceMonth(state: GameState): GameState {
   // Konkurrent köper från marknaden med strategi-filtrering – även
   // objekt som andra rivaler just annonserat (rival-till-rival-affärer).
   // Köpaptiten följer räntan: billiga pengar → fler affärer.
-  if (s.competitors.length > 0 && s.listings.length > 1 && random01() < (rivalIsClose ? 0.55 : 0.25) * rateAppetite(s.interestRate)) {
+  if (s.competitors.length > 0 && s.listings.length > 1) {
     const buyer = pick(s.competitors);
-    const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
-    const buyable = s.listings.filter((p) => {
-      if (p.status !== "klar") return false;
-      switch (buyer.strategy) {
-        case "distrikt": return p.district === buyer.preferredDistrict;
-        case "värde": return p.askPrice < avgPrice * 0.95;
-        case "utdelning": return (p.askPrice * 0.06 / 12) / p.askPrice >= 0.004;
-        case "tillväxt": default: return true;
-      }
-    });
-    const equityShare = 1 - rivalLeverage(buyer);
-    const affordable = buyable.filter((p) => buyer.cash >= Math.round(p.askPrice * equityShare));
-    if (affordable.length > 0) {
-      const taken = pick(affordable);
-      const price = Math.round(taken.askPrice * rnd(0.97, 1.05));
-      // Köpet belånas (rivalFinance.ts): kassan bär eget kapitaldelen,
-      // resten läggs på skuldsidan och kostar ränta varje månad.
-      const debtPart = Math.round(price * rivalLeverage(buyer));
-      s.listings = s.listings.filter((x) => x.id !== taken.id);
-      s.competitors = s.competitors.map((c) =>
-        c.name === buyer.name
-          ? {
-              ...c,
-              cash: Math.round(c.cash - (price - debtPart)),
-              debt: (c.debt ?? 0) + debtPart,
-              portfolio: [...(c.portfolio ?? []), { ...taken, owned: false, askPrice: price }],
-              units: (c.portfolio ?? []).length + 1,
-              lastBuy: taken.districtName,
-            }
-          : c,
-      );
-      events.push({
-        t: `🏢 ${buyer.name} bought ${taken.typeLabel} in ${taken.districtName} for ${msek(price)}.`,
-        kind: "event",
-        rival: buyer.name,
+    // Konjunkturprofil (strategyBias): värdebolag dammsuger bust-marknaden,
+    // tillväxtbolag jagar boomen, utdelningsbolag håller igen i bust.
+    const buyBias = strategyBias(buyer, cyclePhase as "boom" | "bust" | "stable").buy;
+    if (random01() < (rivalIsClose ? 0.55 : 0.25) * rateAppetite(s.interestRate) * buyBias) {
+      const avgPrice = s.listings.reduce((a, p) => a + p.askPrice, 0) / s.listings.length;
+      const buyable = s.listings.filter((p) => {
+        if (p.status !== "klar") return false;
+        switch (buyer.strategy) {
+          case "distrikt": return p.district === buyer.preferredDistrict;
+          case "värde": return p.askPrice < avgPrice * 0.95;
+          case "utdelning": return (p.askPrice * 0.06 / 12) / p.askPrice >= 0.004;
+          case "tillväxt": default: return true;
+        }
       });
+      const equityShare = 1 - rivalLeverage(buyer);
+      const affordable = buyable.filter((p) => buyer.cash >= Math.round(p.askPrice * equityShare));
+      if (affordable.length > 0) {
+        const taken = pick(affordable);
+        const price = Math.round(taken.askPrice * rnd(0.97, 1.05));
+        // Köpet belånas (rivalFinance.ts): kassan bär eget kapitaldelen,
+        // resten läggs på skuldsidan och kostar ränta varje månad.
+        const debtPart = Math.round(price * rivalLeverage(buyer));
+        s.listings = s.listings.filter((x) => x.id !== taken.id);
+        s.competitors = s.competitors.map((c) =>
+          c.name === buyer.name
+            ? {
+                ...c,
+                cash: Math.round(c.cash - (price - debtPart)),
+                debt: (c.debt ?? 0) + debtPart,
+                portfolio: [...(c.portfolio ?? []), { ...taken, owned: false, askPrice: price }],
+                units: (c.portfolio ?? []).length + 1,
+                lastBuy: taken.districtName,
+              }
+            : c,
+        );
+        events.push({
+          t: `🏢 ${buyer.name} bought ${taken.typeLabel} in ${taken.districtName} for ${msek(price)}.`,
+          kind: "event",
+          rival: buyer.name,
+        });
+      }
     }
   }
 
@@ -2542,7 +2553,11 @@ export function advanceMonth(state: GameState): GameState {
     // Skötta hus gentrifierar, förfallna drar ned hela distriktet.
     const avgCond = ownedHere > 0 ? ownedList.reduce((a, p) => a + p.condition, 0) / ownedHere : 62;
     const condPull = ((avgCond - 62) / 100) * 0.002;
-    const growth = 0.0015 * ownedHere + condPull + rnd(-0.0025, 0.004);
+    // Bruset är numera väntevärdesneutralt: den gamla asymmetrin (−0.0025…
+    // +0.004) gav +0.075 %/mån åt ALLA distrikt och inflaterade hela staden
+    // till Exklusivt på 30 år (fas 2-mätselet). Status ska förtjänas – av
+    // ägande, skötsel, infrastruktur och gentrifiering, inte av tidens gång.
+    const growth = 0.0015 * ownedHere + condPull + rnd(-0.003, 0.003);
     // Hotellsynergi: hotell i distriktet höjer distriktsutvecklingen
     const hotelBonus = (s.industryPortfolio ?? [])
       .filter((a) => a.sector === "hotell" && a.district === d.id && a.status === "klar")
