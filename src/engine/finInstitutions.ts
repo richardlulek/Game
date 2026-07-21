@@ -57,8 +57,8 @@ const PREMIUM_PER_POLICY = 4_200; // kr/mån vid marknadspris
 
 export function bankValue(bank: OwnedBank, state: GameState): number {
   const annualNet = bankMonthlyNet(bank, state) * 12;
-  // Insättningsbas + kapitaliserad intjäning (banker värderas lågt: P/E ~7).
-  return Math.max(0, Math.round(bank.deposits * 0.1 + Math.max(0, annualNet) * 7));
+  // Kapital + insättningsbas + kapitaliserad intjäning (P/E ~7).
+  return Math.max(0, Math.round(bankCapitalOf(bank) + bank.deposits * 0.1 + Math.max(0, annualNet) * 7));
 }
 
 export function insurerValue(ins: OwnedInsurer, state: GameState): number {
@@ -81,7 +81,8 @@ export function bankMonthlyNet(bank: OwnedBank, state: GameState): number {
   const depositRate = state.interestRate * 0.5;
   const margin = (lendRate - depositRate) / 100;
   const opex = 40_000 + bank.deposits * 0.0004;
-  return Math.round((bank.loansOut * margin) / 12 - opex);
+  const cross = state.ownedInsurer ? CROSS_SELL_BOOST : 1;
+  return Math.round((bank.loansOut * margin * cross) / 12 - opex);
 }
 
 /** Månadstick: insättningar följer stadens ekonomi, utlåning följer
@@ -106,11 +107,23 @@ export function tickBank(
     (campaign ? DEPOSIT_CAMPAIGN_BOOST : 1);
   const converge = campaign ? 0.09 : 0.05;
   const deposits = Math.round(bank.deposits + (cityScale - bank.deposits) * converge + rnd(-0.01, 0.01) * bank.deposits);
-  const loansOut = Math.round(deposits * STANCE_UTIL[bank.stance]);
+  // Kapitalkravet: räcker inte kapitalet till full utlåning stryps den –
+  // banken kan inte växa fortare än ägaren kapitaliserar den.
+  const capital = bankCapitalOf(bank);
+  const fullLoans = deposits * STANCE_UTIL[bank.stance];
+  const capitalOK = capital >= fullLoans * BANK_CAPITAL_FLOOR;
+  const loansOut = Math.round(fullLoans * (capitalOK ? 1 : 0.75));
+  if (!capitalOK && rnd(0, 1) < 0.12) {
+    events.push({
+      t: `🏦 ${bank.name}: the capital ratio is below ${Math.round(BANK_CAPITAL_FLOOR * 100)}% — lending is throttled to 75% until the owner injects capital.`,
+      kind: "warn",
+    });
+  }
   const nb: OwnedBank = {
     ...bank,
     deposits: Math.max(5_000_000, deposits),
     loansOut,
+    capital,
     campaignMonthsLeft: campaign ? (bank.campaignMonthsLeft ?? 0) - 1 : undefined,
   };
 
@@ -133,14 +146,30 @@ export function tickBank(
 
 /* ── Försäkringsbolagets månad ──────────────────────────────────────── */
 
-export function insurerMonthlyNet(ins: OwnedInsurer, _state: GameState): number {
-  const premiums = ins.policies * PREMIUM_PER_POLICY * PRICING_PREMIUM[ins.pricing];
+/** Hyresgarantins premie per försäkring och skadekvot per konjunkturläge:
+ *  fin marginal i stabilt läge, blöder rejält i bust/kris – en medvetet
+ *  kontracyklisk risk mot fastighetsboken. */
+export const RENT_GUARANTEE_PREMIUM = 900;
+export function rentGuaranteeClaimRatio(state: GameState): number {
+  if ((state.crisisMonthsLeft ?? 0) > 0) return 2.2;
+  if ((state.recessionMonthsLeft ?? 0) > 0) return 1.8;
+  if (state.marketCycle?.phase === "bust") return 1.6;
+  return 0.45;
+}
+
+export function insurerMonthlyNet(ins: OwnedInsurer, state: GameState): number {
+  const cross = state.ownedBank ? CROSS_SELL_BOOST : 1;
+  const premiums = ins.policies * PREMIUM_PER_POLICY * PRICING_PREMIUM[ins.pricing] * cross;
   const expectedClaims = premiums * PRICING_LOSS_RATIO[ins.pricing];
+  // Hyresgarantiprodukten: extra premier, men skadekvoten följer
+  // konjunkturen och passerar 100 % i nedgång.
+  const gPrem = ins.rentGuarantee ? ins.policies * RENT_GUARANTEE_PREMIUM * cross : 0;
+  const gClaims = gPrem * rentGuaranteeClaimRatio(state);
   const opex = 40_000 + ins.policies * 350;
   // Återförsäkring: en fast andel av premierna avstås (skadetopparna
   // dämpas i stället i tickInsurer).
-  const ceded = ins.reinsured ? premiums * REINSURANCE_CEDE : 0;
-  return Math.round(premiums - expectedClaims - opex - ceded);
+  const ceded = ins.reinsured ? (premiums + gPrem) * REINSURANCE_CEDE : 0;
+  return Math.round(premiums + gPrem - expectedClaims - gClaims - opex - ceded);
 }
 
 export function tickInsurer(
@@ -183,6 +212,28 @@ export function tickInsurer(
  *  resultaträkningens rad speglar vad en typisk månad faktiskt ger. */
 export function bankRunRate(bank: OwnedBank, state: GameState): number {
   return Math.round(bankMonthlyNet(bank, state) - bank.loansOut * (STANCE_LOSS[bank.stance] / 100));
+}
+
+/* ── Finanskoncernen: korsförsäljning ───────────────────────────────── */
+
+/** Äger koncernen BÅDE bank och försäkringsbolag korsförsäljs kunderna:
+ *  +6 % på bankens räntenetto och försäkringspremierna. */
+export const CROSS_SELL_BOOST = 1.06;
+
+/* ── Bankkapital ────────────────────────────────────────────────────── */
+
+/** Kapitalrelationens golv: kapital ≥ 8 % av utlåningen, annars stryps
+ *  utlåningen till 75 % tills ägaren injicerar mer kapital. */
+export const BANK_CAPITAL_FLOOR = 0.08;
+
+/** Bankens kapital (äldre sparfiler saknar fältet → 8 % av inlåningen). */
+export function bankCapitalOf(bank: OwnedBank): number {
+  return bank.capital ?? Math.round(bank.deposits * BANK_CAPITAL_FLOOR);
+}
+
+/** Kapitalkravet vid nuvarande utlåningsambition. */
+export function bankRequiredCapital(bank: OwnedBank): number {
+  return Math.round(bank.deposits * STANCE_UTIL[bank.stance] * BANK_CAPITAL_FLOOR);
 }
 
 /* ── Inlåningskampanj (banken) ──────────────────────────────────────── */

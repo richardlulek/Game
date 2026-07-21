@@ -6,7 +6,7 @@
    ============================================================ */
 
 import { OVERLOAD_COST_PER_PROP, orgLoadOf, tierForLevel } from "./company";
-import { TAX_DEP_AGGRESSIVE, TAX_DEP_NORMAL, industryPortfolioValue, loanTerms, portfolioValue } from "./finance";
+import { HOLDING_TAX_DELTA, TAX_DEP_AGGRESSIVE, TAX_DEP_NORMAL, industryPortfolioValue, loanTerms, portfolioValue } from "./finance";
 import { OWN_INSURER_PREMIUM_MULT, bankRunRate, finInstitutionsValue, insurerMonthlyNet } from "./finInstitutions";
 import { SPINOFF_DIVIDEND_PAYOUT, spinoffOwnedPct } from "./spinoffs";
 import { stockHoldingsValue, subsidiaryValue } from "./stocks";
@@ -103,7 +103,9 @@ export function resultatrakning(s: GameState): Resultatrakning {
     0,
   );
   const revolverranta = s.revolving?.used ? Math.round((s.revolving.used * 0.015) / 12) : 0;
-  const rantekostnad = bankranta + obligationsranta + revolverranta;
+  const certifikatranta = s.commercialPaper
+    ? Math.round((s.commercialPaper.amount * s.commercialPaper.rate) / 100 / 12) : 0;
+  const rantekostnad = bankranta + obligationsranta + revolverranta + certifikatranta;
 
   const resultatForeSkatt = rorelseresultat - rantekostnad;
 
@@ -116,7 +118,7 @@ export function resultatrakning(s: GameState): Resultatrakning {
     klara.reduce((a, p) => a + ((p.purchasePrice ?? p.askPrice) * depRate) / 12, 0),
   );
   const harEnergiA = klara.some((p) => p.energyClass === "A");
-  const skattesats = Math.max(0.1, 0.22 - (harEnergiA ? 0.03 : 0));
+  const skattesats = Math.max(0.1, 0.22 - (harEnergiA ? 0.03 : 0) - (s.holdingStructure ? HOLDING_TAX_DELTA : 0));
   const bruttoSkattepliktigt = Math.max(0, resultatForeSkatt - avskrivningsavdrag);
   const forlustavdrag = Math.min(s.taxLossCarry ?? 0, bruttoSkattepliktigt);
   const skatt =
@@ -165,6 +167,8 @@ export interface Balansrakning {
   banklan: number;
   obligationer: number;
   revolver: number;
+  /** Utestående företagscertifikat. */
+  certifikat: number;
   summaSkulder: number;
 
   egetKapital: number;
@@ -186,7 +190,8 @@ export function balansrakning(s: GameState): Balansrakning {
   const banklan = s.debt;
   const obligationer = (s.bonds ?? []).reduce((a, b) => a + b.amount, 0);
   const revolver = s.revolving?.used ?? 0;
-  const summaSkulder = banklan + obligationer + revolver;
+  const certifikat = s.commercialPaper?.amount ?? 0;
+  const summaSkulder = banklan + obligationer + revolver + certifikat;
 
   const egetKapital = summaTillgangar - summaSkulder;
   return {
@@ -201,6 +206,7 @@ export function balansrakning(s: GameState): Balansrakning {
     banklan,
     obligationer,
     revolver,
+    certifikat,
     summaSkulder,
     egetKapital,
     soliditet: summaTillgangar > 0 ? egetKapital / summaTillgangar : 0,

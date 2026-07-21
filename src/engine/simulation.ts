@@ -60,7 +60,20 @@ import {
   fundsActive,
   shouldTriggerCrisis,
 } from "./lateGame";
-import { TAX_AUDIT_CHANCE, TAX_DEP_AGGRESSIVE, TAX_DEP_NORMAL, amortInfoOf, equityOf, loanTerms, portfolioValue } from "./finance";
+import {
+  COVENANT_BREACH_MONTHS,
+  COVENANT_ICR_FLOOR,
+  CP_SPREAD,
+  CP_TERM_MONTHS,
+  HOLDING_TAX_DELTA,
+  TAX_AUDIT_CHANCE,
+  TAX_DEP_AGGRESSIVE,
+  TAX_DEP_NORMAL,
+  amortInfoOf,
+  equityOf,
+  loanTerms,
+  portfolioValue,
+} from "./finance";
 import { covenantBreach, creditRatingOf } from "./rating";
 import { tickCityEvent } from "./cityEvents";
 import { rivalQuote } from "./rivalPersonas";
@@ -1014,7 +1027,19 @@ export function advanceMonth(state: GameState): GameState {
       if (p.status !== "klar") return sum;
       return sum + ((p.purchasePrice ?? p.askPrice) * depRate) / 12;
     }, 0);
-    const gross = netIncome - monthlyDepreciation;
+    let gross = netIncome - monthlyDepreciation;
+    // Periodiseringsfonder som nått 6 år återförs till beskattning nu.
+    const nowAbsTax = s.year * 12 + s.month;
+    const due = (s.taxReserves ?? []).filter((r) => r.dueAbs <= nowAbsTax);
+    if (due.length > 0) {
+      const dissolved = due.reduce((a, r) => a + r.amount, 0);
+      s.taxReserves = (s.taxReserves ?? []).filter((r) => r.dueAbs > nowAbsTax);
+      gross += dissolved;
+      events.push({
+        t: `🧾 Tax allocation reserve of ${kr(dissolved)} reaches 6 years and returns to taxation.`,
+        kind: "info",
+      });
+    }
     if (gross <= 0) {
       // Förlustavdrag: skattemässiga underskott sparas och kvittas mot
       // framtida vinster – dåliga år är inte bara bortkastade.
@@ -1024,7 +1049,7 @@ export function advanceMonth(state: GameState): GameState {
       if (offset > 0) s.taxLossCarry = Math.round((s.taxLossCarry ?? 0) - offset);
       const taxableIncome = gross - offset;
       const energyACount = s.portfolio.filter(p => p.energyClass === "A" && p.status === "klar").length;
-      const taxRate = Math.max(0.10, 0.22 - (energyACount > 0 ? 0.03 : 0));
+      const taxRate = Math.max(0.10, 0.22 - (energyACount > 0 ? 0.03 : 0) - (s.holdingStructure ? HOLDING_TAX_DELTA : 0));
       const monthlyTax = Math.round(taxableIncome * taxRate);
       if (monthlyTax > 0) {
         cashflow(s, -monthlyTax, "fastighetsskatt");
@@ -1050,6 +1075,74 @@ export function advanceMonth(state: GameState): GameState {
         t: `🧾 TAX AUDIT: the authority disallows the aggressive depreciation — back taxes and surcharge ${kr(fine)} (rep −3). Policy reset to normal.`,
         kind: "warn",
       });
+    }
+  }
+
+  // ── Covenant-lånet: räntetäckningen övervakas månadsvis ──────────
+  // Rabatten (−0,25 pp) gäller så länge ICR ≥ 1,3. Tre svaga månader i
+  // rad river covenanten: 1 % av skulden i avgift och anseendet skadas.
+  if (s.loanCovenant && s.debt > 0) {
+    const annualNOI = monthlyNOI * 12;
+    const annualInterest = interest * 12;
+    const icr = annualInterest > 0 ? annualNOI / annualInterest : 99;
+    if (icr < COVENANT_ICR_FLOOR) {
+      const breach = s.loanCovenant.breachMonths + 1;
+      if (breach >= COVENANT_BREACH_MONTHS) {
+        const fee = Math.round(s.debt * 0.01);
+        cashflow(s, -fee, "covenantbrott");
+        s.reputation = Math.max(0, s.reputation - 3);
+        s.loanCovenant = undefined;
+        events.push({
+          t: `🏦 COVENANT BREACH: interest coverage below ${COVENANT_ICR_FLOOR}× for ${COVENANT_BREACH_MONTHS} months — the bank tears up the covenant loan. Fee ${kr(fee)}, rep −3.`,
+          kind: "warn",
+        });
+      } else {
+        s.loanCovenant = { ...s.loanCovenant, breachMonths: breach };
+        events.push({
+          t: `🏦 Covenant warning: interest coverage ${icr.toFixed(2)}× is below the ${COVENANT_ICR_FLOOR}× floor (${breach}/${COVENANT_BREACH_MONTHS} months).`,
+          kind: "warn",
+        });
+      }
+    } else if (s.loanCovenant.breachMonths > 0) {
+      s.loanCovenant = { ...s.loanCovenant, breachMonths: 0 };
+    }
+  }
+
+  // ── Företagscertifikat: ränta och rollover ───────────────────────
+  // Billig kort finansiering – men var 12:e månad möter programmet
+  // marknaden igen. I kris (eller ibland i bust) är den frusen: kan
+  // kassan inte lösa in konverteras pappret till dyrt banklån.
+  if (s.commercialPaper) {
+    const cp = s.commercialPaper;
+    cashflow(s, -Math.round((cp.amount * cp.rate) / 100 / 12), "certifikatränta");
+    const nowAbsCp = s.year * 12 + s.month;
+    if (nowAbsCp >= cp.matureAbs) {
+      const frozen = (s.crisisMonthsLeft ?? 0) > 0 || (s.marketCycle?.phase === "bust" && random01() < 0.4);
+      if (frozen) {
+        if (s.cash >= cp.amount) {
+          cashflow(s, -cp.amount, "certifikat inlösta");
+          s.commercialPaper = undefined;
+          events.push({
+            t: `📃 CP MARKET FROZEN: no buyers at rollover — the program of ${kr(cp.amount)} is repaid from cash.`,
+            kind: "warn",
+          });
+        } else {
+          s.debt += cp.amount;
+          s.commercialPaper = undefined;
+          s.reputation = Math.max(0, s.reputation - 2);
+          events.push({
+            t: `📃 CP MARKET FROZEN: the bank bridges ${kr(cp.amount)} into ordinary debt at loan terms (rep −2). Short funding carries rollover risk.`,
+            kind: "warn",
+          });
+        }
+      } else {
+        const newRate = +(s.interestRate + CP_SPREAD).toFixed(2);
+        s.commercialPaper = { ...cp, rate: newRate, matureAbs: nowAbsCp + CP_TERM_MONTHS };
+        events.push({
+          t: `📃 Commercial paper rolled: ${kr(cp.amount)} at ${newRate.toFixed(2)}% for another ${CP_TERM_MONTHS} months.`,
+          kind: "info",
+        });
+      }
     }
   }
 

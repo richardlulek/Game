@@ -17,7 +17,22 @@ import {
   cityProjectCost,
   eligibleCityBlocks,
 } from "./cityProjects";
-import { RATE_LOCK_TERMS, equityOf, loanTerms } from "./finance";
+import {
+  COVENANT_ICR_FLOOR,
+  COVENANT_ICR_SIGNUP,
+  COVENANT_RATE_DELTA,
+  CP_MAX_OF_EQUITY,
+  CP_SPREAD,
+  CP_TERM_MONTHS,
+  HOLDING_TAX_DELTA,
+  RATE_LOCK_TERMS,
+  TAX_RESERVE_MAX_COUNT,
+  TAX_RESERVE_MAX_PCT,
+  TAX_RESERVE_TERM,
+  equityOf,
+  loanTerms,
+} from "./finance";
+import { resultatrakning } from "./bokslut";
 import { ambientAsk, ambientProfile, ambientValue } from "./landDeals";
 import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
 import { kr, msek, pct } from "./format";
@@ -48,7 +63,7 @@ import { industryAssetValue } from "./industries";
 import { GREEN_BOND_DISCOUNT, bondRateFor, creditRatingOf } from "./rating";
 import { rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
-import { pendingWork, propMarketValue, propPotentialRent } from "./property";
+import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
 import {
   RESEARCH,
   STAFF_ROLES,
@@ -61,7 +76,9 @@ import {
   DEPOSIT_CAMPAIGN_MONTHS,
   REINSURANCE_CEDE,
   REINSURANCE_SPIKE_MULT,
+  bankCapitalOf,
   bankPurchasePrice,
+  bankRequiredCapital,
   bankValue,
   depositCampaignCost,
   insurerPurchasePrice,
@@ -1521,6 +1538,165 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         ownedInsurer: { ...state.ownedInsurer, pricing: action.pricing },
         log: [{ t: `🛡️ ${state.ownedInsurer.name}: premium level set to ${action.pricing}.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "EXTEND_MATURITY": {
+      // Förtida refinansiering: flytta låneförfallet 5 år framåt mot en
+      // avgift – köper sig fri från att förfalla mitt i en lågkonjunktur.
+      if (state.debt <= 0) return log(state, "No bank debt to extend.", "warn");
+      const fee = Math.max(100_000, Math.round(state.debt * 0.004));
+      if (state.cash < fee) return log(state, `Extending the maturity costs ${kr(fee)}.`, "warn");
+      const newMature = state.year * 12 + state.month + 60;
+      return {
+        ...state,
+        cash: state.cash - fee,
+        debtMatureAbs: newMature,
+        log: [{ t: `🏦 Loan maturity extended 60 months early (fee ${kr(fee)}) — refinancing risk pushed past the cycle.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "SET_LOAN_COVENANT": {
+      if (!action.on) {
+        if (!state.loanCovenant) return state;
+        return {
+          ...state,
+          loanCovenant: undefined,
+          log: [{ t: "🏦 Covenant loan cancelled — back to standard terms.", kind: "info" }, ...state.log],
+        };
+      }
+      if (state.loanCovenant) return state;
+      if (state.debt <= 0) return log(state, "A covenant loan requires bank debt.", "warn");
+      const annualNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0);
+      const annualInterest = state.debt * (loanTerms(state).rate / 100);
+      const icr = annualInterest > 0 ? annualNOI / annualInterest : 99;
+      if (icr < COVENANT_ICR_SIGNUP)
+        return log(state, `The bank requires interest coverage ≥ ${COVENANT_ICR_SIGNUP.toFixed(1)}× for a covenant loan (currently ${icr.toFixed(1)}×).`, "warn");
+      return {
+        ...state,
+        loanCovenant: { sinceAbs: state.year * 12 + state.month, breachMonths: 0 },
+        log: [{ t: `🏦 Covenant loan signed: −${COVENANT_RATE_DELTA}pp rate against keeping interest coverage ≥ ${COVENANT_ICR_FLOOR}×. Three weak months tear it up (1% fee, rep −3).`, kind: "income" }, ...state.log],
+      };
+    }
+    case "ISSUE_CP": {
+      // Företagscertifikat: kort marknadsfinansiering, billigare än
+      // obligationer men med rollover-risk (simulationen).
+      if ((state.crisisMonthsLeft ?? 0) > 0)
+        return log(state, "📃 The commercial paper market is frozen during the crisis.", "warn");
+      const eq = equityOf(state);
+      const cap = Math.round(eq * CP_MAX_OF_EQUITY);
+      const existing = state.commercialPaper?.amount ?? 0;
+      const amount = Math.min(action.amount, cap - existing);
+      if (amount < 1_000_000)
+        return log(state, `The CP program is capped at ${msek(cap)} (${Math.round(CP_MAX_OF_EQUITY * 100)}% of equity); ${msek(existing)} outstanding.`, "warn");
+      const rate = +(state.interestRate + CP_SPREAD).toFixed(2);
+      const matureAbs = state.year * 12 + state.month + CP_TERM_MONTHS;
+      return {
+        ...state,
+        cash: state.cash + amount,
+        commercialPaper: { amount: existing + amount, rate, matureAbs },
+        log: [{ t: `📃 Commercial paper issued: ${msek(amount)} at ${rate.toFixed(2)}% (rolls every ${CP_TERM_MONTHS} mo — the market can freeze in a crisis).`, kind: "income" }, ...state.log],
+      };
+    }
+    case "REPAY_CP": {
+      const cp = state.commercialPaper;
+      if (!cp) return state;
+      if (state.cash < cp.amount) return log(state, `Repaying the paper requires ${msek(cp.amount)}.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cp.amount,
+        commercialPaper: undefined,
+        log: [{ t: `📃 Commercial paper of ${msek(cp.amount)} repaid.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "BUYBACK_BOND": {
+      // Återköp till marknadspris: har marknadskupongen stigit sedan
+      // emissionen handlas obligationen under par – återköp med vinst.
+      const bond = (state.bonds ?? []).find((b) => b.id === action.bondId);
+      if (!bond) return state;
+      const market = bondRateFor(state, creditRatingOf(state).rating);
+      const priceMult = Math.max(0.85, Math.min(1.12, bond.rate / Math.max(0.5, market)));
+      const price = Math.round(bond.amount * priceMult);
+      if (state.cash < price) return log(state, `The buyback costs ${msek(price)}.`, "warn");
+      const gain = bond.amount - price;
+      return {
+        ...state,
+        cash: state.cash - price,
+        bonds: (state.bonds ?? []).filter((b) => b.id !== action.bondId),
+        log: [{
+          t: `📜 Bond bought back at ${Math.round(priceMult * 100)}% of par (${msek(price)})${gain > 0 ? ` — ${msek(gain)} below face value` : gain < 0 ? ` — ${msek(-gain)} above face value` : ""}.`,
+          kind: gain >= 0 ? "income" : "expense",
+        }, ...state.log],
+      };
+    }
+    case "BANK_INJECT_CAPITAL": {
+      if (!state.ownedBank) return state;
+      const amount = Math.min(action.amount, state.cash);
+      if (amount < 500_000) return log(state, "Minimum capital injection is $0.5M.", "warn");
+      return {
+        ...state,
+        cash: state.cash - amount,
+        ownedBank: { ...state.ownedBank, capital: bankCapitalOf(state.ownedBank) + amount },
+        log: [{ t: `🏦 ${state.ownedBank.name}: ${msek(amount)} injected as bank capital.`, kind: "expense" }, ...state.log],
+      };
+    }
+    case "BANK_EXTRACT_CAPITAL": {
+      if (!state.ownedBank) return state;
+      const capital = bankCapitalOf(state.ownedBank);
+      const floor = bankRequiredCapital(state.ownedBank);
+      const room = Math.max(0, capital - floor);
+      const amount = Math.min(action.amount, room);
+      if (amount < 500_000)
+        return log(state, `The capital requirement (${msek(floor)}) blocks the dividend — only ${msek(room)} is free.`, "warn");
+      return {
+        ...state,
+        cash: state.cash + amount,
+        ownedBank: { ...state.ownedBank, capital: capital - amount },
+        log: [{ t: `🏦 ${state.ownedBank.name}: ${msek(amount)} extracted as a bank dividend.`, kind: "income" }, ...state.log],
+      };
+    }
+    case "SET_RENT_GUARANTEE": {
+      if (!state.ownedInsurer) return state;
+      if (!!state.ownedInsurer.rentGuarantee === action.on) return state;
+      return {
+        ...state,
+        ownedInsurer: { ...state.ownedInsurer, rentGuarantee: action.on },
+        log: [{
+          t: action.on
+            ? `🛡️ ${state.ownedInsurer.name} launches rent-guarantee policies: fat margins in stable times, heavy claims in a bust.`
+            : `🛡️ ${state.ownedInsurer.name} discontinues the rent-guarantee line.`,
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "ALLOCATE_TAX_RESERVE": {
+      // Periodiseringsfond: skjut upp skatt på upp till 25 % av årsvinsten;
+      // återförs till beskattning efter 6 år (simulationen).
+      const reserves = state.taxReserves ?? [];
+      if (reserves.length >= TAX_RESERVE_MAX_COUNT)
+        return log(state, `Max ${TAX_RESERVE_MAX_COUNT} tax allocation reserves at once.`, "warn");
+      const annualPBT = resultatrakning(state).resultatForeSkatt * 12;
+      const cap = Math.max(0, Math.round(annualPBT * TAX_RESERVE_MAX_PCT));
+      const amount = Math.min(action.amount, cap);
+      if (amount < 500_000)
+        return log(state, `A reserve requires profits: cap is ${Math.round(TAX_RESERVE_MAX_PCT * 100)}% of annualized profit (${msek(cap)}).`, "warn");
+      const dueAbs = state.year * 12 + state.month + TAX_RESERVE_TERM;
+      return {
+        ...state,
+        taxReserves: [...reserves, { amount, dueAbs }],
+        taxLossCarry: Math.round((state.taxLossCarry ?? 0) + amount),
+        log: [{ t: `🧾 Tax allocation reserve: ${msek(amount)} deferred — returns to taxation in ${TAX_RESERVE_TERM / 12} years. Dissolve it in a loss year and the saving becomes permanent.`, kind: "income" }, ...state.log],
+      };
+    }
+    case "FORM_HOLDING": {
+      if (state.holdingStructure) return state;
+      if ((state.companyLevel ?? 1) < 5)
+        return log(state, "A holding structure requires company level 5.", "warn");
+      const cost = Math.max(10_000_000, Math.round(equityOf(state) * 0.005));
+      if (state.cash < cost) return log(state, `The restructuring costs ${msek(cost)} in advisory fees.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cost,
+        holdingStructure: true,
+        log: [{ t: `🏛️ Holding structure formed (${msek(cost)}): the group's tax rate drops ${Math.round(HOLDING_TAX_DELTA * 100)} percentage points permanently.`, kind: "income" }, ...state.log],
       };
     }
     case "START_DEPOSIT_CAMPAIGN": {

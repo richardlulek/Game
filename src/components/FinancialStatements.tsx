@@ -115,6 +115,7 @@ export function FinancialStatements({ state }: { state: GameState }) {
         <Row label="Bank loans" value={br.banklan} negative />
         <Row label="Bonds" value={br.obligationer} negative hideIfZero />
         <Row label="Revolving credit" value={br.revolver} negative hideIfZero />
+        <Row label="Commercial paper" value={br.certifikat} negative hideIfZero />
         <SumRow label="Total liabilities" value={br.summaSkulder} />
 
         <div style={P.section}>Equity</div>

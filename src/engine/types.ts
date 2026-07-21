@@ -22,6 +22,9 @@ export interface OwnedBank {
   totalNet: number;
   /** Månader kvar av en pågående inlåningskampanj (höjer inlåningsmålet). */
   campaignMonthsLeft?: number;
+  /** Bankens egna kapital: kapitalrelationen (kapital/utlåning) måste
+   *  hålla 8 % – annars stryps utlåningen tills ägaren injicerar mer. */
+  capital?: number;
 }
 
 export interface OwnedInsurer {
@@ -33,6 +36,8 @@ export interface OwnedInsurer {
   totalNet: number;
   /** Återförsäkring: avstår del av premierna, dämpar skadetoppar. */
   reinsured?: boolean;
+  /** Hyresgarantiprodukten: fin marginal i stabilt läge, blöder i bust. */
+  rentGuarantee?: boolean;
 }
 
 export type ScenarioId =
@@ -976,6 +981,17 @@ export interface GameState {
   /** Förlustavdrag: ackumulerade skattemässiga underskott som kvittas mot
    *  framtida vinster (Finans → Skatt). */
   taxLossCarry?: number;
+  /** Periodiseringsfonder: uppskjuten skatt som återförs till beskattning
+   *  vid dueAbs (6 år efter avsättningen). */
+  taxReserves?: { amount: number; dueAbs: number }[];
+  /** Holdingstruktur (nivå 5): permanent −2 pp skattesats. */
+  holdingStructure?: boolean;
+  /** Covenant-lån: −0,25 pp ränta mot räntetäckningskrav (ICR ≥ 1,3).
+   *  breachMonths räknar svaga månader – tre i rad river covenanten. */
+  loanCovenant?: { sinceAbs: number; breachMonths: number };
+  /** Företagscertifikat: kort marknadsfinansiering som rullas var 12:e
+   *  månad – i kris kan marknaden frysa och tvinga fram dyr bankbrygga. */
+  commercialPaper?: { amount: number; rate: number; matureAbs: number };
   /** Avskrivningspolicy: aggressiv skärmar mer vinst men riskerar revision. */
   taxDepreciationPolicy?: "normal" | "aggressiv";
   tutorialDismissed?: boolean;
@@ -1047,6 +1063,16 @@ export type GameAction =
   | { type: "START_DEPOSIT_CAMPAIGN" }
   | { type: "SET_REINSURANCE"; on: boolean }
   | { type: "SET_TAX_POLICY"; policy: "normal" | "aggressiv" }
+  | { type: "EXTEND_MATURITY" }
+  | { type: "SET_LOAN_COVENANT"; on: boolean }
+  | { type: "ISSUE_CP"; amount: number }
+  | { type: "REPAY_CP" }
+  | { type: "BUYBACK_BOND"; bondId: string }
+  | { type: "BANK_INJECT_CAPITAL"; amount: number }
+  | { type: "BANK_EXTRACT_CAPITAL"; amount: number }
+  | { type: "SET_RENT_GUARANTEE"; on: boolean }
+  | { type: "ALLOCATE_TAX_RESERVE"; amount: number }
+  | { type: "FORM_HOLDING" }
   | { type: "BUY_INSURER" }
   | { type: "SELL_INSURER" }
   | { type: "SET_INSURER_PRICING"; pricing: InsurerPricing }

@@ -45,6 +45,26 @@ export const LENDERS: Lender[] = [
  *  ESG-betyget justerar påslaget (gröna lån), och kreditbetyget (AAA–CCC)
  *  lägger sin egen spread ovanpå – hög skuld och svag räntetäckning gör
  *  varje ny krona dyrare. */
+/** Covenant-lånet: räntelättnad mot räntetäckningskrav (Finans → Lån). */
+export const COVENANT_RATE_DELTA = 0.25;
+export const COVENANT_ICR_FLOOR = 1.3;
+export const COVENANT_ICR_SIGNUP = 1.8;
+export const COVENANT_BREACH_MONTHS = 3;
+
+/** Företagscertifikat (Finans → Kapitalmarknad): kort marknadsfinansiering.
+ *  Billigare än obligationer men rullas var 12:e månad – i kris kan
+ *  marknaden frysa och tvinga fram en dyr bankbrygga. */
+export const CP_SPREAD = 0.6;
+export const CP_MAX_OF_EQUITY = 0.15;
+export const CP_TERM_MONTHS = 12;
+
+/** Periodiseringsfonder (Finans → Skatt): uppskjuten skatt. */
+export const TAX_RESERVE_MAX_PCT = 0.25;
+export const TAX_RESERVE_TERM = 72;
+export const TAX_RESERVE_MAX_COUNT = 6;
+/** Holdingstruktur (nivå 5): permanent skattesänkning. */
+export const HOLDING_TAX_DELTA = 0.02;
+
 /** Skattens avskrivningsparametrar (Finans → Skatt): normal och aggressiv
  *  policy samt revisionsrisken per månad för den aggressiva. */
 export const TAX_DEP_NORMAL = 0.013;
@@ -70,7 +90,9 @@ export function loanTerms(state: GameState): LoanTerms {
   const bank = bankStandingTerms(state);
   // Egen bank (finInstitutions): koncernintern upplåning pressar spreaden.
   const ownBank = state.ownedBank ? OWN_BANK_RATE_DELTA : 0;
-  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating + bank.rateDelta + ownBank);
+  // Covenant-lånet köper räntelättnad mot ett räntetäckningskrav.
+  const covenant = state.loanCovenant ? -COVENANT_RATE_DELTA : 0;
+  const spread = Math.max(0.1, Math.max(0.3, 2.5 - (rep / 100) * 1.7 - spreadDelta(state) - advisorBonus) + esg + rating + bank.rateDelta + ownBank + covenant);
   const baseLtv = 0.55 + (rep / 100) * 0.19;
   const lender = LENDERS.find((l) => l.id === state.selectedLender);
   const rateAdj = lender?.rateBonus ?? 0;
@@ -117,6 +139,7 @@ export function equityOf(state: GameState): number {
     finInstitutionsValue(state) -
     state.debt -
     bonds -
+    (state.commercialPaper?.amount ?? 0) -
     (state.revolving?.used ?? 0)
   );
 }

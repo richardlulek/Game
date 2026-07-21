@@ -5,9 +5,38 @@
 
 import { useState } from "react";
 import { esgRatingOf } from "../engine/esg";
-import { LENDERS, RATE_LOCK_TERMS, TAX_AUDIT_CHANCE, TAX_DEP_AGGRESSIVE, TAX_DEP_NORMAL, amortInfoOf, loanTerms } from "../engine/finance";
+import {
+  COVENANT_ICR_FLOOR,
+  COVENANT_ICR_SIGNUP,
+  COVENANT_RATE_DELTA,
+  CP_MAX_OF_EQUITY,
+  CP_SPREAD,
+  CP_TERM_MONTHS,
+  HOLDING_TAX_DELTA,
+  LENDERS,
+  RATE_LOCK_TERMS,
+  TAX_AUDIT_CHANCE,
+  TAX_DEP_AGGRESSIVE,
+  TAX_DEP_NORMAL,
+  TAX_RESERVE_MAX_COUNT,
+  TAX_RESERVE_MAX_PCT,
+  amortInfoOf,
+  loanTerms,
+} from "../engine/finance";
+import { resultatrakning } from "../engine/bokslut";
 import { GREEN_BOND_DISCOUNT, bondRateFor, creditRatingOf } from "../engine/rating";
-import { bankMonthlyNet, bankPurchasePrice, bankValue, depositCampaignCost, insurerMonthlyNet, insurerPurchasePrice, insurerValue } from "../engine/finInstitutions";
+import {
+  bankCapitalOf,
+  bankMonthlyNet,
+  bankPurchasePrice,
+  bankRequiredCapital,
+  bankValue,
+  depositCampaignCost,
+  insurerMonthlyNet,
+  insurerPurchasePrice,
+  insurerValue,
+  rentGuaranteeClaimRatio,
+} from "../engine/finInstitutions";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
 import {
@@ -49,6 +78,9 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
   const [repayAmt, setRepayAmt] = useState(500000);
   const [bondAmt, setBondAmt] = useState(5000000);
   const [bondYears, setBondYears] = useState(5);
+  const [cpAmt, setCpAmt] = useState(5000000);
+  const [capAmt, setCapAmt] = useState(10000000);
+  const [reserveAmt, setReserveAmt] = useState(2000000);
 
   const totalValue = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
   const totalNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0);
@@ -290,7 +322,68 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           </div>
 
           <div style={S.financeCol}>
-            <h3 style={S.h3OnLight}>Rate strategy</h3>
+            <h3 style={S.h3OnLight}>Loan maturity</h3>
+            {state.debt > 0 ? (() => {
+              const toMature = state.debtMatureAbs != null
+                ? Math.max(0, state.debtMatureAbs - (state.year * 12 + state.month)) : null;
+              const fee = Math.max(100_000, Math.round(state.debt * 0.004));
+              return (
+                <>
+                  <Line l="Refinancing due" v={toMature != null ? `${toMature} mo` : "not set"} accent={toMature != null && toMature <= 12 ? "#c0392b" : undefined} />
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    At maturity the rate is re-set by the market — maturing in a bust or recession is expensive.
+                    Extending early pushes the risk past the cycle.
+                  </div>
+                  <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 10 }}
+                    disabled={state.cash < fee}
+                    onClick={() => dispatch({ type: "EXTEND_MATURITY" })}>
+                    Extend maturity 60 mo (fee {msek(fee)})
+                  </button>
+                </>
+              );
+            })() : (
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>No bank debt.</div>
+            )}
+
+            <h3 style={{ ...S.h3OnLight, marginTop: 4 }}>Covenant loan</h3>
+            {(() => {
+              const annualNOI = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0);
+              const icr = annualInterest > 0 ? annualNOI / annualInterest : 99;
+              if (state.loanCovenant) {
+                const breach = state.loanCovenant.breachMonths;
+                return (
+                  <>
+                    <Line l="Rate relief" v={`−${COVENANT_RATE_DELTA}pp`} accent="#27660a" />
+                    <Line l="Interest coverage" v={`${icr >= 99 ? "∞" : icr.toFixed(2)}× (floor ${COVENANT_ICR_FLOOR}×)`}
+                      accent={icr < COVENANT_ICR_FLOOR ? "#c0392b" : "#27660a"} />
+                    {breach > 0 && (
+                      <div style={{ fontSize: 11, color: "#c0392b", marginBottom: 4 }}>
+                        ⚠️ {breach}/3 weak months — at 3 the bank tears it up (1% fee, rep −3).
+                      </div>
+                    )}
+                    <button style={{ ...S.amortBtn, background: "#555", marginBottom: 10 }}
+                      onClick={() => dispatch({ type: "SET_LOAN_COVENANT", on: false })}>
+                      Cancel covenant loan
+                    </button>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    −{COVENANT_RATE_DELTA}pp rate against keeping interest coverage ≥ {COVENANT_ICR_FLOOR}×.
+                    Requires ICR ≥ {COVENANT_ICR_SIGNUP}× to sign (now {icr >= 99 ? "∞" : icr.toFixed(2)}×).
+                  </div>
+                  <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 10 }}
+                    disabled={state.debt <= 0 || icr < COVENANT_ICR_SIGNUP}
+                    onClick={() => dispatch({ type: "SET_LOAN_COVENANT", on: true })}>
+                    Sign covenant loan
+                  </button>
+                </>
+              );
+            })()}
+
+            <h3 style={{ ...S.h3OnLight, marginTop: 4 }}>Rate strategy</h3>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
                 Current: <strong>{state.rateMode === "fixed" ? `Fixed ${state.fixedRate?.toFixed(2)}%` : `Variable ${terms.rate.toFixed(2)}%`}</strong>
@@ -470,18 +563,33 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                 {(state.bonds ?? []).length > 0 && (
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Outstanding bonds:</div>
-                    {(state.bonds ?? []).map((b) => (
-                      <div key={b.id} style={{ fontSize: 12, display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #eee" }}>
-                        <span>
-                          {b.green ? "🌱 " : ""}{msek(b.amount)} @ {b.rate.toFixed(2)} %
-                          {b.breached && <span style={{ color: "#c0392b", fontWeight: 700 }}> · covenant breached</span>}
-                        </span>
-                        <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #c0392b", background: "transparent", color: "#c0392b", borderRadius: 3, padding: "1px 6px" }}
-                          onClick={() => dispatch({ type: "REPAY_BOND", bondId: b.id })}>
-                          Repay
-                        </button>
-                      </div>
-                    ))}
+                    {(state.bonds ?? []).map((b) => {
+                      // Marknadspris: har marknadskupongen stigit sedan
+                      // emissionen handlas obligationen under par.
+                      const market = bondRateFor(state, rating.rating);
+                      const priceMult = Math.max(0.85, Math.min(1.12, b.rate / Math.max(0.5, market)));
+                      const price = Math.round(b.amount * priceMult);
+                      return (
+                        <div key={b.id} style={{ fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: "1px solid #eee" }}>
+                          <span>
+                            {b.green ? "🌱 " : ""}{msek(b.amount)} @ {b.rate.toFixed(2)} %
+                            {b.breached && <span style={{ color: "#c0392b", fontWeight: 700 }}> · covenant breached</span>}
+                          </span>
+                          <span style={{ display: "flex", gap: 4 }}>
+                            <button
+                              style={{ fontSize: 11, cursor: "pointer", border: `1px solid ${priceMult < 1 ? "#27660a" : "#888"}`, background: "transparent", color: priceMult < 1 ? "#27660a" : "#555", borderRadius: 3, padding: "1px 6px" }}
+                              title={`Market price ${Math.round(priceMult * 100)}% of par — ${priceMult < 1 ? "buy back below face value" : "trading above face value"}`}
+                              onClick={() => dispatch({ type: "BUYBACK_BOND", bondId: b.id })}>
+                              Buy back {msek(price)}
+                            </button>
+                            <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #c0392b", background: "transparent", color: "#c0392b", borderRadius: 3, padding: "1px 6px" }}
+                              onClick={() => dispatch({ type: "REPAY_BOND", bondId: b.id })}>
+                              Repay par
+                            </button>
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -489,7 +597,49 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           </div>
 
           <div style={S.financeCol}>
-            <h3 style={S.h3OnLight}>Dividend</h3>
+            <h3 style={S.h3OnLight}>Commercial paper</h3>
+            {(() => {
+              const cp = state.commercialPaper;
+              const cap = Math.round(equity * CP_MAX_OF_EQUITY);
+              const room = Math.max(0, cap - (cp?.amount ?? 0));
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>
+                    Short funding at {(state.interestRate + CP_SPREAD).toFixed(2)}% (bank rate {terms.rate.toFixed(2)}%),
+                    rolled every {CP_TERM_MONTHS} mo. Cap {Math.round(CP_MAX_OF_EQUITY * 100)}% of equity ({msek(cap)}).
+                    In a crisis the market freezes — the paper is repaid or bridged into expensive bank debt.
+                  </div>
+                  {cp && (
+                    <>
+                      <Line l="Outstanding" v={msek(cp.amount)} />
+                      <Line l="Rate" v={`${cp.rate.toFixed(2)}%`} />
+                      <Line l="Next rollover" v={`${Math.max(0, cp.matureAbs - (state.year * 12 + state.month))} mo`} />
+                      <button style={{ ...S.amortBtn, marginBottom: 6 }}
+                        disabled={state.cash < cp.amount}
+                        onClick={() => dispatch({ type: "REPAY_CP" })}>
+                        Repay program ({msek(cp.amount)})
+                      </button>
+                    </>
+                  )}
+                  {room >= 1_000_000 && (
+                    <>
+                      <div style={S.amortRow}>
+                        <input type="range" min={1000000} max={room} step={1000000}
+                          value={Math.min(cpAmt, room)} onChange={(e) => setCpAmt(+e.target.value)}
+                          style={{ flex: 1, accentColor: "#1a4a6b" }} />
+                        <span style={{ minWidth: 90, textAlign: "right" }}>{msek(Math.min(cpAmt, room))}</span>
+                      </div>
+                      <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 6 }}
+                        onClick={() => dispatch({ type: "ISSUE_CP", amount: cpAmt })}>
+                        📃 Issue commercial paper
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
+
+            <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Dividend</h3>
             <Line l="Total paid out" v={kr(state.dividendsPaid ?? 0)} />
             <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
               Dividends are now paid under <strong>Company → Legacy</strong>, where they build
@@ -506,6 +656,13 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
       {/* ── Institut: ägd bank + försäkringsbolag ───────────────────── */}
       {tab === "institut" && (
         <div style={S.financeWrap}>
+          {state.ownedBank && state.ownedInsurer && (
+            <div style={{ ...S.financeCol, gridColumn: "1 / -1", padding: "10px 18px" }}>
+              <span style={{ fontWeight: 800, color: "#27660a" }}>
+                🏛️ Financial group: bank + insurer cross-sell each other's customers — +6% on the bank's interest net and the insurance premiums.
+              </span>
+            </div>
+          )}
           {(state.companyLevel ?? 1) < 4 ? (
             <div style={S.financeCol}>
               <h3 style={S.h3OnLight}>Financial institutions</h3>
@@ -538,6 +695,42 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                         Sell ({msek(Math.round(bankValue(state.ownedBank, state) * 0.85))})
                       </button>
                     </div>
+                    {(() => {
+                      const capital = bankCapitalOf(state.ownedBank!);
+                      const required = bankRequiredCapital(state.ownedBank!);
+                      const ok = capital >= required;
+                      const extractRoom = Math.max(0, capital - required);
+                      return (
+                        <>
+                          <Line l="Bank capital" v={msek(capital)} accent={ok ? "#27660a" : "#c0392b"} />
+                          <Line l="Requirement (8% of lending)" v={msek(required)} />
+                          {!ok && (
+                            <div style={{ fontSize: 11, color: "#c0392b", marginBottom: 4 }}>
+                              ⚠️ Below the capital ratio — lending is throttled to 75% until you inject.
+                            </div>
+                          )}
+                          <div style={S.amortRow}>
+                            <input type="range" min={500000} max={100_000_000} step={500000}
+                              value={capAmt} onChange={(e) => setCapAmt(+e.target.value)}
+                              style={{ flex: 1, accentColor: "#1a4a6b" }} />
+                            <span style={{ minWidth: 90, textAlign: "right" }}>{msek(capAmt)}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, margin: "6px 0" }}>
+                            <button style={{ ...S.amortBtn, marginTop: 0, background: "#1a4a6b", flex: 1 }}
+                              disabled={state.cash < Math.min(capAmt, state.cash) || state.cash < 500_000}
+                              onClick={() => dispatch({ type: "BANK_INJECT_CAPITAL", amount: capAmt })}>
+                              Inject
+                            </button>
+                            <button style={{ ...S.amortBtn, marginTop: 0, background: "#555", flex: 1 }}
+                              disabled={extractRoom < 500_000}
+                              title={extractRoom < 500_000 ? "The capital requirement blocks a dividend" : ""}
+                              onClick={() => dispatch({ type: "BANK_EXTRACT_CAPITAL", amount: capAmt })}>
+                              Extract
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
                     {(state.ownedBank.campaignMonthsLeft ?? 0) > 0 ? (
                       <div style={{ fontSize: 12, color: "#27660a", fontWeight: 700, marginBottom: 6 }}>
                         📣 Deposit campaign running — {state.ownedBank.campaignMonthsLeft} mo left (+25% deposit target).
@@ -592,6 +785,13 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                         Sell ({msek(Math.round(insurerValue(state.ownedInsurer, state) * 0.85))})
                       </button>
                     </div>
+                    <button style={{ ...S.amortBtn, background: state.ownedInsurer.rentGuarantee ? "#555" : "#27660a", marginBottom: 6 }}
+                      title="Extra premiums per policy — but the claim ratio follows the cycle and passes 100% in a bust. A deliberately counter-cyclical risk."
+                      onClick={() => dispatch({ type: "SET_RENT_GUARANTEE", on: !state.ownedInsurer!.rentGuarantee })}>
+                      {state.ownedInsurer.rentGuarantee
+                        ? `Discontinue rent guarantees (claim ratio now ${Math.round(rentGuaranteeClaimRatio(state) * 100)}%)`
+                        : "🏠 Launch rent-guarantee policies (fat margin in stable times, bleeds in a bust)"}
+                    </button>
                     <button style={{ ...S.amortBtn, background: state.ownedInsurer.reinsured ? "#555" : "#27660a", marginBottom: 6 }}
                       onClick={() => dispatch({ type: "SET_REINSURANCE", on: !state.ownedInsurer!.reinsured })}>
                       {state.ownedInsurer.reinsured
@@ -684,6 +884,68 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                       💡 Upgrade properties to energy class A to lower the tax rate by 3 percentage points.
                     </div>
                   )}
+                </>
+              );
+            })()}
+          </div>
+
+          <div style={S.financeCol}>
+            <h3 style={S.h3OnLight}>Tax allocation reserves</h3>
+            {(() => {
+              const reserves = state.taxReserves ?? [];
+              const annualPBT = Math.max(0, resultatrakning(state).resultatForeSkatt * 12);
+              const cap = Math.round(annualPBT * TAX_RESERVE_MAX_PCT);
+              const nowAbs = state.year * 12 + state.month;
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>
+                    Defer tax on up to {Math.round(TAX_RESERVE_MAX_PCT * 100)}% of annualized profit.
+                    The reserve returns to taxation after 6 years — dissolve into a loss year
+                    and the saving becomes permanent.
+                  </div>
+                  {reserves.map((r, i) => (
+                    <Line key={i} l={`Reserve ${i + 1} (due in ${Math.max(0, r.dueAbs - nowAbs)} mo)`} v={msek(r.amount)} />
+                  ))}
+                  {reserves.length < TAX_RESERVE_MAX_COUNT && cap >= 500_000 && (
+                    <>
+                      <div style={S.amortRow}>
+                        <input type="range" min={500000} max={cap} step={500000}
+                          value={Math.min(reserveAmt, cap)} onChange={(e) => setReserveAmt(+e.target.value)}
+                          style={{ flex: 1, accentColor: "#1a4a6b" }} />
+                        <span style={{ minWidth: 90, textAlign: "right" }}>{msek(Math.min(reserveAmt, cap))}</span>
+                      </div>
+                      <button style={{ ...S.amortBtn, background: "#1a4a6b" }}
+                        onClick={() => dispatch({ type: "ALLOCATE_TAX_RESERVE", amount: reserveAmt })}>
+                        Allocate reserve (cap {msek(cap)})
+                      </button>
+                    </>
+                  )}
+                  {cap < 500_000 && reserves.length < TAX_RESERVE_MAX_COUNT && (
+                    <div style={{ fontSize: 12, color: "#888" }}>Requires an annualized profit — nothing to defer right now.</div>
+                  )}
+                </>
+              );
+            })()}
+
+            <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Holding structure</h3>
+            {state.holdingStructure ? (
+              <div style={{ fontSize: 12, color: "#27660a", fontWeight: 700 }}>
+                🏛️ Active — the group's tax rate is {Math.round(HOLDING_TAX_DELTA * 100)}pp lower permanently.
+              </div>
+            ) : (() => {
+              const cost = Math.max(10_000_000, Math.round(equity * 0.005));
+              const gated = (state.companyLevel ?? 1) < 5;
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>
+                    A one-time group restructuring lowers the tax rate {Math.round(HOLDING_TAX_DELTA * 100)}pp permanently.
+                    {gated ? " Requires company level 5." : ""}
+                  </div>
+                  <button style={{ ...S.amortBtn, background: gated ? "#888" : "#1a4a6b" }}
+                    disabled={gated || state.cash < cost}
+                    onClick={() => dispatch({ type: "FORM_HOLDING" })}>
+                    🏛️ Form holding structure ({msek(cost)})
+                  </button>
                 </>
               );
             })()}
