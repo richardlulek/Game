@@ -22,6 +22,7 @@ import {
   applicationRate,
   bestApplication,
   makeApplication,
+  propertyStandard,
   satisfactionTarget,
   signContract,
 } from "./leasing";
@@ -369,6 +370,10 @@ export function advanceMonth(state: GameState): GameState {
   // och de som lämnar kan dyka upp som sökande hos dina andra hus.
   const moveP = movePressure(cityVacancyRate(s));
   const movers: Tenant[] = [];
+  // Flyttkedjor: distrikt där en NY bostad blir klar denna månad (spelarens
+  // nyproduktion/nybyggnation eller rivalernas byggen) – utlöser en puls där
+  // hushåll i äldre hus med lägre standard flyttar upp (efter rivalblocket).
+  const newHomeDistricts = new Set<string>();
 
   s.portfolio = s.portfolio.map((p) => {
     const np = { ...p };
@@ -442,6 +447,8 @@ export function advanceMonth(state: GameState): GameState {
       np.buildLeft -= 1;
       if (np.buildLeft <= 0) {
         np.status = "klar";
+        if (np.type === "bostad" && (!np.renovation || np.renovation.kind === "nybyggnation"))
+          newHomeDistricts.add(np.district);
         if (np.renovation) {
           // Utvecklingsprojekt färdigt.
           if (np.renovation.kind === "lokalanpassning") {
@@ -1898,6 +1905,7 @@ export function advanceMonth(state: GameState): GameState {
       if (p.status !== "bygger") return p;
       if (p.buildLeft <= 1) {
         finishedBuild = `${p.typeLabel} i ${p.districtName}`;
+        if (p.type === "bostad") newHomeDistricts.add(p.district);
         return { ...p, status: "klar" as const, buildLeft: 0 };
       }
       return { ...p, buildLeft: p.buildLeft - 1 };
@@ -2010,6 +2018,35 @@ export function advanceMonth(state: GameState): GameState {
     }
     return nc;
   });
+
+  // ── Flyttkedjor: nya bostäder suger uppåt ────────────────────────
+  // När en ny bostad står klar i ett distrikt flyttar hushåll i äldre hus
+  // med lägre standard upp i kedjan – de lämnar sina kontrakt i förtid.
+  // Trycket skalar med stadens vakansläge (löst läge = lätt att flytta).
+  for (const district of newHomeDistricts) {
+    const candidates = s.portfolio.filter(
+      (p) =>
+        p.district === district &&
+        p.type === "bostad" &&
+        p.status === "klar" &&
+        p.tenants.length > 0 &&
+        propertyStandard(p) < 0.62,
+    );
+    let moved = 0;
+    for (const p of candidates) {
+      if (moved >= 2) break;
+      const std = propertyStandard(p);
+      if (random01() < (0.62 - std) * 0.9 * moveP) {
+        p.tenants = p.tenants.slice(0, -1);
+        moved += 1;
+        events.push({
+          t: `🏠 Moving chain: a household leaves ${p.typeLabel} in ${p.districtName} for the newly built housing — older, lower-standard homes lose tenants first.`,
+          kind: "warn",
+        });
+      }
+    }
+  }
+
   // ── Rivalerna konkurrerar om industriobjekten (~5 %/mån) ─────────
   if ((s.industryListings ?? []).length > 0 && s.competitors.length > 0 && random01() < 0.05) {
     const target = pick(s.industryListings!);

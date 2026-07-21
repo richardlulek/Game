@@ -35,6 +35,17 @@ export const SINGLE_TENANT_RENT_BONUS = 1.10;
 /** ...och lägre administrativ driftkostnad. */
 export const SINGLE_TENANT_OPEX_CUT = 0.95;
 
+/** Byggnadens standard 0–1: skick, energiklass och utvecklingsnivå.
+ *  Driver flyttkedjorna – hushåll flyttar upp när nyare/bättre byggs
+ *  och hus vars standard inte matchar distriktets status tappar sökande. */
+export function propertyStandard(p: Property): number {
+  const energy: Record<string, number> = { A: 1, B: 0.85, C: 0.7, D: 0.55, E: 0.4, F: 0.25 };
+  const cond = p.condition / 100;
+  const en = energy[p.energyClass ?? "D"] ?? 0.55;
+  const dev = Math.min(1, (p.devLevel ?? 0) / 3);
+  return +(cond * 0.5 + en * 0.3 + dev * 0.2).toFixed(3);
+}
+
 /** Max antal lokaler en fastighet kan byggas om till. */
 export function maxCapacityFor(p: Property): number {
   if (p.wholeBlock) return 9;
@@ -143,7 +154,12 @@ export function applicationRate(
     tier.id === "exklusivt" ? 1.25 : tier.id === "uppatgaende" ? 1.1 : tier.id === "eftersatt" ? 0.75 : 1;
   const mix = blockMixFor(p, state);
   const broker = p.brokerMandate ? 1.0 : 0.0; // garantiflöde adderas separat
-  const base = free * 0.95 * price * cond * tierMult * state.demandMod * referralBonus(state) * mix.rentMult;
+  // Flyttkedjor: standardmatchning – lyxhus i eftersatt läge och ruckel i
+  // exklusivt läge hittar färre hushåll; rätt standard för läget är neutral.
+  const std = propertyStandard(p);
+  const matchMult =
+    (tier.id === "eftersatt" && std > 0.75) || (tier.id === "exklusivt" && std < 0.4) ? 0.85 : 1;
+  const base = free * 0.95 * price * cond * tierMult * matchMult * state.demandMod * referralBonus(state) * mix.rentMult;
   // Befolkningsloopen: bostadsbrist i distriktet ger fler sökande, överskott
   // färre (population.ts – jobben driver inflyttningen som driver trycket).
   const popMult = p.type === "bostad" ? pressureAppMult(state, p.district) : 1;
