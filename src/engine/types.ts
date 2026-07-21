@@ -52,7 +52,8 @@ export interface OwnedInsurer {
 
 export type ScenarioId =
   | "equity50" | "equity200" | "districts3" | "units25" | "sandbox"
-  | "diversified" | "energyBaron" | "hotelKing" | "arvet";
+  | "diversified" | "energyBaron" | "hotelKing" | "arvet"
+  | "infraMagnat" | "bankir" | "konsolidator";
 
 // ── Industrisektorer ────────────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 import { equityOf } from "./finance";
 import { msek } from "./format";
+import { accessibilityOf } from "./infrastructure";
 import { STORY_BEATS } from "./story";
 import type { Competitor, GameState, ScenarioId } from "./types";
 
@@ -146,7 +147,56 @@ export const SCENARIOS: Scenario[] = [
       return { value: n, max: 6, label: `${n} / 6 months of high occupancy` };
     },
   },
+  {
+    id: "infraMagnat",
+    title: "The Transit Tycoon",
+    subtitle: "10 properties on the rails",
+    desc: "Own 10 completed properties in districts with real infrastructure (accessibility ≥ 1.05). Buy before the metro opens — or make it open where you own.",
+    icon: "🚇",
+    check: (s) => connectedHoldings(s.portfolio.filter((p) => p.status === "klar"), s) >= 10,
+    progress: (s) => {
+      const n = connectedHoldings(s.portfolio.filter((p) => p.status === "klar"), s);
+      return { value: n, max: 10, label: `${n} / 10 connected properties` };
+    },
+  },
+  {
+    id: "bankir",
+    title: "The Financier",
+    subtitle: "Bank + insurer, $60M lifetime profit",
+    desc: "Own both the bank and the insurance company, and take their combined lifetime net profit to $60M. Capital is the real estate of money.",
+    icon: "🏦",
+    check: (s) => institutionNet(s) >= 60_000_000 && !!s.ownedBank && !!s.ownedInsurer,
+    progress: (s) => {
+      const n = Math.max(0, institutionNet(s));
+      return { value: Math.min(n, 60_000_000), max: 60_000_000, label: `${msek(n)} / $60M institution profit` };
+    },
+  },
+  {
+    id: "konsolidator",
+    title: "The Last Empires",
+    subtitle: "≤ 4 rivals left · $100M equity",
+    desc: "Outlast the great consolidation: be worth $100M when at most four rival companies remain standing. Mergers, distress and rate shocks are your allies.",
+    icon: "🏰",
+    check: (s) => s.competitors.length <= 4 && equityOf(s) >= 100_000_000,
+    progress: (s) => {
+      const eq = Math.min(1, Math.max(0, equityOf(s)) / 100_000_000);
+      const startField = 11; // 7 stora + 4 uppstickare
+      const eaten = Math.min(1, Math.max(0, (startField - s.competitors.length) / (startField - 4)));
+      const pct = Math.round(((eq + eaten) / 2) * 100);
+      return { value: pct, max: 100, label: `${s.competitors.length} rivals left · ${msek(Math.max(0, equityOf(s)))}` };
+    },
+  },
 ];
+
+/** Antal färdiga innehav i distrikt med utbyggd infrastruktur. */
+function connectedHoldings(portfolio: { district: string }[], s: GameState): number {
+  return portfolio.filter((p) => accessibilityOf(s, p.district) >= 1.05).length;
+}
+
+/** Institutionernas samlade livstidsresultat (bank + försäkring). */
+function institutionNet(s: GameState): number {
+  return (s.ownedBank?.totalNet ?? 0) + (s.ownedInsurer?.totalNet ?? 0);
+}
 
 const SCENARIO_DISTRICT_IDS = ["centrum", "finans", "innerstad", "hamnen", "industri", "förort", "kulle"] as const;
 
@@ -155,6 +205,9 @@ export function rivalScenarioProgress(rival: Competitor, scenarioId: ScenarioId,
     case "equity50": return Math.min(1, rival.equity / 50_000_000);
     case "equity200": return Math.min(1, rival.equity / 200_000_000);
     case "units25": return Math.min(1, rival.portfolio.filter((p) => p.status === "klar").length / 25);
+    // Rivalerna tävlar även om spårnära lägen (fas 4).
+    case "infraMagnat":
+      return Math.min(1, rival.portfolio.filter((p) => p.status === "klar" && accessibilityOf(s, p.district) >= 1.05).length / 10);
     case "districts3": {
       let n = 0;
       for (const d of SCENARIO_DISTRICT_IDS) {
@@ -173,6 +226,8 @@ export function rivalWinsScenario(rival: Competitor, scenarioId: ScenarioId, s: 
     case "equity50": return rival.equity >= 50_000_000;
     case "equity200": return rival.equity >= 200_000_000;
     case "units25": return rival.portfolio.filter((p) => p.status === "klar").length >= 25;
+    case "infraMagnat":
+      return rival.portfolio.filter((p) => p.status === "klar" && accessibilityOf(s, p.district) >= 1.05).length >= 10;
     case "districts3": {
       let n = 0;
       for (const d of SCENARIO_DISTRICT_IDS) {
