@@ -50,6 +50,7 @@ export const STAFF_ROLES: StaffRole[] = [
   { id: "hotelldirektör",  name: "Hotel Director",      desc: "Raises RevPAR and guest satisfaction across hotels.", baseSalary: 38_000, maxLevel: 3, effect: "+5% RevPAR / level" },
   { id: "energianalytiker",name: "Energy Analyst",      desc: "Optimizes spot sales and PPA terms.",         baseSalary: 29_000, maxLevel: 3, effect: "+8% spot revenue / level" },
   { id: "logistikchef",    name: "Head of Logistics",   desc: "Streamlines logistics flows and contracts.",  baseSalary: 31_000, maxLevel: 3, effect: "+6% throughput / level" },
+  { id: "skattejurist",    name: "Tax Counsel",         desc: "Defends aggressive structures and lifts reserve caps.", baseSalary: 27_000, maxLevel: 3, effect: "−25% audit risk / level · +5pp reserve cap / level" },
 ];
 
 const lvl = (s: GameState, role: string) => (s.staff?.[role] ?? 0);
@@ -139,6 +140,16 @@ export function logisticsThroughputBoost(s: GameState): number {
 /** Opex-multiplikator för industritillgångar (green_cert). */
 export function industryOpexMult(s: GameState): number {
   return has(s, "green_cert") ? 0.95 : 1.0;
+}
+
+/** Skattejuristen: multiplikator på revisionsrisken (golv 20 %). */
+export function taxAuditMult(s: GameState): number {
+  return Math.max(0.2, 1 - 0.25 * lvl(s, "skattejurist") * talentOf(s, "skattejurist"));
+}
+
+/** Skattejuristen: högre tak för periodiseringsfonder (+5 pp/nivå). */
+export function taxReserveCapBonus(s: GameState): number {
+  return 0.05 * lvl(s, "skattejurist") * talentOf(s, "skattejurist");
 }
 
 /** Engångskostnad för att anställa/befordra till nästa nivå. */

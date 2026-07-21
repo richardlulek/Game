@@ -18,6 +18,7 @@
    funktionerna månadsvis och reducern äger köp/sälj/inställningar.
    ============================================================ */
 
+import { INTERNAL_FUNDING_SHARE } from "./finance";
 import { rnd } from "./random";
 import type { BankStance, GameState, InsurerPricing, LogEntry, OwnedBank, OwnedInsurer } from "./types";
 
@@ -39,6 +40,10 @@ export function insurerPurchasePrice(equity: number): number {
 }
 
 const STANCE_UTIL: Record<BankStance, number> = { försiktig: 0.5, balanserad: 0.65, aggressiv: 0.8 };
+/** Utlåningsbokens inriktning: marginal mot risk och konjunkturkänslighet. */
+export type BankFocus = "fastighet" | "blandat" | "konsument";
+const FOCUS_SPREAD: Record<BankFocus, number> = { fastighet: -0.3, blandat: 0, konsument: 0.6 };
+const FOCUS_LOSS: Record<BankFocus, number> = { fastighet: 0.7, blandat: 1, konsument: 1.6 };
 const STANCE_SPREAD: Record<BankStance, number> = { försiktig: 1.8, balanserad: 2.2, aggressiv: 2.8 };
 /** Månatlig kreditförlust i % av utlånat, per hållning – normalläge. */
 const STANCE_LOSS: Record<BankStance, number> = { försiktig: 0.02, balanserad: 0.05, aggressiv: 0.12 };
@@ -77,7 +82,7 @@ export function finInstitutionsValue(state: GameState): number {
 
 /** Förväntat netto i nuläget (utan slump) – för UI och värdering. */
 export function bankMonthlyNet(bank: OwnedBank, state: GameState): number {
-  const lendRate = state.interestRate + STANCE_SPREAD[bank.stance];
+  const lendRate = state.interestRate + STANCE_SPREAD[bank.stance] + FOCUS_SPREAD[bank.focus ?? "blandat"];
   const depositRate = state.interestRate * 0.5;
   const margin = (lendRate - depositRate) / 100;
   const opex = 40_000 + bank.deposits * 0.0004;
@@ -110,7 +115,12 @@ export function tickBank(
   // Kapitalkravet: räcker inte kapitalet till full utlåning stryps den –
   // banken kan inte växa fortare än ägaren kapitaliserar den.
   const capital = bankCapitalOf(bank);
-  const fullLoans = deposits * STANCE_UTIL[bank.stance];
+  // Rivalutlåning ökar volymen; koncernintern upplåning binder en del av
+  // boken hos ägaren (extern volym krymper – se INTERNAL_FUNDING_SHARE).
+  const utilBoost = bank.rivalLending ? 0.05 : 0;
+  const internalShare = bank.internalFunding
+    ? Math.min(state.debt ?? 0, deposits * INTERNAL_FUNDING_SHARE) : 0;
+  const fullLoans = Math.max(0, deposits * (STANCE_UTIL[bank.stance] + utilBoost) - internalShare);
   const capitalOK = capital >= fullLoans * BANK_CAPITAL_FLOOR;
   const loansOut = Math.round(fullLoans * (capitalOK ? 1 : 0.75));
   if (!capitalOK && rnd(0, 1) < 0.12) {
@@ -131,8 +141,26 @@ export function tickBank(
   // Kreditförluster: hållningen sätter basrisken; bust dubblar, kris × 3,5.
   const crisis = (state.crisisMonthsLeft ?? 0) > 0;
   const lossMult = crisis ? 3.5 : phase === "bust" ? 2 : 1;
-  const lossPct = (STANCE_LOSS[nb.stance] / 100) * lossMult;
-  const losses = Math.round(nb.loansOut * lossPct * rnd(0.6, 1.4));
+  // Inriktningen: fastighetsboken är extra bust-känslig, konsumentboken
+  // extra recessions-känslig.
+  const focus = nb.focus ?? "blandat";
+  const focusCycle =
+    focus === "fastighet" && phase === "bust" ? 1.25 :
+    focus === "konsument" && (state.recessionMonthsLeft ?? 0) > 0 ? 2.0 : 1;
+  const lossPct = (STANCE_LOSS[nb.stance] / 100) * lossMult * FOCUS_LOSS[focus] * focusCycle;
+  let losses = Math.round(nb.loansOut * lossPct * rnd(0.6, 1.4));
+  // Rivalutlåning: nödställda rivaler (negativ kassa) blir dina förluster.
+  if (nb.rivalLending) {
+    const distressed = state.competitors.filter((c) => c.cash < 0);
+    if (distressed.length > 0) {
+      const extra = Math.round(nb.loansOut * 0.004 * distressed.length);
+      losses += extra;
+      events.push({
+        t: `🏦 ${nb.name}: ${distressed.map((c) => c.name).join(", ")} ${distressed.length > 1 ? "are" : "is"} in distress — extra credit losses of ${Math.round(extra / 1000)}k on the rival book.`,
+        kind: "expense",
+      });
+    }
+  }
   if (losses > 0) {
     net -= losses;
     if (lossMult > 1)

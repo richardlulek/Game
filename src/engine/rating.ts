@@ -69,11 +69,14 @@ export function creditRatingOf(s: GameState): RatingInfo {
   // Kris: fryst kapitalmarknad sänker alla.
   const crisis = (s.crisisMonthsLeft ?? 0) > 0 ? -10 : 0;
   if (crisis) drivers.push("Fastighetskris");
+  // Investerarrelationer: transparens och roadshows betalar sig i betyget.
+  const ir = s.irProgram ? IR_RATING_BONUS : 0;
+  if (ir) drivers.push("Investor relations");
 
   // Små bolag saknar institutionell historik: under 50 Msek eget kapital
   // toppar betyget på BBB – ratingresan är en del av bolagsresan.
   const sizeCap = eq < 50_000_000 ? 55 : 100;
-  const score = Math.max(0, Math.min(sizeCap, ltvScore + icrScore + sizeScore + esgScore + crisis));
+  const score = Math.max(0, Math.min(sizeCap, ltvScore + icrScore + sizeScore + esgScore + crisis + ir));
   const rating: CreditRating =
     score >= 85 ? "AAA" : score >= 72 ? "AA" : score >= 60 ? "A" :
     score >= 48 ? "BBB" : score >= 36 ? "BB" : score >= 24 ? "B" : "CCC";
@@ -92,6 +95,10 @@ export function creditRatingOf(s: GameState): RatingInfo {
 /** Obligationsränta för ett betyg: basränta + programpåslag. */
 /** Kupongrabatt för gröna obligationer (kräver ESG-betyg A/B). */
 export const GREEN_BOND_DISCOUNT = 0.35;
+
+/** Investerarrelationer (Finans → Kapitalmarknad): +ratingpoäng mot
+ *  en löpande månadskostnad. */
+export const IR_RATING_BONUS = 8;
 
 export function bondRateFor(s: GameState, rating: CreditRating): number {
   const spread: Record<CreditRating, number> = {

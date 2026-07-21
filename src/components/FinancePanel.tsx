@@ -9,10 +9,16 @@ import {
   COVENANT_ICR_FLOOR,
   COVENANT_ICR_SIGNUP,
   COVENANT_RATE_DELTA,
+  CONVERTIBLE_MAX_OF_EQUITY,
+  CONVERTIBLE_RATE_DISCOUNT,
+  CONVERTIBLE_TRIGGER,
   CP_MAX_OF_EQUITY,
   CP_SPREAD,
   CP_TERM_MONTHS,
   HOLDING_TAX_DELTA,
+  INTEREST_CAP_OF_NOI,
+  IR_COST_MIN,
+  IR_COST_OF_EQUITY,
   LENDERS,
   RATE_LOCK_TERMS,
   TAX_AUDIT_CHANCE,
@@ -24,7 +30,7 @@ import {
   loanTerms,
 } from "../engine/finance";
 import { resultatrakning } from "../engine/bokslut";
-import { GREEN_BOND_DISCOUNT, bondRateFor, creditRatingOf } from "../engine/rating";
+import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "../engine/rating";
 import {
   bankCapitalOf,
   bankMonthlyNet,
@@ -324,20 +330,42 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           <div style={S.financeCol}>
             <h3 style={S.h3OnLight}>Loan maturity</h3>
             {state.debt > 0 ? (() => {
-              const toMature = state.debtMatureAbs != null
-                ? Math.max(0, state.debtMatureAbs - (state.year * 12 + state.month)) : null;
+              const nowAbs = state.year * 12 + state.month;
+              const tranches = state.debtTranches ?? [];
               const fee = Math.max(100_000, Math.round(state.debt * 0.004));
+              const splitFee = Math.max(150_000, Math.round(state.debt * 0.003));
+              if (tranches.length > 0) {
+                return (
+                  <>
+                    {tranches.map((t, i) => (
+                      <Line key={i} l={`Tranche ${i + 1} (~${Math.round(100 / tranches.length)}% of debt)`}
+                        v={`${Math.max(0, t - nowAbs)} mo`}
+                        accent={t - nowAbs <= 12 ? "#c0392b" : undefined} />
+                    ))}
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
+                      Staggered maturities: each refinancing renegotiates only a third of the
+                      rate risk — one bad market day can no longer re-price the whole debt.
+                    </div>
+                  </>
+                );
+              }
+              const toMature = state.debtMatureAbs != null ? Math.max(0, state.debtMatureAbs - nowAbs) : null;
               return (
                 <>
                   <Line l="Refinancing due" v={toMature != null ? `${toMature} mo` : "not set"} accent={toMature != null && toMature <= 12 ? "#c0392b" : undefined} />
                   <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
                     At maturity the rate is re-set by the market — maturing in a bust or recession is expensive.
-                    Extending early pushes the risk past the cycle.
+                    Extend early to push the risk past the cycle, or tranche the debt to spread it.
                   </div>
-                  <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 10 }}
+                  <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 6 }}
                     disabled={state.cash < fee}
                     onClick={() => dispatch({ type: "EXTEND_MATURITY" })}>
                     Extend maturity 60 mo (fee {msek(fee)})
+                  </button>
+                  <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 10 }}
+                    disabled={state.cash < splitFee}
+                    onClick={() => dispatch({ type: "SPLIT_MATURITIES" })}>
+                    Split into 3 tranches +24/+48/+72 mo (fee {msek(splitFee)})
                   </button>
                 </>
               );
@@ -639,6 +667,78 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
               );
             })()}
 
+            <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Investor relations</h3>
+            {(() => {
+              const irCost = Math.max(IR_COST_MIN, Math.round(equity * IR_COST_OF_EQUITY));
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    Transparency and roadshows: +{IR_RATING_BONUS} rating points (better bond coupon
+                    and a larger program) for {kr(irCost)}/mo.
+                  </div>
+                  <button style={{ ...S.amortBtn, background: state.irProgram ? "#555" : "#1a4a6b", marginBottom: 6 }}
+                    onClick={() => dispatch({ type: "TOGGLE_IR", on: !state.irProgram })}>
+                    {state.irProgram ? "📊 Discontinue IR program" : "📊 Launch IR program"}
+                  </button>
+                </>
+              );
+            })()}
+
+            <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Convertibles</h3>
+            {(() => {
+              if (!state.ipoActive)
+                return <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>Requires a listed company — convertibles trade coupon for dilution risk.</div>;
+              const capC = Math.round(equity * CONVERTIBLE_MAX_OF_EQUITY);
+              const held = (state.convertibles ?? []).reduce((a, c) => a + c.amount, 0);
+              const room = Math.max(0, capC - held);
+              const cvRate = Math.max(1, +(bondRateFor(state, rating.rating) - CONVERTIBLE_RATE_DISCOUNT).toFixed(2));
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    Coupon {cvRate.toFixed(2)}% (bonds −{CONVERTIBLE_RATE_DISCOUNT.toFixed(1)}pp). Converts to new
+                    shares if the price reaches {Math.round(CONVERTIBLE_TRIGGER * 100)}% of issue price — cheap
+                    debt that can become dilution. Cap {msek(capC)}.
+                  </div>
+                  {(state.convertibles ?? []).map((c, i) => (
+                    <Line key={i} l={`${msek(c.amount)} @ ${c.rate.toFixed(2)}%`}
+                      v={`converts @ $${(c.issuePrice * CONVERTIBLE_TRIGGER).toFixed(2)}`} />
+                  ))}
+                  {room >= 1_000_000 && (
+                    <button style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 6 }}
+                      onClick={() => dispatch({ type: "ISSUE_CONVERTIBLE", amount: Math.min(bondAmt, room) })}>
+                      📜 Issue convertible ({msek(Math.min(bondAmt, room))} — uses the bond slider)
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+
+            <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Rival bonds</h3>
+            {(() => {
+              const held = state.rivalBonds ?? [];
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    Buy the rivals' corporate paper: coupon over your bank rate with a risk premium
+                    by their size and distress. Their bankruptcy is your loss — a merged issuer
+                    recovers 60%.
+                  </div>
+                  {held.map((b, i) => (
+                    <Line key={i} l={`${b.rival}`} v={`${msek(b.amount)} @ ${b.rate.toFixed(2)}% · ${Math.max(0, b.matureAbs - (state.year * 12 + state.month))} mo`} />
+                  ))}
+                  {state.competitors.slice(0, 5).map((c) => (
+                    <div key={c.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "3px 0", borderBottom: "1px solid #eee" }}>
+                      <span>{c.name} <span style={{ color: "#888" }}>(eq {msek(c.equity)})</span></span>
+                      <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #1a4a6b", background: "transparent", color: "#1a4a6b", borderRadius: 3, padding: "1px 8px" }}
+                        onClick={() => dispatch({ type: "BUY_RIVAL_BOND", rival: c.name, amount: 5_000_000 })}>
+                        Buy $5M
+                      </button>
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
+
             <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Dividend</h3>
             <Line l="Total paid out" v={kr(state.dividendsPaid ?? 0)} />
             <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
@@ -742,6 +842,33 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                         📣 Deposit campaign ({msek(depositCampaignCost(state.ownedBank))}) — +25% deposits for 12 mo
                       </button>
                     )}
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Lending book focus:</div>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+                      {(["fastighet", "blandat", "konsument"] as const).map((f) => {
+                        const sel = (state.ownedBank!.focus ?? "blandat") === f;
+                        return (
+                          <button key={f}
+                            style={{ fontSize: 11, cursor: "pointer", borderRadius: 10, padding: "3px 10px", fontWeight: 700,
+                              border: `1px solid ${sel ? BURGUNDY : "#bbb"}`,
+                              background: sel ? BURGUNDY : "transparent",
+                              color: sel ? "#f0e6c8" : "#555" }}
+                            title={f === "fastighet" ? "Lower margin, safe — but bust-sensitive" : f === "konsument" ? "Fat margin, risky — recession-sensitive" : "Balanced mix"}
+                            onClick={() => dispatch({ type: "SET_BANK_FOCUS", focus: f })}>
+                            {f === "fastighet" ? "Real estate" : f === "blandat" ? "Mixed" : "Consumer"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button style={{ ...S.amortBtn, background: state.ownedBank.internalFunding ? "#555" : "#1a4a6b", marginBottom: 6 }}
+                      title="The bank funds part of the group's debt: extra −0.20pp on your loan rate, but the external book (and bank earnings) shrinks by the same amount."
+                      onClick={() => dispatch({ type: "SET_INTERNAL_FUNDING", on: !state.ownedBank!.internalFunding })}>
+                      {state.ownedBank.internalFunding ? "Wind down internal funding" : "🏦 Fund the group internally (−0.20pp rate)"}
+                    </button>
+                    <button style={{ ...S.amortBtn, background: state.ownedBank.rivalLending ? "#555" : "#1a4a6b", marginBottom: 6 }}
+                      title="+5pp lending volume — but distressed rivals become your credit losses."
+                      onClick={() => dispatch({ type: "SET_RIVAL_LENDING", on: !state.ownedBank!.rivalLending })}>
+                      {state.ownedBank.rivalLending ? "Wind down rival credit lines" : "🤝 Open credit lines to rivals (+volume, +risk)"}
+                    </button>
                     <div style={{ fontSize: 11, color: "#888" }}>
                       Aggressive lending earns more but bleeds in downturns. Your own loan rate is 0.30% lower while you own the bank.
                     </div>
@@ -926,6 +1053,37 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                 </>
               );
             })()}
+
+            <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Interest deduction cap</h3>
+            {(() => {
+              const monthlyNOI2 = totalNOI / 12;
+              const monthlyInterest2 = annualInterest / 12;
+              const nonDeductible = Math.max(0, monthlyInterest2 - Math.max(0, monthlyNOI2) * INTEREST_CAP_OF_NOI);
+              return (
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    Interest is tax-deductible up to {Math.round(INTEREST_CAP_OF_NOI * 100)}% of NOI —
+                    extreme leverage loses its tax shield.
+                  </div>
+                  <Line l="Non-deductible interest/mo" v={nonDeductible > 0 ? kr(Math.round(nonDeductible)) : "$0"}
+                    accent={nonDeductible > 0 ? "#c0392b" : "#27660a"} />
+                </>
+              );
+            })()}
+
+            {(state.spinOffs ?? []).length > 0 && (
+              <>
+                <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Group contributions</h3>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                  Cover your spin-offs' loss months with cash — the amount keeps the listed
+                  company afloat and joins your loss carryforward.
+                </div>
+                <button style={{ ...S.amortBtn, background: state.groupContribution ? "#555" : "#1a4a6b", marginBottom: 6 }}
+                  onClick={() => dispatch({ type: "SET_GROUP_CONTRIBUTION", on: !state.groupContribution })}>
+                  {state.groupContribution ? "Deactivate group contributions" : "🏛️ Activate group contributions"}
+                </button>
+              </>
+            )}
 
             <h3 style={{ ...S.h3OnLight, marginTop: 14 }}>Holding structure</h3>
             {state.holdingStructure ? (

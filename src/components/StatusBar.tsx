@@ -54,7 +54,11 @@ export function StatusBar({ state, equity, ltv, terms, monthlyNOI, monthlyIntere
   const rankColor = myRank === 1 ? "#ffd700" : undefined;
   const ltvColor = ltv > 0.85 ? "#f87a7a" : ltv > 0.75 ? "#f5c842" : ltv > 0.60 ? "#e0c050" : undefined;
   const nowAbs = state.year * 12 + state.month;
-  const monthsToMaturity = state.debtMatureAbs ? state.debtMatureAbs - nowAbs : null;
+  // Med trancher gäller det tidigaste förfallet (bara en tredjedel av risken).
+  const nextMature = (state.debtTranches ?? []).length > 0
+    ? Math.min(...state.debtTranches!)
+    : state.debtMatureAbs ?? null;
+  const monthsToMaturity = nextMature != null ? nextMature - nowAbs : null;
   // Tydlig, alltid korrekt husräkning – till skillnad från "Organisation" som
   // faller mot 0 så fort fastigheterna får förvaltare. Här räknas hela beståndet.
   const ownedHouses = state.portfolio.filter((p) => p.status === "klar").length;

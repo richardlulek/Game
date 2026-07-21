@@ -18,9 +18,16 @@ import {
   eligibleCityBlocks,
 } from "./cityProjects";
 import {
+  CONVERTIBLE_MAX_OF_EQUITY,
+  CONVERTIBLE_RATE_DISCOUNT,
+  CONVERTIBLE_TERM,
+  CONVERTIBLE_TRIGGER,
   COVENANT_ICR_FLOOR,
   COVENANT_ICR_SIGNUP,
   COVENANT_RATE_DELTA,
+  INTERNAL_FUNDING_RATE_DELTA,
+  RIVAL_BOND_MAX_OF_RIVAL_EQ,
+  RIVAL_BOND_TERM,
   CP_MAX_OF_EQUITY,
   CP_SPREAD,
   CP_TERM_MONTHS,
@@ -60,7 +67,7 @@ import {
 } from "./leasing";
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
-import { GREEN_BOND_DISCOUNT, bondRateFor, creditRatingOf } from "./rating";
+import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "./rating";
 import { rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
@@ -71,6 +78,7 @@ import {
   buildCostMult,
   buildMonthsDelta,
   hireFee,
+  taxReserveCapBonus,
 } from "./progression";
 import {
   DEPOSIT_CAMPAIGN_MONTHS,
@@ -1674,7 +1682,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (reserves.length >= TAX_RESERVE_MAX_COUNT)
         return log(state, `Max ${TAX_RESERVE_MAX_COUNT} tax allocation reserves at once.`, "warn");
       const annualPBT = resultatrakning(state).resultatForeSkatt * 12;
-      const cap = Math.max(0, Math.round(annualPBT * TAX_RESERVE_MAX_PCT));
+      const cap = Math.max(0, Math.round(annualPBT * (TAX_RESERVE_MAX_PCT + taxReserveCapBonus(state))));
       const amount = Math.min(action.amount, cap);
       if (amount < 500_000)
         return log(state, `A reserve requires profits: cap is ${Math.round(TAX_RESERVE_MAX_PCT * 100)}% of annualized profit (${msek(cap)}).`, "warn");
@@ -1697,6 +1705,126 @@ export function reducer(state: GameState, action: GameAction): GameState {
         cash: state.cash - cost,
         holdingStructure: true,
         log: [{ t: `🏛️ Holding structure formed (${msek(cost)}): the group's tax rate drops ${Math.round(HOLDING_TAX_DELTA * 100)} percentage points permanently.`, kind: "income" }, ...state.log],
+      };
+    }
+    case "SPLIT_MATURITIES": {
+      // Lånetrancher: dela skulden i tre staggade förfall (24/48/72 mån) –
+      // varje refinansiering omförhandlar bara en tredjedel av ränterisken.
+      if (state.debt <= 0) return log(state, "No bank debt to tranche.", "warn");
+      if ((state.debtTranches ?? []).length > 0) return log(state, "The debt is already tranched.", "warn");
+      const fee = Math.max(150_000, Math.round(state.debt * 0.003));
+      if (state.cash < fee) return log(state, `Tranching the debt costs ${kr(fee)}.`, "warn");
+      const now = state.year * 12 + state.month;
+      return {
+        ...state,
+        cash: state.cash - fee,
+        debtMatureAbs: undefined,
+        debtTranches: [now + 24, now + 48, now + 72],
+        log: [{ t: `🏦 Debt split into three tranches maturing +24/+48/+72 mo (fee ${kr(fee)}) — each refinancing renegotiates a third of the rate risk.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "SET_INTERNAL_FUNDING": {
+      if (!state.ownedBank) return state;
+      if (!!state.ownedBank.internalFunding === action.on) return state;
+      return {
+        ...state,
+        ownedBank: { ...state.ownedBank, internalFunding: action.on },
+        log: [{
+          t: action.on
+            ? `🏦 ${state.ownedBank.name} funds the group internally: −${INTERNAL_FUNDING_RATE_DELTA}pp on your loan rate, but the bank's external book (and earnings) shrinks accordingly.`
+            : `🏦 Internal funding wound down — the bank lends its full book to the city again.`,
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "TOGGLE_IR": {
+      if (!!state.irProgram === action.on) return state;
+      return {
+        ...state,
+        irProgram: action.on || undefined,
+        log: [{
+          t: action.on
+            ? `📊 Investor relations program launched: +${IR_RATING_BONUS} rating points against a monthly cost.`
+            : "📊 Investor relations program discontinued.",
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "BUY_RIVAL_BOND": {
+      const rival = state.competitors.find((c) => c.name === action.rival);
+      if (!rival) return state;
+      const held = (state.rivalBonds ?? []).filter((b) => b.rival === rival.name).reduce((a, b) => a + b.amount, 0);
+      const cap = Math.round(Math.max(0, rival.equity) * RIVAL_BOND_MAX_OF_RIVAL_EQ);
+      const amount = Math.min(action.amount, cap - held, state.cash);
+      if (amount < 1_000_000)
+        return log(state, `The market takes at most ${msek(cap)} of ${rival.name}'s paper (10% of their equity); ${msek(held)} already held.`, "warn");
+      // Riskpremie efter rivalens storlek: små och pressade bolag betalar mer.
+      const premium = Math.max(0.5, Math.min(4, 3 - rival.equity / 200_000_000)) + (rival.cash < 0 ? 1.5 : 0);
+      const rate = +(state.interestRate + 1.2 + premium).toFixed(2);
+      return {
+        ...state,
+        cash: state.cash - amount,
+        rivalBonds: [...(state.rivalBonds ?? []), { rival: rival.name, amount, rate, matureAbs: state.year * 12 + state.month + RIVAL_BOND_TERM }],
+        log: [{ t: `📜 Bought ${msek(amount)} of ${rival.name}'s bonds at ${rate.toFixed(2)}% (${RIVAL_BOND_TERM / 12} yr). Their crisis is your credit risk.`, kind: "buy" }, ...state.log],
+      };
+    }
+    case "ISSUE_CONVERTIBLE": {
+      // Konvertibel: billig kupong mot utspädningsrisk – kräver notering.
+      if (!state.ipoActive || !state.ipoShares)
+        return log(state, "Convertibles require a listed company (IPO first).", "warn");
+      if ((state.crisisMonthsLeft ?? 0) > 0)
+        return log(state, "📜 The capital market is frozen during the crisis.", "warn");
+      const fbab = state.stocks.find((st) => st.competitorName === "__player__");
+      if (!fbab) return state;
+      const capC = Math.round(equityOf(state) * CONVERTIBLE_MAX_OF_EQUITY);
+      const heldC = (state.convertibles ?? []).reduce((a, c) => a + c.amount, 0);
+      const amount = Math.min(action.amount, capC - heldC);
+      if (amount < 1_000_000)
+        return log(state, `The convertible program is capped at ${msek(capC)} (10% of equity).`, "warn");
+      const info = creditRatingOf(state);
+      const rate = Math.max(1, +(bondRateFor(state, info.rating) - CONVERTIBLE_RATE_DISCOUNT).toFixed(2));
+      return {
+        ...state,
+        cash: state.cash + amount,
+        convertibles: [...(state.convertibles ?? []), { amount, rate, issuePrice: fbab.price, matureAbs: state.year * 12 + state.month + CONVERTIBLE_TERM }],
+        log: [{ t: `📜 Convertible issued: ${msek(amount)} at ${rate.toFixed(2)}% — converts to shares if the price reaches ${Math.round(CONVERTIBLE_TRIGGER * 100)}% of $${fbab.price.toFixed(2)} (dilution instead of repayment).`, kind: "income" }, ...state.log],
+      };
+    }
+    case "SET_BANK_FOCUS": {
+      if (!state.ownedBank) return state;
+      return {
+        ...state,
+        ownedBank: { ...state.ownedBank, focus: action.focus },
+        log: [{ t: `🏦 ${state.ownedBank.name}: lending book focused on ${action.focus === "fastighet" ? "real estate (lower margin, bust-sensitive)" : action.focus === "konsument" ? "consumer credit (fat margin, recession-sensitive)" : "a balanced mix"}.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "SET_RIVAL_LENDING": {
+      if (!state.ownedBank) return state;
+      if (!!state.ownedBank.rivalLending === action.on) return state;
+      return {
+        ...state,
+        ownedBank: { ...state.ownedBank, rivalLending: action.on },
+        log: [{
+          t: action.on
+            ? `🏦 ${state.ownedBank.name} opens credit lines to the city's rivals: +volume, but their distress becomes your credit losses.`
+            : `🏦 ${state.ownedBank.name} winds down the rival credit lines.`,
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "SET_GROUP_CONTRIBUTION": {
+      if (!!state.groupContribution === action.on) return state;
+      if (action.on && (state.spinOffs ?? []).length === 0)
+        return log(state, "Group contributions require a listed spin-off.", "warn");
+      return {
+        ...state,
+        groupContribution: action.on || undefined,
+        log: [{
+          t: action.on
+            ? "🏛️ Group contributions activated: the parent covers spin-off loss months with cash and books the amount as loss carryforward."
+            : "🏛️ Group contributions deactivated.",
+          kind: "info",
+        }, ...state.log],
       };
     }
     case "START_DEPOSIT_CAMPAIGN": {

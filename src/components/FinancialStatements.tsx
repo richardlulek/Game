@@ -72,6 +72,7 @@ export function FinancialStatements({ state }: { state: GameState }) {
         <Row label="Insurance operations (est.)" value={rr.forsakringsrorelse} hideIfZero />
         <Row label="Subsidiaries" value={rr.dotterbolagsvinst} hideIfZero />
         <Row label="Spin-off dividends (est./mo)" value={rr.avknoppningsutdelning} hideIfZero />
+        <Row label="Rival bond coupons" value={rr.rivalkuponger} hideIfZero />
         <SumRow label="Total revenue" value={rr.summaIntakter} />
 
         <div style={P.section}>Costs</div>
@@ -109,6 +110,7 @@ export function FinancialStatements({ state }: { state: GameState }) {
         <Row label="Share portfolio" value={br.aktier} hideIfZero />
         <Row label="Subsidiaries" value={br.dotterbolag} hideIfZero />
         <Row label="Financial institutions" value={br.institut} hideIfZero />
+        <Row label="Rival bonds (par)" value={br.rivalobligationer} hideIfZero />
         <SumRow label="Total assets" value={br.summaTillgangar} />
 
         <div style={P.section}>Liabilities</div>
@@ -116,6 +118,7 @@ export function FinancialStatements({ state }: { state: GameState }) {
         <Row label="Bonds" value={br.obligationer} negative hideIfZero />
         <Row label="Revolving credit" value={br.revolver} negative hideIfZero />
         <Row label="Commercial paper" value={br.certifikat} negative hideIfZero />
+        <Row label="Convertibles" value={br.konvertibler} negative hideIfZero />
         <SumRow label="Total liabilities" value={br.summaSkulder} />
 
         <div style={P.section}>Equity</div>

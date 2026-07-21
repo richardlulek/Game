@@ -61,11 +61,15 @@ import {
   shouldTriggerCrisis,
 } from "./lateGame";
 import {
+  CONVERTIBLE_TRIGGER,
   COVENANT_BREACH_MONTHS,
   COVENANT_ICR_FLOOR,
   CP_SPREAD,
   CP_TERM_MONTHS,
   HOLDING_TAX_DELTA,
+  INTEREST_CAP_OF_NOI,
+  IR_COST_MIN,
+  IR_COST_OF_EQUITY,
   TAX_AUDIT_CHANCE,
   TAX_DEP_AGGRESSIVE,
   TAX_DEP_NORMAL,
@@ -82,7 +86,7 @@ import { calYear, daysInMonth, formatMonthYear } from "./date";
 import { pendingWork, propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
 import { genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { seasonOf } from "./season";
-import { RESEARCH, monthlyReputation, salariesTotal, wearMult } from "./progression";
+import { RESEARCH, monthlyReputation, salariesTotal, taxAuditMult, wearMult } from "./progression";
 import { newId, pick, random01, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
 import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, priceStocks, quarterlyEarnings, rivalFbabShares, rivalHoldingsValue, rivalNews, rivalShareTrading, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
@@ -1028,6 +1032,11 @@ export function advanceMonth(state: GameState): GameState {
       return sum + ((p.purchasePrice ?? p.askPrice) * depRate) / 12;
     }, 0);
     let gross = netIncome - monthlyDepreciation;
+    // Ränteavdragstak: räntor är avdragsgilla upp till 50 % av driftnettot.
+    // Överskjutande ränta läggs tillbaka i skattebasen – extrembelåning
+    // förlorar sin sköld (Lån ↔ Skatt).
+    const nonDeductible = Math.max(0, interest - Math.max(0, monthlyNOI) * INTEREST_CAP_OF_NOI);
+    gross += nonDeductible;
     // Periodiseringsfonder som nått 6 år återförs till beskattning nu.
     const nowAbsTax = s.year * 12 + s.month;
     const due = (s.taxReserves ?? []).filter((r) => r.dueAbs <= nowAbsTax);
@@ -1061,7 +1070,7 @@ export function advanceMonth(state: GameState): GameState {
     }
     // Skatterevision: den aggressiva policyn granskas då och då. Upptäckt
     // ⇒ straffavgift på mellanskillnaden mot normal avskrivning + anseende.
-    if (aggressive && gross + monthlyDepreciation > 0 && random01() < TAX_AUDIT_CHANCE) {
+    if (aggressive && gross + monthlyDepreciation > 0 && random01() < TAX_AUDIT_CHANCE * taxAuditMult(s)) {
       const shieldDiff = s.portfolio.reduce((sum, p) => {
         if (p.status !== "klar") return sum;
         return sum + ((p.purchasePrice ?? p.askPrice) * (TAX_DEP_AGGRESSIVE - TAX_DEP_NORMAL)) / 12;
@@ -1144,6 +1153,69 @@ export function advanceMonth(state: GameState): GameState {
         });
       }
     }
+  }
+
+  // ── Investerarrelationer: månadskostnad mot +8 ratingpoäng ───────
+  if (s.irProgram) {
+    const irCost = Math.max(IR_COST_MIN, Math.round(equityOf(s) * IR_COST_OF_EQUITY));
+    cashflow(s, -irCost, "investerarrelationer");
+  }
+
+  // ── Rivalobligationer: kuponger, förfall och motpartsrisk ────────
+  if ((s.rivalBonds ?? []).length > 0) {
+    const nowAbsRb = s.year * 12 + s.month;
+    let coupons = 0;
+    const remainingRb: NonNullable<GameState["rivalBonds"]> = [];
+    for (const rb of s.rivalBonds ?? []) {
+      const issuerAlive = s.competitors.some((c) => c.name === rb.rival);
+      if (!issuerAlive) {
+        // Emittenten uppköpt/borta: förvaltaren löser boet till 60 %.
+        cashflow(s, Math.round(rb.amount * 0.6), "obligationsåtervinning");
+        events.push({ t: `📜 ${rb.rival} is gone — the bond of ${kr(rb.amount)} recovers 60% from the estate.`, kind: "warn" });
+        continue;
+      }
+      coupons += Math.round((rb.amount * rb.rate) / 100 / 12);
+      if (nowAbsRb >= rb.matureAbs) {
+        cashflow(s, rb.amount, "obligationsförfall (rival)");
+        events.push({ t: `📜 ${rb.rival}'s bond matures — ${kr(rb.amount)} repaid in full.`, kind: "income" });
+        continue;
+      }
+      remainingRb.push(rb);
+    }
+    if (coupons > 0) cashflow(s, coupons, "obligationskuponger (rivaler)");
+    s.rivalBonds = remainingRb;
+  }
+
+  // ── Konvertibler: ränta, konvertering och förfall ────────────────
+  if ((s.convertibles ?? []).length > 0) {
+    const nowAbsCv = s.year * 12 + s.month;
+    const fbab = s.stocks.find((st) => st.competitorName === "__player__");
+    const remainingCv: NonNullable<GameState["convertibles"]> = [];
+    for (const cv of s.convertibles ?? []) {
+      cashflow(s, -Math.round((cv.amount * cv.rate) / 100 / 12), "konvertibelränta");
+      // Kursen nådde triggern: skulden blir aktier (utspädning i floaten).
+      if (fbab && s.ipoShares && fbab.price >= cv.issuePrice * CONVERTIBLE_TRIGGER) {
+        const newShares = Math.round(cv.amount / cv.issuePrice);
+        s.ipoShares = { total: s.ipoShares.total + newShares, public: s.ipoShares.public + newShares };
+        events.push({
+          t: `📜 CONVERSION: the share passed ${Math.round(CONVERTIBLE_TRIGGER * 100)}% of issue price — a convertible of ${kr(cv.amount)} becomes ${newShares.toLocaleString("en-US")} new shares (dilution instead of repayment).`,
+          kind: "event",
+        });
+        continue;
+      }
+      if (nowAbsCv >= cv.matureAbs) {
+        if (s.cash >= cv.amount) {
+          cashflow(s, -cv.amount, "konvertibel inlöst");
+          events.push({ t: `📜 Convertible of ${kr(cv.amount)} matured without converting — repaid at par.`, kind: "info" });
+        } else {
+          s.debt += cv.amount;
+          events.push({ t: `📜 Convertible of ${kr(cv.amount)} matured — bridged into bank debt.`, kind: "warn" });
+        }
+        continue;
+      }
+      remainingCv.push(cv);
+    }
+    s.convertibles = remainingCv;
   }
 
   // ── Greenwashing-covenant på gröna obligationer ─────────────────
@@ -2209,6 +2281,22 @@ export function advanceMonth(state: GameState): GameState {
       });
       const net = (spinoffNet[spin.id] ?? 0) - upkeep;
       let ns: typeof spin = { ...spin, cash: spin.cash + net, lastMonthNet: net };
+      // Koncernbidrag: moderbolaget täcker förlustmånader med kassa och får
+      // motsvarande förlustavdrag – dottern hålls flytande, skölden byggs.
+      if (s.groupContribution && net < 0 && s.cash > 0) {
+        const st0 = s.stocks.find((x) => x.id === spin.stockId);
+        const ownPct = st0 ? st0.owned / st0.sharesOutstanding : 0;
+        const fund = Math.min(s.cash, Math.round(-net * ownPct));
+        if (fund > 0) {
+          cashflow(s, -fund, "koncernbidrag");
+          s.taxLossCarry = Math.round((s.taxLossCarry ?? 0) + fund);
+          ns = { ...ns, cash: ns.cash + fund };
+          events.push({
+            t: `🏛️ Group contribution: ${kr(fund)} covers ${spin.name}'s loss month — the amount joins your loss carryforward.`,
+            kind: "expense",
+          });
+        }
+      }
       // Kvartalsutdelning: 60 % av kassan, pro rata till alla aktieägare –
       // spelarens andel via innehavet (stock.owned).
       if (s.month % 3 === 0 && ns.cash > 0) {
@@ -2714,8 +2802,32 @@ export function advanceMonth(state: GameState): GameState {
     }
   }
 
-  // Lånelöptid: refinansiering var 48–72 månad
-  if (s.debt > 0) {
+  // Lånelöptid: refinansiering var 48–72 månad. Med trancher (SPLIT_
+  // MATURITIES) omförhandlas bara EN tredjedel av ränterisken per förfall –
+  // spridda förfall i stället för hela skulden på en enda marknadsdag.
+  if (s.debt > 0 && (s.debtTranches ?? []).length > 0) {
+    const nowAbsT = s.year * 12 + s.month;
+    const due = s.debtTranches!.filter((t) => t <= nowAbsT);
+    if (due.length > 0) {
+      const cycle = s.marketCycle?.phase ?? "stable";
+      const recSpread = (s.recessionMonthsLeft ?? 0) > 0 ? 2.0 : 0;
+      const cycleSpread = cycle === "bust" ? 1.5 : cycle === "boom" ? -0.5 : 0;
+      const repSpread = s.reputation < 40 ? 2.5 : s.reputation < 60 ? 1.0 : 0;
+      const refiRate = Math.min(12, Math.max(2, loanTerms(s).rate + cycleSpread + recSpread + repSpread));
+      const weight = due.length / Math.max(1, s.debtTranches!.length);
+      const oldRate = s.interestRate;
+      s.interestRate = +((oldRate + (refiRate - oldRate) * weight)).toFixed(2);
+      s.debtTranches = [
+        ...s.debtTranches!.filter((t) => t > nowAbsT),
+        ...due.map(() => nowAbsT + 72),
+      ].sort((a, b) => a - b);
+      const diff = +(s.interestRate - oldRate).toFixed(2);
+      events.push({
+        t: `🏦 TRANCHE REFINANCED: ${Math.round(weight * 100)}% of the debt met the market. Blended rate ${s.interestRate.toFixed(1)}% (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}%).`,
+        kind: diff > 0.25 ? "warn" : "income",
+      });
+    }
+  } else if (s.debt > 0) {
     const nowAbs3 = s.year * 12 + s.month;
     if (!s.debtMatureAbs) {
       s.debtMatureAbs = nowAbs3 + 48 + Math.floor(random01() * 24);

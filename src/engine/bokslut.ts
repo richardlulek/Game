@@ -28,6 +28,8 @@ export interface Resultatrakning {
   dotterbolagsvinst: number;
   /** Avknoppningarnas utdelningar, utslaget per månad (uppskattning). */
   avknoppningsutdelning: number;
+  /** Kuponger från köpta rivalobligationer. */
+  rivalkuponger: number;
   summaIntakter: number;
 
   driftkostnader: number;
@@ -91,8 +93,11 @@ export function resultatrakning(s: GameState): Resultatrakning {
     .filter((p) => p.insurance)
     .reduce((a, p) => a + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)), 0) * premieMult);
 
+  const rivalkuponger = (s.rivalBonds ?? []).reduce(
+    (a, b) => a + Math.round((b.amount * b.rate) / 100 / 12), 0);
+
   const summaIntakter = hyresintakter + industrinetto + utdelningar +
-    bankrorelse + forsakringsrorelse + dotterbolagsvinst + avknoppningsutdelning;
+    bankrorelse + forsakringsrorelse + dotterbolagsvinst + avknoppningsutdelning + rivalkuponger;
   const summaKostnader = driftkostnader + forvaltare + direktor + personal + kontor + forsakringar;
   const rorelseresultat = summaIntakter - summaKostnader;
 
@@ -105,7 +110,9 @@ export function resultatrakning(s: GameState): Resultatrakning {
   const revolverranta = s.revolving?.used ? Math.round((s.revolving.used * 0.015) / 12) : 0;
   const certifikatranta = s.commercialPaper
     ? Math.round((s.commercialPaper.amount * s.commercialPaper.rate) / 100 / 12) : 0;
-  const rantekostnad = bankranta + obligationsranta + revolverranta + certifikatranta;
+  const konvertibelranta = (s.convertibles ?? []).reduce(
+    (a, c) => a + Math.round((c.amount * c.rate) / 100 / 12), 0);
+  const rantekostnad = bankranta + obligationsranta + revolverranta + certifikatranta + konvertibelranta;
 
   const resultatForeSkatt = rorelseresultat - rantekostnad;
 
@@ -134,6 +141,7 @@ export function resultatrakning(s: GameState): Resultatrakning {
     forsakringsrorelse,
     dotterbolagsvinst,
     avknoppningsutdelning,
+    rivalkuponger,
     summaIntakter,
     driftkostnader,
     forvaltning: forvaltare + direktor,
@@ -162,6 +170,8 @@ export interface Balansrakning {
   dotterbolag: number;
   /** Värdet på ägd bank + försäkringsbolag (finInstitutions.ts). */
   institut: number;
+  /** Köpta rivalobligationer (till par). */
+  rivalobligationer: number;
   summaTillgangar: number;
 
   banklan: number;
@@ -169,6 +179,8 @@ export interface Balansrakning {
   revolver: number;
   /** Utestående företagscertifikat. */
   certifikat: number;
+  /** Utestående konvertibler. */
+  konvertibler: number;
   summaSkulder: number;
 
   egetKapital: number;
@@ -185,13 +197,15 @@ export function balansrakning(s: GameState): Balansrakning {
   // Banken och försäkringsbolaget värderas som i equityOf – utan raden
   // stämde balansräkningens eget kapital inte med HUD:ens siffra.
   const institut = Math.round(finInstitutionsValue(s));
-  const summaTillgangar = kassa + fastigheter + mark + industri + aktier + dotterbolag + institut;
+  const rivalobligationer = (s.rivalBonds ?? []).reduce((a, b) => a + b.amount, 0);
+  const summaTillgangar = kassa + fastigheter + mark + industri + aktier + dotterbolag + institut + rivalobligationer;
 
   const banklan = s.debt;
   const obligationer = (s.bonds ?? []).reduce((a, b) => a + b.amount, 0);
   const revolver = s.revolving?.used ?? 0;
   const certifikat = s.commercialPaper?.amount ?? 0;
-  const summaSkulder = banklan + obligationer + revolver + certifikat;
+  const konvertibler = (s.convertibles ?? []).reduce((a, c) => a + c.amount, 0);
+  const summaSkulder = banklan + obligationer + revolver + certifikat + konvertibler;
 
   const egetKapital = summaTillgangar - summaSkulder;
   return {
@@ -202,11 +216,13 @@ export function balansrakning(s: GameState): Balansrakning {
     aktier,
     dotterbolag,
     institut,
+    rivalobligationer,
     summaTillgangar,
     banklan,
     obligationer,
     revolver,
     certifikat,
+    konvertibler,
     summaSkulder,
     egetKapital,
     soliditet: summaTillgangar > 0 ? egetKapital / summaTillgangar : 0,

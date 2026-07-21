@@ -25,6 +25,16 @@ export interface OwnedBank {
   /** Bankens egna kapital: kapitalrelationen (kapital/utlåning) måste
    *  hålla 8 % – annars stryps utlåningen tills ägaren injicerar mer. */
   capital?: number;
+  /** Koncernintern upplåning: banken finansierar delar av koncernens
+   *  skuld (billigare ränta) – på bekostnad av extern utlåningsvolym. */
+  internalFunding?: boolean;
+  /** Utlåningsbokens inriktning: marginal mot förlustrisk och
+   *  konjunkturkänslighet (fastighet är bust-känslig, konsument
+   *  recessions-känslig). */
+  focus?: "fastighet" | "blandat" | "konsument";
+  /** Utlåning till stadens rivalbolag: mer volym, men deras kriser
+   *  blir dina kreditförluster. */
+  rivalLending?: boolean;
 }
 
 export interface OwnedInsurer {
@@ -989,6 +999,19 @@ export interface GameState {
   /** Covenant-lån: −0,25 pp ränta mot räntetäckningskrav (ICR ≥ 1,3).
    *  breachMonths räknar svaga månader – tre i rad river covenanten. */
   loanCovenant?: { sinceAbs: number; breachMonths: number };
+  /** Lånetrancher: staggade förfall (ersätter debtMatureAbs) – varje
+   *  tranch omförhandlar bara en tredjedel av ränterisken. */
+  debtTranches?: number[];
+  /** Investerarrelationer: månadskostnad mot +8 ratingpoäng. */
+  irProgram?: boolean;
+  /** Obligationer utgivna av rivalbolag som koncernen köpt. */
+  rivalBonds?: { rival: string; amount: number; rate: number; matureAbs: number }[];
+  /** Konvertibler: billig kupong mot utspädningsrisk – konverterar till
+   *  aktier om kursen når 130 % av emissionskursen. */
+  convertibles?: { amount: number; rate: number; issuePrice: number; matureAbs: number }[];
+  /** Koncernbidrag: täck avknoppningarnas förlustmånader med kassa och
+   *  få motsvarande förlustavdrag. */
+  groupContribution?: boolean;
   /** Företagscertifikat: kort marknadsfinansiering som rullas var 12:e
    *  månad – i kris kan marknaden frysa och tvinga fram dyr bankbrygga. */
   commercialPaper?: { amount: number; rate: number; matureAbs: number };
@@ -1073,6 +1096,14 @@ export type GameAction =
   | { type: "SET_RENT_GUARANTEE"; on: boolean }
   | { type: "ALLOCATE_TAX_RESERVE"; amount: number }
   | { type: "FORM_HOLDING" }
+  | { type: "SPLIT_MATURITIES" }
+  | { type: "SET_INTERNAL_FUNDING"; on: boolean }
+  | { type: "TOGGLE_IR"; on: boolean }
+  | { type: "BUY_RIVAL_BOND"; rival: string; amount: number }
+  | { type: "ISSUE_CONVERTIBLE"; amount: number }
+  | { type: "SET_BANK_FOCUS"; focus: "fastighet" | "blandat" | "konsument" }
+  | { type: "SET_RIVAL_LENDING"; on: boolean }
+  | { type: "SET_GROUP_CONTRIBUTION"; on: boolean }
   | { type: "BUY_INSURER" }
   | { type: "SELL_INSURER" }
   | { type: "SET_INSURER_PRICING"; pricing: InsurerPricing }
