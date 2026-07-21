@@ -60,7 +60,7 @@ import {
   fundsActive,
   shouldTriggerCrisis,
 } from "./lateGame";
-import { amortInfoOf, equityOf, loanTerms, portfolioValue } from "./finance";
+import { TAX_AUDIT_CHANCE, TAX_DEP_AGGRESSIVE, TAX_DEP_NORMAL, amortInfoOf, equityOf, loanTerms, portfolioValue } from "./finance";
 import { covenantBreach, creditRatingOf } from "./rating";
 import { tickCityEvent } from "./cityEvents";
 import { rivalQuote } from "./rivalPersonas";
@@ -1006,14 +1006,23 @@ export function advanceMonth(state: GameState): GameState {
   // Monthly property tax (22% of positive net income, offset by depreciation + ESG class A bonus)
   {
     const netIncome = monthlyNOI - interest;
-    if (netIncome > 0) {
-      // Avskrivning 1,3 %/år (var 2 %): 2 %-skölden åt upp nästan hela det
-      // skattepliktiga nettot, så effektiv fastighetsskatt låg nära noll.
-      const monthlyDepreciation = s.portfolio.reduce((sum, p) => {
-        if (p.status !== "klar") return sum;
-        return sum + ((p.purchasePrice ?? p.askPrice) * 0.013) / 12;
-      }, 0);
-      const taxableIncome = Math.max(0, netIncome - monthlyDepreciation);
+    // Avskrivning enligt vald policy (Finans → Skatt): normal 1,3 %/år,
+    // aggressiv 2 %/år – större sköld men revisionsrisk (nedan).
+    const aggressive = s.taxDepreciationPolicy === "aggressiv";
+    const depRate = aggressive ? TAX_DEP_AGGRESSIVE : TAX_DEP_NORMAL;
+    const monthlyDepreciation = s.portfolio.reduce((sum, p) => {
+      if (p.status !== "klar") return sum;
+      return sum + ((p.purchasePrice ?? p.askPrice) * depRate) / 12;
+    }, 0);
+    const gross = netIncome - monthlyDepreciation;
+    if (gross <= 0) {
+      // Förlustavdrag: skattemässiga underskott sparas och kvittas mot
+      // framtida vinster – dåliga år är inte bara bortkastade.
+      if (gross < 0) s.taxLossCarry = Math.round((s.taxLossCarry ?? 0) - gross);
+    } else {
+      const offset = Math.min(s.taxLossCarry ?? 0, gross);
+      if (offset > 0) s.taxLossCarry = Math.round((s.taxLossCarry ?? 0) - offset);
+      const taxableIncome = gross - offset;
       const energyACount = s.portfolio.filter(p => p.energyClass === "A" && p.status === "klar").length;
       const taxRate = Math.max(0.10, 0.22 - (energyACount > 0 ? 0.03 : 0));
       const monthlyTax = Math.round(taxableIncome * taxRate);
@@ -1021,8 +1030,48 @@ export function advanceMonth(state: GameState): GameState {
         cashflow(s, -monthlyTax, "fastighetsskatt");
         s.totalTaxPaid = (s.totalTaxPaid ?? 0) + monthlyTax;
         if (s.month % 3 === 0) {
-          events.push({ t: `🏛️ Property tax: ${kr(monthlyTax)}/mo (deduction ${kr(Math.round(monthlyDepreciation))}/mo, tax rate ${Math.round(taxRate * 100)}%).`, kind: "expense" });
+          events.push({ t: `🏛️ Property tax: ${kr(monthlyTax)}/mo (deduction ${kr(Math.round(monthlyDepreciation))}/mo${offset > 0 ? `, loss carryforward used ${kr(Math.round(offset))}` : ""}, tax rate ${Math.round(taxRate * 100)}%).`, kind: "expense" });
         }
+      }
+    }
+    // Skatterevision: den aggressiva policyn granskas då och då. Upptäckt
+    // ⇒ straffavgift på mellanskillnaden mot normal avskrivning + anseende.
+    if (aggressive && gross + monthlyDepreciation > 0 && random01() < TAX_AUDIT_CHANCE) {
+      const shieldDiff = s.portfolio.reduce((sum, p) => {
+        if (p.status !== "klar") return sum;
+        return sum + ((p.purchasePrice ?? p.askPrice) * (TAX_DEP_AGGRESSIVE - TAX_DEP_NORMAL)) / 12;
+      }, 0);
+      const fine = Math.max(500_000, Math.round(shieldDiff * 6 * 0.22 * 1.4));
+      cashflow(s, -fine, "skatterevision");
+      s.totalTaxPaid = (s.totalTaxPaid ?? 0) + fine;
+      s.reputation = Math.max(0, s.reputation - 3);
+      s.taxDepreciationPolicy = "normal";
+      events.push({
+        t: `🧾 TAX AUDIT: the authority disallows the aggressive depreciation — back taxes and surcharge ${kr(fine)} (rep −3). Policy reset to normal.`,
+        kind: "warn",
+      });
+    }
+  }
+
+  // ── Greenwashing-covenant på gröna obligationer ─────────────────
+  // Rabatten kräver att ESG-betyget hålls: faller det under B höjs
+  // kupongen permanent (+0,5 pp) och anseendet skadas – en gång per
+  // obligation, sedan är den "avslöjad".
+  if ((s.bonds ?? []).some((b) => b.green && !b.breached)) {
+    const esg = esgRatingOf(s);
+    if (esg.letter !== "A" && esg.letter !== "B") {
+      let hit = 0;
+      s.bonds = (s.bonds ?? []).map((b) => {
+        if (!b.green || b.breached) return b;
+        hit += 1;
+        return { ...b, rate: +(b.rate + 0.5).toFixed(2), breached: true };
+      });
+      if (hit > 0) {
+        s.reputation = Math.max(0, s.reputation - 3);
+        events.push({
+          t: `🌱 GREENWASHING: ESG rating slipped to ${esg.letter} — the green bond covenant triggers: coupon +0.50pp on ${hit} bond${hit > 1 ? "s" : ""}, rep −3.`,
+          kind: "warn",
+        });
       }
     }
   }

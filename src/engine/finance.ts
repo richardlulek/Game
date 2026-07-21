@@ -45,6 +45,22 @@ export const LENDERS: Lender[] = [
  *  ESG-betyget justerar påslaget (gröna lån), och kreditbetyget (AAA–CCC)
  *  lägger sin egen spread ovanpå – hög skuld och svag räntetäckning gör
  *  varje ny krona dyrare. */
+/** Skattens avskrivningsparametrar (Finans → Skatt): normal och aggressiv
+ *  policy samt revisionsrisken per månad för den aggressiva. */
+export const TAX_DEP_NORMAL = 0.013;
+export const TAX_DEP_AGGRESSIVE = 0.02;
+export const TAX_AUDIT_CHANCE = 0.01;
+
+/** Räntebindningens löptidskurva: längre bindning = högre premie på den
+ *  låsta räntan och dyrare uppläggning (banken tar betalt för ränterisken).
+ *  Kort bindning är billig trygghet, lång är dyr men skyddar genom hela
+ *  konjunkturcykler. */
+export const RATE_LOCK_TERMS: Record<number, { premium: number; feePct: number }> = {
+  12: { premium: 0, feePct: 0.003 },
+  36: { premium: 0.15, feePct: 0.005 },
+  60: { premium: 0.3, feePct: 0.007 },
+};
+
 export function loanTerms(state: GameState): LoanTerms {
   const rep = state.reputation;
   const advisorBonus = (state.advisors ?? []).includes("kapitalstrateg") ? 0.2 : 0;

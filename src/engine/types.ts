@@ -20,6 +20,8 @@ export interface OwnedBank {
   acquiredAbs: number;
   /** Livstidsackumulerat nettoresultat (för bokslut/UI). */
   totalNet: number;
+  /** Månader kvar av en pågående inlåningskampanj (höjer inlåningsmålet). */
+  campaignMonthsLeft?: number;
 }
 
 export interface OwnedInsurer {
@@ -29,6 +31,8 @@ export interface OwnedInsurer {
   pricing: InsurerPricing;
   acquiredAbs: number;
   totalNet: number;
+  /** Återförsäkring: avstår del av premierna, dämpar skadetoppar. */
+  reinsured?: boolean;
 }
 
 export type ScenarioId =
@@ -787,6 +791,11 @@ export interface Bond {
   amount: number;
   rate: number;
   matureAbs: number;
+  /** Grön obligation: lägre kupong, men greenwashing-covenant –
+   *  tappar ESG-betyget under B höjs kupongen och anseendet skadas. */
+  green?: boolean;
+  /** Covenanten har redan utlösts (straffet tas bara en gång). */
+  breached?: boolean;
 }
 
 /** Inställningar för den globala portföljdirektören. */
@@ -964,6 +973,11 @@ export interface GameState {
   lastScandalMonth?: number;
   pendingRenewals?: PendingRenewal[];
   totalTaxPaid?: number;
+  /** Förlustavdrag: ackumulerade skattemässiga underskott som kvittas mot
+   *  framtida vinster (Finans → Skatt). */
+  taxLossCarry?: number;
+  /** Avskrivningspolicy: aggressiv skärmar mer vinst men riskerar revision. */
+  taxDepreciationPolicy?: "normal" | "aggressiv";
   tutorialDismissed?: boolean;
   saveSlot?: number;
   debtMatureAbs?: number;
@@ -1030,6 +1044,9 @@ export type GameAction =
   | { type: "BUY_BANK" }
   | { type: "SELL_BANK" }
   | { type: "SET_BANK_STANCE"; stance: BankStance }
+  | { type: "START_DEPOSIT_CAMPAIGN" }
+  | { type: "SET_REINSURANCE"; on: boolean }
+  | { type: "SET_TAX_POLICY"; policy: "normal" | "aggressiv" }
   | { type: "BUY_INSURER" }
   | { type: "SELL_INSURER" }
   | { type: "SET_INSURER_PRICING"; pricing: InsurerPricing }
@@ -1065,7 +1082,7 @@ export type GameAction =
   | { type: "OWNER_INJECTION"; amount: number }
   | { type: "BUY_INSURANCE"; id: number }
   | { type: "CANCEL_INSURANCE"; id: number }
-  | { type: "ISSUE_BOND"; amount: number; years: number }
+  | { type: "ISSUE_BOND"; amount: number; years: number; green?: boolean }
   | { type: "REPAY_BOND"; bondId: string }
   | { type: "SALE_LEASEBACK"; id: number }
   | { type: "ACCEPT_COMPETING_BID" }

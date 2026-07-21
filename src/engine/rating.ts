@@ -90,6 +90,9 @@ export function creditRatingOf(s: GameState): RatingInfo {
 }
 
 /** Obligationsränta för ett betyg: basränta + programpåslag. */
+/** Kupongrabatt för gröna obligationer (kräver ESG-betyg A/B). */
+export const GREEN_BOND_DISCOUNT = 0.35;
+
 export function bondRateFor(s: GameState, rating: CreditRating): number {
   const spread: Record<CreditRating, number> = {
     AAA: 0.6, AA: 0.8, A: 1.0, BBB: 1.4, BB: 2.2, B: 3.2, CCC: 5,

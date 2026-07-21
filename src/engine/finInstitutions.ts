@@ -98,12 +98,21 @@ export function tickBank(
   // inlåningsvolymer. Utan equity-termen fastnade banken vid stadens
   // 60M-tak medan köpeskillingen växte med spelaren (ROI ~0).
   const empire = Math.max(0, state.prevEquity ?? 0) * 0.15;
+  // Inlåningskampanj: högre mål och snabbare inflöde medan den pågår.
+  const campaign = (bank.campaignMonthsLeft ?? 0) > 0;
   const cityScale =
     (60_000_000 + empire) * state.marketMod * (1 + state.competitors.length * 0.08) *
-    (phase === "boom" ? 1.1 : phase === "bust" ? 0.92 : 1);
-  const deposits = Math.round(bank.deposits + (cityScale - bank.deposits) * 0.05 + rnd(-0.01, 0.01) * bank.deposits);
+    (phase === "boom" ? 1.1 : phase === "bust" ? 0.92 : 1) *
+    (campaign ? DEPOSIT_CAMPAIGN_BOOST : 1);
+  const converge = campaign ? 0.09 : 0.05;
+  const deposits = Math.round(bank.deposits + (cityScale - bank.deposits) * converge + rnd(-0.01, 0.01) * bank.deposits);
   const loansOut = Math.round(deposits * STANCE_UTIL[bank.stance]);
-  const nb: OwnedBank = { ...bank, deposits: Math.max(5_000_000, deposits), loansOut };
+  const nb: OwnedBank = {
+    ...bank,
+    deposits: Math.max(5_000_000, deposits),
+    loansOut,
+    campaignMonthsLeft: campaign ? (bank.campaignMonthsLeft ?? 0) - 1 : undefined,
+  };
 
   let net = bankMonthlyNet(nb, state);
   // Kreditförluster: hållningen sätter basrisken; bust dubblar, kris × 3,5.
@@ -128,7 +137,10 @@ export function insurerMonthlyNet(ins: OwnedInsurer, _state: GameState): number 
   const premiums = ins.policies * PREMIUM_PER_POLICY * PRICING_PREMIUM[ins.pricing];
   const expectedClaims = premiums * PRICING_LOSS_RATIO[ins.pricing];
   const opex = 40_000 + ins.policies * 350;
-  return Math.round(premiums - expectedClaims - opex);
+  // Återförsäkring: en fast andel av premierna avstås (skadetopparna
+  // dämpas i stället i tickInsurer).
+  const ceded = ins.reinsured ? premiums * REINSURANCE_CEDE : 0;
+  return Math.round(premiums - expectedClaims - opex - ceded);
 }
 
 export function tickInsurer(
@@ -155,7 +167,8 @@ export function tickInsurer(
   // Katastrofmånad: ~2,5 % chans (mer i kris) → skadetopp.
   const crisis = (state.crisisMonthsLeft ?? 0) > 0;
   if (rnd(0, 1) < (crisis ? 0.06 : 0.025)) {
-    const spike = Math.round(ni.policies * 2_400 * rnd(0.7, 1.5));
+    const spikeMult = ni.reinsured ? REINSURANCE_SPIKE_MULT : 1;
+    const spike = Math.round(ni.policies * 2_400 * rnd(0.7, 1.5) * spikeMult);
     net -= spike;
     events.push({
       t: `🌊 ${ni.name}: a claims spike hits the book — ${Math.round(spike / 1_000_000 * 10) / 10}M paid out to policyholders.`,
@@ -164,6 +177,23 @@ export function tickInsurer(
   }
   return { insurer: ni, net, events };
 }
+
+/* ── Inlåningskampanj (banken) ──────────────────────────────────────── */
+
+/** Kampanjens längd i månader och lyft på inlåningsmålet. */
+export const DEPOSIT_CAMPAIGN_MONTHS = 12;
+export const DEPOSIT_CAMPAIGN_BOOST = 1.25;
+/** Kampanjkostnad: marknadsföring + ränteerbjudanden. */
+export function depositCampaignCost(bank: OwnedBank): number {
+  return Math.max(500_000, Math.round(bank.deposits * 0.015));
+}
+
+/* ── Återförsäkring (försäkringsbolaget) ────────────────────────────── */
+
+/** Andel av premierna som avstås till återförsäkraren. */
+export const REINSURANCE_CEDE = 0.12;
+/** Skadetopparnas storlek med återförsäkring (60 % dämpning). */
+export const REINSURANCE_SPIKE_MULT = 0.4;
 
 /* ── Synergier ──────────────────────────────────────────────────────── */
 

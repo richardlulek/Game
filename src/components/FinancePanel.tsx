@@ -5,9 +5,9 @@
 
 import { useState } from "react";
 import { esgRatingOf } from "../engine/esg";
-import { LENDERS, amortInfoOf, loanTerms } from "../engine/finance";
-import { bondRateFor, creditRatingOf } from "../engine/rating";
-import { bankMonthlyNet, bankPurchasePrice, bankValue, insurerMonthlyNet, insurerPurchasePrice, insurerValue } from "../engine/finInstitutions";
+import { LENDERS, RATE_LOCK_TERMS, TAX_AUDIT_CHANCE, TAX_DEP_AGGRESSIVE, TAX_DEP_NORMAL, amortInfoOf, loanTerms } from "../engine/finance";
+import { GREEN_BOND_DISCOUNT, bondRateFor, creditRatingOf } from "../engine/rating";
+import { bankMonthlyNet, bankPurchasePrice, bankValue, depositCampaignCost, insurerMonthlyNet, insurerPurchasePrice, insurerValue } from "../engine/finInstitutions";
 import { kr, msek, pct } from "../engine/format";
 import { propMarketValue, propNOI } from "../engine/property";
 import {
@@ -301,13 +301,25 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                 )}
               </div>
               {state.rateMode !== "fixed" ? (
-                <button
-                  style={{ ...S.amortBtn, background: "#1a4a6b", marginBottom: 4 }}
-                  onClick={() => dispatch({ type: "SET_RATE_MODE", mode: "fixed", months: 36 })}
-                  disabled={state.debt === 0}
-                >
-                  Lock rate for 36 mo (fee 0.5% of debt)
-                </button>
+                <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                    Lock the rate — longer terms carry a premium (the bank prices the rate risk):
+                  </div>
+                  {([12, 36, 60] as const).map((mo) => {
+                    const lt = RATE_LOCK_TERMS[mo];
+                    return (
+                      <button
+                        key={mo}
+                        style={{ ...S.amortBtn, background: "#1a4a6b", marginTop: 6 }}
+                        onClick={() => dispatch({ type: "SET_RATE_MODE", mode: "fixed", months: mo })}
+                        disabled={state.debt === 0}
+                      >
+                        {mo} mo @ {(terms.rate + lt.premium).toFixed(2)}%
+                        {lt.premium > 0 ? ` (+${lt.premium.toFixed(2)}pp)` : " (no premium)"} · fee {(lt.feePct * 100).toFixed(1)}%
+                      </button>
+                    );
+                  })}
+                </>
               ) : (
                 <button
                   style={{ ...S.amortBtn, background: "#555" }}
@@ -436,12 +448,34 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                   onClick={() => dispatch({ type: "ISSUE_BOND", amount: bondAmt, years: bondYears })}>
                   Issue bond
                 </button>
+                {(() => {
+                  const esg = esgRatingOf(state);
+                  const eligible = esg.letter === "A" || esg.letter === "B";
+                  return (
+                    <>
+                      <button style={{ ...S.amortBtn, background: eligible ? "#27660a" : "#888", marginBottom: 4 }}
+                        disabled={!eligible}
+                        title={eligible ? "Lower coupon, but the ESG rating must stay at B or better — slipping triggers the greenwashing covenant." : `Requires ESG rating B or better (currently ${esg.letter}).`}
+                        onClick={() => dispatch({ type: "ISSUE_BOND", amount: bondAmt, years: bondYears, green: true })}>
+                        🌱 Issue green bond (coupon −{GREEN_BOND_DISCOUNT.toFixed(2)}pp)
+                      </button>
+                      <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>
+                        {eligible
+                          ? `ESG ${esg.letter} qualifies for green funding. Covenant: if the rating slips below B, the coupon rises +0.50pp and reputation takes a hit.`
+                          : `Green bonds require ESG rating B or better (currently ${esg.letter}). Upgrade the portfolio's energy classes.`}
+                      </div>
+                    </>
+                  );
+                })()}
                 {(state.bonds ?? []).length > 0 && (
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Outstanding bonds:</div>
                     {(state.bonds ?? []).map((b) => (
                       <div key={b.id} style={{ fontSize: 12, display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #eee" }}>
-                        <span>{msek(b.amount)} @ {b.rate.toFixed(2)} %</span>
+                        <span>
+                          {b.green ? "🌱 " : ""}{msek(b.amount)} @ {b.rate.toFixed(2)} %
+                          {b.breached && <span style={{ color: "#c0392b", fontWeight: 700 }}> · covenant breached</span>}
+                        </span>
                         <button style={{ fontSize: 11, cursor: "pointer", border: "1px solid #c0392b", background: "transparent", color: "#c0392b", borderRadius: 3, padding: "1px 6px" }}
                           onClick={() => dispatch({ type: "REPAY_BOND", bondId: b.id })}>
                           Repay
@@ -504,6 +538,17 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                         Sell ({msek(Math.round(bankValue(state.ownedBank, state) * 0.85))})
                       </button>
                     </div>
+                    {(state.ownedBank.campaignMonthsLeft ?? 0) > 0 ? (
+                      <div style={{ fontSize: 12, color: "#27660a", fontWeight: 700, marginBottom: 6 }}>
+                        📣 Deposit campaign running — {state.ownedBank.campaignMonthsLeft} mo left (+25% deposit target).
+                      </div>
+                    ) : (
+                      <button style={{ ...S.amortBtn, background: "#27660a", marginBottom: 6 }}
+                        disabled={state.cash < depositCampaignCost(state.ownedBank)}
+                        onClick={() => dispatch({ type: "START_DEPOSIT_CAMPAIGN" })}>
+                        📣 Deposit campaign ({msek(depositCampaignCost(state.ownedBank))}) — +25% deposits for 12 mo
+                      </button>
+                    )}
                     <div style={{ fontSize: 11, color: "#888" }}>
                       Aggressive lending earns more but bleeds in downturns. Your own loan rate is 0.30% lower while you own the bank.
                     </div>
@@ -547,8 +592,15 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                         Sell ({msek(Math.round(insurerValue(state.ownedInsurer, state) * 0.85))})
                       </button>
                     </div>
+                    <button style={{ ...S.amortBtn, background: state.ownedInsurer.reinsured ? "#555" : "#27660a", marginBottom: 6 }}
+                      onClick={() => dispatch({ type: "SET_REINSURANCE", on: !state.ownedInsurer!.reinsured })}>
+                      {state.ownedInsurer.reinsured
+                        ? "Cancel reinsurance (full premiums, full exposure)"
+                        : "🤝 Sign reinsurance (cede 12% of premiums, claim spikes −60%)"}
+                    </button>
                     <div style={{ fontSize: 11, color: "#888" }}>
                       Low premiums grow the book fast on thin margins. Your own property premiums are 40% cheaper while you own the insurer.
+                      {state.ownedInsurer.reinsured ? " Reinsurance is active — catastrophe months hit 60% softer." : ""}
                     </div>
                   </div>
                 ) : (
@@ -576,20 +628,54 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           <div style={S.financeCol}>
             <h3 style={S.h3OnLight}>Tax optimization</h3>
             {(() => {
+              const aggressive = (state.taxDepreciationPolicy ?? "normal") === "aggressiv";
+              const depRate = aggressive ? TAX_DEP_AGGRESSIVE : TAX_DEP_NORMAL;
               const netIncome = state.portfolio.reduce((a, p) => a + propNOI(p, state), 0) / 12
                 - (state.debt * ((state.rateMode === "fixed" && state.fixedRate != null ? state.fixedRate : loanTerms(state).rate) / 100)) / 12;
               const monthlyDep = state.portfolio.reduce((sum, p) => {
                 if (p.status !== "klar") return sum;
-                return sum + ((p.purchasePrice ?? p.askPrice) * 0.02) / 12;
+                return sum + ((p.purchasePrice ?? p.askPrice) * depRate) / 12;
               }, 0);
               const energyACount = state.portfolio.filter(p => p.energyClass === "A" && p.status === "klar").length;
               const taxRate = Math.max(0.10, 0.22 - (energyACount > 0 ? 0.03 : 0));
-              const taxableIncome = Math.max(0, netIncome - monthlyDep);
+              const carry = state.taxLossCarry ?? 0;
+              const grossTaxable = Math.max(0, netIncome - monthlyDep);
+              const taxableIncome = Math.max(0, grossTaxable - carry);
               const monthlyTax = Math.round(taxableIncome * taxRate);
               return (
                 <>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Depreciation policy:</div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                    {(["normal", "aggressiv"] as const).map((p) => {
+                      const sel = (state.taxDepreciationPolicy ?? "normal") === p;
+                      return (
+                        <button key={p}
+                          style={{ fontSize: 11, cursor: "pointer", borderRadius: 10, padding: "3px 10px", fontWeight: 700,
+                            border: `1px solid ${sel ? BURGUNDY : "#bbb"}`,
+                            background: sel ? BURGUNDY : "transparent",
+                            color: sel ? "#f0e6c8" : "#555" }}
+                          onClick={() => dispatch({ type: "SET_TAX_POLICY", policy: p })}>
+                          {p === "normal"
+                            ? `Normal (${(TAX_DEP_NORMAL * 100).toFixed(1)}%/yr)`
+                            : `Aggressive (${(TAX_DEP_AGGRESSIVE * 100).toFixed(0)}%/yr · audit risk)`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {aggressive && (
+                    <div style={{ fontSize: 11, color: "#c0392b", marginBottom: 8 }}>
+                      ⚠️ The aggressive shield saves tax every month, but an audit
+                      (~{Math.round(TAX_AUDIT_CHANCE * 100 * 12)}%/yr) claws back the difference with a 40% surcharge and rep −3.
+                    </div>
+                  )}
                   <Line l="Estimated tax rate" v={`${Math.round(taxRate * 100)}%${energyACount > 0 ? " (−3% via class A)" : ""}`} />
                   <Line l="Deduction (depreciation/mo)" v={kr(Math.round(monthlyDep))} />
+                  <Line l="Loss carryforward" v={carry > 0 ? kr(carry) : "$0"} accent={carry > 0 ? "#27660a" : undefined} />
+                  {carry > 0 && (
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
+                      Accumulated deficits offset future taxable profits automatically — loss months are not wasted.
+                    </div>
+                  )}
                   <Line l="Taxable income/mo" v={kr(Math.max(0, Math.round(taxableIncome)))} />
                   <Line l="Estimated tax/mo" v={kr(monthlyTax)} />
                   <Line l="Total tax paid" v={kr(state.totalTaxPaid ?? 0)} />

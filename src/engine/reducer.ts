@@ -17,7 +17,7 @@ import {
   cityProjectCost,
   eligibleCityBlocks,
 } from "./cityProjects";
-import { equityOf, loanTerms } from "./finance";
+import { RATE_LOCK_TERMS, equityOf, loanTerms } from "./finance";
 import { ambientAsk, ambientProfile, ambientValue } from "./landDeals";
 import { LUXURIES, MEGA_PROJECTS, REVIEW_FEE_PCT, DOMINANCE_REVIEW_SHARE, districtShareOf, dividendRelief } from "./lateGame";
 import { kr, msek, pct } from "./format";
@@ -45,7 +45,7 @@ import {
 } from "./leasing";
 import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
-import { bondRateFor, creditRatingOf } from "./rating";
+import { GREEN_BOND_DISCOUNT, bondRateFor, creditRatingOf } from "./rating";
 import { rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propPotentialRent } from "./property";
@@ -57,7 +57,17 @@ import {
   buildMonthsDelta,
   hireFee,
 } from "./progression";
-import { bankPurchasePrice, bankValue, insurerPurchasePrice, insurerValue } from "./finInstitutions";
+import {
+  DEPOSIT_CAMPAIGN_MONTHS,
+  REINSURANCE_CEDE,
+  REINSURANCE_SPIKE_MULT,
+  bankPurchasePrice,
+  bankValue,
+  depositCampaignCost,
+  insurerPurchasePrice,
+  insurerValue,
+} from "./finInstitutions";
+import { esgRatingOf } from "./esg";
 import { rollExecutive, talentStars } from "./executives";
 import {
   SPINOFF_MIN_ASSETS,
@@ -1513,6 +1523,51 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [{ t: `🛡️ ${state.ownedInsurer.name}: premium level set to ${action.pricing}.`, kind: "info" }, ...state.log],
       };
     }
+    case "START_DEPOSIT_CAMPAIGN": {
+      // Inlåningskampanj: marknadsföring + ränteerbjudanden lyfter
+      // inlåningsmålet 25 % i tolv månader (finInstitutions.tickBank).
+      if (!state.ownedBank) return state;
+      if ((state.ownedBank.campaignMonthsLeft ?? 0) > 0)
+        return log(state, "🏦 A deposit campaign is already running.", "warn");
+      const cost = depositCampaignCost(state.ownedBank);
+      if (state.cash < cost) return log(state, `The deposit campaign costs ${msek(cost)}.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cost,
+        ownedBank: { ...state.ownedBank, campaignMonthsLeft: DEPOSIT_CAMPAIGN_MONTHS },
+        log: [{ t: `🏦 ${state.ownedBank.name} launches a deposit campaign (${msek(cost)}): +25% deposit target for ${DEPOSIT_CAMPAIGN_MONTHS} months.`, kind: "expense" }, ...state.log],
+      };
+    }
+    case "SET_REINSURANCE": {
+      // Återförsäkring: avstå 12 % av premierna, dämpa skadetoppar 60 %.
+      if (!state.ownedInsurer) return state;
+      if (!!state.ownedInsurer.reinsured === action.on) return state;
+      return {
+        ...state,
+        ownedInsurer: { ...state.ownedInsurer, reinsured: action.on },
+        log: [{
+          t: action.on
+            ? `🛡️ ${state.ownedInsurer.name} signs a reinsurance treaty: ${Math.round(REINSURANCE_CEDE * 100)}% of premiums ceded, claim spikes dampened ${Math.round((1 - REINSURANCE_SPIKE_MULT) * 100)}%.`
+            : `🛡️ ${state.ownedInsurer.name} cancels the reinsurance treaty — full premiums, full catastrophe exposure.`,
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "SET_TAX_POLICY": {
+      // Avskrivningspolicy: aggressiv skärmar mer vinst (2 %/år i stället
+      // för 1,3 %) men riskerar en skatterevision (simulationen).
+      if ((state.taxDepreciationPolicy ?? "normal") === action.policy) return state;
+      return {
+        ...state,
+        taxDepreciationPolicy: action.policy,
+        log: [{
+          t: action.policy === "aggressiv"
+            ? "🧾 Aggressive depreciation adopted: 2%/yr shield — the auditors raise an eyebrow (audit risk)."
+            : "🧾 Depreciation policy back to normal (1.3%/yr) — the audit risk fades.",
+          kind: "info",
+        }, ...state.log],
+      };
+    }
     case "HIRE_STAFF": {
       const role = STAFF_ROLES.find((r) => r.id === action.role);
       if (!role) return state;
@@ -1841,20 +1896,27 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const info = creditRatingOf(state);
       if (info.bondCap <= 0)
         return log(state, `📜 Rating ${info.rating} closes the bond market — strengthen the balance sheet first.`, "warn");
+      // Grön obligation: kräver ESG-betyg A eller B, ger kupongrabatt men
+      // bär en greenwashing-covenant (simulationen straffar ESG-tapp).
+      if (action.green) {
+        const esg = esgRatingOf(state);
+        if (esg.letter !== "A" && esg.letter !== "B")
+          return log(state, `🌱 Green bonds require ESG rating B or better (currently ${esg.letter}).`, "warn");
+      }
       const outstanding = (state.bonds ?? []).reduce((a, b) => a + b.amount, 0);
       const room = info.bondCap - outstanding;
       if (room < 1_000_000)
         return log(state, `📜 The bond program is full (${msek(outstanding)} of ${msek(info.bondCap)} at rating ${info.rating}). Redeem or improve the rating.`, "warn");
       const amount = Math.min(action.amount, room);
       if (amount < 1_000_000) return log(state, "The minimum bond is $1M.", "warn");
-      const rate = bondRateFor(state, info.rating);
+      const rate = +(bondRateFor(state, info.rating) - (action.green ? GREEN_BOND_DISCOUNT : 0)).toFixed(2);
       const matureAbs = state.year * 12 + state.month + action.years * 12;
-      const newBond = { id: String(Date.now()), amount, rate, matureAbs };
+      const newBond = { id: String(Date.now()), amount, rate, matureAbs, ...(action.green ? { green: true } : {}) };
       return {
         ...state,
         cash: state.cash + amount,
         bonds: [...(state.bonds ?? []), newBond],
-        log: [{ t: `📜 Bond issue (rating ${info.rating}): ${msek(amount)} at ${rate.toFixed(2)}% coupon, ${action.years} yr. Program: ${msek(outstanding + amount)} of ${msek(info.bondCap)}.`, kind: "income" }, ...state.log],
+        log: [{ t: `${action.green ? "🌱 Green bond" : "📜 Bond"} issue (rating ${info.rating}): ${msek(amount)} at ${rate.toFixed(2)}% coupon, ${action.years} yr${action.green ? ` (−${GREEN_BOND_DISCOUNT.toFixed(2)}pp ESG discount, greenwashing covenant applies)` : ""}. Program: ${msek(outstanding + amount)} of ${msek(info.bondCap)}.`, kind: "income" }, ...state.log],
       };
     }
     case "REPAY_BOND": {
@@ -1998,16 +2060,20 @@ export function reducer(state: GameState, action: GameAction): GameState {
         const { rate } = loanTerms(state);
         const months = Math.max(12, Math.min(60, action.months ?? 36));
         const nowAbs = state.year * 12 + state.month;
-        const fee = Math.round(state.debt * 0.005);
+        // Löptidskurva: längre bindning kostar mer i både premie och avgift
+        // (banken tar betalt för ränterisken den övertar).
+        const { premium, feePct } = RATE_LOCK_TERMS[months] ?? { premium: 0.15, feePct: 0.005 };
+        const locked = +(rate + premium).toFixed(2);
+        const fee = Math.round(state.debt * feePct);
         if (state.cash < fee)
           return log(state, `A fixed rate requires ${kr(fee)} in a setup fee.`, "warn");
         return {
           ...state,
           cash: state.cash - fee,
           rateMode: "fixed",
-          fixedRate: rate,
+          fixedRate: locked,
           fixedUntilAbs: nowAbs + months,
-          log: [{ t: `🔒 Fixed rate ${rate}% locked for ${months} months (fee ${kr(fee)}).`, kind: "info" }, ...state.log],
+          log: [{ t: `🔒 Fixed rate ${locked}% locked for ${months} months (term premium +${premium.toFixed(2)}pp, fee ${kr(fee)}).`, kind: "info" }, ...state.log],
         };
       }
       return { ...state, rateMode: "variable", fixedRate: undefined, fixedUntilAbs: undefined,
