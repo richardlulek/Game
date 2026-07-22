@@ -69,7 +69,20 @@ import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "./rating";
 import { bumpedCounters, chainBuildCostMult, chainInvestBoostMult } from "./milestoneChains";
-import { DD_MONTHS, DEAL_COOLDOWN_MONTHS, MA_ADVISOR_FEE, ddCostFor, ddDoneFor, executeAcquisition } from "./mna";
+import {
+  DD_MONTHS,
+  DEAL_COOLDOWN_MONTHS,
+  HOSTILE_PREMIUM,
+  MA_ADVISOR_FEE,
+  MANDATORY_BID_THRESHOLD,
+  SELL_DOWN_DISCOUNT,
+  SELL_DOWN_TO,
+  ddCostFor,
+  ddDoneFor,
+  executeAcquisition,
+  marketCapOf,
+  ownerAskPrice,
+} from "./mna";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
@@ -1171,6 +1184,43 @@ export function reducer(state: GameState, action: GameAction): GameState {
             : p,
         );
       }
+      // Budplikt (mna.ts): obligatoriskt bud till styrelsens pris – affären
+      // ligger färdigförhandlad, bara finansieringen återstår.
+      if (e.mandatoryBid) {
+        const comp = s.competitors.find((c) => c.name === e.mandatoryBid!.target);
+        if (comp) {
+          s.pendingDeal = {
+            target: comp.name,
+            offer: ownerAskPrice(s, comp),
+            round: 1,
+            status: "accepted",
+            startedAbs: s.year * 12 + s.month,
+          };
+        }
+      }
+      // ...eller nedförsäljning under tröskeln med rea-stämpel.
+      if (e.sellDownStock) {
+        const st = s.stocks.find((x) => x.id === e.sellDownStock!.stockId);
+        if (st) {
+          const keep = Math.floor(st.sharesOutstanding * SELL_DOWN_TO);
+          const sell = Math.max(0, st.owned - keep);
+          const proceeds = Math.round(sell * st.price * SELL_DOWN_DISCOUNT);
+          s.cash += proceeds;
+          s.stocks = s.stocks.map((x) => (x.id === st.id ? { ...x, owned: keep } : x));
+        }
+      }
+      // Försvar mot fientligt bud på DITT bolag: återköp krymper floaten...
+      if (e.repelBid) {
+        s.cash -= e.repelBid.cost;
+        const shares = s.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
+        s.ipoShares = { ...shares, public: Math.max(0, shares.public - e.repelBid.shares) };
+        s.takeoverPressure = Math.max(0, (s.takeoverPressure ?? 0) - 10);
+      }
+      // ...eller en vit riddare tar en blockerande post – mot en framtida tjänst.
+      if (e.whiteKnight) {
+        s.standing = adjustStanding(s.standing, { kind: "rival", name: e.whiteKnight.rival }, -20);
+        s.takeoverPressure = Math.max(0, (s.takeoverPressure ?? 0) - 15);
+      }
       // Too big to fail (cycle.ts): stödpaketets villkor respektive den
       // avböjda vägen in i vanlig rekonstruktion.
       if (e.restructureMonths) {
@@ -1368,7 +1418,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         return log(state, `Not enough cash. ${qty} shares in ${st.name} cost ${msek(cost)}.`, "warn");
       const newOwned = st.owned + qty;
       const newAvg = (st.owned * st.avgCost + qty * st.price) / newOwned;
-      return {
+      let bought: GameState = {
         ...state,
         cash: state.cash - cost,
         stocks: state.stocks.map((x) =>
@@ -1379,6 +1429,40 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...state.log,
         ],
       };
+      // Budplikt (mna.ts): korsar du 30 % i ett rivalbolag MÅSTE du välja –
+      // bud på hela bolaget eller nedförsäljning under tröskeln.
+      const frac = newOwned / st.sharesOutstanding;
+      const isRival = !!st.competitorName && st.competitorName !== "__player__" &&
+        state.competitors.some((c) => c.name === st.competitorName);
+      if (
+        isRival && frac >= MANDATORY_BID_THRESHOLD &&
+        !(state.budpliktDone ?? []).includes(st.competitorName!) && !bought.pendingDecision
+      ) {
+        const comp = state.competitors.find((c) => c.name === st.competitorName)!;
+        const ask = ownerAskPrice(bought, comp);
+        bought = {
+          ...bought,
+          budpliktDone: [...(state.budpliktDone ?? []), st.competitorName!],
+          pendingDecision: {
+            id: `budplikt-${st.id}`,
+            title: `Mandatory bid: ${comp.name}`,
+            text: `You now control ${Math.round(frac * 100)}% of ${comp.name} — past the 30% threshold. Market rules force your hand: bid for the whole company at the board's price (${msek(ask)}), or sell down below the threshold at a 5% discount.`,
+            options: [
+              {
+                label: `Bid for it all (${msek(ask)})`,
+                detail: "The board must accept the mandatory price. Choose financing in the Acquisition window.",
+                effect: { mandatoryBid: { target: comp.name }, log: `⚖️ Mandatory bid: you offer ${msek(ask)} for all of ${comp.name}.`, logKind: "warn" },
+              },
+              {
+                label: "Sell down below 30%",
+                detail: "Dump the excess at a 5% discount — the market smells forced selling.",
+                effect: { sellDownStock: { stockId: st.id }, log: `📉 You sell down the ${comp.name} stake below the mandatory-bid threshold.`, logKind: "sell" },
+              },
+            ],
+          },
+        };
+      }
+      return bought;
     }
     case "SELL_SHARES": {
       const st = state.stocks.find((x) => x.id === action.stockId);
@@ -2209,6 +2293,26 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [{ t: `🤝 You approach ${target.name} with an indicative bid of ${msek(action.amount)}. The owner will respond within the month.`, kind: "info" }, ...state.log],
       };
     }
+    case "HOSTILE_BID": {
+      // Fientligt bud direkt till aktieägarna: kräver notering och en
+      // premie på 25 % mot börsvärdet. Styrelsen svarar nästa månadsskifte.
+      if (state.hostileBid) return log(state, "You already have a hostile bid in the market.", "warn");
+      if (state.pendingDeal) return log(state, "Close your ongoing negotiation first.", "warn");
+      const target = state.competitors.find((c) => c.name === action.competitorName);
+      if (!target) return state;
+      const cap = marketCapOf(state, target.name);
+      if (cap <= 0) return log(state, `${target.name} is not listed — there are no shareholders to court.`, "warn");
+      const minOffer = Math.round(cap * HOSTILE_PREMIUM);
+      if (action.amount < minOffer)
+        return log(state, `A hostile bid needs a premium: at least ${msek(minOffer)} (125% of market cap).`, "warn");
+      if (state.cash < Math.round(action.amount * 0.25))
+        return log(state, `You need ${msek(Math.round(action.amount * 0.25))} in cash to credibly finance the bid.`, "warn");
+      return {
+        ...state,
+        hostileBid: { target: target.name, offer: Math.round(action.amount), placedAbs: state.year * 12 + state.month },
+        log: [{ t: `⚔️ HOSTILE BID: you go over the board's head and offer ${target.name}'s shareholders ${msek(action.amount)}. The board plots its defense.`, kind: "warn" }, ...state.log],
+      };
+    }
     case "TOGGLE_MA_ADVISOR": {
       // Investmentbanken: månadsarvode mot deal pipeline (rivalernas
       // balansräkningar och stress som underrättelser i förvärvspanelen).
@@ -2247,6 +2351,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!deal || deal.status !== "countered") return state;
       if (action.amount <= deal.offer)
         return log(state, "A raise has to go up.", "warn");
+      if (deal.rivalBid && action.amount <= deal.rivalBid)
+        return log(state, `${deal.rivalBidder ?? "The rival"} has ${msek(deal.rivalBid)} on the table — you must top it.`, "warn");
       return {
         ...state,
         pendingDeal: { ...deal, offer: Math.round(action.amount), round: deal.round + 1, status: "waiting", counter: undefined },

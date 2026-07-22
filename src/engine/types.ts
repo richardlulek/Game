@@ -157,6 +157,10 @@ export interface PendingDeal {
   /** Ägarens senaste motbud (status "countered"). */
   counter?: number;
   startedAbs: number;
+  /** Rivalens konkurrerande bud på samma mål (batch 3). */
+  rivalBid?: number;
+  rivalBidder?: string;
+  rivalBidAbs?: number;
 }
 
 /** Earn-out: del av köpeskillingen betalas senare OM beståndet levererar. */
@@ -375,6 +379,14 @@ export interface DecisionEffect {
    *  flyttar ut, skicket återställs, hyrespotentialen lyfter (halverat
    *  om länsstyrelsen kulturmärkt huset vid erbjudandet). */
   renovate?: { propertyId: number; heritage: boolean };
+  /** Budplikt (mna.ts): lägg obligatoriskt bud på hela målbolaget. */
+  mandatoryBid?: { target: string };
+  /** Budplikt: sälj i stället ned posten under tröskeln (5 % rabatt). */
+  sellDownStock?: { stockId: string };
+  /** Försvar mot fientligt bud på DITT bolag: återköp av aktier. */
+  repelBid?: { cost: number; shares: number };
+  /** Försvar: vit riddare – en vänskaplig rival tar en blockerande post. */
+  whiteKnight?: { rival: string };
   log: string;
   logKind: LogKind;
 }
@@ -1009,6 +1021,10 @@ export interface GameState {
   ddDone?: string[];
   /** Pågående due diligence-uppdrag (klara vid doneAbs). */
   ddInProgress?: { target: string; doneAbs: number }[];
+  /** Fientligt bud lagt direkt till aktieägarna – avgörs nästa månadsskifte. */
+  hostileBid?: { target: string; offer: number; placedAbs: number } | null;
+  /** Bolag där budplikten redan utlösts (ingen dubbeltrigger). */
+  budpliktDone?: string[];
   /** Milstolpekedjor (milestoneChains.ts): uppnådda nivåer per kedja. */
   chainLevels?: Record<string, number>;
   /** Milstolpekedjornas ackumulerande räknare (byggen, projekt, stadssatsningar). */
@@ -1208,6 +1224,7 @@ export type GameAction =
   | { type: "ACQUIRE_RIVAL"; competitorName: string; amount: number }
   | { type: "PROPOSE_ACQUISITION"; competitorName: string; amount: number }
   | { type: "TOGGLE_MA_ADVISOR" }
+  | { type: "HOSTILE_BID"; competitorName: string; amount: number }
   | { type: "START_DUE_DILIGENCE"; competitorName: string }
   | { type: "RAISE_DEAL"; amount: number }
   | { type: "WITHDRAW_DEAL" }

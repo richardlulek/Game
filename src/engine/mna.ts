@@ -317,3 +317,50 @@ export function ddCostFor(s: GameState, comp: Competitor): number {
 export function ddDoneFor(s: GameState, name: string): boolean {
   return (s.ddDone ?? []).includes(name);
 }
+
+/* ── Fientliga uppköp via börsen (M&A 2.0, batch 3) ────────────────
+   När ägaren säger nej finns aktieägarna. Smygköp pressar styrelsen,
+   30 % utlöser budplikt, och ett fientligt bud möts av försvar:
+   vit riddare (allierad rival), återköp – eller kapitulation. */
+
+/** Ägarandel som utlöser budplikt. */
+export const MANDATORY_BID_THRESHOLD = 0.30;
+/** Budplikt: du får sälja ned dig till denna nivå i stället (5 % rabatt). */
+export const SELL_DOWN_TO = 0.25;
+export const SELL_DOWN_DISCOUNT = 0.95;
+/** Fientligt bud kräver denna premie mot börsvärdet. */
+export const HOSTILE_PREMIUM = 1.25;
+/** Månader en rivals motbud på ditt förhandlingsmål står innan ägaren väljer rivalen. */
+export const RIVAL_BID_GRACE_MONTHS = 2;
+
+export function marketCapOf(s: GameState, rivalName: string): number {
+  const stock = s.stocks.find((x) => x.competitorName === rivalName);
+  return stock ? Math.round(stock.price * stock.sharesOutstanding) : 0;
+}
+
+export type HostileOutcome =
+  | { kind: "white_knight"; ally: string }
+  | { kind: "buyback"; newFloor: number }
+  | { kind: "capitulate" };
+
+/** Styrelsens försvar mot ett fientligt bud. Deterministisk kaskad:
+ *  1) en allierad rival med kassa kliver in som vit riddare,
+ *  2) aggressiva ledningar köper tillbaka aktier och höjer golvet,
+ *  3) annars kapitulerar styrelsen. */
+export function hostileDefense(s: GameState, target: Competitor, offer: number): HostileOutcome {
+  const allies = (s.rivalRelations ?? [])
+    .filter((r) => r.kind === "alliance" && (r.a === target.name || r.b === target.name))
+    .map((r) => (r.a === target.name ? r.b : r.a))
+    .map((n) => s.competitors.find((c) => c.name === n))
+    .filter((c): c is Competitor => !!c && c.cash >= offer * 0.4);
+  if (allies.length > 0) {
+    const ally = allies.sort((a, b) => b.cash - a.cash)[0];
+    return { kind: "white_knight", ally: ally.name };
+  }
+  if (aggressionOf(target.name) >= 0.6) {
+    const cap = marketCapOf(s, target.name);
+    const newFloor = Math.round(cap * 1.15 * HOSTILE_PREMIUM);
+    if (offer < newFloor) return { kind: "buyback", newFloor };
+  }
+  return { kind: "capitulate" };
+}

@@ -29,7 +29,14 @@ import {
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, SMALL_AI_NAMES, UPGRADES } from "./data";
 import { agendaFor } from "./initState";
 import { CHAINS, bumpChainCounter } from "./milestoneChains";
-import { DEAL_COOLDOWN_MONTHS, MA_ADVISOR_FEE, ownerResponse } from "./mna";
+import {
+  DEAL_COOLDOWN_MONTHS,
+  MA_ADVISOR_FEE,
+  RIVAL_BID_GRACE_MONTHS,
+  executeAcquisition,
+  hostileDefense,
+  ownerResponse,
+} from "./mna";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
@@ -1994,6 +2001,168 @@ export function advanceMonth(state: GameState): GameState {
           rival: target.name,
         });
       }
+    }
+  }
+
+  // ── Fientligt bud avgörs: styrelsens försvar (batch 3) ──────────
+  if (s.hostileBid && s.year * 12 + s.month > s.hostileBid.placedAbs) {
+    const hb = s.hostileBid;
+    const target = s.competitors.find((c) => c.name === hb.target);
+    s.hostileBid = null;
+    if (!target) {
+      events.push({ t: `⚔️ Your hostile bid for ${hb.target} lapses — the company no longer exists.`, kind: "info" });
+    } else {
+      const outcome = hostileDefense(s, target, hb.offer);
+      if (outcome.kind === "white_knight") {
+        // Allierad rival tar en blockerande post – budet faller.
+        s.dealCooldowns = { ...(s.dealCooldowns ?? {}), [target.name]: s.year * 12 + s.month + DEAL_COOLDOWN_MONTHS };
+        s.standing = adjustStanding(s.standing, { kind: "rival", name: target.name }, -8);
+        s.standing = adjustStanding(s.standing, { kind: "rival", name: outcome.ally }, -8);
+        events.push({
+          t: `🛡️ WHITE KNIGHT: ${outcome.ally} takes a blocking stake in ${target.name} — your hostile bid collapses, and the city knows who tried.`,
+          kind: "warn",
+          rival: outcome.ally,
+        });
+      } else if (outcome.kind === "buyback") {
+        // Återköpsförsvar: kursen upp, golvet höjt – budet faller.
+        s.stocks = s.stocks.map((x) =>
+          x.competitorName === target.name ? { ...x, price: +(x.price * 1.15).toFixed(2), targetPrice: +(x.price * 1.15).toFixed(2) } : x,
+        );
+        events.push({
+          t: `🛡️ BUYBACK DEFENSE: ${target.name} repurchases shares and lifts the floor — your bid no longer clears. A new attempt needs ~${msek(outcome.newFloor)}.`,
+          kind: "warn",
+          rival: target.name,
+        });
+      } else {
+        // Kapitulation: affären går igenom – fientligt, med allt vad det kostar.
+        const res = executeAcquisition(s, target.name, hb.offer, "lan");
+        if (res.error) {
+          events.push({ t: `⚔️ The board capitulated — but your financing fell through: ${res.error}`, kind: "warn" });
+        } else {
+          s = res.state;
+          s.reputation = Math.max(0, +(s.reputation - 12).toFixed(1)); // nettar +8 från köpet till −4
+          s.pressHeat = +(((s.pressHeat ?? 0) + 3)).toFixed(2);
+          for (const c of s.competitors) s.standing = adjustStanding(s.standing, { kind: "rival", name: c.name }, -4);
+          events.push({ t: `⚔️ CAPITULATION: ${hb.target}'s board folds — the company is yours, but the city calls it a raid (rep −4, press heat +3).`, kind: "warn" });
+        }
+      }
+    }
+  }
+
+  // ── Rivalens motbud på ditt förhandlingsmål (batch 3) ───────────
+  if (s.pendingDeal && !s.pendingDeal.rivalBidder && random01() < 0.08) {
+    const deal = s.pendingDeal;
+    const challenger = [...s.competitors]
+      .filter((c) => c.name !== deal.target && c.cash >= deal.offer * 0.4)
+      .sort((a, b) => b.cash - a.cash)[0];
+    if (challenger) {
+      const rivalBid = Math.round(deal.offer * 1.1);
+      s.pendingDeal = {
+        ...deal,
+        status: "countered",
+        counter: Math.max(deal.counter ?? 0, Math.round(rivalBid * 1.05)),
+        rivalBid,
+        rivalBidder: challenger.name,
+        rivalBidAbs: s.year * 12 + s.month,
+      };
+      const q = rivalQuote(challenger.name, "budkrig", s.month);
+      events.push({
+        t: `⚡ BIDDING WAR FOR THE COMPANY: ${challenger.name} tables ${msek(rivalBid)} for ${deal.target} — top it or lose the deal.${q ? " " + q : ""}`,
+        kind: "warn",
+        rival: challenger.name,
+      });
+    }
+  } else if (
+    s.pendingDeal?.rivalBidder &&
+    s.year * 12 + s.month - (s.pendingDeal.rivalBidAbs ?? 0) >= RIVAL_BID_GRACE_MONTHS &&
+    (s.pendingDeal.rivalBid ?? 0) > s.pendingDeal.offer
+  ) {
+    // Du lät rivalens bud stå för länge – ägaren väljer deras pengar.
+    const deal = s.pendingDeal;
+    const buyer = s.competitors.find((c) => c.name === deal.rivalBidder);
+    const target = s.competitors.find((c) => c.name === deal.target);
+    s.pendingDeal = null;
+    if (buyer && target) {
+      const merged = {
+        ...buyer,
+        cash: buyer.cash + target.cash - Math.round((deal.rivalBid ?? 0) * 0.3),
+        portfolio: [...(buyer.portfolio ?? []), ...(target.portfolio ?? [])],
+        industries: [...(buyer.industries ?? []), ...(target.industries ?? [])],
+        units: (buyer.portfolio ?? []).length + (target.portfolio ?? []).length,
+        equity: buyer.equity + target.equity,
+        monthlyNOI: (buyer.monthlyNOI ?? 0) + (target.monthlyNOI ?? 0),
+        debt: (buyer.debt ?? 0) + (target.debt ?? 0) + Math.round((deal.rivalBid ?? 0) * 0.7),
+        icrBadMonths: 0,
+      };
+      s.competitors = [...s.competitors.filter((c) => c.name !== buyer.name && c.name !== target.name), merged];
+      s.dealCooldowns = { ...(s.dealCooldowns ?? {}), [buyer.name]: s.year * 12 + s.month + 6 };
+      const q = rivalQuote(buyer.name, "vinst", s.month);
+      events.push({
+        t: `💔 DEAL LOST: ${deal.target}'s owner takes ${buyer.name}'s ${msek(deal.rivalBid ?? 0)} while you hesitated.${q ? " " + q : ""}`,
+        kind: "warn",
+        rival: buyer.name,
+      });
+    }
+  }
+
+  // ── Rivalerna vänder på vapnet: fientligt bud på DITT bolag ─────
+  if (
+    s.ipoActive && !s.pendingDecision && !s.gameOver &&
+    ((s.takeoverPressure ?? 0) >= 20 || Object.values(s.standing?.rivals ?? {}).some((v) => v <= -50)) &&
+    random01() < 0.015
+  ) {
+    const own = s.stocks.find((x) => x.competitorName === "__player__");
+    const shares = s.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
+    const myCap = own ? Math.round(own.price * shares.total) : 0;
+    const raider = [...s.competitors]
+      .filter((c) => c.cash >= myCap * 0.35 && myCap > 0)
+      .sort((a, b) => b.cash - a.cash)[0];
+    if (raider) {
+      const bidPerShare = own ? +(own.price * 1.25).toFixed(2) : 0;
+      const buybackCost = Math.round(myCap * 0.08);
+      const buybackShares = own ? Math.round(buybackCost / Math.max(1, own.price)) : 0;
+      const friend = [...s.competitors]
+        .filter((c) => c.name !== raider.name && rivalStanding(s, c.name) >= 30)
+        .sort((a, b) => b.equity - a.equity)[0];
+      const options = [
+        {
+          label: `Buyback defense (${msek(buybackCost)})`,
+          detail: "Repurchase shares, shrink the float and slam the door (takeover pressure −10).",
+          effect: {
+            repelBid: { cost: buybackCost, shares: buybackShares },
+            reputation: 2,
+            log: `🛡️ You repel ${raider.name}'s bid with a buyback — the float shrinks and the raiders retreat.`,
+            logKind: "info" as const,
+          },
+        },
+        ...(friend
+          ? [{
+              label: `White knight: ${friend.name}`,
+              detail: "A friendly rival takes a blocking stake — you'll owe them (standing −20).",
+              effect: {
+                whiteKnight: { rival: friend.name },
+                log: `🛡️ ${friend.name} steps in as your white knight — ${raider.name} backs off. You owe them one.`,
+                logKind: "info" as const,
+              },
+            }]
+          : []),
+        {
+          label: `Sell the company (${msek(Math.round(myCap * 1.25))})`,
+          detail: "Take the premium and walk away. The empire ends here.",
+          effect: {
+            gameOver: true,
+            log: `💼 You accept ${raider.name}'s ${bidPerShare} kr/share — the company changes hands at a 25% premium.`,
+            logKind: "event" as const,
+          },
+        },
+      ];
+      s.pendingDecision = {
+        id: `raid-${raider.name}`,
+        title: `Hostile bid for YOUR company`,
+        text: `${raider.name} goes public with an offer of ${bidPerShare} kr per share for ${s.companyName ?? "your company"} — a 25% premium. The board looks at you.`,
+        options,
+      };
+      events.push({ t: `⚔️ RAID: ${raider.name} bids for YOUR company — the board demands an answer.`, kind: "warn", rival: raider.name });
     }
   }
 

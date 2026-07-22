@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
 import { industryAssetValue } from "../engine/industries";
-import { MA_ADVISOR_FEE, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor } from "../engine/mna";
+import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, marketCapOf } from "../engine/mna";
 import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
 import { RivalPortrait } from "./RivalPortrait";
@@ -504,6 +504,21 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                             {deal ? "Negotiation in progress elsewhere" : `Approach ${comp.name}'s owner`}
                           </button>
                         )}
+                        {(() => {
+                          const cap = marketCapOf(state, comp.name);
+                          if (cap <= 0 || deal || state.hostileBid) return null;
+                          const hostileMin = Math.round(cap * HOSTILE_PREMIUM);
+                          return (
+                            <button
+                              onClick={() => dispatch({ type: "HOSTILE_BID", competitorName: comp.name, amount: hostileMin })}
+                              disabled={state.cash < Math.round(hostileMin * 0.25)}
+                              style={{ ...btnPrimaryStyle, background: C.woodDark, border: `1px solid ${C.negativeBright}66`, marginTop: 6, fontSize: 11.5, padding: "6px 10px", opacity: state.cash < Math.round(hostileMin * 0.25) ? 0.5 : 1 }}
+                              title="Gå förbi styrelsen till aktieägarna: 125 % av börsvärdet. Styrelsen kan svara med vit riddare eller återköp – och staden minns en raid."
+                            >
+                              ⚔️ Hostile bid ({msek(hostileMin)})
+                            </button>
+                          );
+                        })()}
                       </>
                     )}
                   </div>
