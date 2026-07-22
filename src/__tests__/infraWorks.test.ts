@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { PARCELS } from "../engine/city";
-import { infraSpotsFor } from "../three/InfraWorks";
+import { infraSpotsFor } from "../three/infraSpots";
 import type { GameState } from "../engine/types";
 import { makeState } from "./factories";
 

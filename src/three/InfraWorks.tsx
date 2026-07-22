@@ -1,70 +1,15 @@
 /* Infrastrukturen på 3D-kartan (tunna delar 3/7). Fas 2 gjorde invigd
-   infrastruktur permanent i ekonomin – men osynlig i staden. Nu får
-   varje invigt projekt en byggd symbol vid distriktets kant (station,
-   hållplats, bropylon, park …) och pågående kommunala byggen syns som
-   arbetsplats med snurrande kran. Placeringen är ren logik (testbar):
-   distriktets södra kantmitt, spridd i sidled per projekt. */
+   infrastruktur permanent i ekonomin – men osynlig i staden. Varje
+   invigt projekt får en byggd symbol vid distriktets kant och pågående
+   kommunala byggen syns som arbetsplats med snurrande kran.
+   Placeringslogiken bor i infraSpots.ts (ren och testbar). */
 
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { Group } from "three";
-import { PARCELS } from "../engine/city";
 import { useGameStore } from "../store/gameStore";
 import type { GameState } from "../engine/types";
-
-export interface InfraSpot {
-  kind: string;
-  district: string;
-  x: number;
-  z: number;
-  /** Pågående bygge: 0–1; invigt: 1. */
-  progress: number;
-}
-
-/** Distriktets södra kantmitt ur tomtrutorna (memo per distrikt). */
-const DISTRICT_EDGE = (() => {
-  const acc = new Map<string, { minX: number; maxX: number; maxZ: number }>();
-  for (const p of PARCELS) {
-    const cur = acc.get(p.district) ?? { minX: Infinity, maxX: -Infinity, maxZ: -Infinity };
-    cur.minX = Math.min(cur.minX, p.x - p.w / 2);
-    cur.maxX = Math.max(cur.maxX, p.x + p.w / 2);
-    cur.maxZ = Math.max(cur.maxZ, p.z + p.d / 2);
-    acc.set(p.district, cur);
-  }
-  return acc;
-})();
-
-/** Ren placeringslogik: var infrastrukturens symboler står. */
-export function infraSpotsFor(state: GameState): InfraSpot[] {
-  const spots: InfraSpot[] = [];
-  const perDistrict = new Map<string, number>();
-  const place = (district: string): { x: number; z: number } | null => {
-    const edge = DISTRICT_EDGE.get(district);
-    if (!edge) return null;
-    const i = perDistrict.get(district) ?? 0;
-    perDistrict.set(district, i + 1);
-    const mid = (edge.minX + edge.maxX) / 2;
-    // Sprid i sidled: 0, +7, −7, +14 … utan att lämna distriktets bredd.
-    const off = (i % 2 === 0 ? 1 : -1) * Math.ceil(i / 2) * 7;
-    const x = Math.max(edge.minX + 2, Math.min(edge.maxX - 2, mid + off));
-    return { x, z: edge.maxZ + 3.2 };
-  };
-  for (const b of state.infraBuilt ?? []) {
-    const pos = place(b.district);
-    if (pos) spots.push({ kind: b.kind, district: b.district, ...pos, progress: 1 });
-  }
-  for (const pr of state.infraProjects ?? []) {
-    const pos = place(pr.district);
-    if (pos)
-      spots.push({
-        kind: pr.kindId ?? "okänd",
-        district: pr.district,
-        ...pos,
-        progress: Math.max(0.05, 1 - pr.monthsLeft / Math.max(1, pr.totalMonths)),
-      });
-  }
-  return spots;
-}
+import { infraSpotsFor } from "./infraSpots";
 
 const METRO_BLUE = "#2456a8";
 const STEEL = "#8a8f96";
