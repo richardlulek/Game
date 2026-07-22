@@ -173,6 +173,14 @@ export interface EarnOut {
   propertyIds: number[];
 }
 
+/** Konkurrensmyndighetens villkor: ned till maxAllowed hus i distriktet
+ *  före dueAbs – annars vite och förlängd övervakning. */
+export interface DivestOrder {
+  district: string;
+  maxAllowed: number;
+  dueAbs: number;
+}
+
 /** Integration efter ett bolagsförvärv: synergierna är ett MÅL som
  *  realiseras när friktionen (kulturkrock, dubbel förvaltning) är över. */
 export interface Integration {
@@ -1042,6 +1050,8 @@ export interface GameState {
   budpliktDone?: string[];
   /** Pågående integrationer efter bolagsförvärv (mna.ts, batch 4). */
   integrations?: Integration[];
+  /** Konkurrensmyndighetens avyttringskrav efter dominansaffärer (batch 5). */
+  divestOrders?: DivestOrder[];
   /** Milstolpekedjor (milestoneChains.ts): uppnådda nivåer per kedja. */
   chainLevels?: Record<string, number>;
   /** Milstolpekedjornas ackumulerande räknare (byggen, projekt, stadssatsningar). */
@@ -1242,6 +1252,9 @@ export type GameAction =
   | { type: "PROPOSE_ACQUISITION"; competitorName: string; amount: number }
   | { type: "TOGGLE_MA_ADVISOR" }
   | { type: "HOSTILE_BID"; competitorName: string; amount: number }
+  | { type: "BUY_DIVISION"; competitorName: string; district: string }
+  | { type: "PROPOSE_SWAP"; myPropertyId: number; rivalName: string; rivalPropertyId: number }
+  | { type: "SELL_PORTFOLIO_COMPANY"; district: string }
   | { type: "START_DUE_DILIGENCE"; competitorName: string }
   | { type: "RAISE_DEAL"; amount: number }
   | { type: "WITHDRAW_DEAL" }

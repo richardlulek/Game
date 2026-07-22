@@ -69,11 +69,18 @@ import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "./rating";
 import { bumpedCounters, chainBuildCostMult, chainInvestBoostMult } from "./milestoneChains";
+import { rivalLeverage } from "./rivalFinance";
 import {
   DD_MONTHS,
   DEAL_COOLDOWN_MONTHS,
+  DIVEST_MONTHS,
   FLIP_DISCOUNT,
   HOSTILE_PREMIUM,
+  PACKAGE_MIN_PROPS,
+  PACKAGE_PHASE_MULT,
+  competitionBreach,
+  divisionPrice,
+  swapAccepted,
   MA_ADVISOR_FEE,
   MANDATORY_BID_THRESHOLD,
   SELL_DOWN_DISCOUNT,
@@ -2315,6 +2322,126 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         hostileBid: { target: target.name, offer: Math.round(action.amount), placedAbs: state.year * 12 + state.month },
         log: [{ t: `⚔️ HOSTILE BID: you go over the board's head and offer ${target.name}'s shareholders ${msek(action.amount)}. The board plots its defense.`, kind: "warn" }, ...state.log],
+      };
+    }
+    case "BUY_DIVISION": {
+      // Divisionsköp: en rivals hela distriktsbestånd i EN affär –
+      // paketpremie i stället för N budgivningar. Rivalen amorterar med
+      // likviden (70 % till skulden, resten till kassan).
+      const seller = state.competitors.find((c) => c.name === action.competitorName);
+      if (!seller) return state;
+      const divProps = (seller.portfolio ?? []).filter((p) => p.district === action.district);
+      if (divProps.length < 2)
+        return log(state, `${seller.name} has no division to sell there (needs 2+ properties).`, "warn");
+      const price = divisionPrice(state, seller, action.district);
+      const down = Math.round(price * 0.25);
+      if (state.cash < down) return log(state, `The division deal needs ${msek(down)} (25% down).`, "warn");
+      const absNowDiv = state.year * 12 + state.month;
+      const bought = divProps.map((p) => ({
+        ...p,
+        owned: true,
+        purchasePrice: Math.round(propMarketValue(p, state) * 1.05),
+        txHistory: [
+          ...(p.txHistory ?? []),
+          { type: "bought" as const, price: Math.round(propMarketValue(p, state) * 1.05), month: state.month, year: state.year, party: `Division deal with ${seller.name}` },
+        ],
+      }));
+      const toDebt = Math.min(seller.debt ?? 0, Math.round(price * 0.7));
+      let divState: GameState = {
+        ...state,
+        cash: state.cash - down,
+        debt: state.debt + (price - down),
+        portfolio: [...state.portfolio, ...bought],
+        competitors: state.competitors.map((c) =>
+          c.name === seller.name
+            ? {
+                ...c,
+                portfolio: (c.portfolio ?? []).filter((p) => p.district !== action.district),
+                units: (c.portfolio ?? []).filter((p) => p.district !== action.district).length,
+                cash: Math.round(c.cash + price - toDebt),
+                debt: (c.debt ?? 0) - toDebt,
+              }
+            : c,
+        ),
+        standing: adjustStanding(state.standing, { kind: "rival", name: seller.name }, 3),
+        log: [{ t: `📦 DIVISION DEAL: you buy ${seller.name}'s entire ${bought[0].districtName} portfolio (${bought.length} properties) for ${msek(price)} — one negotiation, one closing.`, kind: "buy" }, ...state.log],
+      };
+      const breach = competitionBreach(divState);
+      if (breach && !(divState.divestOrders ?? []).some((o) => o.district === breach.district)) {
+        divState = {
+          ...divState,
+          divestOrders: [...(divState.divestOrders ?? []), { ...breach, dueAbs: absNowDiv + DIVEST_MONTHS }],
+          log: [{ t: `⚖️ COMPETITION REVIEW: the division deal gives you dominance — divest down to ${breach.maxAllowed} properties in the district within ${DIVEST_MONTHS} months.`, kind: "warn" }, ...divState.log],
+        };
+      }
+      return divState;
+    }
+    case "PROPOSE_SWAP": {
+      // Byteshandel: hus mot hus, mellanskillnaden regleras kontant.
+      // Affärer där båda vinner värmer relationen – och kan tina fejder.
+      const mine = state.portfolio.find((p) => p.id === action.myPropertyId);
+      const partner = state.competitors.find((c) => c.name === action.rivalName);
+      const theirs = partner?.portfolio.find((p) => p.id === action.rivalPropertyId);
+      if (!mine || !partner || !theirs) return state;
+      if (mine.status !== "klar") return log(state, "You can only swap completed buildings.", "warn");
+      if (!swapAccepted(state, partner, mine.district))
+        return log(state, `${partner.name} sees no strategic fit in that swap (warm the relationship, or offer something in their home district).`, "warn");
+      const myVal = propMarketValue(mine, state);
+      const theirVal = propMarketValue(theirs, state);
+      const settle = theirVal - myVal; // positiv = du betalar mellanskillnad
+      if (settle > 0 && state.cash < settle)
+        return log(state, `The swap needs ${msek(settle)} in cash settlement.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - settle,
+        portfolio: [
+          ...state.portfolio.filter((p) => p.id !== mine.id),
+          { ...theirs, owned: true, purchasePrice: theirVal, txHistory: [...(theirs.txHistory ?? []), { type: "bought" as const, price: theirVal, month: state.month, year: state.year, party: `Swap with ${partner.name}` }] },
+        ],
+        competitors: state.competitors.map((c) =>
+          c.name === partner.name
+            ? {
+                ...c,
+                cash: Math.round(c.cash + Math.max(0, settle)) - Math.max(0, -settle),
+                portfolio: [...(c.portfolio ?? []).filter((p) => p.id !== theirs.id), { ...mine, owned: false }],
+              }
+            : c,
+        ),
+        standing: adjustStanding(state.standing, { kind: "rival", name: partner.name }, 8),
+        log: [{ t: `🔁 ASSET SWAP: your ${mine.typeLabel} in ${mine.districtName} for ${partner.name}'s ${theirs.typeLabel} in ${theirs.districtName}${settle !== 0 ? ` (${settle > 0 ? "you pay" : "you receive"} ${msek(Math.abs(settle))})` : ""} — a deal where both sides win (standing +8).`, kind: "buy" }, ...state.log],
+      };
+    }
+    case "SELL_PORTFOLIO_COMPANY": {
+      // Sälj hela ditt distriktsbestånd som paketbolag till en rival –
+      // säljsidans M&A. Priset följer konjunkturen; köparen belånar.
+      const pack = state.portfolio.filter((p) => p.district === action.district && p.status === "klar");
+      if (pack.length < PACKAGE_MIN_PROPS)
+        return log(state, `A portfolio company needs at least ${PACKAGE_MIN_PROPS} completed properties in the district.`, "warn");
+      const phase = (state.marketCycle?.phase ?? "stable") as "boom" | "stable" | "bust";
+      const price = Math.round(pack.reduce((a, p) => a + propMarketValue(p, state), 0) * PACKAGE_PHASE_MULT[phase]);
+      const buyer = [...state.competitors]
+        .filter((c) => c.cash >= Math.round(price * (1 - rivalLeverage(c))))
+        .sort((a, b) => b.cash - a.cash)[0];
+      if (!buyer) return log(state, "No buyer in the city can finance the package right now.", "warn");
+      const debtPart = Math.round(price * rivalLeverage(buyer));
+      const ids = new Set(pack.map((p) => p.id));
+      return {
+        ...state,
+        cash: state.cash + price,
+        portfolio: state.portfolio.filter((p) => !ids.has(p.id)),
+        pendingRenewals: dropRenewals(state, (r) => ids.has(r.propertyId)),
+        competitors: state.competitors.map((c) =>
+          c.name === buyer.name
+            ? {
+                ...c,
+                cash: Math.round(c.cash - (price - debtPart)),
+                debt: (c.debt ?? 0) + debtPart,
+                portfolio: [...(c.portfolio ?? []), ...pack.map((p) => ({ ...p, owned: false }))],
+                units: (c.portfolio ?? []).length + pack.length,
+              }
+            : c,
+        ),
+        log: [{ t: `🏷️ PORTFOLIO SALE: your ${pack.length}-property ${pack[0].districtName} package goes to ${buyer.name} for ${msek(price)} (${phase === "boom" ? "boom pricing" : phase === "bust" ? "bust discount" : "market pricing"}).`, kind: "sell" }, ...state.log],
       };
     }
     case "TOGGLE_MA_ADVISOR": {

@@ -31,6 +31,8 @@ import { agendaFor } from "./initState";
 import { CHAINS, bumpChainCounter } from "./milestoneChains";
 import {
   DEAL_COOLDOWN_MONTHS,
+  DIVEST_FINE_SHARE,
+  DIVEST_MONTHS,
   HOSTILE_REALIZE,
   INTEGRATION_FRICTION,
   MA_ADVISOR_FEE,
@@ -2167,6 +2169,29 @@ export function advanceMonth(state: GameState): GameState {
       };
       events.push({ t: `⚔️ RAID: ${raider.name} bids for YOUR company — the board demands an answer.`, kind: "warn", rival: raider.name });
     }
+  }
+
+  // ── Konkurrensmyndigheten följer upp avyttringskrav (batch 5) ───
+  if ((s.divestOrders ?? []).length > 0) {
+    const absNowDo = s.year * 12 + s.month;
+    const stillDo: typeof s.divestOrders = [];
+    for (const order of s.divestOrders ?? []) {
+      const mine = s.portfolio.filter((p) => p.district === order.district && p.status === "klar").length;
+      if (mine <= order.maxAllowed) {
+        events.push({ t: `⚖️ COMPLIANCE: the competition authority signs off — your ${order.district} holdings are back under the dominance cap.`, kind: "income" });
+        continue;
+      }
+      if (absNowDo >= order.dueAbs) {
+        const fine = Math.max(2_000_000, Math.round(equityOf(s) * DIVEST_FINE_SHARE));
+        cashflow(s, -fine, "konkurrensvite");
+        s.reputation = Math.max(0, +(s.reputation - 3).toFixed(1));
+        events.push({ t: `⚖️ FINED: you missed the divestment deadline in ${order.district} — ${msek(fine)} in penalties (rep −3), and the clock restarts.`, kind: "warn" });
+        stillDo.push({ ...order, dueAbs: absNowDo + DIVEST_MONTHS });
+      } else {
+        stillDo.push(order);
+      }
+    }
+    s.divestOrders = stillDo;
   }
 
   // Investmentbankens arvode och färdiga due diligence-rapporter (batch 2).

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
+import { propMarketValue } from "../engine/property";
 import { industryAssetValue } from "../engine/industries";
-import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, marketCapOf } from "../engine/mna";
+import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf } from "../engine/mna";
 import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
 import { RivalPortrait } from "./RivalPortrait";
@@ -24,6 +25,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
   const [accordionOpen, setAccordionOpen] = useState<Record<string, boolean>>({});
   // M&A slider: competitor name -> acquisition amount
   const [maBids, setMaBids] = useState<Record<string, number>>({});
+  const [swapSel, setSwapSel] = useState<Record<string, { mine?: number; theirs?: number }>>({});
 
   // Score world pool properties by yield potential
   const poolScored = [...(state.worldPool ?? [])]
@@ -504,6 +506,66 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                             {deal ? "Negotiation in progress elsewhere" : `Approach ${comp.name}'s owner`}
                           </button>
                         )}
+                        {/* Divisionsköp: rivalens distriktsbestånd i ett paket */}
+                        {(() => {
+                          const byDistrict = new Map<string, number>();
+                          for (const p of comp.portfolio ?? []) byDistrict.set(p.district, (byDistrict.get(p.district) ?? 0) + 1);
+                          const divisions = [...byDistrict.entries()].filter(([, n]) => n >= 2);
+                          if (divisions.length === 0) return null;
+                          return (
+                            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {divisions.map(([district, n]) => (
+                                <button
+                                  key={district}
+                                  onClick={() => dispatch({ type: "BUY_DIVISION", competitorName: comp.name, district })}
+                                  style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 11, padding: "4px 8px" }}
+                                  title={`Hela ${comp.name}s bestånd i distriktet (${n} hus) i EN affär – 5 % paketpremie, 25 % kontant.`}
+                                >
+                                  📦 {DISTRICTS.find((d) => d.id === district)?.name ?? district} division ({n}) · {msek(divisionPrice(state, comp, district))}
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                        {/* Byteshandel: hus mot hus, mellanskillnad kontant */}
+                        {(() => {
+                          const myKlar = state.portfolio.filter((p) => p.status === "klar");
+                          if (myKlar.length === 0 || (comp.portfolio ?? []).length === 0) return null;
+                          const sel = swapSel[comp.name] ?? {};
+                          return (
+                            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", fontSize: 11 }}>
+                              <span style={{ color: C.creamSoft }}>🔁 Swap:</span>
+                              <select
+                                value={sel.mine ?? ""}
+                                onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, mine: +e.target.value } })}
+                                style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
+                              >
+                                <option value="">your building…</option>
+                                {myKlar.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.typeLabel} · {p.districtName}</option>
+                                ))}
+                              </select>
+                              <select
+                                value={sel.theirs ?? ""}
+                                onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, theirs: +e.target.value } })}
+                                style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
+                              >
+                                <option value="">their building…</option>
+                                {(comp.portfolio ?? []).map((p) => (
+                                  <option key={p.id} value={p.id}>{p.typeLabel} · {p.districtName}</option>
+                                ))}
+                              </select>
+                              <button
+                                disabled={!sel.mine || !sel.theirs}
+                                onClick={() => dispatch({ type: "PROPOSE_SWAP", myPropertyId: sel.mine!, rivalName: comp.name, rivalPropertyId: sel.theirs! })}
+                                style={{ ...btnPrimaryStyle, background: BURGUNDY, fontSize: 11, padding: "4px 8px", opacity: sel.mine && sel.theirs ? 1 : 0.5 }}
+                                title="Mellanskillnaden regleras kontant. Distriktsbolag vill ha sin stadsdel; andra kräver en varm relation (standing ≥ 20). Lyckad affär: standing +8."
+                              >
+                                Propose
+                              </button>
+                            </div>
+                          );
+                        })()}
                         {(() => {
                           const cap = marketCapOf(state, comp.name);
                           if (cap <= 0 || deal || state.hostileBid) return null;
@@ -526,6 +588,42 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
               })}
           </div>
         )}
+      </section>
+
+      {/* ── Sektion 4: Sälj paketbolag (säljsidans M&A) ───────────── */}
+      <section style={sectionStyle}>
+        <h3 style={sectionHeadStyle}>Sell a portfolio company</h3>
+        {(() => {
+          const byDistrict = new Map<string, number>();
+          for (const p of state.portfolio) {
+            if (p.status === "klar") byDistrict.set(p.district, (byDistrict.get(p.district) ?? 0) + 1);
+          }
+          const packages = [...byDistrict.entries()].filter(([, n]) => n >= PACKAGE_MIN_PROPS);
+          if (packages.length === 0)
+            return <p style={{ color: C.creamSoft, fontSize: 13 }}>Needs {PACKAGE_MIN_PROPS}+ completed properties in one district to package.</p>;
+          const phase = (state.marketCycle?.phase ?? "stable") as "boom" | "stable" | "bust";
+          return (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {packages.map(([district, n]) => {
+                const est = Math.round(
+                  state.portfolio
+                    .filter((p) => p.district === district && p.status === "klar")
+                    .reduce((a, p) => a + propMarketValue(p, state), 0) * PACKAGE_PHASE_MULT[phase],
+                );
+                return (
+                  <button
+                    key={district}
+                    onClick={() => dispatch({ type: "SELL_PORTFOLIO_COMPANY", district })}
+                    style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 12, padding: "6px 10px" }}
+                    title={`Hela ditt bestånd i distriktet säljs som paketbolag till bäst kapitaliserade rival. Priset följer konjunkturen (boom +5 %, bust −15 %).`}
+                  >
+                    🏷️ {DISTRICTS.find((d) => d.id === district)?.name ?? district} ({n} properties) · ~{msek(est)}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </section>
     </div>
   );

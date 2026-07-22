@@ -291,8 +291,7 @@ export function executeAcquisition(
 
   const q = rivalQuote(rival.name, "uppköpt", state.month);
   const integrationCost = Math.round(price * INTEGRATION_COST_SHARE);
-  return {
-    state: {
+  const out: GameState = {
       ...state,
       cash: state.cash - cashOut - integrationCost + Math.round(rival.cash ?? 0) + shortSettle,
       // Skulden följer med köpet (rivalFinance) – plus ev. förvärvslån.
@@ -329,8 +328,21 @@ export function executeAcquisition(
         },
         ...state.log,
       ],
-    },
-  };
+    };
+  // Konkurrensprövning (batch 5): dominansaffärer får villkor.
+  const breach = competitionBreach(out);
+  if (breach && !(out.divestOrders ?? []).some((o) => o.district === breach.district)) {
+    const dueAbs = out.year * 12 + out.month + DIVEST_MONTHS;
+    out.divestOrders = [...(out.divestOrders ?? []), { ...breach, dueAbs }];
+    out.log = [
+      {
+        t: `⚖️ COMPETITION REVIEW: the deal gives you dominance in the district — divest down to ${breach.maxAllowed} completed properties there within ${DIVEST_MONTHS} months or face fines.`,
+        kind: "warn" as const,
+      },
+      ...out.log,
+    ];
+  }
+  return { state: out };
 }
 
 /* ── Underrättelser & due diligence (M&A 2.0, batch 2) ─────────────
@@ -403,4 +415,64 @@ export function hostileDefense(s: GameState, target: Competitor, offer: number):
     if (offer < newFloor) return { kind: "buyback", newFloor };
   }
   return { kind: "capitulate" };
+}
+
+/* ── Partiella affärer & konkurrensvakten (M&A 2.0, batch 5) ───────
+   Alla affärer är inte hela bolag: köp en rivals distriktsdivision i
+   ett paket, byt hus med varandra, eller sälj ett eget distriktspaket
+   som bolag. Och när en affär ger dominans kliver myndigheten in. */
+
+/** Paketpremie vid divisionsköp (en förhandling i stället för N). */
+export const DIVISION_PREMIUM = 1.05;
+/** Paketförsäljningens prisfaktor per konjunkturfas. */
+export const PACKAGE_PHASE_MULT = { boom: 1.05, stable: 0.97, bust: 0.85 } as const;
+/** Minsta paket för bolagsförsäljning. */
+export const PACKAGE_MIN_PROPS = 3;
+/** Dominanströsklar som utlöser konkurrensprövning. */
+export const DOMINANCE_DISTRICT_SHARE = 0.45;
+export const DOMINANCE_CITY_SHARE = 0.35;
+/** Månader att uppfylla ett avyttringskrav – därefter vite. */
+export const DIVEST_MONTHS = 6;
+/** Vite: andel av eget kapital per försutten frist. */
+export const DIVEST_FINE_SHARE = 0.02;
+
+/** Priset för en rivals hela distriktsbestånd (marknadsvärde + premie). */
+export function divisionPrice(s: GameState, comp: Competitor, district: string): number {
+  const props = (comp.portfolio ?? []).filter((p) => p.district === district);
+  return Math.round(props.reduce((a, p) => a + propMarketValue(p, s), 0) * DIVISION_PREMIUM);
+}
+
+/** Byteshandelns acceptregel: distriktsbolag vill ha SIN stadsdel, andra
+ *  kräver en varm relation. Deterministisk – värdeskillnaden regleras
+ *  alltid kontant, så det som avgör är strategisk passform. */
+export function swapAccepted(s: GameState, comp: Competitor, myDistrict: string): boolean {
+  if (comp.strategy === "distrikt" && comp.preferredDistrict === myDistrict) return true;
+  return rivalStanding(s, comp.name) >= 20;
+}
+
+/** Spelarens andel av ett distrikts totala bestånd (färdiga hus). */
+export function districtShareAfter(s: GameState, district: string): { share: number; mine: number; total: number } {
+  const mine = s.portfolio.filter((p) => p.district === district && p.status === "klar").length;
+  const rivals = s.competitors.reduce(
+    (a, c) => a + (c.portfolio ?? []).filter((p) => p.district === district).length,
+    0,
+  );
+  const listings = s.listings.filter((p) => p.district === district && p.status === "klar").length;
+  const total = mine + rivals + listings;
+  return { share: total > 0 ? mine / total : 0, mine, total };
+}
+
+/** Konkurrensprövning efter en affär: bryter något distrikt dominans-
+ *  tröskeln (med meningsfull marknad, ≥ 6 hus) krävs avyttring. */
+export function competitionBreach(s: GameState): { district: string; maxAllowed: number } | null {
+  const seen = new Set<string>();
+  for (const p of s.portfolio) {
+    if (p.status !== "klar" || seen.has(p.district)) continue;
+    seen.add(p.district);
+    const d = districtShareAfter(s, p.district);
+    if (d.total >= 6 && d.share > DOMINANCE_DISTRICT_SHARE) {
+      return { district: p.district, maxAllowed: Math.floor(d.total * DOMINANCE_DISTRICT_SHARE) };
+    }
+  }
+  return null;
 }

@@ -76,7 +76,7 @@ describe("LIK I GARDEROBEN: DD skyddar, snålhet straffas", () => {
       });
       const res = executeAcquisition(s0, c.name, 90_000_000, "kontant");
       expect(res.error).toBeUndefined();
-      return { skeleton: res.state.log[0].t.includes("SKELETONS"), s: res.state };
+      return { skeleton: res.state.log.some((l) => l.t.includes("SKELETONS")), s: res.state };
     } finally {
       clearRng();
     }
