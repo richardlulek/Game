@@ -1221,6 +1221,8 @@ export function reducer(state: GameState, action: GameAction): GameState {
         }
       }
       // Försvar mot fientligt bud på DITT bolag: återköp krymper floaten...
+      // Onboarding: anlita rådgivarna direkt ur introduktionsbrevet.
+      if (e.hireAdvisor) s.maAdvisor = true;
       if (e.repelBid) {
         s.cash -= e.repelBid.cost;
         const shares = s.ipoShares ?? { total: 10_000_000, public: 3_000_000 };

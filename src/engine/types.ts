@@ -405,6 +405,8 @@ export interface DecisionEffect {
   sellDownStock?: { stockId: string };
   /** Försvar mot fientligt bud på DITT bolag: återköp av aktier. */
   repelBid?: { cost: number; shares: number };
+  /** Onboarding: anlita M&A-rådgivarna direkt ur introduktionsbrevet. */
+  hireAdvisor?: boolean;
   /** Försvar: vit riddare – en vänskaplig rival tar en blockerande post. */
   whiteKnight?: { rival: string };
   log: string;
@@ -1048,6 +1050,8 @@ export interface GameState {
   hostileBid?: { target: string; offer: number; placedAbs: number } | null;
   /** Bolag där budplikten redan utlösts (ingen dubbeltrigger). */
   budpliktDone?: string[];
+  /** Onboarding: vilka av rådgivarens introduktionsbrev som visats. */
+  mnaIntroSeen?: string[];
   /** Pågående integrationer efter bolagsförvärv (mna.ts, batch 4). */
   integrations?: Integration[];
   /** Konkurrensmyndighetens avyttringskrav efter dominansaffärer (batch 5). */

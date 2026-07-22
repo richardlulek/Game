@@ -2220,6 +2220,64 @@ export function advanceMonth(state: GameState): GameState {
     s.divestOrders = stillDo;
   }
 
+  // ── M&A-onboarding: rådgivarens brev lär ut systemet i spelet ───
+  // Tre engångsbrev vid rätt ögonblick i stället för tutorial-popups:
+  // introduktionen när kassan räcker för affärer, budpliktsvarningen vid
+  // första stora aktieposten, integrationsprimern efter första köpet.
+  if (!s.pendingDecision && (!s.story || s.story.done)) {
+    const seen = s.mnaIntroSeen ?? [];
+    const mark = (id: string) => { s.mnaIntroSeen = [...(s.mnaIntroSeen ?? []), id]; };
+    if (!seen.includes("intro") && equityOf(s) >= 25_000_000 && s.competitors.length > 0) {
+      mark("intro");
+      s.pendingDecision = {
+        id: "mna-intro",
+        title: "A letter from Meridian & Cross",
+        text: "\"Your company has reached a size where buildings are no longer the only thing for sale — COMPANIES are. Every rival in this city has an owner, a balance sheet and a price. We offer three services: a deal pipeline that reads every rival's debt and interest coverage, due diligence so you know what you're actually buying, and counsel through negotiations — bids are conversations here, not buttons. The first month is on the house.\"",
+        options: [
+          {
+            label: "Retain them (first month free)",
+            detail: "Opens the deal pipeline in the Acquisition window. 250k/month thereafter — end the mandate any time.",
+            effect: { hireAdvisor: true, log: "🏦 Meridian & Cross retained — the deal pipeline opens in the Acquisition window.", logKind: "info" },
+          },
+          {
+            label: "Not yet",
+            detail: "The letter stays in the drawer. You can retain them any time from the Acquisition window.",
+            effect: { log: "You file the Meridian & Cross letter away for later.", logKind: "info" },
+          },
+        ],
+      };
+      events.push({ t: "✉️ A letter from Meridian & Cross, M&A advisors — companies are for sale, not just buildings.", kind: "event" });
+    } else if (
+      !seen.includes("toehold") &&
+      s.stocks.some((st) => st.competitorName && st.competitorName !== "__player__" && st.sharesOutstanding > 0 &&
+        st.owned / st.sharesOutstanding >= 0.10 && s.competitors.some((c) => c.name === st.competitorName))
+    ) {
+      mark("toehold");
+      const st = s.stocks.find((x) => x.competitorName && x.competitorName !== "__player__" && x.sharesOutstanding > 0 && x.owned / x.sharesOutstanding >= 0.10)!;
+      s.pendingDecision = {
+        id: "mna-toehold",
+        title: "The board has noticed your stake",
+        text: `"A word of counsel: you now hold ${Math.round((st.owned / st.sharesOutstanding) * 100)}% of ${st.name}. A stake past 10% softens their board in any negotiation — but cross 30% and the MANDATORY BID rule forces your hand: bid for the whole company at the board's price, or sell down at a discount. Creep carefully."`,
+        options: [
+          { label: "Understood", detail: "Toehold ≥ 10%: owner's ask −5%. Crossing 30% triggers the mandatory bid.", effect: { log: "📈 The toehold doctrine, noted: 10% softens the board, 30% forces a bid.", logKind: "info" } },
+        ],
+      };
+      events.push({ t: "✉️ Meridian & Cross on toeholds: 10% opens doors — 30% forces your hand.", kind: "event" });
+    } else if (!seen.includes("integration") && (s.integrations ?? []).length > 0) {
+      mark("integration");
+      const integ = (s.integrations ?? [])[0];
+      s.pendingDecision = {
+        id: "mna-integration",
+        title: "Now the real work begins",
+        text: `"Congratulations on ${integ.target} — and condolences. The next ${integ.months} months are the integration: double administration in the acquired buildings, anxious tenants, and every krona of the synergies you paid for still to be EARNED. Keep your staff strong, don't flip the buildings while the ink dries (the market smells fire sales for a year), and the deal will grade out. Track it under Ongoing commitments."`,
+        options: [
+          { label: "To work", detail: "Integration progress, synergy goals and the flip stamp are shown in the commitments dashboard.", effect: { log: "🧩 The integration playbook, noted: friction now, synergies earned at the end.", logKind: "info" } },
+        ],
+      };
+      events.push({ t: "✉️ Meridian & Cross on integration: synergies are earned, not signed.", kind: "event" });
+    }
+  }
+
   // Investmentbankens arvode och färdiga due diligence-rapporter (batch 2).
   if (s.maAdvisor) cashflow(s, -MA_ADVISOR_FEE, "M&A-rådgivning");
   if ((s.ddInProgress ?? []).length > 0) {
