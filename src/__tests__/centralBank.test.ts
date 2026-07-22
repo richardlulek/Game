@@ -11,7 +11,9 @@ import {
   tickInflation,
 } from "../engine/centralBank";
 import { bondRateFor, creditRatingOf } from "../engine/rating";
+import { placeCity } from "../engine/city";
 import { EVENTS } from "../engine/data";
+import { initState } from "../engine/initState";
 import { loanTerms } from "../engine/finance";
 import { clearRng, seedRng } from "../engine/random";
 import { advanceMonth } from "../engine/simulation";
@@ -28,8 +30,10 @@ function tick(s: GameState): GameState {
 
 describe("RIKSBANKEN 2.0: inflationen driver räntan", () => {
   it("överhettad marknad lyfter inflationen, kris sänker den", () => {
+    // 24 månader: den omkalibrerade heat-termen (tak +1.5) ger ett lägre
+    // jämviktsläge (~3.1) som EMA:n behöver längre tid att nå.
     const hot = makeState({ marketMod: 1.35, marketModAnchor: 1.0 });
-    for (let i = 0; i < 12; i++) tickInflation(hot);
+    for (let i = 0; i < 24; i++) tickInflation(hot);
     expect(hot.centralBank!.inflation).toBeGreaterThan(INFLATION_TARGET + 1);
 
     const crisis = makeState({ crisisMonthsLeft: 6, marketCycle: { phase: "bust", monthsRemaining: 8 } });
@@ -132,6 +136,33 @@ describe("RIKSBANKEN 2.0: inflationen driver räntan", () => {
     expect(bondRateFor(late, rating)).toBeLessThan(8 + 0.6);
     expect(bondRateFor(late, rating)).toBeCloseTo(Math.max(3, longRate(late) + (rating === "AAA" ? 0.6 : rating === "AA" ? 0.8 : rating === "A" ? 1.0 : rating === "BBB" ? 1.4 : rating === "BB" ? 2.2 : rating === "B" ? 3.2 : 5)), 2);
   });
+
+  it("räntan lever i ett realistiskt band över 30 år: median nära neutralt, sällan över 7 %", () => {
+    // Regressionsvakt för omkalibreringen: den gamla inflationsmodellen lät
+    // bygg-/befolkningstermerna bara dra uppåt och styrräntan fastnade på
+    // 7–10 %. Nu ska en levande stad ge median ≤ 4.75 och nästan aldrig ≥ 7.
+    for (const seed of [3, 29]) {
+      seedRng(seed);
+      try {
+        let s = placeCity(initState());
+        const rates: number[] = [];
+        for (let m = 0; m < 360; m++) {
+          s = advanceMonth({ ...s, pendingDecision: null, auction: undefined, receivership: undefined });
+          rates.push(s.interestRate);
+        }
+        const sorted = [...rates].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const p90 = sorted[Math.floor(sorted.length * 0.9)];
+        const over7 = rates.filter((r) => r >= 7).length / rates.length;
+        expect(median, `seed ${seed} median`).toBeLessThanOrEqual(4.75);
+        expect(median, `seed ${seed} median`).toBeGreaterThanOrEqual(1.5);
+        expect(p90, `seed ${seed} p90`).toBeLessThanOrEqual(6.5);
+        expect(over7, `seed ${seed} andel ≥7%`).toBeLessThanOrEqual(0.05);
+        // Cykeln ska fortfarande röra räntan – inte platt linje.
+        expect(sorted[sorted.length - 1] - sorted[0]).toBeGreaterThanOrEqual(1.5);
+      } finally { clearRng(); }
+    }
+  }, 120_000);
 
   it("inversionen varnas en gång i simulationen och tynger sentimentet", () => {
     seedRng(21);

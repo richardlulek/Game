@@ -51,21 +51,27 @@ export function centralBankOf(s: GameState): CentralBankState {
   return s.centralBank ?? { inflation: INFLATION_TARGET, impulse: 0 };
 }
 
-/** Månadens råinflation ur stadens läge + vilka krafter som driver den. */
+/** Månadens råinflation ur stadens läge + vilka krafter som driver den.
+ *  Kalibrering (efter 30-årsmätningar): termerna mäter AVVIKELSER från
+ *  stadens normalläge med symmetriska tak. Den gamla kalibreringen lät
+ *  bygg- och befolkningstermerna bara dra uppåt (all tillväxt räknades
+ *  som överhettning, ×40 med tak +2) – i ett aktivt parti fastnade
+ *  inflationen på 5–7 % och styrräntan därmed på 7–10 %. */
 export function inflationDrivers(s: GameState): { raw: number; drivers: string[] } {
   const cb = centralBankOf(s);
   const drivers: string[] = [];
   // Marknadsöverhettning: priser över trendankaret eldar på inflationen.
   const gap = s.marketMod / Math.max(0.5, s.marketModAnchor ?? 1) - 1;
-  const heat = gap * 12;
+  const heat = Math.max(-1.5, Math.min(1.5, gap * 8));
   if (Math.abs(heat) > 0.3) drivers.push(gap > 0 ? "hot property market" : "falling property prices");
-  // Byggkostnadstryck (råvaror).
-  const build = ((s.buildCostMod ?? 1) - 1) * 6;
+  // Byggkostnadstryck (råvaror) – impulsartat: spikar klingar av mot 1.
+  const build = Math.max(-0.5, Math.min(1.2, ((s.buildCostMod ?? 1) - 1) * 3));
   if (build > 0.3) drivers.push("construction cost pressure");
-  // Befolkningstillväxt: fler invånare = efterfrågetryck.
+  // Befolkningstillväxt UTÖVER trend (~1,5 %/år är stadens normala takt
+  // och ska inte ge räntehöjningar – bara verklig överhettning gör det).
   const pop = cityPopulation(s);
   const popGrowth = cb.popPrev && cb.popPrev > 0 ? (pop - cb.popPrev) / cb.popPrev : 0;
-  const demo = Math.max(-1, Math.min(2, popGrowth * 12 * 40));
+  const demo = Math.max(-0.6, Math.min(1.0, (popGrowth * 12 - 0.015) * 25));
   if (demo > 0.4) drivers.push("population inflow");
   // Konjunkturfas och kris.
   const phase = s.marketCycle?.phase ?? "stable";
