@@ -6,6 +6,7 @@ import { industryAssetValue } from "../engine/industries";
 import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf } from "../engine/mna";
 import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
+import { CommitmentsPanel } from "./CommitmentsPanel";
 import { RivalPortrait } from "./RivalPortrait";
 import { STRATEGY_LABELS, type GameAction, type GameState } from "../engine/types";
 import { DISTRICTS } from "../engine/data";
@@ -58,6 +59,9 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
       <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 20 }}>
         Acquisition flow
       </h2>
+
+      {/* Åtaganden: allt som pågår – förhandlingar, integrationer, krav */}
+      <CommitmentsPanel state={state} dispatch={dispatch} />
 
       {/* ── Köpkalkylator ─────────────────────────────────────────── */}
       <section style={{ ...sectionStyle, background: "#1a1208", border: `1px solid ${C.brass}` }}>
