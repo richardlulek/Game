@@ -69,6 +69,7 @@ import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "./rating";
 import { bumpedCounters, chainBuildCostMult, chainInvestBoostMult } from "./milestoneChains";
+import { DEAL_COOLDOWN_MONTHS, executeAcquisition } from "./mna";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
@@ -2178,69 +2179,64 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return { ...state, globalManager: action.settings };
     }
     case "ACQUIRE_RIVAL": {
+      // Direktköp (legacy/AI-harness): samma golv som förr, genomförs via
+      // executeAcquisition (mna.ts) med bankfinansiering – skulden följer med.
       const rival = state.competitors.find((c) => c.name === action.competitorName);
       if (!rival) return state;
-      if ((rival.portfolio ?? []).length === 0)
-        return log(state, `${rival.name} owns no properties to acquire.`, "warn");
       const minPrice = Math.round((rival.equity ?? 0) * 1.3);
       if (action.amount < minPrice)
         return log(state, `The minimum acquisition price is ${msek(minPrice)} (130% of equity).`, "warn");
-      // Din befintliga aktiepost i bolaget räknas av – du köper bara resten.
-      const stock = state.stocks.find((x) => x.competitorName === rival.name);
-      const ownFrac = stock && stock.sharesOutstanding > 0
-        ? Math.min(1, stock.owned / stock.sharesOutstanding)
-        : 0;
-      const price = Math.round(action.amount * (1 - ownFrac));
-      const down = Math.round(price * 0.25);
-      if (state.cash < down)
-        return log(state, `Insufficient cash – you need at least ${msek(down)} (25% down payment).`, "warn");
-      const loan = price - down;
-      const acquired = (rival.portfolio ?? []).map((p) => ({
-        ...p,
-        owned: true,
-        purchasePrice: p.askPrice,
-        txHistory: [
-          ...(p.txHistory ?? []),
-          { type: "bought" as const, price: p.askPrice, month: state.month, year: state.year, party: `Acquisition of ${rival.name}` },
-        ],
-      }));
-      // Egen blankning i bolaget stängs till kurs vid avnoteringen. Något
-      // "dotterbolag" med evig intäkt skapas INTE längre – husen ger hyra i
-      // portföljen och en skalbolagsintäkt ovanpå vore dubbelräkning.
-      const shortSettle = stock && (stock.shortQty ?? 0) > 0
-        ? Math.max(0, Math.round((stock.shortAvgPrice ?? stock.price) * stock.shortQty! * 1.5) + Math.round(stock.shortQty! * ((stock.shortAvgPrice ?? stock.price) - stock.price)))
-        : 0;
-      // Ett fientligt uppköp skrämmer de överlevande rivalerna – deras
-      // standing sjunker (de fruktar nästa drag).
-      let acqStanding = state.standing;
-      for (const c of state.competitors) {
-        if (c.name !== action.competitorName) acqStanding = adjustStanding(acqStanding, { kind: "rival", name: c.name }, -6);
-      }
+      const res = executeAcquisition(state, action.competitorName, action.amount, "lan");
+      return res.error ? log(state, res.error, "warn") : res.state;
+    }
+    case "PROPOSE_ACQUISITION": {
+      // Förhandlingen (M&A 2.0): ett indikativt bud – ägaren svarar vid
+      // nästa månadsskifte. En affär i taget, och stängda dörrar är stängda.
+      if (state.pendingDeal) return log(state, "You are already in a negotiation — one deal at a time.", "warn");
+      const target = state.competitors.find((c) => c.name === action.competitorName);
+      if (!target) return state;
+      if ((target.portfolio ?? []).length === 0)
+        return log(state, `${target.name} owns no properties to acquire.`, "warn");
+      const absNow = state.year * 12 + state.month;
+      const until = state.dealCooldowns?.[action.competitorName] ?? 0;
+      if (until > absNow)
+        return log(state, `${target.name}'s owner won't take your calls for another ${until - absNow} month(s).`, "warn");
+      if (action.amount < Math.round((target.equity ?? 0) * 0.8))
+        return log(state, "That opening bid would be an insult — the owner wouldn't even respond.", "warn");
       return {
         ...state,
-        // Bolagets kassa följer med köpet – du köper hela bolaget, inte bara husen.
-        cash: state.cash - down + Math.round(rival.cash ?? 0) + shortSettle,
-        // …och det gör SKULDEN också (rivalFinance): priset räknas på equity
-        // netto skuld, så lånestocken tas över i stället för att förångas.
-        debt: state.debt + loan + Math.round(rival.debt ?? 0),
-        standing: acqStanding,
-        portfolio: [...state.portfolio, ...acquired],
-        // Rivalens industrier (hotell, parker, terminaler) följer med fusionen.
-        industryPortfolio: [...(state.industryPortfolio ?? []), ...(rival.industries ?? [])],
-        competitors: state.competitors.filter((c) => c.name !== action.competitorName),
-        // Aktien avnoteras – bolaget är helägt och fusioneras in i koncernen.
-        stocks: stock ? state.stocks.filter((x) => x.id !== stock.id) : state.stocks,
-        stockOrders: stock ? (state.stockOrders ?? []).filter((o) => o.stockId !== stock.id) : state.stockOrders,
-        reputation: Math.min(100, state.reputation + 8),
-        log: [
-          {
-            t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} – ${acquired.length} properties, ${msek(Math.round(rival.cash ?? 0))} in cash${(rival.debt ?? 0) > 0 ? ` and ${msek(Math.round(rival.debt ?? 0))} of assumed debt` : ""} added!${rivalQuote(rival.name, "uppköpt", state.month) ? " " + rivalQuote(rival.name, "uppköpt", state.month) : ""}`,
-            rival: rival.name,
-            kind: "buy",
-          },
-          ...state.log,
-        ],
+        pendingDeal: { target: target.name, offer: Math.round(action.amount), round: 1, status: "waiting", startedAbs: absNow },
+        log: [{ t: `🤝 You approach ${target.name} with an indicative bid of ${msek(action.amount)}. The owner will respond within the month.`, kind: "info" }, ...state.log],
       };
+    }
+    case "RAISE_DEAL": {
+      const deal = state.pendingDeal;
+      if (!deal || deal.status !== "countered") return state;
+      if (action.amount <= deal.offer)
+        return log(state, "A raise has to go up.", "warn");
+      return {
+        ...state,
+        pendingDeal: { ...deal, offer: Math.round(action.amount), round: deal.round + 1, status: "waiting", counter: undefined },
+        log: [{ t: `🤝 You raise the bid on ${deal.target} to ${msek(action.amount)} (round ${deal.round + 1}).`, kind: "info" }, ...state.log],
+      };
+    }
+    case "WITHDRAW_DEAL": {
+      const deal = state.pendingDeal;
+      if (!deal) return state;
+      const absNow = state.year * 12 + state.month;
+      return {
+        ...state,
+        pendingDeal: null,
+        dealCooldowns: { ...(state.dealCooldowns ?? {}), [deal.target]: absNow + DEAL_COOLDOWN_MONTHS },
+        standing: adjustStanding(state.standing, { kind: "rival", name: deal.target }, -4),
+        log: [{ t: `🚪 You walk away from the ${deal.target} negotiation. The owner is not amused (standing −4, door closed ${DEAL_COOLDOWN_MONTHS} mo).`, kind: "warn" }, ...state.log],
+      };
+    }
+    case "FINALIZE_DEAL": {
+      const deal = state.pendingDeal;
+      if (!deal || deal.status !== "accepted") return state;
+      const res = executeAcquisition(state, deal.target, deal.offer, action.financing);
+      return res.error ? log(state, res.error, "warn") : res.state;
     }
     case "SNOOZE_DECISION": {
       if (!state.pendingDecision) return state;

@@ -303,8 +303,9 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                 const maxPrice = Math.round(comp.equity * 1.50);
                 const defaultPrice = Math.round(comp.equity * 1.35);
                 const curPrice = maBids[comp.name] ?? defaultPrice;
-                const downPayment = Math.round(curPrice * 0.25);
-                const canAfford = state.cash >= downPayment;
+                const deal = state.pendingDeal;
+                const absNow = state.year * 12 + state.month;
+                const cooldownLeft = Math.max(0, (state.dealCooldowns?.[comp.name] ?? 0) - absNow);
                 // Bedömning: budet jämförs med vad bolaget är värt FÖR DIG.
                 const premium = val.totalValue > 0 ? curPrice / val.totalValue - 1 : 1;
                 const goodDeal = premium <= 0;
@@ -348,57 +349,100 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                         ? `Bid is ${Math.abs(premium * 100).toFixed(0)}% BELOW the value to you — good deal.`
                         : `Bid is ${(premium * 100).toFixed(0)}% ABOVE the value to you — you're paying for prestige.`}
                     </div>
-                    <div style={{ marginTop: 12 }}>
-                      <label style={{ fontSize: 11, color: C.creamSoft }}>
-                        Acquisition price: {msek(curPrice)} (Lowest possible: 130% of equity)
-                      </label>
-                      <input
-                        type="range"
-                        min={minPrice}
-                        max={maxPrice}
-                        step={Math.round(comp.equity * 0.01)}
-                        value={curPrice}
-                        onChange={(e) => setMaBids({ ...maBids, [comp.name]: +e.target.value })}
-                        style={{ width: "100%", accentColor: BURGUNDY, marginTop: 4 }}
-                      />
-                    </div>
-                    <div style={{
-                      marginTop: 10,
-                      padding: "8px 10px",
-                      borderRadius: 5,
-                      background: canAfford ? `${C.positive}22` : `${C.negative}22`,
-                      border: `1px solid ${canAfford ? C.positive : C.negative}`,
-                      fontSize: 12,
-                    }}>
-                      <div style={{ color: C.creamSoft }}>
-                        25% cash down payment required:{" "}
-                        <strong style={{ color: canAfford ? C.positive : C.negative }}>
-                          {msek(downPayment)}
-                        </strong>
-                      </div>
-                      {!canAfford && (
-                        <div style={{ color: C.negative, marginTop: 3 }}>
-                          Short {msek(downPayment - state.cash)} in cash.
+                    {/* ── Förhandlingen (M&A 2.0): bud → svar → avslut ── */}
+                    {deal && deal.target === comp.name ? (
+                      <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 6, background: C.wood, border: `1px solid ${C.gold}66`, fontSize: 12 }}>
+                        <div style={{ fontWeight: 800, color: C.gold, marginBottom: 4 }}>
+                          Negotiation — round {deal.round} · your bid {msek(deal.offer)}
                         </div>
-                      )}
-                    </div>
-                    <button
-                      disabled={!canAfford}
-                      onClick={() => dispatch({
-                        type: "ACQUIRE_RIVAL",
-                        competitorName: comp.name,
-                        amount: curPrice,
-                      })}
-                      style={{
-                        ...btnPrimaryStyle,
-                        background: canAfford ? BURGUNDY : C.woodDark,
-                        opacity: canAfford ? 1 : 0.5,
-                        cursor: canAfford ? "pointer" : "default",
-                        marginTop: 12,
-                      }}
-                    >
-                      Acquire {comp.name}
-                    </button>
+                        {deal.status === "waiting" && (
+                          <div style={{ color: C.creamSoft }}>The owner is considering your bid — answer at the next month's close.</div>
+                        )}
+                        {deal.status === "countered" && deal.counter != null && (
+                          <>
+                            <div style={{ color: C.negativeBright, fontWeight: 700 }}>
+                              Countered: the owner wants {msek(deal.counter)}.
+                            </div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                              <button
+                                onClick={() => dispatch({ type: "RAISE_DEAL", amount: deal.counter! })}
+                                style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }}
+                              >
+                                Meet at {msek(deal.counter)}
+                              </button>
+                              <button
+                                onClick={() => dispatch({ type: "RAISE_DEAL", amount: Math.round((deal.offer + deal.counter!) / 2) })}
+                                style={{ ...btnPrimaryStyle, background: C.woodDark, padding: "6px 10px" }}
+                              >
+                                Split: {msek(Math.round((deal.offer + deal.counter) / 2))}
+                              </button>
+                              <button onClick={() => dispatch({ type: "WITHDRAW_DEAL" })} style={{ ...btnPrimaryStyle, background: C.woodDark, padding: "6px 10px" }}>
+                                Walk away
+                              </button>
+                            </div>
+                          </>
+                        )}
+                        {deal.status === "accepted" && (
+                          <>
+                            <div style={{ color: C.positive, fontWeight: 700 }}>Agreed at {msek(deal.offer)} — choose financing to close:</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "kontant" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="Full köpeskilling ur kassan – ingen ny skuld.">
+                                Cash ({msek(deal.offer)})
+                              </button>
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "lan" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="25 % kontant, resten banklån.">
+                                Bank loan ({msek(Math.round(deal.offer * 0.25))} down)
+                              </button>
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "aktier" })} style={{ ...btnPrimaryStyle, background: state.ipoActive ? BURGUNDY : C.woodDark, padding: "6px 10px" }} title="Riktad emission till säljaren – ingen kassa, men utspädning (kräver börsnotering).">
+                                Shares {state.ipoActive ? "" : "(requires IPO)"}
+                              </button>
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "earnout" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="75 % nu, 25 % om 24 mån OM beståndet levererar 85 % av dagens driftnetto.">
+                                Earn-out (75% now)
+                              </button>
+                              <button onClick={() => dispatch({ type: "WITHDRAW_DEAL" })} style={{ ...btnPrimaryStyle, background: C.woodDark, padding: "6px 10px" }}>
+                                Walk away
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ marginTop: 12 }}>
+                          <label style={{ fontSize: 11, color: C.creamSoft }}>
+                            Indicative bid: {msek(curPrice)}
+                          </label>
+                          <input
+                            type="range"
+                            min={minPrice}
+                            max={maxPrice}
+                            step={Math.round(comp.equity * 0.01)}
+                            value={curPrice}
+                            onChange={(e) => setMaBids({ ...maBids, [comp.name]: +e.target.value })}
+                            style={{ width: "100%", accentColor: BURGUNDY, marginTop: 4 }}
+                          />
+                        </div>
+                        {cooldownLeft > 0 ? (
+                          <div style={{ marginTop: 10, fontSize: 12, color: C.negativeBright, fontWeight: 700 }}>
+                            The owner won't take your calls for {cooldownLeft} more month(s).
+                          </div>
+                        ) : (
+                          <button
+                            disabled={!!deal}
+                            onClick={() => dispatch({ type: "PROPOSE_ACQUISITION", competitorName: comp.name, amount: curPrice })}
+                            style={{
+                              ...btnPrimaryStyle,
+                              background: deal ? C.woodDark : BURGUNDY,
+                              opacity: deal ? 0.5 : 1,
+                              cursor: deal ? "default" : "pointer",
+                              marginTop: 12,
+                            }}
+                            title={deal ? "En förhandling i taget." : "Ägaren svarar vid nästa månadsskifte: accept, motbud eller avvisat."}
+                          >
+                            {deal ? "Negotiation in progress elsewhere" : `Approach ${comp.name}'s owner`}
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
                 );
               })}

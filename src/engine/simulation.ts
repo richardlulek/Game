@@ -29,6 +29,7 @@ import {
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, SMALL_AI_NAMES, UPGRADES } from "./data";
 import { agendaFor } from "./initState";
 import { CHAINS, bumpChainCounter } from "./milestoneChains";
+import { DEAL_COOLDOWN_MONTHS, ownerResponse } from "./mna";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
@@ -1954,6 +1955,65 @@ export function advanceMonth(state: GameState): GameState {
       s.reputation = Math.min(100, s.reputation + 2);
     }
     s.planProcesses = remaining;
+  }
+
+  // ── M&A 2.0: ägaren svarar på ditt bud ──────────────────────────
+  // Förhandlingen är en dialog över månadsskiften: accept, motbud eller
+  // avvisat – styrt av ägarens egen värdering (persona, standing, press).
+  if (s.pendingDeal && s.pendingDeal.status === "waiting") {
+    const deal = s.pendingDeal;
+    const target = s.competitors.find((c) => c.name === deal.target);
+    if (!target) {
+      // Bolaget hann fusioneras bort under förhandlingen.
+      s.pendingDeal = null;
+      events.push({ t: `🚪 The ${deal.target} negotiation collapsed — the company no longer exists.`, kind: "warn" });
+    } else {
+      const resp = ownerResponse(s, target, deal.offer, deal.round);
+      const q = rivalQuote(target.name, "budkrig", s.month);
+      if (resp.kind === "accept") {
+        s.pendingDeal = { ...deal, status: "accepted" };
+        events.push({
+          t: `🤝 DEAL AGREED: ${target.name}'s owner accepts ${msek(deal.offer)}. Choose financing in the Acquisition window to close.${q ? " " + q : ""}`,
+          kind: "income",
+          rival: target.name,
+        });
+      } else if (resp.kind === "counter") {
+        s.pendingDeal = { ...deal, status: "countered", counter: resp.amount };
+        events.push({
+          t: `↩️ COUNTERED (round ${deal.round}): ${target.name}'s owner wants ${msek(resp.amount)} for the company.${q ? " " + q : ""}`,
+          kind: "warn",
+          rival: target.name,
+        });
+      } else {
+        s.pendingDeal = null;
+        s.dealCooldowns = { ...(s.dealCooldowns ?? {}), [target.name]: s.year * 12 + s.month + DEAL_COOLDOWN_MONTHS };
+        s.standing = adjustStanding(s.standing, { kind: "rival", name: target.name }, -4);
+        events.push({
+          t: `🚪 REJECTED: ${target.name}'s owner dismisses your ${msek(deal.offer)} bid outright — the door is closed for ${DEAL_COOLDOWN_MONTHS} months.${q ? " " + q : ""}`,
+          kind: "warn",
+          rival: target.name,
+        });
+      }
+    }
+  }
+
+  // Earn-outs förfaller: betala om det förvärvade beståndet levererar.
+  if ((s.earnOuts ?? []).length > 0) {
+    const absNowEo = s.year * 12 + s.month;
+    const still: typeof s.earnOuts = [];
+    for (const eo of s.earnOuts ?? []) {
+      if (eo.dueAbs > absNowEo) { still.push(eo); continue; }
+      const ids = new Set(eo.propertyIds);
+      const held = s.portfolio.filter((p) => ids.has(p.id) && p.status === "klar");
+      const noi = held.reduce((a, p) => a + (propPotentialRent(p, s) - propAnnualOpex(p, s)) / 12, 0);
+      if (noi >= eo.noiTarget) {
+        cashflow(s, -eo.amount, "earn-out");
+        events.push({ t: `📜 EARN-OUT DUE: the ${eo.target} portfolio delivered — you pay the deferred ${msek(eo.amount)}.`, kind: "expense" });
+      } else {
+        events.push({ t: `📜 EARN-OUT LAPSED: the ${eo.target} portfolio fell short of its target — the deferred ${msek(eo.amount)} is never paid.`, kind: "income" });
+      }
+    }
+    s.earnOuts = still;
   }
 
   // ── Uppstickare kliver in (fas 4) ───────────────────────────────

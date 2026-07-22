@@ -19,9 +19,12 @@
    Ren logik, inga React-beroenden.
    ============================================================ */
 
+import { msek, pct } from "./format";
 import { energySynergyMult, industryAssetValue } from "./industries";
-import { propAnnualOpex, propMarketValue } from "./property";
-import type { Competitor, GameState } from "./types";
+import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
+import { aggressionOf, rivalQuote } from "./rivalPersonas";
+import { adjustStanding, rivalStanding } from "./standing";
+import type { Competitor, DealFinancing, GameState } from "./types";
 
 /** Värdelyft per rivalfastighet i distrikt där du redan är etablerad. */
 export const DISTRICT_OVERLAP_LIFT = 0.05;
@@ -103,5 +106,174 @@ export function acquisitionValuation(s: GameState, comp: Competitor): Acquisitio
     nav,
     synergies: { district, energy, scale, total },
     totalValue: nav + total,
+  };
+}
+
+/* ── Förhandlingen (M&A 2.0, batch 1) ──────────────────────────────
+   Budet är en dialog, inte en knapp: ägaren svarar accept/motbud/
+   avvisat utifrån premie mot sin egen värdering, personans aggression,
+   relationen till dig och den egna balansräkningens press. */
+
+/** Ägarens grundpremie över substansvärdet. */
+export const OWNER_PREMIUM = 1.25;
+/** Rundor innan ägaren tröttnar (tredje motbudet är slutbud). */
+export const MAX_DEAL_ROUNDS = 3;
+/** Månader i frysbox efter avvisad/avbruten förhandling. */
+export const DEAL_COOLDOWN_MONTHS = 12;
+
+/** Vad ägaren egentligen vill ha för bolaget. */
+export function ownerAskPrice(s: GameState, comp: Competitor): number {
+  const val = acquisitionValuation(s, comp);
+  const base = Math.max(val.nav, comp.equity, 1_000_000) * OWNER_PREMIUM;
+  const agg = aggressionOf(comp.name);
+  let mult = 1 + (agg - 0.5) * 0.3; // Sonny Lund ~0.94 … Harborwick ~1.12
+  const st = rivalStanding(s, comp.name);
+  if (st >= 30) mult -= 0.05;
+  else if (st <= -30) mult += 0.15; // fiender säljer inte billigt till DIG
+  // Pressade ägare mjuknar: tom kassa, sviktande räntetäckning eller bust.
+  const stressed =
+    comp.cash < 0 || (comp.icrBadMonths ?? 0) >= 2 || (s.marketCycle?.phase ?? "stable") === "bust";
+  if (stressed) mult *= 0.85;
+  // Toehold: en stor ägarpost pressar styrelsen (batch 3).
+  const stock = s.stocks.find((x) => x.competitorName === comp.name);
+  const ownFrac = stock && stock.sharesOutstanding > 0 ? stock.owned / stock.sharesOutstanding : 0;
+  if (ownFrac >= 0.10) mult -= 0.05;
+  return Math.round(base * mult);
+}
+
+export type OwnerResponse =
+  | { kind: "accept" }
+  | { kind: "counter"; amount: number }
+  | { kind: "reject" };
+
+/** Ägarens svar på ett bud i runda `round`. Deterministiskt – personligheten
+ *  bor i ownerAskPrice, inte i tärningen. */
+export function ownerResponse(s: GameState, comp: Competitor, offer: number, round: number): OwnerResponse {
+  const ask = ownerAskPrice(s, comp);
+  // I sista rundan prutar ägaren hellre än tappar affären helt.
+  if (offer >= ask * (round >= MAX_DEAL_ROUNDS ? 0.97 : 1)) return { kind: "accept" };
+  if (offer >= ask * 0.85 && round < MAX_DEAL_ROUNDS)
+    return { kind: "counter", amount: Math.round((ask + offer) / 2) };
+  return { kind: "reject" };
+}
+
+/* ── Genomförandet ─────────────────────────────────────────────────
+   Ett enda säte för allt som händer när ett bolag går in i koncernen:
+   finansiering, kassa/skuld, aktieavnotering, standing – och (senare
+   batchar) lik i garderoben, integration och konkurrensprövning. */
+
+export function executeAcquisition(
+  state: GameState,
+  rivalName: string,
+  amount: number,
+  financing: DealFinancing,
+): { state: GameState; error?: string } {
+  const rival = state.competitors.find((c) => c.name === rivalName);
+  if (!rival) return { state, error: "The company no longer exists." };
+  if ((rival.portfolio ?? []).length === 0)
+    return { state, error: `${rival.name} owns no properties to acquire.` };
+
+  // Din befintliga aktiepost räknas av – du köper bara resten.
+  const stock = state.stocks.find((x) => x.competitorName === rival.name);
+  const ownFrac = stock && stock.sharesOutstanding > 0
+    ? Math.min(1, stock.owned / stock.sharesOutstanding)
+    : 0;
+  const price = Math.round(amount * (1 - ownFrac));
+
+  // Finansieringen: kassa/lån/aktier/earn-out.
+  let cashOut = 0;
+  let newLoan = 0;
+  let ipoShares = state.ipoShares;
+  let takeoverDelta = 0;
+  let earnOuts = state.earnOuts ?? [];
+  if (financing === "kontant") {
+    if (state.cash < price) return { state, error: `Cash purchase requires ${msek(price)}.` };
+    cashOut = price;
+  } else if (financing === "lan") {
+    cashOut = Math.round(price * 0.25);
+    newLoan = price - cashOut;
+    if (state.cash < cashOut) return { state, error: `You need ${msek(cashOut)} (25% down payment).` };
+  } else if (financing === "aktier") {
+    if (!state.ipoActive) return { state, error: "Share payment requires a listed company (IPO)." };
+    const own = state.stocks.find((x) => x.competitorName === "__player__");
+    const sharePrice = own?.price ?? 0;
+    if (sharePrice <= 0) return { state, error: "Your share has no market price." };
+    const shares = state.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
+    const newShares = Math.ceil(price / sharePrice);
+    // Riktad emission till säljaren: ingen kassa ut, men utspädning och
+    // en ny storägare på listan (uppköpstrycket ökar).
+    ipoShares = { total: shares.total + newShares, public: shares.public + newShares };
+    takeoverDelta = 2;
+  } else {
+    // Earn-out: 75 % nu (25 % kontant / 75 % lån av den delen), resten
+    // betalas om 24 mån OM beståndet håller 85 % av dagens driftnetto.
+    const nowPart = Math.round(price * 0.75);
+    cashOut = Math.round(nowPart * 0.25);
+    newLoan = nowPart - cashOut;
+    if (state.cash < cashOut) return { state, error: `You need ${msek(cashOut)} (25% down on the upfront part).` };
+    const noiNow = (rival.portfolio ?? []).reduce(
+      (a, p) => a + (propPotentialRent(p, state) - propAnnualOpex(p, state)) / 12,
+      0,
+    );
+    earnOuts = [
+      ...earnOuts,
+      {
+        target: rival.name,
+        amount: price - nowPart,
+        dueAbs: state.year * 12 + state.month + 24,
+        noiTarget: Math.round(noiNow * 0.85),
+        propertyIds: (rival.portfolio ?? []).map((p) => p.id),
+      },
+    ];
+  }
+
+  const acquired = (rival.portfolio ?? []).map((p) => ({
+    ...p,
+    owned: true,
+    purchasePrice: p.askPrice,
+    txHistory: [
+      ...(p.txHistory ?? []),
+      { type: "bought" as const, price: p.askPrice, month: state.month, year: state.year, party: `Acquisition of ${rival.name}` },
+    ],
+  }));
+
+  // Egen blankning i bolaget stängs till kurs vid avnoteringen.
+  const shortSettle = stock && (stock.shortQty ?? 0) > 0
+    ? Math.max(0, Math.round((stock.shortAvgPrice ?? stock.price) * stock.shortQty! * 1.5) + Math.round(stock.shortQty! * ((stock.shortAvgPrice ?? stock.price) - stock.price)))
+    : 0;
+
+  // Uppköpet skrämmer de överlevande rivalerna.
+  let acqStanding = state.standing;
+  for (const c of state.competitors) {
+    if (c.name !== rivalName) acqStanding = adjustStanding(acqStanding, { kind: "rival", name: c.name }, -6);
+  }
+
+  const q = rivalQuote(rival.name, "uppköpt", state.month);
+  return {
+    state: {
+      ...state,
+      cash: state.cash - cashOut + Math.round(rival.cash ?? 0) + shortSettle,
+      // Skulden följer med köpet (rivalFinance) – plus ev. förvärvslån.
+      debt: state.debt + newLoan + Math.round(rival.debt ?? 0),
+      ipoShares,
+      takeoverPressure: takeoverDelta > 0 ? (state.takeoverPressure ?? 0) + takeoverDelta : state.takeoverPressure,
+      earnOuts,
+      standing: acqStanding,
+      portfolio: [...state.portfolio, ...acquired],
+      industryPortfolio: [...(state.industryPortfolio ?? []), ...(rival.industries ?? [])],
+      competitors: state.competitors.filter((c) => c.name !== rivalName),
+      stocks: stock ? state.stocks.filter((x) => x.id !== stock.id) : state.stocks,
+      stockOrders: stock ? (state.stockOrders ?? []).filter((o) => o.stockId !== stock.id) : state.stockOrders,
+      pendingDeal: null,
+      reputation: Math.min(100, state.reputation + 8),
+      log: [
+        {
+          t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} via ${financing === "kontant" ? "cash" : financing === "lan" ? "bank financing" : financing === "aktier" ? "a share issue" : "an earn-out structure"} – ${acquired.length} properties, ${msek(Math.round(rival.cash ?? 0))} in cash${(rival.debt ?? 0) > 0 ? ` and ${msek(Math.round(rival.debt ?? 0))} of assumed debt` : ""} added!${q ? " " + q : ""}`,
+          rival: rival.name,
+          kind: "buy" as const,
+        },
+        ...state.log,
+      ],
+    },
   };
 }

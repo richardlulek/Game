@@ -141,6 +141,34 @@ export interface IndustryAsset {
   spinOffId?: string;
 }
 
+/* ── M&A 2.0 (mna.ts) ─────────────────────────────────────────────── */
+
+/** Finansieringsval vid bolagsförvärv. */
+export type DealFinancing = "kontant" | "lan" | "aktier" | "earnout";
+
+/** Pågående bolagsförhandling: bud → svar (accept/motbud/avvisat) i rundor. */
+export interface PendingDeal {
+  target: string;
+  /** Ditt senaste bud. */
+  offer: number;
+  /** Förhandlingsrunda 1–3 (tredje motbudet är slutbud). */
+  round: number;
+  status: "waiting" | "countered" | "accepted";
+  /** Ägarens senaste motbud (status "countered"). */
+  counter?: number;
+  startedAbs: number;
+}
+
+/** Earn-out: del av köpeskillingen betalas senare OM beståndet levererar. */
+export interface EarnOut {
+  target: string;
+  amount: number;
+  dueAbs: number;
+  /** Månatligt driftnetto beståndet ska hålla för att beloppet förfaller. */
+  noiTarget: number;
+  propertyIds: number[];
+}
+
 /** Ett avknoppat, börsnoterat sektorbolag (spinoffs.ts). */
 export interface SpinOff {
   id: string;
@@ -969,6 +997,12 @@ export interface GameState {
   nemesis?: string;
   /** Allianser och fejder mellan rivalbolagen (stadens maktkamp). */
   rivalRelations?: RivalRelation[];
+  /** M&A 2.0 (mna.ts): pågående bolagsförhandling – en affär i taget. */
+  pendingDeal?: PendingDeal | null;
+  /** Avvisade förhandlingar: bolagsnamn → absolutmånad då dörren öppnas igen. */
+  dealCooldowns?: Record<string, number>;
+  /** Earn-out-åtaganden från förvärv (betalas om beståndet levererar). */
+  earnOuts?: EarnOut[];
   /** Milstolpekedjor (milestoneChains.ts): uppnådda nivåer per kedja. */
   chainLevels?: Record<string, number>;
   /** Milstolpekedjornas ackumulerande räknare (byggen, projekt, stadssatsningar). */
@@ -1166,6 +1200,10 @@ export type GameAction =
   | { type: "SET_MANAGER_SETTINGS"; id: number; settings: ManagerSettings }
   | { type: "SET_GLOBAL_MANAGER"; settings: GlobalManagerSettings }
   | { type: "ACQUIRE_RIVAL"; competitorName: string; amount: number }
+  | { type: "PROPOSE_ACQUISITION"; competitorName: string; amount: number }
+  | { type: "RAISE_DEAL"; amount: number }
+  | { type: "WITHDRAW_DEAL" }
+  | { type: "FINALIZE_DEAL"; financing: DealFinancing }
   | { type: "SNOOZE_DECISION" }
   | { type: "SET_SCENARIO"; scenarioId: ScenarioId }
   | { type: "SET_RATE_MODE"; mode: "variable" | "fixed"; months?: number }
