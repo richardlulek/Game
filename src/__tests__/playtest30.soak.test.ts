@@ -66,6 +66,20 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
         // Fas 4 – uppstickare och kedjor:
         if (l.t.includes("NEW PLAYER")) bump("uppstickare-inträde");
         if (l.t.includes("CHAIN MILESTONE")) bump("kedjenivå");
+        // M&A 2.0:
+        if (l.t.includes("DEAL AGREED")) bump("mna-avslut-vänligt");
+        if (l.t.includes("COUNTERED (round")) bump("mna-motbudsrundor");
+        if (l.t.includes("REJECTED:")) bump("mna-avvisade-bud");
+        if (l.t.includes("BIDDING WAR FOR THE COMPANY")) bump("mna-budkrig-bolag");
+        if (l.t.includes("DEAL LOST")) bump("mna-förlorade-mål");
+        if (l.t.includes("WHITE KNIGHT")) bump("mna-vit-riddare");
+        if (l.t.includes("BUYBACK DEFENSE")) bump("mna-återköpsförsvar");
+        if (l.t.includes("CAPITULATION")) bump("mna-kapitulation");
+        if (l.t.includes("RAID:")) bump("mna-raid-mot-spelaren");
+        if (l.t.includes("SKELETONS")) bump("mna-lik-i-garderoben");
+        if (l.t.includes("INTEGRATION COMPLETE") || l.t.includes("INTEGRATION STUMBLES")) bump("mna-integrationer");
+        if (l.t.includes("COMPETITION REVIEW")) bump("mna-konkurrensprövning");
+        if (l.t.includes("RUMOR:") || l.t.includes("LEAK:")) bump("mna-rykten");
       }
     };
 
@@ -167,6 +181,17 @@ suite("SPELTEST: 30 år, alla system i verklig simulering", () => {
 
       // Bolagsexpansion när kraven nås (låser upp fler system).
       R({ type: "UPGRADE_COMPANY" });
+
+      // M&A 2.0: förhandla in det svagaste bolaget då och då, svara på
+      // motbud och stäng med banklån – hela loopen motioneras.
+      if (m % 30 === 12 && !s.pendingDeal && s.competitors.length > 4) {
+        const target = [...s.competitors].sort((a, b) => a.equity - b.equity)[0];
+        if (target)
+          R({ type: "PROPOSE_ACQUISITION", competitorName: target.name, amount: Math.round(Math.max(1_000_000, target.equity) * 1.4) });
+      }
+      if (s.pendingDeal?.status === "countered" && s.pendingDeal.counter)
+        R({ type: "RAISE_DEAL", amount: s.pendingDeal.counter });
+      if (s.pendingDeal?.status === "accepted") R({ type: "FINALIZE_DEAL", financing: "lan" });
 
       // Höj distriktsutvecklingen när kassan är stark → Fas 2-taket stiger.
       if (m % 10 === 7 && s.cash > 6_000_000) {

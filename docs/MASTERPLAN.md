@@ -86,6 +86,18 @@ Balansutfall: boom 7–11 %, stabilt 53–62 %, bust 27–36 % över 30 år.
   samlad rivalskuld ~2.8 mdr (räntekänsligheten består), distriktstatus
   fortsatt förtjänad (Stable×4, Rising×2, Exclusive×1).
 
+## Inskjutet — M&A 2.0 ✅ (commits bf28e40…3a57554 + värdering/ränta)
+
+Förvärv som process, inte knapp (se docs/MNA_SCOPE.md, sex batchar):
+förhandling i rundor med personadrivna svar och finansieringsval
+(kontant/lån/aktier/earn-out), deal pipeline + due diligence med lik i
+garderoben, fientliga bud via börsen (budplikt 30 %, vit riddare,
+återköpsförsvar, raider mot spelarens bolag), integration med gradvis
+synergirealisering och rea-stämpel, divisionsköp/byteshandel/paketbolag
+samt konkurrensmyndighet med avyttringskrav. Dessutom: riktig
+förvärvsvärdering (NAV netto skuld + kapitaliserade synergier) och
+omkalibrerad riksbank (räntan pendlar 2,5–6 % i stället för 7–10).
+
 ## Fas 5 — Dynasti, prestige & NG+ ⬜
 
 Generationsskiften, prestigesystem som bär mellan spel, New Game+ med

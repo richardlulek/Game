@@ -1,5 +1,11 @@
 # Scope: M&A 2.0 — förvärv som process, inte knapp
 
+> **STATUS: GENOMFÖRD.** Alla sex batchar implementerade och pushade
+> (commits bf28e40…, en per batch). Se MASTERPLAN.md och testerna
+> `mnaDeals/mnaDiligence/mnaHostile/mnaIntegration/mnaPartial`.
+> Avvikelser från scopen: skatteklausul i DD utelämnad (covenanter täcks
+> av lik-i-garderoben), aktiebetalning kräver notering (som designat).
+
 ## Varför
 
 Dagens M&A är en **knapp**: välj rival, dra ett reglage 130–150 % av equity,

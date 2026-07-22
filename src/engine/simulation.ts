@@ -1516,7 +1516,19 @@ export function advanceMonth(state: GameState): GameState {
   const mergerPlan = pickMerger(s);
   const mergerGate =
     mergerPlan?.kind === "opportunistic" ? 0.02 : mergerPlan?.kind === "hostile" ? 0.01 : 0.005;
-  if (mergerPlan && random01() < mergerGate) {
+  const mergerRoll = random01();
+  // Affärsrykten (M&A 2.0 batch 6): planerade affärer läcker till pressen
+  // innan de landar – och ryktet rör målbolagets kurs.
+  if (mergerPlan && mergerRoll >= mergerGate && mergerRoll < mergerGate + 0.10) {
+    s.stocks = s.stocks.map((x) =>
+      x.competitorName === mergerPlan.target ? { ...x, price: +(x.price * 1.03).toFixed(2) } : x,
+    );
+    events.push({
+      t: `🗞️ RUMOR: bankers whisper that ${mergerPlan.buyer} is circling ${mergerPlan.target} — the target's stock ticks up 3%.`,
+      kind: "info",
+    });
+  }
+  if (mergerPlan && mergerRoll < mergerGate) {
     const ca = s.competitors.find((c) => c.name === mergerPlan.buyer)!;
     const cb = s.competitors.find((c) => c.name === mergerPlan.target)!;
     const merged = {
@@ -2051,6 +2063,20 @@ export function advanceMonth(state: GameState): GameState {
           events.push({ t: `⚔️ CAPITULATION: ${hb.target}'s board folds — the company is yours, but the city calls it a raid (rep −4, press heat +3).`, kind: "warn" });
         }
       }
+    }
+  }
+
+  // Din egen förhandling läcker också (batch 6): kursen på målet drar.
+  if (s.pendingDeal && s.pendingDeal.status === "waiting" && !s.pendingDeal.rivalBidder && random01() < 0.15) {
+    const dealTarget = s.pendingDeal.target;
+    if (s.stocks.some((x) => x.competitorName === dealTarget)) {
+      s.stocks = s.stocks.map((x) =>
+        x.competitorName === dealTarget ? { ...x, price: +(x.price * 1.05).toFixed(2) } : x,
+      );
+      events.push({
+        t: `🗞️ LEAK: the market smells your interest in ${dealTarget} — the stock jumps 5% and every extra month of talks gets pricier.`,
+        kind: "warn",
+      });
     }
   }
 
