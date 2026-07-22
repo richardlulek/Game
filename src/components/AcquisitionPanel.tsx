@@ -2,6 +2,7 @@ import { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
 import { industryAssetValue } from "../engine/industries";
+import { acquisitionValuation } from "../engine/mna";
 import { personaFor } from "../engine/rivalPersonas";
 import { RivalPortrait } from "./RivalPortrait";
 import { STRATEGY_LABELS, type GameAction, type GameState } from "../engine/types";
@@ -295,13 +296,18 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
             {state.competitors
               .filter((c) => (c.portfolio ?? []).length > 0)
               .map((comp) => {
-                const synergyValue = comp.portfolio.reduce((a, p) => a + p.askPrice * 1.05, 0);
+                // Riktig förvärvskalkyl (engine/mna.ts): substansvärde netto
+                // skuld + kapitaliserade synergier – inte en schablon.
+                const val = acquisitionValuation(state, comp);
                 const minPrice = Math.round(comp.equity * 1.30);
                 const maxPrice = Math.round(comp.equity * 1.50);
                 const defaultPrice = Math.round(comp.equity * 1.35);
                 const curPrice = maBids[comp.name] ?? defaultPrice;
                 const downPayment = Math.round(curPrice * 0.25);
                 const canAfford = state.cash >= downPayment;
+                // Bedömning: budet jämförs med vad bolaget är värt FÖR DIG.
+                const premium = val.totalValue > 0 ? curPrice / val.totalValue - 1 : 1;
+                const goodDeal = premium <= 0;
 
                 return (
                   <div key={comp.name} style={{ ...cardStyle, background: C.woodDark }}>
@@ -317,8 +323,30 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       <div style={{ fontWeight: 700 }}>{comp.portfolio.length}</div>
                       <div style={{ color: C.creamSoft }}>Equity:</div>
                       <div style={{ fontWeight: 700 }}>{msek(comp.equity)}</div>
-                      <div style={{ color: C.creamSoft }}>Synergy value:</div>
-                      <div style={{ fontWeight: 700, color: C.gold }}>{msek(synergyValue)}</div>
+                      <div style={{ color: C.creamSoft }}>Net asset value:</div>
+                      <div style={{ fontWeight: 700 }}>{msek(val.nav)}</div>
+                      <div style={{ color: C.creamSoft }}>· of which debt assumed:</div>
+                      <div style={{ fontWeight: 700, color: val.debt > 0 ? C.negativeBright : C.parchment }}>
+                        {val.debt > 0 ? `−${msek(val.debt)}` : "—"}
+                      </div>
+                      <div style={{ color: C.creamSoft }} title={`District overlap ${msek(val.synergies.district)} · Energy synergy ${msek(val.synergies.energy)} · Scale ${msek(val.synergies.scale)}`}>
+                        Synergies (overlap/energy/scale):
+                      </div>
+                      <div style={{ fontWeight: 700, color: C.gold }} title={`District overlap ${msek(val.synergies.district)} · Energy synergy ${msek(val.synergies.energy)} · Scale ${msek(val.synergies.scale)}`}>
+                        +{msek(val.synergies.total)}
+                      </div>
+                      <div style={{ color: C.creamSoft }}>Value to you:</div>
+                      <div style={{ fontWeight: 800, color: C.brassBright }}>{msek(val.totalValue)}</div>
+                    </div>
+                    <div style={{
+                      marginTop: 8,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      color: goodDeal ? C.positive : C.negativeBright,
+                    }}>
+                      {goodDeal
+                        ? `Bid is ${Math.abs(premium * 100).toFixed(0)}% BELOW the value to you — good deal.`
+                        : `Bid is ${(premium * 100).toFixed(0)}% ABOVE the value to you — you're paying for prestige.`}
                     </div>
                     <div style={{ marginTop: 12 }}>
                       <label style={{ fontSize: 11, color: C.creamSoft }}>

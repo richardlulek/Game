@@ -2220,7 +2220,9 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         // Bolagets kassa följer med köpet – du köper hela bolaget, inte bara husen.
         cash: state.cash - down + Math.round(rival.cash ?? 0) + shortSettle,
-        debt: state.debt + loan,
+        // …och det gör SKULDEN också (rivalFinance): priset räknas på equity
+        // netto skuld, så lånestocken tas över i stället för att förångas.
+        debt: state.debt + loan + Math.round(rival.debt ?? 0),
         standing: acqStanding,
         portfolio: [...state.portfolio, ...acquired],
         // Rivalens industrier (hotell, parker, terminaler) följer med fusionen.
@@ -2232,7 +2234,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         reputation: Math.min(100, state.reputation + 8),
         log: [
           {
-            t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} – ${acquired.length} properties and ${msek(Math.round(rival.cash ?? 0))} in cash added!${rivalQuote(rival.name, "uppköpt", state.month) ? " " + rivalQuote(rival.name, "uppköpt", state.month) : ""}`,
+            t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} – ${acquired.length} properties, ${msek(Math.round(rival.cash ?? 0))} in cash${(rival.debt ?? 0) > 0 ? ` and ${msek(Math.round(rival.debt ?? 0))} of assumed debt` : ""} added!${rivalQuote(rival.name, "uppköpt", state.month) ? " " + rivalQuote(rival.name, "uppköpt", state.month) : ""}`,
             rival: rival.name,
             kind: "buy",
           },
