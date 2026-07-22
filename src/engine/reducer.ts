@@ -72,6 +72,7 @@ import { bumpedCounters, chainBuildCostMult, chainInvestBoostMult } from "./mile
 import {
   DD_MONTHS,
   DEAL_COOLDOWN_MONTHS,
+  FLIP_DISCOUNT,
   HOSTILE_PREMIUM,
   MA_ADVISOR_FEE,
   MANDATORY_BID_THRESHOLD,
@@ -394,7 +395,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (p.storyTag === "arvet" && state.story && !state.story.done)
         return log(state, "Clause 7b: Grandpa's house may not be sold. Oakley bills $900 for the reminder. (included)", "warn");
       const value = propMarketValue(p, state);
-      const salePrice = Math.round(value * QUICK_SALE_FACTOR);
+      // Rea-stämpel (mna.ts): flippa ett nyförvärvat bolags hus inom ett år
+      // och marknaden vet att du säljer under integrationen – extra rabatt.
+      const flipping = (p.integrationUntilAbs ?? 0) > state.year * 12 + state.month;
+      const salePrice = Math.round(value * QUICK_SALE_FACTOR * (flipping ? FLIP_DISCOUNT : 1));
       const payoff = Math.min(state.debt, (p.purchasePrice || salePrice) * 0.6);
       const born = state.year * 12 + state.month;
       const sellTx = { type: "sold" as const, price: salePrice, month: state.month, year: state.year, party: "You (quick sale)" };

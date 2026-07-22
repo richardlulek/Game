@@ -173,6 +173,18 @@ export interface EarnOut {
   propertyIds: number[];
 }
 
+/** Integration efter ett bolagsförvärv: synergierna är ett MÅL som
+ *  realiseras när friktionen (kulturkrock, dubbel förvaltning) är över. */
+export interface Integration {
+  target: string;
+  startAbs: number;
+  months: number;
+  /** Värderingens synergital vid affären – löftet som ska infrias. */
+  synergyGoal: number;
+  hostile: boolean;
+  propertyIds: number[];
+}
+
 /** Ett avknoppat, börsnoterat sektorbolag (spinoffs.ts). */
 export interface SpinOff {
   id: string;
@@ -583,6 +595,9 @@ export interface Property {
   pendingWorks?: PendingWork[];
   /** Renovräkningserbjudandet har visats (engångs per hus, lifecycle). */
   renovOffered?: boolean;
+  /** Integration efter bolagsförvärv (mna.ts): rea-stämpel vid snabb
+   *  vidareförsäljning och integrationsfriktion tills månaden passerats. */
+  integrationUntilAbs?: number;
 }
 
 /** Utvecklingsprojekt: totalrenovering, påbyggnad, lokalanpassning
@@ -1025,6 +1040,8 @@ export interface GameState {
   hostileBid?: { target: string; offer: number; placedAbs: number } | null;
   /** Bolag där budplikten redan utlösts (ingen dubbeltrigger). */
   budpliktDone?: string[];
+  /** Pågående integrationer efter bolagsförvärv (mna.ts, batch 4). */
+  integrations?: Integration[];
   /** Milstolpekedjor (milestoneChains.ts): uppnådda nivåer per kedja. */
   chainLevels?: Record<string, number>;
   /** Milstolpekedjornas ackumulerande räknare (byggen, projekt, stadssatsningar). */

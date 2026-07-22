@@ -163,16 +163,37 @@ export function ownerResponse(s: GameState, comp: Competitor, offer: number, rou
    finansiering, kassa/skuld, aktieavnotering, standing – och (senare
    batchar) lik i garderoben, integration och konkurrensprövning. */
 
+/* Integrationen (batch 4): synergier är ett mål, inte en knapp. */
+export const INTEGRATION_MONTHS = 9;
+export const INTEGRATION_COST_SHARE = 0.02;
+/** Integrationsfriktion: förhöjd drift i de förvärvade husen tills klart. */
+export const INTEGRATION_FRICTION = 1.15;
+/** Fientliga köp realiserar bara 70 % av synergimålet. */
+export const HOSTILE_REALIZE = 0.7;
+/** Rea-stämpel: snabb vidareförsäljning inom 12 mån säljs med rabatt. */
+export const FLIP_STAMP_MONTHS = 12;
+export const FLIP_DISCOUNT = 0.9;
+
+/** Integrationspoäng 0.6–1.0: staben avgör hur mycket av synergierna som
+ *  faktiskt hämtas hem. */
+export function integrationScore(s: GameState): number {
+  const staffLevels = Object.values(s.staff ?? {}).reduce((a, n) => a + n, 0);
+  return Math.min(1, 0.6 + staffLevels * 0.02);
+}
+
 export function executeAcquisition(
   state: GameState,
   rivalName: string,
   amount: number,
   financing: DealFinancing,
+  opts?: { hostile?: boolean },
 ): { state: GameState; error?: string } {
   const rival = state.competitors.find((c) => c.name === rivalName);
   if (!rival) return { state, error: "The company no longer exists." };
   if ((rival.portfolio ?? []).length === 0)
     return { state, error: `${rival.name} owns no properties to acquire.` };
+  // Synergimålet låses vid affären – integrationen avgör vad som infrias.
+  const dealSynergies = acquisitionValuation(state, rival).synergies.total;
 
   // Din befintliga aktiepost räknas av – du köper bara resten.
   const stock = state.stocks.find((x) => x.competitorName === rival.name);
@@ -228,10 +249,17 @@ export function executeAcquisition(
     ];
   }
 
+  const absNow = state.year * 12 + state.month;
   let acquired = (rival.portfolio ?? []).map((p) => ({
     ...p,
     owned: true,
     purchasePrice: p.askPrice,
+    // Integrationsfriktion: dubbel förvaltning tills integrationen är klar,
+    // och rea-stämpel om huset flippas vidare inom ett år.
+    opexMult: +(p.opexMult * INTEGRATION_FRICTION).toFixed(3),
+    integrationUntilAbs: absNow + FLIP_STAMP_MONTHS,
+    // Kulturkrock: förvärvade hyresgäster är oroliga för nya ägare.
+    tenants: (p.tenants ?? []).map((t) => ({ ...t, satisfaction: Math.max(0, (t.satisfaction ?? 60) - 10) })),
     txHistory: [
       ...(p.txHistory ?? []),
       { type: "bought" as const, price: p.askPrice, month: state.month, year: state.year, party: `Acquisition of ${rival.name}` },
@@ -262,10 +290,11 @@ export function executeAcquisition(
   }
 
   const q = rivalQuote(rival.name, "uppköpt", state.month);
+  const integrationCost = Math.round(price * INTEGRATION_COST_SHARE);
   return {
     state: {
       ...state,
-      cash: state.cash - cashOut + Math.round(rival.cash ?? 0) + shortSettle,
+      cash: state.cash - cashOut - integrationCost + Math.round(rival.cash ?? 0) + shortSettle,
       // Skulden följer med köpet (rivalFinance) – plus ev. förvärvslån.
       debt: state.debt + newLoan + Math.round(rival.debt ?? 0),
       ipoShares,
@@ -278,6 +307,17 @@ export function executeAcquisition(
       stocks: stock ? state.stocks.filter((x) => x.id !== stock.id) : state.stocks,
       stockOrders: stock ? (state.stockOrders ?? []).filter((o) => o.stockId !== stock.id) : state.stockOrders,
       pendingDeal: null,
+      integrations: [
+        ...(state.integrations ?? []),
+        {
+          target: rival.name,
+          startAbs: absNow,
+          months: INTEGRATION_MONTHS,
+          synergyGoal: dealSynergies,
+          hostile: !!opts?.hostile,
+          propertyIds: acquired.map((p) => p.id),
+        },
+      ],
       ddDone: (state.ddDone ?? []).filter((n) => n !== rivalName),
       pressHeat: pressHeatDelta > 0 ? +(((state.pressHeat ?? 0) + pressHeatDelta)).toFixed(2) : state.pressHeat,
       reputation: Math.min(100, state.reputation + 8),

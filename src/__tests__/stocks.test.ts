@@ -97,8 +97,10 @@ describe("uppköp av konkurrent", () => {
     expect(next.portfolio.find((p) => p.id === 72)?.parcelId).toBe("centrum-3");
     const price = Math.round(9_100_000 * 0.8);
     const down = Math.round(price * 0.25);
-    expect(next.cash).toBe(20e6 - down + 2e6); // handpenning ut, rivalens kassa in
+    const integration = Math.round(price * 0.02); // integrationskostnad (mna.ts)
+    expect(next.cash).toBe(20e6 - down - integration + 2e6); // handpenning + integration ut, rivalens kassa in
     expect(next.debt).toBe(price - down);
+    expect(next.integrations).toHaveLength(1);
   });
 });
 

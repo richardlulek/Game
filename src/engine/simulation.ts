@@ -31,10 +31,13 @@ import { agendaFor } from "./initState";
 import { CHAINS, bumpChainCounter } from "./milestoneChains";
 import {
   DEAL_COOLDOWN_MONTHS,
+  HOSTILE_REALIZE,
+  INTEGRATION_FRICTION,
   MA_ADVISOR_FEE,
   RIVAL_BID_GRACE_MONTHS,
   executeAcquisition,
   hostileDefense,
+  integrationScore,
   ownerResponse,
 } from "./mna";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
@@ -2035,7 +2038,7 @@ export function advanceMonth(state: GameState): GameState {
         });
       } else {
         // Kapitulation: affären går igenom – fientligt, med allt vad det kostar.
-        const res = executeAcquisition(s, target.name, hb.offer, "lan");
+        const res = executeAcquisition(s, target.name, hb.offer, "lan", { hostile: true });
         if (res.error) {
           events.push({ t: `⚔️ The board capitulated — but your financing fell through: ${res.error}`, kind: "warn" });
         } else {
@@ -2181,6 +2184,56 @@ export function advanceMonth(state: GameState): GameState {
       }
     }
     s.ddInProgress = still;
+  }
+
+  // ── Integrationer tickar: friktion, churn och avslut (batch 4) ──
+  if ((s.integrations ?? []).length > 0) {
+    const absNowInt = s.year * 12 + s.month;
+    const stillInt: typeof s.integrations = [];
+    for (const integ of s.integrations ?? []) {
+      const ids = new Set(integ.propertyIds);
+      if (absNowInt < integ.startAbs + integ.months) {
+        // Pågår: kulturkrocken kan kosta hyresgäster (~3 %/mån).
+        if (random01() < 0.03) {
+          const victim = s.portfolio.find((p) => ids.has(p.id) && p.tenants.length > 0);
+          if (victim) {
+            victim.tenants = victim.tenants.slice(0, -1);
+            events.push({
+              t: `🧳 INTEGRATION CHURN: a tenant in the former ${integ.target} portfolio walks — "new owners, new rules, no thanks".`,
+              kind: "warn",
+            });
+          }
+        }
+        stillInt.push(integ);
+        continue;
+      }
+      // Klar: friktionen släpper och synergimålet vägs mot utfallet.
+      s.portfolio = s.portfolio.map((p) =>
+        ids.has(p.id) ? { ...p, opexMult: +(p.opexMult / INTEGRATION_FRICTION).toFixed(3) } : p,
+      );
+      const realizedPct = +(integrationScore(s) * (integ.hostile ? HOSTILE_REALIZE : 1)).toFixed(2);
+      const realized = Math.round(integ.synergyGoal * realizedPct);
+      if (realizedPct >= 0.85) {
+        s.reputation = Math.min(100, s.reputation + 3);
+        events.push({
+          t: `🧩 INTEGRATION COMPLETE: the ${integ.target} portfolio runs as one — ${msek(realized)} of ${msek(integ.synergyGoal)} in synergies realized (${Math.round(realizedPct * 100)}%). Textbook. (rep +3)`,
+          kind: "income",
+        });
+      } else if (realizedPct >= 0.55) {
+        events.push({
+          t: `🧩 INTEGRATION COMPLETE: the ${integ.target} portfolio is absorbed — ${msek(realized)} of ${msek(integ.synergyGoal)} in synergies realized (${Math.round(realizedPct * 100)}%).`,
+          kind: "info",
+        });
+      } else {
+        s.reputation = Math.max(0, +(s.reputation - 2).toFixed(1));
+        s.pressHeat = +(((s.pressHeat ?? 0) + 1)).toFixed(2);
+        events.push({
+          t: `🧩 INTEGRATION STUMBLES: only ${msek(realized)} of ${msek(integ.synergyGoal)} in ${integ.target} synergies materialize (${Math.round(realizedPct * 100)}%) — the press writes about broken promises (rep −2).`,
+          kind: "warn",
+        });
+      }
+    }
+    s.integrations = stillInt;
   }
 
   // Earn-outs förfaller: betala om det förvärvade beståndet levererar.
