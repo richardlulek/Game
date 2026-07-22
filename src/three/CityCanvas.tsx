@@ -27,6 +27,7 @@ import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
 import { IndustryProps } from "./IndustryProps";
+import { InfraWorks } from "./InfraWorks";
 import { MegaLandmarks } from "./MegaProjects";
 import { Pedestrians, Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
@@ -302,6 +303,8 @@ export function CityCanvas() {
       <SignatureBlocks />
       <IndustryProps />
       <MegaLandmarks />
+      {/* Infrastruktur: invigda stationer m.m. + kommunala byggen (fas 2 syns) */}
+      <InfraWorks />
       <Headquarters />
       <OwnerLuxuries />
       <RoggeCar />
