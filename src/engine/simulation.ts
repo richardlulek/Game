@@ -29,7 +29,7 @@ import {
 import { DISTRICT_EVENTS, DISTRICTS, EVENTS, MILESTONES, POLITICAL_PARTIES, PROP_TYPES, RARE_EVENTS, SMALL_AI_NAMES, UPGRADES } from "./data";
 import { agendaFor } from "./initState";
 import { CHAINS, bumpChainCounter } from "./milestoneChains";
-import { DEAL_COOLDOWN_MONTHS, ownerResponse } from "./mna";
+import { DEAL_COOLDOWN_MONTHS, MA_ADVISOR_FEE, ownerResponse } from "./mna";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
 import { makeDecision } from "./decisions";
@@ -1995,6 +1995,23 @@ export function advanceMonth(state: GameState): GameState {
         });
       }
     }
+  }
+
+  // Investmentbankens arvode och färdiga due diligence-rapporter (batch 2).
+  if (s.maAdvisor) cashflow(s, -MA_ADVISOR_FEE, "M&A-rådgivning");
+  if ((s.ddInProgress ?? []).length > 0) {
+    const absNowDd = s.year * 12 + s.month;
+    const still: typeof s.ddInProgress = [];
+    for (const dd of s.ddInProgress ?? []) {
+      if (dd.doneAbs > absNowDd) { still.push(dd); continue; }
+      if (s.competitors.some((c) => c.name === dd.target)) {
+        s.ddDone = [...(s.ddDone ?? []), dd.target];
+        events.push({ t: `🔍 DUE DILIGENCE COMPLETE: the ${dd.target} books are now an open book — exact valuation, no skeletons.`, kind: "income" });
+      } else {
+        events.push({ t: `🔍 The ${dd.target} due diligence is moot — the company no longer exists.`, kind: "info" });
+      }
+    }
+    s.ddInProgress = still;
   }
 
   // Earn-outs förfaller: betala om det förvärvade beståndet levererar.

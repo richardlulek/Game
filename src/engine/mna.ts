@@ -22,6 +22,7 @@
 import { msek, pct } from "./format";
 import { energySynergyMult, industryAssetValue } from "./industries";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
+import { random01, rnd } from "./random";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { adjustStanding, rivalStanding } from "./standing";
 import type { Competitor, DealFinancing, GameState } from "./types";
@@ -227,7 +228,7 @@ export function executeAcquisition(
     ];
   }
 
-  const acquired = (rival.portfolio ?? []).map((p) => ({
+  let acquired = (rival.portfolio ?? []).map((p) => ({
     ...p,
     owned: true,
     purchasePrice: p.askPrice,
@@ -236,6 +237,18 @@ export function executeAcquisition(
       { type: "bought" as const, price: p.askPrice, month: state.month, year: state.year, party: `Acquisition of ${rival.name}` },
     ],
   }));
+
+  // Lik i garderoben (batch 2): utan genomförd due diligence riskerar du
+  // att böckerna ljög – dolda skickproblem dyker upp efter tillträdet.
+  let skeletonNote = "";
+  let pressHeatDelta = 0;
+  if (!ddDoneFor(state, rivalName) && random01() < SKELETON_RISK) {
+    acquired = acquired.map((p, i) =>
+      i % 3 === 0 ? { ...p, condition: Math.max(10, Math.round(p.condition - rnd(15, 25))) } : p,
+    );
+    pressHeatDelta = 2;
+    skeletonNote = " 💀 SKELETONS IN THE CLOSET: the surveys were rosier than the buildings — hidden maintenance debt surfaces across the portfolio.";
+  }
 
   // Egen blankning i bolaget stängs till kurs vid avnoteringen.
   const shortSettle = stock && (stock.shortQty ?? 0) > 0
@@ -265,10 +278,12 @@ export function executeAcquisition(
       stocks: stock ? state.stocks.filter((x) => x.id !== stock.id) : state.stocks,
       stockOrders: stock ? (state.stockOrders ?? []).filter((o) => o.stockId !== stock.id) : state.stockOrders,
       pendingDeal: null,
+      ddDone: (state.ddDone ?? []).filter((n) => n !== rivalName),
+      pressHeat: pressHeatDelta > 0 ? +(((state.pressHeat ?? 0) + pressHeatDelta)).toFixed(2) : state.pressHeat,
       reputation: Math.min(100, state.reputation + 8),
       log: [
         {
-          t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} via ${financing === "kontant" ? "cash" : financing === "lan" ? "bank financing" : financing === "aktier" ? "a share issue" : "an earn-out structure"} – ${acquired.length} properties, ${msek(Math.round(rival.cash ?? 0))} in cash${(rival.debt ?? 0) > 0 ? ` and ${msek(Math.round(rival.debt ?? 0))} of assumed debt` : ""} added!${q ? " " + q : ""}`,
+          t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} via ${financing === "kontant" ? "cash" : financing === "lan" ? "bank financing" : financing === "aktier" ? "a share issue" : "an earn-out structure"} – ${acquired.length} properties, ${msek(Math.round(rival.cash ?? 0))} in cash${(rival.debt ?? 0) > 0 ? ` and ${msek(Math.round(rival.debt ?? 0))} of assumed debt` : ""} added!${q ? " " + q : ""}${skeletonNote}`,
           rival: rival.name,
           kind: "buy" as const,
         },
@@ -276,4 +291,29 @@ export function executeAcquisition(
       ],
     },
   };
+}
+
+/* ── Underrättelser & due diligence (M&A 2.0, batch 2) ─────────────
+   Vad köper du egentligen? Investmentbanken säljer överblick, DD säljer
+   sanning – och den som hoppar över DD riskerar lik i garderoben. */
+
+/** Investmentbankens månadsarvode. */
+export const MA_ADVISOR_FEE = 250_000;
+/** DD-kostnad: andel av målets substansvärde (med golv). */
+export const DD_COST_SHARE = 0.005;
+export const DD_COST_FLOOR = 500_000;
+/** DD tar två månader. */
+export const DD_MONTHS = 2;
+/** Risk för lik i garderoben vid förvärv UTAN genomförd DD. */
+export const SKELETON_RISK = 0.25;
+/** Osäkerhetsintervall på värderingen utan DD (±10 %). */
+export const VALUATION_UNCERTAINTY = 0.10;
+
+export function ddCostFor(s: GameState, comp: Competitor): number {
+  const val = acquisitionValuation(s, comp);
+  return Math.max(DD_COST_FLOOR, Math.round(Math.abs(val.nav) * DD_COST_SHARE));
+}
+
+export function ddDoneFor(s: GameState, name: string): boolean {
+  return (s.ddDone ?? []).includes(name);
 }

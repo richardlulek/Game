@@ -69,7 +69,7 @@ import { INDUSTRY_UPGRADES } from "./industryData";
 import { industryAssetValue } from "./industries";
 import { GREEN_BOND_DISCOUNT, IR_RATING_BONUS, bondRateFor, creditRatingOf } from "./rating";
 import { bumpedCounters, chainBuildCostMult, chainInvestBoostMult } from "./milestoneChains";
-import { DEAL_COOLDOWN_MONTHS, executeAcquisition } from "./mna";
+import { DD_MONTHS, DEAL_COOLDOWN_MONTHS, MA_ADVISOR_FEE, ddCostFor, ddDoneFor, executeAcquisition } from "./mna";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
 import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
@@ -2207,6 +2207,39 @@ export function reducer(state: GameState, action: GameAction): GameState {
         ...state,
         pendingDeal: { target: target.name, offer: Math.round(action.amount), round: 1, status: "waiting", startedAbs: absNow },
         log: [{ t: `🤝 You approach ${target.name} with an indicative bid of ${msek(action.amount)}. The owner will respond within the month.`, kind: "info" }, ...state.log],
+      };
+    }
+    case "TOGGLE_MA_ADVISOR": {
+      // Investmentbanken: månadsarvode mot deal pipeline (rivalernas
+      // balansräkningar och stress som underrättelser i förvärvspanelen).
+      const on = !state.maAdvisor;
+      return {
+        ...state,
+        maAdvisor: on,
+        log: [{
+          t: on
+            ? `🏦 You retain Meridian & Cross as M&A advisors (${msek(MA_ADVISOR_FEE)}/mo): the deal pipeline opens.`
+            : "🏦 You end the M&A advisory mandate. The pipeline goes dark.",
+          kind: "info",
+        }, ...state.log],
+      };
+    }
+    case "START_DUE_DILIGENCE": {
+      const target = state.competitors.find((c) => c.name === action.competitorName);
+      if (!target) return state;
+      if (ddDoneFor(state, target.name)) return log(state, `Due diligence on ${target.name} is already complete.`, "info");
+      if ((state.ddInProgress ?? []).some((d) => d.target === target.name))
+        return log(state, `Due diligence on ${target.name} is already under way.`, "info");
+      const cost = ddCostFor(state, target);
+      if (state.cash < cost) return log(state, `Due diligence on ${target.name} costs ${msek(cost)}.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - cost,
+        ddInProgress: [
+          ...(state.ddInProgress ?? []),
+          { target: target.name, doneAbs: state.year * 12 + state.month + DD_MONTHS },
+        ],
+        log: [{ t: `🔍 Due diligence on ${target.name} begins (${msek(cost)}): auditors and surveyors go in — report in ${DD_MONTHS} months.`, kind: "expense" }, ...state.log],
       };
     }
     case "RAISE_DEAL": {

@@ -1003,6 +1003,12 @@ export interface GameState {
   dealCooldowns?: Record<string, number>;
   /** Earn-out-åtaganden från förvärv (betalas om beståndet levererar). */
   earnOuts?: EarnOut[];
+  /** Investmentbanken på månadsarvode: deal pipeline + rådgivning (mna.ts). */
+  maAdvisor?: boolean;
+  /** Bolag där due diligence är genomförd (exakta böcker, inga lik i garderoben). */
+  ddDone?: string[];
+  /** Pågående due diligence-uppdrag (klara vid doneAbs). */
+  ddInProgress?: { target: string; doneAbs: number }[];
   /** Milstolpekedjor (milestoneChains.ts): uppnådda nivåer per kedja. */
   chainLevels?: Record<string, number>;
   /** Milstolpekedjornas ackumulerande räknare (byggen, projekt, stadssatsningar). */
@@ -1201,6 +1207,8 @@ export type GameAction =
   | { type: "SET_GLOBAL_MANAGER"; settings: GlobalManagerSettings }
   | { type: "ACQUIRE_RIVAL"; competitorName: string; amount: number }
   | { type: "PROPOSE_ACQUISITION"; competitorName: string; amount: number }
+  | { type: "TOGGLE_MA_ADVISOR" }
+  | { type: "START_DUE_DILIGENCE"; competitorName: string }
   | { type: "RAISE_DEAL"; amount: number }
   | { type: "WITHDRAW_DEAL" }
   | { type: "FINALIZE_DEAL"; financing: DealFinancing }

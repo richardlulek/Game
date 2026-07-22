@@ -1,8 +1,9 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
 import { industryAssetValue } from "../engine/industries";
-import { acquisitionValuation } from "../engine/mna";
+import { MA_ADVISOR_FEE, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor } from "../engine/mna";
+import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
 import { RivalPortrait } from "./RivalPortrait";
 import { STRATEGY_LABELS, type GameAction, type GameState } from "../engine/types";
@@ -287,6 +288,47 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
       {/* ── Sektion 3: Förvärva hela bolag (M&A) ─────────────────── */}
       <section style={sectionStyle}>
         <h3 style={sectionHeadStyle}>Acquire entire companies</h3>
+
+        {/* Investmentbanken: deal pipeline (batch 2) */}
+        <div style={{ marginBottom: 14 }}>
+          <button
+            onClick={() => dispatch({ type: "TOGGLE_MA_ADVISOR" })}
+            style={{ ...btnPrimaryStyle, background: state.maAdvisor ? C.woodDark : BURGUNDY, padding: "6px 12px" }}
+            title={`Månadsarvode ${msek(MA_ADVISOR_FEE)}: rivalernas balansräkningar och stress som underrättelser.`}
+          >
+            {state.maAdvisor ? "End M&A advisory mandate" : `Retain M&A advisors (${msek(MA_ADVISOR_FEE)}/mo)`}
+          </button>
+          {state.maAdvisor && (
+            <div style={{ marginTop: 10, background: C.woodDark, border: `1px solid ${C.brass}66`, borderRadius: 6, padding: "10px 12px" }}>
+              <div style={{ fontWeight: 800, color: C.gold, fontSize: 12.5, marginBottom: 6 }}>🏦 Deal pipeline — the advisors' read on every balance sheet</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 0.8fr 1.2fr", gap: "3px 10px", fontSize: 11.5 }}>
+                <div style={{ color: C.creamSoft, fontWeight: 700 }}>Company</div>
+                <div style={{ color: C.creamSoft, fontWeight: 700 }}>Equity</div>
+                <div style={{ color: C.creamSoft, fontWeight: 700 }}>Debt</div>
+                <div style={{ color: C.creamSoft, fontWeight: 700 }}>ICR</div>
+                <div style={{ color: C.creamSoft, fontWeight: 700 }}>Read</div>
+                {state.competitors.map((c) => {
+                  const icr = rivalICR(state, c);
+                  const stressed = c.cash < 0 || (c.icrBadMonths ?? 0) >= 2;
+                  return (
+                    <React.Fragment key={c.name}>
+                      <div>{c.name}{c.small ? " 🌱" : ""}</div>
+                      <div>{msek(c.equity)}</div>
+                      <div>{(c.debt ?? 0) > 0 ? msek(c.debt!) : "—"}</div>
+                      <div style={{ color: icr < 1 ? C.negativeBright : icr < 1.8 ? C.gold : C.positive, fontWeight: 700 }}>
+                        {icr === Infinity ? "∞" : icr.toFixed(1)}
+                      </div>
+                      <div style={{ color: stressed ? C.negativeBright : icr < 1.8 ? C.gold : C.creamSoft }}>
+                        {stressed ? "distressed — easy prey" : icr < 1.8 ? "rate-squeezed" : "solid"}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {state.competitors.filter((c) => (c.portfolio ?? []).length > 0).length === 0 ? (
           <p style={{ color: C.creamSoft, fontSize: 13 }}>
             No competitors with properties to acquire.
@@ -306,6 +348,8 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                 const deal = state.pendingDeal;
                 const absNow = state.year * 12 + state.month;
                 const cooldownLeft = Math.max(0, (state.dealCooldowns?.[comp.name] ?? 0) - absNow);
+                const dd = ddDoneFor(state, comp.name);
+                const ddRunning = (state.ddInProgress ?? []).some((d) => d.target === comp.name);
                 // Bedömning: budet jämförs med vad bolaget är värt FÖR DIG.
                 const premium = val.totalValue > 0 ? curPrice / val.totalValue - 1 : 1;
                 const goodDeal = premium <= 0;
@@ -325,7 +369,11 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       <div style={{ color: C.creamSoft }}>Equity:</div>
                       <div style={{ fontWeight: 700 }}>{msek(comp.equity)}</div>
                       <div style={{ color: C.creamSoft }}>Net asset value:</div>
-                      <div style={{ fontWeight: 700 }}>{msek(val.nav)}</div>
+                      <div style={{ fontWeight: 700 }} title={dd ? "Verifierat i due diligence." : "Osäkert utan due diligence – böckerna kan ljuga."}>
+                        {dd
+                          ? `${msek(val.nav)} ✓`
+                          : `${msek(Math.round(val.nav * (1 - VALUATION_UNCERTAINTY)))}–${msek(Math.round(val.nav * (1 + VALUATION_UNCERTAINTY)))}`}
+                      </div>
                       <div style={{ color: C.creamSoft }}>· of which debt assumed:</div>
                       <div style={{ fontWeight: 700, color: val.debt > 0 ? C.negativeBright : C.parchment }}>
                         {val.debt > 0 ? `−${msek(val.debt)}` : "—"}
@@ -349,6 +397,21 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                         ? `Bid is ${Math.abs(premium * 100).toFixed(0)}% BELOW the value to you — good deal.`
                         : `Bid is ${(premium * 100).toFixed(0)}% ABOVE the value to you — you're paying for prestige.`}
                     </div>
+                    {!dd && (
+                      <div style={{ marginTop: 6, fontSize: 11.5 }}>
+                        {ddRunning ? (
+                          <span style={{ color: C.gold }}>🔍 Due diligence under way — report coming.</span>
+                        ) : (
+                          <button
+                            onClick={() => dispatch({ type: "START_DUE_DILIGENCE", competitorName: comp.name })}
+                            style={{ ...btnPrimaryStyle, background: C.woodDark, padding: "4px 10px", fontSize: 11.5 }}
+                            title="2 månader: exakta böcker, ingen risk för lik i garderoben efter köpet."
+                          >
+                            🔍 Due diligence ({msek(ddCostFor(state, comp))})
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {/* ── Förhandlingen (M&A 2.0): bud → svar → avslut ── */}
                     {deal && deal.target === comp.name ? (
                       <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 6, background: C.wood, border: `1px solid ${C.gold}66`, fontSize: 12 }}>
