@@ -73,6 +73,9 @@ import { rivalLeverage } from "./rivalFinance";
 import {
   DD_MONTHS,
   DEAL_COOLDOWN_MONTHS,
+  BREAKUP_PREMIUM,
+  BREAKUP_REP_HIT,
+  BREAKUP_STANDING_HIT,
   DIVEST_MONTHS,
   FLIP_DISCOUNT,
   HOSTILE_PREMIUM,
@@ -2462,6 +2465,44 @@ export function reducer(state: GameState, action: GameAction): GameState {
             : c,
         ),
         log: [{ t: `🏷️ PORTFOLIO SALE: your ${pack.length}-property ${pack[0].districtName} package goes to ${buyer.name} for ${msek(price)} (${phase === "boom" ? "boom pricing" : phase === "bust" ? "bust discount" : "market pricing"}).`, kind: "sell" }, ...state.log],
+      };
+    }
+    case "BREAK_UP_DISTRICT": {
+      // Break-up / asset stripping: stycka och flippa ett distrikt snabbt till
+      // en fokuspremie – raider-spelet. Betalar mer än en ordnad paketförsälj-
+      // ning, men bränner rykte och relationer med hela staden.
+      const pack = state.portfolio.filter((p) => p.district === action.district && p.status === "klar");
+      if (pack.length < PACKAGE_MIN_PROPS)
+        return log(state, `A break-up needs at least ${PACKAGE_MIN_PROPS} completed properties in the district.`, "warn");
+      const price = Math.round(pack.reduce((a, p) => a + propMarketValue(p, state), 0) * BREAKUP_PREMIUM);
+      const buyer = [...state.competitors]
+        .filter((c) => c.cash >= Math.round(price * (1 - rivalLeverage(c))))
+        .sort((a, b) => b.cash - a.cash)[0];
+      if (!buyer) return log(state, "No buyer in the city can absorb the break-up right now.", "warn");
+      const debtPart = Math.round(price * rivalLeverage(buyer));
+      const ids = new Set(pack.map((p) => p.id));
+      // Raider-stämpeln: rykte ned, och hela stadens rivaler ogillar det.
+      let standing = state.standing;
+      for (const c of state.competitors) standing = adjustStanding(standing, { kind: "rival", name: c.name }, -BREAKUP_STANDING_HIT);
+      return {
+        ...state,
+        cash: state.cash + price,
+        reputation: Math.max(0, +(state.reputation - BREAKUP_REP_HIT).toFixed(1)),
+        standing,
+        portfolio: state.portfolio.filter((p) => !ids.has(p.id)),
+        pendingRenewals: dropRenewals(state, (r) => ids.has(r.propertyId)),
+        competitors: state.competitors.map((c) =>
+          c.name === buyer.name
+            ? {
+                ...c,
+                cash: Math.round(c.cash - (price - debtPart)),
+                debt: (c.debt ?? 0) + debtPart,
+                portfolio: [...(c.portfolio ?? []), ...pack.map((p) => ({ ...p, owned: false }))],
+                units: (c.portfolio ?? []).length + pack.length,
+              }
+            : c,
+        ),
+        log: [{ t: `🔨 BREAK-UP: you strip and flip your ${pack.length}-building ${pack[0].districtName} holding to ${buyer.name} for ${msek(price)} (+${Math.round((BREAKUP_PREMIUM - 1) * 100)}% focus premium). The city notes the raider's hand — reputation −${BREAKUP_REP_HIT}, rivals cool on you.`, kind: "sell" }, ...state.log],
       };
     }
     case "TOGGLE_MA_ADVISOR": {

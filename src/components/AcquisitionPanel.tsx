@@ -4,7 +4,7 @@ import { loanTerms } from "../engine/finance";
 import { propMarketValue, propNOI } from "../engine/property";
 import { useUiStore } from "../store/uiStore";
 import { industryAssetValue } from "../engine/industries";
-import { DOMINANCE_DISTRICT_SHARE, HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, districtShareAfter, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
+import { BREAKUP_PREMIUM, BREAKUP_REP_HIT, BREAKUP_STANDING_HIT, DOMINANCE_DISTRICT_SHARE, HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, districtShareAfter, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
 import { PROPERTY_SPINOFF_MIN, SPINOFF_CAP_RATE, SPINOFF_FLOATS, SPINOFF_MIN_LEVEL, propertySpinnable, propertySpinoffValuation, spinoffFee } from "../engine/spinoffs";
 import { interestLabel, packageStats } from "../engine/selling";
 import { rivalICR } from "../engine/rivalFinance";
@@ -808,22 +808,31 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
             return <p style={{ color: C.creamSoft, fontSize: 13 }}>Needs {PACKAGE_MIN_PROPS}+ completed properties in one district to package.</p>;
           const phase = (state.marketCycle?.phase ?? "stable") as "boom" | "stable" | "bust";
           return (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               {packages.map(([district, n]) => {
-                const est = Math.round(
-                  state.portfolio
-                    .filter((p) => p.district === district && p.status === "klar")
-                    .reduce((a, p) => a + propMarketValue(p, state), 0) * PACKAGE_PHASE_MULT[phase],
-                );
+                const market = state.portfolio
+                  .filter((p) => p.district === district && p.status === "klar")
+                  .reduce((a, p) => a + propMarketValue(p, state), 0);
+                const est = Math.round(market * PACKAGE_PHASE_MULT[phase]);
+                const breakupEst = Math.round(market * BREAKUP_PREMIUM);
+                const label = DISTRICTS.find((d) => d.id === district)?.name ?? district;
                 return (
-                  <button
-                    key={district}
-                    onClick={() => dispatch({ type: "SELL_PORTFOLIO_COMPANY", district })}
-                    style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 12, padding: "6px 10px" }}
-                    title={`Hela ditt bestånd i distriktet säljs som paketbolag till bäst kapitaliserade rival. Priset följer konjunkturen (boom +5 %, bust −15 %).`}
-                  >
-                    🏷️ {DISTRICTS.find((d) => d.id === district)?.name ?? district} ({n} properties) · ~{msek(est)}
-                  </button>
+                  <div key={district} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <button
+                      onClick={() => dispatch({ type: "SELL_PORTFOLIO_COMPANY", district })}
+                      style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 12, padding: "6px 10px", marginTop: 0, width: "auto" }}
+                      title={`Hela ditt bestånd i distriktet säljs som paketbolag till bäst kapitaliserade rival. Priset följer konjunkturen (boom +5 %, bust −15 %).`}
+                    >
+                      🏷️ {label} ({n}) · orderly ~{msek(est)}
+                    </button>
+                    <button
+                      onClick={() => dispatch({ type: "BREAK_UP_DISTRICT", district })}
+                      style={{ ...btnPrimaryStyle, background: "#5a2233", fontSize: 11.5, padding: "5px 10px", marginTop: 0, width: "auto" }}
+                      title={`Raider-drag: stycka och flippa distriktet snabbt till en fokuspremie (+${Math.round((BREAKUP_PREMIUM - 1) * 100)} %) – men rykte −${BREAKUP_REP_HIT} och alla rivaler kyls (standing −${BREAKUP_STANDING_HIT}).`}
+                    >
+                      🔨 Break up & flip · ~{msek(breakupEst)} (rep −{BREAKUP_REP_HIT})
+                    </button>
+                  </div>
                 );
               })}
             </div>

@@ -1318,6 +1318,7 @@ export type GameAction =
   | { type: "MARKET_ORDER"; stockId: string; side: "buy" | "sell"; qty: number }
   | { type: "SPIN_OFF"; sector: IndustrySectorKey; floatPct: number }
   | { type: "SPIN_OFF_PROPERTIES"; district: string; floatPct: number }
+  | { type: "BREAK_UP_DISTRICT"; district: string }
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
   | { type: "BUY_INDUSTRY"; id: number }

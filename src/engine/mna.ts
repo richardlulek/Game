@@ -185,6 +185,12 @@ export function integrationScore(s: GameState): number {
 export const LBO_DOWN = 0.10;
 export const LBO_FEE_PCT = 0.02;
 
+/** Break-up (asset stripping): fokuspremie på styckesförsäljningen … */
+export const BREAKUP_PREMIUM = 1.10;
+/** … men raider-stämpeln kostar rykte och relationer. */
+export const BREAKUP_REP_HIT = 6;
+export const BREAKUP_STANDING_HIT = 4;
+
 export function executeAcquisition(
   state: GameState,
   rivalName: string,

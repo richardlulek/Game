@@ -97,6 +97,21 @@ describe("PAKETBOLAG: säljsidans M&A", () => {
     expect(after.competitors[0].portfolio).toHaveLength(3);
     expect(after.competitors[0].debt ?? 0).toBeGreaterThan(0); // köparen belånade
   });
+
+  it("break-up: fokuspremie men rykte och relationer kostar", () => {
+    const pack = [1, 2, 3].map((n) => makeProperty({ id: 7360 + n, district: "kulle" }));
+    const buyer = rival("Northgate Properties", { cash: 500_000_000 });
+    const s = makeState({ portfolio: pack, competitors: [buyer], reputation: 50, standing: { rivals: { "Northgate Properties": 0 } } });
+    const market = pack.reduce((a, p) => a + propMarketValue(p, s), 0);
+    const after = reducer(s, { type: "BREAK_UP_DISTRICT", district: "kulle" });
+    // Premie över marknadsvärdet, husen lämnar portföljen.
+    expect(after.cash - s.cash).toBeGreaterThan(market); // +10 % fokuspremie
+    expect(after.portfolio).toHaveLength(0);
+    expect(after.competitors[0].portfolio).toHaveLength(3);
+    // Raider-stämpeln: rykte ned och rivalen kyls.
+    expect(after.reputation).toBeLessThan(s.reputation);
+    expect(after.standing?.rivals?.["Northgate Properties"] ?? 0).toBeLessThan(0);
+  });
 });
 
 describe("KONKURRENSVAKTEN: dominans får villkor", () => {
