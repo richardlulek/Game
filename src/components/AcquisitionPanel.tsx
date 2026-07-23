@@ -525,7 +525,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                   style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 11, padding: "4px 8px" }}
                                   title={`Hela ${comp.name}s bestånd i distriktet (${n} hus) i EN affär – 5 % paketpremie, 25 % kontant.`}
                                 >
-                                  📦 {DISTRICTS.find((d) => d.id === district)?.name ?? district} division ({n}) · {msek(divisionPrice(state, comp, district))}
+                                  🏙️ Buy {DISTRICTS.find((d) => d.id === district)?.name ?? district} division ({n}) · {msek(divisionPrice(state, comp, district))}
                                 </button>
                               ))}
                             </div>
