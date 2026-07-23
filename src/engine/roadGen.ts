@@ -37,22 +37,26 @@ export interface RoadSeg {
   d: number;
 }
 
-/** Klassiska kartans handlinjerade huvudleder (flyttade från three/roadNet). */
+/** Klassiska kartans handlinjerade huvudleder (flyttade från three/roadNet).
+ *  Bredderna är nedskalade så lederna matchar kvartersgatorna (street·0.62 ≈
+ *  4–7 enh) i stället för att ligga dubbelt så breda. En arteria bredare än
+ *  gatuluckan svällde ut över kanttomterna – bl.a. lät den en parktomts träd
+ *  hamna mitt i körbanan – och bröt läsningen av ett sammanhängande vägnät. */
 export const CLASSIC_ROADS: RoadSeg[] = [
   // Nord–sydliga stråken genom Centrum
-  { x: 60, z: -88, w: 14, d: 44 },    // Centrum ↑ Innerstaden (gata x63/x58)
-  { x: 2, z: 163, w: 16, d: 150 },    // Esplanaden: Centrum ↓ Hamnen (gata x0/x4)
+  { x: 60, z: -88, w: 8, d: 44 },     // Centrum ↑ Innerstaden (gata x63/x58)
+  { x: 2, z: 163, w: 8, d: 150 },     // Esplanaden: Centrum ↓ Hamnen (gata x0/x4)
   // Österut mot Finans och Industriområdet
-  { x: 146, z: 60, w: 70, d: 12 },    // Avenyn: Centrum → Finans (gata z56/z64)
-  { x: 195, z: -12, w: 14, d: 126 },  // Finans ↑ Industri (gata x196/x194, väster om kommunal mark)
-  { x: 196, z: 215, w: 12, d: 44 },   // Finans ↓ Hamnen (delad gata x196)
+  { x: 146, z: 60, w: 70, d: 8 },     // Avenyn: Centrum → Finans (gata z56/z64)
+  { x: 195, z: -12, w: 7, d: 126 },   // Finans ↑ Industri (gata x196/x194, väster om kommunal mark)
+  { x: 196, z: 215, w: 6, d: 44 },    // Finans ↓ Hamnen (delad gata x196)
   // Västerut mot Förorten och Villakullen
-  { x: -141, z: 9, w: 56, d: 12 },    // Centrum ← Förorten (gata z10/z7)
-  { x: -182, z: -229, w: 54, d: 12 }, // Innerstaden ← Villakullen (gata z-230/z-228)
-  { x: -250, z: -81, w: 12, d: 62 },  // Villakullen ↓ Förorten (delad gata x-250)
+  { x: -141, z: 9, w: 56, d: 7 },     // Centrum ← Förorten (gata z10/z7)
+  { x: -182, z: -229, w: 54, d: 6 },  // Innerstaden ← Villakullen (gata z-230/z-228)
+  { x: -250, z: -81, w: 6, d: 62 },   // Villakullen ↓ Förorten (delad gata x-250)
   // Sydvästra kajstråket (förbi HK ned till kajen)
-  { x: -280, z: 214, w: 12, d: 128 }, // Förorten ↓ kajen (gata x-280)
-  { x: -233, z: 274, w: 126, d: 12 }, // Västra kajvägen → Hamnen (gata z274)
+  { x: -280, z: 214, w: 6, d: 128 },  // Förorten ↓ kajen (gata x-280)
+  { x: -233, z: 274, w: 126, d: 6 },  // Västra kajvägen → Hamnen (gata z274)
 ];
 
 /** Det AKTIVA vägnätet – muterbar kopia som spelet renderar (three/roadNet
