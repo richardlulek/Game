@@ -126,8 +126,12 @@ import {
 } from "./politics";
 import { COFINANCE_SPEEDUP, cofinanceCost, infraKindById, lobbyCost } from "./infrastructure";
 import {
+  PROPERTY_SPINOFF_MIN,
   SPINOFF_MIN_ASSETS,
   SPINOFF_MIN_LEVEL,
+  propertySpinnable,
+  propertySpinoffName,
+  propertySpinoffValuation,
   spinnableAssets,
   spinoffCompanyName,
   spinoffFee,
@@ -3573,6 +3577,76 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [
           {
             t: `🔔 SPIN-OFF IPO: ${name} lists ${assets.length} assets at a ${msek(valuation)} valuation. You sold ${Math.round(floatPct * 100)}% to the market and net ${msek(proceeds)} after fees; the sector's earnings now belong to the listed company, which pays you quarterly dividends on your ${Math.round((1 - floatPct) * 100)}% stake.`,
+            kind: "income",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "SPIN_OFF_PROPERTIES": {
+      // Fastighets-avknoppning: ett distrikts bestånd noteras som PropCo.
+      // Husen står kvar på kartan men tillhör det noterade dotterbolaget –
+      // driftnettot går till dess kassa, som delar ut kvartalsvis pro rata.
+      if ((state.companyLevel ?? 1) < SPINOFF_MIN_LEVEL)
+        return log(state, `A property spin-off requires company level ${SPINOFF_MIN_LEVEL} (group stage).`, "warn");
+      const props = propertySpinnable(state, action.district);
+      if (props.length < PROPERTY_SPINOFF_MIN)
+        return log(state, `A property spin-off needs at least ${PROPERTY_SPINOFF_MIN} completed buildings in the district.`, "warn");
+      const districtLabel = props[0].districtName;
+      const floatPct = Math.min(0.65, Math.max(0.1, action.floatPct));
+      const valuation = propertySpinoffValuation(state, action.district);
+      const fee = spinoffFee(valuation);
+      const proceeds = Math.round(valuation * floatPct) - fee;
+      if (proceeds <= 0) return log(state, "The district is too small to carry the listing fees.", "warn");
+      const spinId = `spin_${newId()}`;
+      const name = propertySpinoffName(state, districtLabel);
+      const sharesOutstanding = Math.max(100_000, Math.round(valuation / 50));
+      const publicShares = Math.round(sharesOutstanding * floatPct);
+      const price = Math.round((valuation / sharesOutstanding) * 100) / 100;
+      const stock: Stock = {
+        id: `spinstock_${newId()}`,
+        name,
+        sector: "fastighet",
+        price,
+        prevPrice: price,
+        monthClose: price,
+        targetPrice: price,
+        sharesOutstanding,
+        owned: sharesOutstanding - publicShares,
+        avgCost: 0,
+        dividendYield: 0,
+        beta: 0.9,
+        drift: 0,
+        volatility: 0.05,
+        history: [price],
+        listedYear: state.year,
+        listedMonth: state.month,
+        spinOffId: spinId,
+        newsHistory: [{ text: `${name} spun off from ${state.companyName ?? "the group"}`, dir: "up", day: state.day ?? 1, month: state.month, year: state.year }],
+      };
+      const spin: SpinOff = {
+        id: spinId,
+        name,
+        kind: "property",
+        district: action.district,
+        districtLabel,
+        stockId: stock.id,
+        foundedAbs: state.year * 12 + state.month,
+        cash: 0,
+        lastMonthNet: 0,
+        dividendsPaidToPlayer: 0,
+      };
+      const ids = new Set(props.map((p) => p.id));
+      return {
+        ...state,
+        cash: state.cash + proceeds,
+        stocks: [...state.stocks, stock],
+        spinOffs: [...(state.spinOffs ?? []), spin],
+        portfolio: state.portfolio.map((p) => (ids.has(p.id) ? { ...p, spinOffId: spinId } : p)),
+        reputation: Math.min(100, state.reputation + 2),
+        log: [
+          {
+            t: `🔔 PROPERTY SPIN-OFF: ${name} lists ${props.length} buildings in ${districtLabel} at a ${msek(valuation)} valuation. You floated ${Math.round(floatPct * 100)}% and net ${msek(proceeds)} after fees; the district's rent now belongs to the listed subsidiary, which pays you quarterly dividends on your ${Math.round((1 - floatPct) * 100)}% stake.`,
             kind: "income",
           },
           ...state.log,

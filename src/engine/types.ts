@@ -193,11 +193,18 @@ export interface Integration {
   propertyIds: number[];
 }
 
-/** Ett avknoppat, börsnoterat sektorbolag (spinoffs.ts). */
+/** Ett avknoppat, börsnoterat bolag (spinoffs.ts): en industrisektor ELLER
+ *  ett distrikts fastighetsbestånd (kind "property"). */
 export interface SpinOff {
   id: string;
   name: string;
-  sector: IndustrySectorKey;
+  /** Satt för sektor-avknoppningar; odefinierat för fastighets-avknoppningar. */
+  sector?: IndustrySectorKey;
+  /** Avknoppningens typ – "sector" (industri, standard) eller "property". */
+  kind?: "sector" | "property";
+  /** Fastighets-avknoppningens distrikt + läsbar etikett (kind "property"). */
+  district?: string;
+  districtLabel?: string;
   /** Aktien på börsen – spelarens innehav bor i stock.owned. */
   stockId: string;
   foundedAbs: number;
@@ -558,6 +565,9 @@ export interface Property {
   /** Utannonserad till försäljning: köpare hittas i takt med skick,
    *  uthyrningsgrad och avkastning. packageId = del av säljpaket. */
   forSale?: { ask: number; listedAbs: number; packageId?: number };
+  /** Satt när huset knoppats av till ett noterat PropCo (spinoffs.ts): det
+   *  står kvar på kartan men hyran tillhör det avknoppade dotterbolaget. */
+  spinOffId?: string;
   upgrades: string[];
   owned: boolean;
   rentMult: number;
@@ -1307,6 +1317,7 @@ export type GameAction =
   | { type: "DISMISS_TUTORIAL" }
   | { type: "MARKET_ORDER"; stockId: string; side: "buy" | "sell"; qty: number }
   | { type: "SPIN_OFF"; sector: IndustrySectorKey; floatPct: number }
+  | { type: "SPIN_OFF_PROPERTIES"; district: string; floatPct: number }
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
   | { type: "BUY_INDUSTRY"; id: number }

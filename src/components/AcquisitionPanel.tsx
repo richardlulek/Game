@@ -4,6 +4,7 @@ import { loanTerms } from "../engine/finance";
 import { propMarketValue } from "../engine/property";
 import { industryAssetValue } from "../engine/industries";
 import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
+import { PROPERTY_SPINOFF_MIN, SPINOFF_FLOATS, SPINOFF_MIN_LEVEL, propertySpinnable, propertySpinoffValuation, spinoffFee } from "../engine/spinoffs";
 import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
 import { CommitmentsPanel } from "./CommitmentsPanel";
@@ -27,6 +28,8 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
   // M&A slider: competitor name -> acquisition amount
   const [maBids, setMaBids] = useState<Record<string, number>>({});
   const [swapSel, setSwapSel] = useState<Record<string, { mine?: number; theirs?: number }>>({});
+  // Fastighets-avknoppning: float (25/40/60 %) per distrikt.
+  const [spinFloat, setSpinFloat] = useState<Record<string, number>>({});
 
   // Score world pool properties by yield potential
   const poolScored = [...(state.worldPool ?? [])]
@@ -686,6 +689,75 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
             </div>
           );
         })()}
+
+        {/* Fastighets-avknoppning: notera ett distrikt som eget PropCo och
+            behåll kontrollen. Skiljer sig från paketförsäljningen ovan – här
+            säljer du bara en MINORITET och behåller resten + utdelningen. */}
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.brass}33` }}>
+          <div style={{ fontFamily: FONTS.heading, color: C.brass, fontSize: 13, marginBottom: 4 }}>
+            🏢 Spin off a district as a listed subsidiary
+          </div>
+          <p style={{ color: C.creamSoft, fontSize: 11.5, marginBottom: 10 }}>
+            Float part of a district's buildings as their own listed company (PropCo). The
+            buildings stay on the map but their rent flows to the subsidiary, which pays you
+            quarterly dividends on the stake you keep. Requires company level {SPINOFF_MIN_LEVEL}.
+          </p>
+          {(() => {
+            if ((state.companyLevel ?? 1) < SPINOFF_MIN_LEVEL)
+              return <p style={{ color: C.creamSoft, fontSize: 12 }}>Reach company level {SPINOFF_MIN_LEVEL} (group stage) to list a subsidiary.</p>;
+            const byDistrict = new Map<string, string>();
+            for (const p of state.portfolio) {
+              if (propertySpinnable(state, p.district).length >= PROPERTY_SPINOFF_MIN) byDistrict.set(p.district, p.districtName);
+            }
+            if (byDistrict.size === 0)
+              return <p style={{ color: C.creamSoft, fontSize: 12 }}>Needs {PROPERTY_SPINOFF_MIN}+ completed, un-listed buildings in one district.</p>;
+            return (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {[...byDistrict.entries()].map(([district, label]) => {
+                  const n = propertySpinnable(state, district).length;
+                  const valuation = propertySpinoffValuation(state, district);
+                  const float = spinFloat[district] ?? 0.4;
+                  const proceeds = Math.round(valuation * float) - spinoffFee(valuation);
+                  return (
+                    <div key={district} style={{ ...cardStyle, background: C.woodDark, minWidth: 230 }}>
+                      <div style={{ fontWeight: 700, color: C.brassBright, fontSize: 13 }}>{label} PropCo</div>
+                      <div style={{ fontSize: 11.5, color: C.creamSoft, marginTop: 3 }}>
+                        {n} buildings · valuation {msek(valuation)}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                        {SPINOFF_FLOATS.map((f) => (
+                          <button
+                            key={f}
+                            onClick={() => setSpinFloat({ ...spinFloat, [district]: f })}
+                            style={{
+                              flex: 1, padding: "4px 0", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                              border: `1px solid ${C.brass}66`,
+                              background: float === f ? BURGUNDY : "transparent",
+                              color: float === f ? C.parchment : C.creamSoft,
+                            }}
+                          >
+                            {Math.round(f * 100)}%
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 11.5, marginTop: 8, color: proceeds > 0 ? C.positive : C.negativeBright, fontWeight: 700 }}>
+                        Net proceeds ~{msek(proceeds)} · keep {Math.round((1 - float) * 100)}%
+                      </div>
+                      <button
+                        disabled={proceeds <= 0}
+                        onClick={() => dispatch({ type: "SPIN_OFF_PROPERTIES", district, floatPct: float })}
+                        style={{ ...btnPrimaryStyle, background: proceeds > 0 ? BURGUNDY : C.woodDark, opacity: proceeds > 0 ? 1 : 0.5, cursor: proceeds > 0 ? "pointer" : "default", fontSize: 12 }}
+                        title="Notera distriktet som eget PropCo. Husen stannar på kartan; hyran går till dottern som delar ut kvartalsvis."
+                      >
+                        List {label} PropCo
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
       </section>
     </div>
   );

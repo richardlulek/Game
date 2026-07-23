@@ -22,7 +22,8 @@
    ============================================================ */
 
 import { industryAssetValue } from "./industries";
-import type { GameState, IndustryAsset, IndustrySectorKey, SpinOff, Stock } from "./types";
+import { propMarketValue, propNOI } from "./property";
+import type { GameState, IndustryAsset, IndustrySectorKey, Property, SpinOff, Stock } from "./types";
 
 /** Valbara floats vid avknoppningen. */
 export const SPINOFF_FLOATS = [0.25, 0.4, 0.6];
@@ -87,11 +88,43 @@ export const SPINOFF_UPKEEP_COND = 86;
  *  samma intjäningslogik som noteringsvärderingen så kursen inte rasar till
  *  tegelvärdet dagen efter börsdebuten. */
 export function spinoffEquity(s: GameState, spin: SpinOff): number {
-  const assets = (s.industryPortfolio ?? [])
+  const industryAssets = (s.industryPortfolio ?? [])
     .filter((a) => a.spinOffId === spin.id)
     .reduce((a, x) => a + industryAssetValue(x, s), 0);
+  // Fastighets-avknoppningar bär hus i stället för industritillgångar.
+  const propAssets = (s.portfolio ?? [])
+    .filter((p) => p.spinOffId === spin.id)
+    .reduce((a, p) => a + propMarketValue(p, s), 0);
+  const assets = industryAssets + propAssets;
   const earningsValue = Math.max(0, spin.lastMonthNet) * 12 / SPINOFF_CAP_RATE;
   return Math.round(Math.max(assets, earningsValue) + spin.cash);
+}
+
+/* ── Fastighets-avknoppning: ett distrikts bestånd noteras som PropCo ── */
+
+/** Minsta antal färdiga hus i distriktet för en fastighets-avknoppning. */
+export const PROPERTY_SPINOFF_MIN = 3;
+
+/** Egna, färdiga, ännu inte avknoppade hus i ett distrikt. */
+export function propertySpinnable(s: GameState, district: string): Property[] {
+  return s.portfolio.filter(
+    (p) => p.district === district && p.status === "klar" && p.owned && !p.spinOffId,
+  );
+}
+
+/** PropCo-namn: bolagsnamnet + distriktet + "Propco". */
+export function propertySpinoffName(s: GameState, districtLabel: string): string {
+  const base = (s.companyName ?? "Fastighets AB").replace(/\s*(AB|PLC|Inc|Ltd)\.?$/i, "").trim();
+  return `${base} ${districtLabel} PropCo`;
+}
+
+/** Noteringsvärdet: max(husens marknadsvärde, kapitaliserad intjäning). Samma
+ *  logik som sektorvärderingen så börsen betalar för hyror, inte bara tegel. */
+export function propertySpinoffValuation(s: GameState, district: string): number {
+  const props = propertySpinnable(s, district);
+  const bookValue = props.reduce((a, p) => a + propMarketValue(p, s), 0);
+  const annualNet = props.reduce((a, p) => a + propNOI(p, s), 0);
+  return Math.round(Math.max(bookValue, annualNet / SPINOFF_CAP_RATE));
 }
 
 /** Substanskurs per aktie – samma fundamentala modell som FBAB/rivaler. */

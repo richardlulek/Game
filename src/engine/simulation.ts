@@ -114,7 +114,7 @@ import { tickCityEvent } from "./cityEvents";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { kr, msek } from "./format";
 import { calYear, daysInMonth, formatMonthYear } from "./date";
-import { pendingWork, propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
+import { pendingWork, propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "./property";
 import { genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, taxAuditMult, wearMult } from "./progression";
@@ -3004,7 +3004,24 @@ export function advanceMonth(state: GameState): GameState {
           ? { ...a, condition: Math.min(SPINOFF_UPKEEP_COND, a.condition + 1.2) }
           : a;
       });
-      const net = (spinoffNet[spin.id] ?? 0) - upkeep;
+      // Fastighets-avknoppning: distriktets hus underhålls av dottern och
+      // deras driftnetto omdirigeras hit. Spelaren har redan bokfört hyran i
+      // månadens driftnetto (monthlyNOI) – så den dras av här igen. NOI:t
+      // beräknas med propNOI (samma bas som värdering/utdelning), en liten,
+      // avgränsad approximation mot loopens hyra-för-hyra-summa.
+      let propNet = 0;
+      if (spin.kind === "property") {
+        s.portfolio = s.portfolio.map((p) => {
+          if (p.spinOffId !== spin.id || p.status !== "klar") return p;
+          propNet += Math.round(propNOI(p, s) / 12);
+          upkeep += Math.round(propMarketValue(p, s) * SPINOFF_UPKEEP_PCT);
+          return p.condition < SPINOFF_UPKEEP_COND
+            ? { ...p, condition: Math.min(SPINOFF_UPKEEP_COND, p.condition + 1.2) }
+            : p;
+        });
+        if (propNet !== 0) cashflow(s, -propNet, "driftnetto till fastighets-avknoppning");
+      }
+      const net = (spinoffNet[spin.id] ?? 0) + propNet - upkeep;
       let ns: typeof spin = { ...spin, cash: spin.cash + net, lastMonthNet: net };
       // Koncernbidrag: moderbolaget täcker förlustmånader med kassa och får
       // motsvarande förlustavdrag – dottern hålls flytande, skölden byggs.
