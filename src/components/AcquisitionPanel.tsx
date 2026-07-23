@@ -5,6 +5,7 @@ import { propMarketValue } from "../engine/property";
 import { industryAssetValue } from "../engine/industries";
 import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
 import { PROPERTY_SPINOFF_MIN, SPINOFF_FLOATS, SPINOFF_MIN_LEVEL, propertySpinnable, propertySpinoffValuation, spinoffFee } from "../engine/spinoffs";
+import { interestLabel, packageStats } from "../engine/selling";
 import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
 import { CommitmentsPanel } from "./CommitmentsPanel";
@@ -66,22 +67,36 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
       </h2>
 
       {/* Flikar: köp / sälj / pågående – bryter upp den långa rullen. */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: `1px solid ${C.brass}44` }}>
-        {([["buy", "Buy"], ["sell", "Sell"], ["deals", "In progress"]] as const).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setDealTab(id)}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              padding: "8px 16px", fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700,
-              color: dealTab === id ? C.brassBright : C.creamSoft,
-              borderBottom: `2px solid ${dealTab === id ? C.brassBright : "transparent"}`,
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {(() => {
+        const tabs = [
+          { id: "buy" as const, label: "🛒 Buy & grow", intro: "Bid off-market, pick off single buildings, buy a rival's district, or swallow a whole company." },
+          { id: "sell" as const, label: "💰 Sell & divest", intro: "Turn buildings into cash: bundle a sale package, sell a district to a rival, or float one as a listed subsidiary." },
+          { id: "deals" as const, label: "⏳ In progress", intro: "Everything live right now — negotiations, integrations, earn-outs and regulator conditions." },
+        ];
+        const active = tabs.find((t) => t.id === dealTab)!;
+        return (
+          <>
+            <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.brass}44` }}>
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setDealTab(t.id)}
+                  style={{
+                    background: dealTab === t.id ? `${C.brass}18` : "none", border: "none", cursor: "pointer",
+                    padding: "8px 16px", fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700,
+                    color: dealTab === t.id ? C.brassBright : C.creamSoft,
+                    borderBottom: `2px solid ${dealTab === t.id ? C.brassBright : "transparent"}`,
+                    borderTopLeftRadius: 5, borderTopRightRadius: 5,
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ color: C.creamSoft, fontSize: 12, margin: "8px 2px 18px" }}>{active.intro}</p>
+          </>
+        );
+      })()}
 
       {/* Åtaganden: allt som pågår – förhandlingar, integrationer, krav */}
       {dealTab === "deals" && <CommitmentsPanel state={state} dispatch={dispatch} />}
@@ -696,6 +711,72 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
       </>)}
 
       {dealTab === "sell" && (<>
+      {/* ── Säljpaket: nu samlade här i stället för att ligga ensamma i
+            portföljfliken. Aktiva paket + snabbskapa per distrikt. ──── */}
+      <section style={sectionStyle}>
+        <h3 style={sectionHeadStyle}>📦 Sale packages</h3>
+        <p style={{ color: C.creamSoft, fontSize: 12, marginBottom: 12 }}>
+          Bundle finished buildings and list them to institutional buyers — volume earns a package
+          premium, and offers land in your 📨 inbox. Withdraw any time.
+        </p>
+        {(state.salePackages ?? []).length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+            {(state.salePackages ?? []).map((pkg) => {
+              const st = packageStats(pkg, state);
+              const il = interestLabel(st.chance);
+              return (
+                <div key={pkg.id} style={{ ...cardStyle, background: C.woodDark, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12.5 }}>
+                    <strong style={{ color: C.brassBright }}>{pkg.name}</strong> · {pkg.propertyIds.length} properties · asking {msek(pkg.ask)}
+                    <span style={{ color: C.creamSoft }}> · value {msek(st.value)} (+{Math.round((st.premium - 1) * 100)}% premium)</span>
+                  </span>
+                  <span style={{ display: "flex", gap: 10, alignItems: "center", whiteSpace: "nowrap" }}>
+                    <span style={{ color: il.color, fontWeight: 700, fontSize: 11.5 }}>{il.label}</span>
+                    <button
+                      style={{ background: "transparent", border: `1px solid ${C.brass}66`, color: C.creamSoft, borderRadius: 4, padding: "3px 10px", fontSize: 11, cursor: "pointer" }}
+                      onClick={() => dispatch({ type: "UNLIST_PACKAGE", packageId: pkg.id })}
+                    >
+                      Withdraw
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {(() => {
+          // Snabbskapa ett distriktspaket ur färdiga, ännu ej listade hus.
+          const byDistrict = new Map<string, { label: string; ids: number[]; value: number }>();
+          for (const p of state.portfolio) {
+            if (p.status !== "klar" || p.forSale) continue;
+            const e = byDistrict.get(p.district) ?? { label: p.districtName, ids: [], value: 0 };
+            e.ids.push(p.id);
+            e.value += propMarketValue(p, state);
+            byDistrict.set(p.district, e);
+          }
+          const eligible = [...byDistrict.values()].filter((e) => e.ids.length >= 2);
+          if (eligible.length === 0)
+            return <p style={{ color: C.creamSoft, fontSize: 12 }}>Need 2+ finished, unlisted buildings in a district to bundle a quick package — or hand-pick across districts in the Portfolio tab.</p>;
+          return (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {eligible.map((e) => (
+                <button
+                  key={e.label}
+                  onClick={() => dispatch({ type: "LIST_PACKAGE", ids: e.ids, ask: Math.round(e.value) })}
+                  style={{ ...btnPrimaryStyle, background: C.woodDark, width: "auto", marginTop: 0, fontSize: 12, padding: "6px 12px" }}
+                  title="Lista hela distriktets färdiga hus som ett paket. Finjustera urval och pris i Portfölj-fliken."
+                >
+                  📦 Package {e.label} ({e.ids.length}) · ask ~{msek(Math.round(e.value))}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+        <p style={{ color: C.creamSoft, fontSize: 11, marginTop: 10, fontStyle: "italic" }}>
+          Tip: to hand-pick buildings across districts, tick them in the Portfolio tab and “Create sale package”.
+        </p>
+      </section>
+
       {/* ── Sektion 4: Sälj paketbolag (säljsidans M&A) ───────────── */}
       <section style={sectionStyle}>
         <h3 style={sectionHeadStyle}>Sell a portfolio company</h3>
