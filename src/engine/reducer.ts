@@ -77,6 +77,7 @@ import {
   ACTIVIST_MIN_STAKE,
   ACTIVIST_PAYOUT_SHARE,
   ACTIVIST_STANDING_HIT,
+  RETENTION_FEE_PCT,
   BREAKUP_PREMIUM,
   BREAKUP_REP_HIT,
   BREAKUP_STANDING_HIT,
@@ -2537,6 +2538,22 @@ export function reducer(state: GameState, action: GameAction): GameState {
           c.name === comp.name ? { ...c, cash: Math.round((c.cash ?? 0) - payout), equity: Math.round((c.equity ?? 0) - payout) } : c,
         ),
         log: [{ t: `📢 ACTIVIST CAMPAIGN: your ${pct(stake)} stake forces a special dividend at ${comp.name} — ${msek(payout)} paid out, ${msek(myCut)} to you. Their war chest is drained and the board resents it (standing −${ACTIVIST_STANDING_HIT}).`, kind: "income" }, ...state.log],
+      };
+    }
+    case "INTEGRATION_RETENTION": {
+      // Interaktiv integration: betala ett retention-paket till målets
+      // nyckelpersoner. Dämpar kulturkrock-churnen och lyfter hur mycket av
+      // synergierna som faktiskt realiseras vid avslut.
+      const integ = (state.integrations ?? []).find((i) => i.target === action.target);
+      if (!integ) return log(state, "That integration is no longer active.", "warn");
+      if (integ.retained) return log(state, `The ${integ.target} team is already retained.`, "info");
+      const fee = Math.max(500_000, Math.round(integ.synergyGoal * RETENTION_FEE_PCT));
+      if (state.cash < fee) return log(state, `Retaining the ${integ.target} team costs ${msek(fee)}.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - fee,
+        integrations: (state.integrations ?? []).map((i) => (i.target === action.target ? { ...i, retained: true } : i)),
+        log: [{ t: `🤝 RETENTION: you lock in the ${integ.target} team with golden handcuffs (${msek(fee)}). Culture-clash churn eases and more of the synergies will land.`, kind: "expense" }, ...state.log],
       };
     }
     case "TOGGLE_MA_ADVISOR": {

@@ -200,6 +200,13 @@ export const ACTIVIST_STANDING_HIT = 6;
 /** Månader innan du kan driva en ny kampanj mot samma rival. */
 export const ACTIVIST_COOLDOWN = 12;
 
+/** Retention-paket vid integration: avgift som andel av synergimålet … */
+export const RETENTION_FEE_PCT = 0.03;
+/** … som lyfter det realiserade synergiutfallet … */
+export const RETENTION_REALIZE_BONUS = 0.12;
+/** … och skär ned kulturkrock-churnen till en bråkdel. */
+export const RETENTION_CHURN_MULT = 0.25;
+
 export function executeAcquisition(
   state: GameState,
   rivalName: string,

@@ -35,6 +35,8 @@ import {
   DIVEST_MONTHS,
   HOSTILE_REALIZE,
   INTEGRATION_FRICTION,
+  RETENTION_CHURN_MULT,
+  RETENTION_REALIZE_BONUS,
   MA_ADVISOR_FEE,
   RIVAL_BID_GRACE_MONTHS,
   executeAcquisition,
@@ -2348,8 +2350,9 @@ export function advanceMonth(state: GameState): GameState {
     for (const integ of s.integrations ?? []) {
       const ids = new Set(integ.propertyIds);
       if (absNowInt < integ.startAbs + integ.months) {
-        // Pågår: kulturkrocken kan kosta hyresgäster (~3 %/mån).
-        if (random01() < 0.03) {
+        // Pågår: kulturkrocken kan kosta hyresgäster (~3 %/mån) – retention
+        // av nyckelteamet skär ned churnen till en bråkdel.
+        if (random01() < (integ.retained ? 0.03 * RETENTION_CHURN_MULT : 0.03)) {
           const victim = s.portfolio.find((p) => ids.has(p.id) && p.tenants.length > 0);
           if (victim) {
             victim.tenants = victim.tenants.slice(0, -1);
@@ -2366,7 +2369,10 @@ export function advanceMonth(state: GameState): GameState {
       s.portfolio = s.portfolio.map((p) =>
         ids.has(p.id) ? { ...p, opexMult: +(p.opexMult / INTEGRATION_FRICTION).toFixed(3) } : p,
       );
-      const realizedPct = +(integrationScore(s) * (integ.hostile ? HOSTILE_REALIZE : 1)).toFixed(2);
+      const realizedPct = +Math.min(
+        1,
+        integrationScore(s) * (integ.hostile ? HOSTILE_REALIZE : 1) + (integ.retained ? RETENTION_REALIZE_BONUS : 0),
+      ).toFixed(2);
       const realized = Math.round(integ.synergyGoal * realizedPct);
       if (realizedPct >= 0.85) {
         s.reputation = Math.min(100, s.reputation + 3);

@@ -4,7 +4,7 @@
    loggen – motor utan mätare. Renderas överst i förvärvsfönstret. */
 
 import { msek } from "../engine/format";
-import { HOSTILE_REALIZE, INTEGRATION_MONTHS } from "../engine/mna";
+import { HOSTILE_REALIZE, INTEGRATION_MONTHS, RETENTION_FEE_PCT, RETENTION_REALIZE_BONUS } from "../engine/mna";
 import { propAnnualOpex, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS } from "../styles/tokens";
@@ -85,6 +85,20 @@ export function CommitmentsPanel({ state, dispatch }: Props) {
         <div style={{ height: 6, background: C.woodDark, borderRadius: 3, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${pct}%`, background: C.brass, borderRadius: 3 }} />
         </div>
+        {integ.retained ? (
+          <span style={{ fontSize: 11, color: C.positive, fontWeight: 700 }}>🤝 Key team retained — churn eased, synergies boosted (+{Math.round(RETENTION_REALIZE_BONUS * 100)}%).</span>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: C.creamSoft }}>Culture clash risks tenant churn — lock in the team to protect the synergies.</span>
+            <button
+              onClick={() => dispatch({ type: "INTEGRATION_RETENTION", target: integ.target })}
+              style={{ background: C.woodDark, border: `1px solid ${C.brass}66`, color: C.parchment, borderRadius: 4, padding: "3px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+              title="Golden handcuffs för målets nyckelpersoner: dämpar kulturkrock-churn och lyfter hur mycket av synergierna som realiseras."
+            >
+              🤝 Retain team ({msek(Math.max(500_000, Math.round(integ.synergyGoal * RETENTION_FEE_PCT)))})
+            </button>
+          </div>
+        )}
       </div>,
     );
   }

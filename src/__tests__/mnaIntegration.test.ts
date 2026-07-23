@@ -77,6 +77,19 @@ describe("INTEGRATIONEN: friktion vid köpet, upplösning vid slutet", () => {
     }
   });
 
+  it("retention: en avgift låser teamet, är idempotent och kräver kassa", () => {
+    const s0 = makeState({ cash: 300_000_000, competitors: [rival()], ddDone: ["Målbolaget AB"], staff: { forvaltningschef: 3 } });
+    let s = executeAcquisition(s0, "Målbolaget AB", 90_000_000, "kontant").state;
+    expect(s.integrations).toHaveLength(1);
+    const before = s.cash;
+    s = reducer(s, { type: "INTEGRATION_RETENTION", target: "Målbolaget AB" });
+    expect(s.integrations![0].retained).toBe(true);
+    expect(s.cash).toBeLessThan(before); // avgiften drogs
+    // Redan retained → ingen dubbeldebitering.
+    const again = reducer(s, { type: "INTEGRATION_RETENTION", target: "Målbolaget AB" });
+    expect(again.cash).toBe(s.cash);
+  });
+
   it("integrationspoängen: stab höjer, fientligt köp sänker realiseringen", () => {
     expect(integrationScore(makeState({}))).toBeCloseTo(0.6, 2);
     expect(integrationScore(makeState({ staff: { a: 5, b: 5 } }))).toBeCloseTo(0.8, 2);

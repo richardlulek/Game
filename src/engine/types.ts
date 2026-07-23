@@ -191,6 +191,8 @@ export interface Integration {
   synergyGoal: number;
   hostile: boolean;
   propertyIds: number[];
+  /** Retention-paket betalat: dämpar churn och lyfter synergiutfallet. */
+  retained?: boolean;
 }
 
 /** Ett avknoppat, börsnoterat bolag (spinoffs.ts): en industrisektor ELLER
@@ -1322,6 +1324,7 @@ export type GameAction =
   | { type: "SPIN_OFF_PROPERTIES"; district: string; floatPct: number }
   | { type: "BREAK_UP_DISTRICT"; district: string }
   | { type: "ACTIVIST_DIVIDEND"; competitorName: string }
+  | { type: "INTEGRATION_RETENTION"; target: string }
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
   | { type: "BUY_INDUSTRY"; id: number }
