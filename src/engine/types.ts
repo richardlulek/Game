@@ -1055,6 +1055,8 @@ export interface GameState {
   pendingDeal?: PendingDeal | null;
   /** Avvisade förhandlingar: bolagsnamn → absolutmånad då dörren öppnas igen. */
   dealCooldowns?: Record<string, number>;
+  /** Cooldown per rival för aktieägaraktivism (tvingad extrautdelning). */
+  activistCooldowns?: Record<string, number>;
   /** Earn-out-åtaganden från förvärv (betalas om beståndet levererar). */
   earnOuts?: EarnOut[];
   /** Investmentbanken på månadsarvode: deal pipeline + rådgivning (mna.ts). */
@@ -1319,6 +1321,7 @@ export type GameAction =
   | { type: "SPIN_OFF"; sector: IndustrySectorKey; floatPct: number }
   | { type: "SPIN_OFF_PROPERTIES"; district: string; floatPct: number }
   | { type: "BREAK_UP_DISTRICT"; district: string }
+  | { type: "ACTIVIST_DIVIDEND"; competitorName: string }
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
   | { type: "BUY_INDUSTRY"; id: number }

@@ -73,6 +73,10 @@ import { rivalLeverage } from "./rivalFinance";
 import {
   DD_MONTHS,
   DEAL_COOLDOWN_MONTHS,
+  ACTIVIST_COOLDOWN,
+  ACTIVIST_MIN_STAKE,
+  ACTIVIST_PAYOUT_SHARE,
+  ACTIVIST_STANDING_HIT,
   BREAKUP_PREMIUM,
   BREAKUP_REP_HIT,
   BREAKUP_STANDING_HIT,
@@ -2503,6 +2507,36 @@ export function reducer(state: GameState, action: GameAction): GameState {
             : c,
         ),
         log: [{ t: `🔨 BREAK-UP: you strip and flip your ${pack.length}-building ${pack[0].districtName} holding to ${buyer.name} for ${msek(price)} (+${Math.round((BREAKUP_PREMIUM - 1) * 100)}% focus premium). The city notes the raider's hand — reputation −${BREAKUP_REP_HIT}, rivals cool on you.`, kind: "sell" }, ...state.log],
+      };
+    }
+    case "ACTIVIST_DIVIDEND": {
+      // Aktieägaraktivism: håller du ≥ 10 % av rivalens aktie kan du driva
+      // igenom en tvingad extrautdelning – kassa till dig pro rata, men den
+      // tömmer rivalens balansräkning (en försvagad måltavla) och är fientligt.
+      const comp = state.competitors.find((c) => c.name === action.competitorName);
+      const stock = state.stocks.find((x) => x.competitorName === action.competitorName);
+      if (!comp || !stock) return log(state, "That company isn't listed for an activist campaign.", "warn");
+      const stake = stock.sharesOutstanding > 0 ? stock.owned / stock.sharesOutstanding : 0;
+      if (stake < ACTIVIST_MIN_STAKE)
+        return log(state, `You need at least ${Math.round(ACTIVIST_MIN_STAKE * 100)}% of ${comp.name} to run an activist campaign (you hold ${pct(stake)}).`, "warn");
+      const absNow = state.year * 12 + state.month;
+      const cd = state.activistCooldowns?.[comp.name] ?? 0;
+      if (cd > absNow)
+        return log(state, `${comp.name}'s board has fended you off — you can campaign again in ${cd - absNow} month(s).`, "warn");
+      if ((comp.cash ?? 0) <= 0)
+        return log(state, `${comp.name} has no cash to force out — press them another way.`, "warn");
+      const payout = Math.round((comp.cash ?? 0) * ACTIVIST_PAYOUT_SHARE);
+      const myCut = Math.round(payout * stake);
+      return {
+        ...state,
+        cash: state.cash + myCut,
+        dividendsReceived: (state.dividendsReceived ?? 0) + myCut,
+        standing: adjustStanding(state.standing, { kind: "rival", name: comp.name }, -ACTIVIST_STANDING_HIT),
+        activistCooldowns: { ...(state.activistCooldowns ?? {}), [comp.name]: absNow + ACTIVIST_COOLDOWN },
+        competitors: state.competitors.map((c) =>
+          c.name === comp.name ? { ...c, cash: Math.round((c.cash ?? 0) - payout), equity: Math.round((c.equity ?? 0) - payout) } : c,
+        ),
+        log: [{ t: `📢 ACTIVIST CAMPAIGN: your ${pct(stake)} stake forces a special dividend at ${comp.name} — ${msek(payout)} paid out, ${msek(myCut)} to you. Their war chest is drained and the board resents it (standing −${ACTIVIST_STANDING_HIT}).`, kind: "income" }, ...state.log],
       };
     }
     case "TOGGLE_MA_ADVISOR": {

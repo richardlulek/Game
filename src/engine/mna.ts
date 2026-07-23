@@ -191,6 +191,15 @@ export const BREAKUP_PREMIUM = 1.10;
 export const BREAKUP_REP_HIT = 6;
 export const BREAKUP_STANDING_HIT = 4;
 
+/** Aktieägaraktivism: minsta ägarandel i rivalen för en kampanj. */
+export const ACTIVIST_MIN_STAKE = 0.10;
+/** Andel av rivalens kassa som en tvingad extrautdelning tömmer. */
+export const ACTIVIST_PAYOUT_SHARE = 0.5;
+/** Relationskostnaden – aktivism är fientligt. */
+export const ACTIVIST_STANDING_HIT = 6;
+/** Månader innan du kan driva en ny kampanj mot samma rival. */
+export const ACTIVIST_COOLDOWN = 12;
+
 export function executeAcquisition(
   state: GameState,
   rivalName: string,

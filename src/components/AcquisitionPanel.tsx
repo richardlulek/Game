@@ -4,7 +4,7 @@ import { loanTerms } from "../engine/finance";
 import { propMarketValue, propNOI } from "../engine/property";
 import { useUiStore } from "../store/uiStore";
 import { industryAssetValue } from "../engine/industries";
-import { BREAKUP_PREMIUM, BREAKUP_REP_HIT, BREAKUP_STANDING_HIT, DOMINANCE_DISTRICT_SHARE, HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, districtShareAfter, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
+import { ACTIVIST_MIN_STAKE, ACTIVIST_PAYOUT_SHARE, BREAKUP_PREMIUM, BREAKUP_REP_HIT, BREAKUP_STANDING_HIT, DOMINANCE_DISTRICT_SHARE, HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, districtShareAfter, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
 import { PROPERTY_SPINOFF_MIN, SPINOFF_CAP_RATE, SPINOFF_FLOATS, SPINOFF_MIN_LEVEL, propertySpinnable, propertySpinoffValuation, spinoffFee } from "../engine/spinoffs";
 import { interestLabel, packageStats } from "../engine/selling";
 import { rivalICR } from "../engine/rivalFinance";
@@ -702,6 +702,27 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                               title="Gå förbi styrelsen till aktieägarna: 125 % av börsvärdet. Styrelsen kan svara med vit riddare eller återköp – och staden minns en raid."
                             >
                               ⚔️ Hostile bid ({msek(hostileMin)})
+                            </button>
+                          );
+                        })()}
+                        {(() => {
+                          // Aktieägaraktivism: håller du ≥ 10 % kan du tvinga fram
+                          // en extrautdelning som tömmer rivalens kassa.
+                          const stock = state.stocks.find((x) => x.competitorName === comp.name);
+                          const stake = stock && stock.sharesOutstanding > 0 ? stock.owned / stock.sharesOutstanding : 0;
+                          if (stake < ACTIVIST_MIN_STAKE) return null;
+                          const cd = state.activistCooldowns?.[comp.name] ?? 0;
+                          const onCd = cd > absNow;
+                          const payout = Math.round((comp.cash ?? 0) * ACTIVIST_PAYOUT_SHARE);
+                          const myCut = Math.round(payout * stake);
+                          return (
+                            <button
+                              onClick={() => dispatch({ type: "ACTIVIST_DIVIDEND", competitorName: comp.name })}
+                              disabled={onCd || (comp.cash ?? 0) <= 0}
+                              style={{ ...btnPrimaryStyle, background: C.woodDark, border: `1px solid ${C.gold}66`, marginTop: 6, fontSize: 11.5, padding: "6px 10px", opacity: onCd || (comp.cash ?? 0) <= 0 ? 0.5 : 1 }}
+                              title="Aktieägaraktivism: din post tvingar fram en extrautdelning som tömmer rivalens kassa (kassa till dig pro rata), men styrelsen ogillar det (standing −6)."
+                            >
+                              📢 Activist dividend · you hold {pct(stake)} → {msek(myCut)}{onCd ? ` (cooldown ${cd - absNow}mo)` : ""}
                             </button>
                           );
                         })()}
