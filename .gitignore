@@ -4,4 +4,9 @@ dist-ssr
 *.local
 .DS_Store
 *.log
-.claude/
+# Ignore local Claude Code state, but keep the shared SessionStart hook
+# and project settings tracked so every web session gets the same setup.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
