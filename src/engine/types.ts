@@ -1276,7 +1276,7 @@ export type GameAction =
   | { type: "TOGGLE_MA_ADVISOR" }
   | { type: "HOSTILE_BID"; competitorName: string; amount: number }
   | { type: "BUY_DIVISION"; competitorName: string; district: string }
-  | { type: "PROPOSE_SWAP"; myPropertyId: number; rivalName: string; rivalPropertyId: number }
+  | { type: "PROPOSE_SWAP"; myPropertyId: number; rivalName: string; rivalPropertyId: number; cashBoot?: number }
   | { type: "SEND_OLIVE_BRANCH"; rivalName: string }
   | { type: "REQUEST_POLITICAL_FAVOR" }
   | { type: "SELL_PORTFOLIO_COMPANY"; district: string }

@@ -27,7 +27,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
   const [accordionOpen, setAccordionOpen] = useState<Record<string, boolean>>({});
   // M&A slider: competitor name -> acquisition amount
   const [maBids, setMaBids] = useState<Record<string, number>>({});
-  const [swapSel, setSwapSel] = useState<Record<string, { mine?: number; theirs?: number }>>({});
+  const [swapSel, setSwapSel] = useState<Record<string, { mine?: number; theirs?: number; boot?: number }>>({});
   // Fastighets-avknoppning: float (25/40/60 %) per distrikt.
   const [spinFloat, setSpinFloat] = useState<Record<string, number>>({});
 
@@ -544,21 +544,24 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                           const mine = myKlar.find((p) => p.id === sel.mine);
                           const theirs = (comp.portfolio ?? []).find((p) => p.id === sel.theirs);
                           const both = !!(mine && theirs);
-                          // Reducerns math: settle = deras värde − ditt (positivt = du betalar).
-                          const settle = both ? Math.round(propMarketValue(theirs!, state) - propMarketValue(mine!, state)) : 0;
-                          const accepted = mine ? swapAccepted(state, comp, mine.district) : false;
-                          const shortCash = settle > 0 && state.cash < settle;
+                          // Jämnt värde: deras värde − ditt (positivt = du betalar).
+                          const fair = both ? Math.round(propMarketValue(theirs!, state) - propMarketValue(mine!, state)) : 0;
+                          const boot = sel.boot ?? fair; // ditt bud på mellanskillnaden
+                          const fit = mine ? swapAccepted(state, comp, mine.district) : false;
+                          const meetsFair = boot >= fair; // annars kontrar rivalen
+                          const shortCash = boot > 0 && state.cash < boot;
                           const homeName = comp.preferredDistrict
                             ? DISTRICTS.find((d) => d.id === comp.preferredDistrict)?.name ?? comp.preferredDistrict
                             : null;
-                          const canPropose = both && accepted && !shortCash;
+                          const canPropose = both && fit && meetsFair && !shortCash;
+                          const bootSpan = both ? Math.max(1_000_000, Math.round(Math.abs(fair) + Math.max(propMarketValue(mine!, state), propMarketValue(theirs!, state)) * 0.3)) : 1;
                           return (
                             <div style={{ marginTop: 8, fontSize: 11 }}>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                                 <span style={{ color: C.creamSoft }}>🔁 Swap:</span>
                                 <select
                                   value={sel.mine ?? ""}
-                                  onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, mine: +e.target.value } })}
+                                  onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, mine: +e.target.value, boot: undefined } })}
                                   style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
                                 >
                                   <option value="">your building…</option>
@@ -568,7 +571,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                 </select>
                                 <select
                                   value={sel.theirs ?? ""}
-                                  onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, theirs: +e.target.value } })}
+                                  onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, theirs: +e.target.value, boot: undefined } })}
                                   style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
                                 >
                                   <option value="">their building…</option>
@@ -578,27 +581,42 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                 </select>
                                 <button
                                   disabled={!canPropose}
-                                  onClick={() => dispatch({ type: "PROPOSE_SWAP", myPropertyId: sel.mine!, rivalName: comp.name, rivalPropertyId: sel.theirs! })}
+                                  onClick={() => dispatch({ type: "PROPOSE_SWAP", myPropertyId: sel.mine!, rivalName: comp.name, rivalPropertyId: sel.theirs!, cashBoot: boot })}
                                   style={{ ...btnPrimaryStyle, background: canPropose ? BURGUNDY : C.woodDark, fontSize: 11, padding: "4px 8px", opacity: canPropose ? 1 : 0.5, cursor: canPropose ? "pointer" : "default" }}
-                                  title="Mellanskillnaden regleras kontant. Distriktsbolag vill ha sin stadsdel; andra kräver en varm relation (standing ≥ 20). Lyckad affär: standing +8."
+                                  title="Bjud en mellanskillnad. Under det jämna värdet kontrar rivalen. Distriktsbolag vill ha sin stadsdel; andra kräver standing ≥ 20. Lyckad affär: standing +8."
                                 >
                                   Propose
                                 </button>
                               </div>
                               {both && (
-                                <div style={{ marginTop: 6, padding: "6px 8px", borderRadius: 5, background: C.woodDark, border: `1px solid ${accepted ? `${C.brass}66` : `${C.negativeBright}55`}` }}>
+                                <div style={{ marginTop: 6, padding: "6px 8px", borderRadius: 5, background: C.woodDark, border: `1px solid ${canPropose ? `${C.brass}66` : `${C.negativeBright}55`}` }}>
                                   <div style={{ display: "flex", justifyContent: "space-between", color: C.creamSoft }}>
                                     <span>Give {msek(propMarketValue(mine!, state))}</span>
                                     <span>Get {msek(propMarketValue(theirs!, state))}</span>
                                   </div>
-                                  <div style={{ marginTop: 2, fontWeight: 700, color: settle > 0 ? C.negativeBright : settle < 0 ? C.positive : C.parchment }}>
-                                    {settle > 0 ? `Cash settlement: you pay ${msek(settle)}` : settle < 0 ? `Cash settlement: you receive ${msek(-settle)}` : "Even swap — no cash changes hands"}
-                                    {shortCash ? " — insufficient cash" : ""}
+                                  {/* Förhandla mellanskillnaden – bjud lägre, rivalen kontrar. */}
+                                  <div style={{ marginTop: 6 }}>
+                                    <label style={{ color: C.creamSoft }}>
+                                      Your cash offer: {boot > 0 ? `you pay ${msek(boot)}` : boot < 0 ? `rival pays you ${msek(-boot)}` : "even, no cash"}
+                                    </label>
+                                    <input
+                                      type="range"
+                                      min={fair - bootSpan}
+                                      max={fair + bootSpan}
+                                      step={Math.max(50_000, Math.round(bootSpan / 60))}
+                                      value={boot}
+                                      onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, boot: +e.target.value } })}
+                                      style={{ width: "100%", accentColor: C.brass, marginTop: 2 }}
+                                    />
                                   </div>
-                                  <div style={{ marginTop: 3, fontWeight: 700, color: accepted ? C.positive : C.negativeBright }}>
-                                    {accepted
-                                      ? `✅ ${comp.name} will accept this swap.`
-                                      : `✖ ${comp.name} won't — ${comp.strategy === "distrikt" && homeName ? `give a building in ${homeName}, or ` : ""}warm the relationship (standing ≥ 20).`}
+                                  <div style={{ marginTop: 3, fontWeight: 700, color: canPropose ? C.positive : C.negativeBright }}>
+                                    {!fit
+                                      ? `✖ ${comp.name} won't — ${comp.strategy === "distrikt" && homeName ? `give a building in ${homeName}, or ` : ""}warm the relationship (standing ≥ 20).`
+                                      : !meetsFair
+                                        ? `✖ ${comp.name} counters: at least ${msek(fair)} (you offered ${msek(boot)}).`
+                                        : shortCash
+                                          ? "✖ Insufficient cash for your offer."
+                                          : `✅ ${comp.name} will accept this swap.`}
                                   </div>
                                 </div>
                               )}

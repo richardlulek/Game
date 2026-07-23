@@ -69,6 +69,20 @@ describe("BYTESHANDEL: passform eller relation", () => {
     // Mellanskillnaden: deras hus är dyrare → du betalade.
     expect(after.cash).toBeLessThan(s.cash);
   });
+
+  it("en mellanskillnad under det jämna värdet kontras – bytet uteblir", () => {
+    const mine = makeProperty({ id: 7330, district: "förort", askPrice: 10_000_000 });
+    const theirs = makeProperty({ id: 7331, district: "centrum", owned: false, askPrice: 30_000_000 });
+    const partner = rival("Oakvale & Sons", { strategy: "distrikt", preferredDistrict: "förort", portfolio: [theirs] });
+    const s = makeState({ cash: 100_000_000, portfolio: [mine], competitors: [partner] });
+    // Lågt bud på mellanskillnaden → rivalen kontrar, husen står kvar.
+    const low = reducer(s, { type: "PROPOSE_SWAP", myPropertyId: 7330, rivalName: partner.name, rivalPropertyId: 7331, cashBoot: 1_000_000 });
+    expect(low.portfolio.some((p) => p.id === 7331 && p.owned)).toBe(false);
+    expect(low.portfolio.some((p) => p.id === 7330)).toBe(true);
+    // Möt det jämna värdet → affären går igenom.
+    const fair = reducer(s, { type: "PROPOSE_SWAP", myPropertyId: 7330, rivalName: partner.name, rivalPropertyId: 7331, cashBoot: 20_000_000 });
+    expect(fair.portfolio.some((p) => p.id === 7331 && p.owned)).toBe(true);
+  });
 });
 
 describe("PAKETBOLAG: säljsidans M&A", () => {

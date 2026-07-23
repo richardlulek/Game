@@ -2403,7 +2403,12 @@ export function reducer(state: GameState, action: GameAction): GameState {
         return log(state, `${partner.name} sees no strategic fit in that swap (warm the relationship, or offer something in their home district).`, "warn");
       const myVal = propMarketValue(mine, state);
       const theirVal = propMarketValue(theirs, state);
-      const settle = theirVal - myVal; // positiv = du betalar mellanskillnad
+      const fair = theirVal - myVal; // positiv = du betalar mellanskillnad
+      // Förhandlingsläge: bjuder du en mellanskillnad UNDER det jämna värdet
+      // håller motparten ut på minst fair (ett motbud). Utan bud = jämnt byte.
+      const settle = Math.round(action.cashBoot ?? fair);
+      if (settle < fair)
+        return log(state, `${partner.name} counters: they'll only swap for at least ${msek(fair)} cash settlement — you offered ${msek(settle)}.`, "warn");
       if (settle > 0 && state.cash < settle)
         return log(state, `The swap needs ${msek(settle)} in cash settlement.`, "warn");
       return {
