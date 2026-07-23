@@ -3,7 +3,7 @@ import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
 import { propMarketValue } from "../engine/property";
 import { industryAssetValue } from "../engine/industries";
-import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf } from "../engine/mna";
+import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
 import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
 import { CommitmentsPanel } from "./CommitmentsPanel";
@@ -531,42 +531,74 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                             </div>
                           );
                         })()}
-                        {/* Byteshandel: hus mot hus, mellanskillnad kontant */}
+                        {/* Byteshandel: hus mot hus, mellanskillnad kontant.
+                            Live-förhandsvisning – slutar vara ett blint klick:
+                            värden, kontant mellanskillnad och om rivalen tackar ja. */}
                         {(() => {
                           const myKlar = state.portfolio.filter((p) => p.status === "klar");
                           if (myKlar.length === 0 || (comp.portfolio ?? []).length === 0) return null;
                           const sel = swapSel[comp.name] ?? {};
+                          const mine = myKlar.find((p) => p.id === sel.mine);
+                          const theirs = (comp.portfolio ?? []).find((p) => p.id === sel.theirs);
+                          const both = !!(mine && theirs);
+                          // Reducerns math: settle = deras värde − ditt (positivt = du betalar).
+                          const settle = both ? Math.round(propMarketValue(theirs!, state) - propMarketValue(mine!, state)) : 0;
+                          const accepted = mine ? swapAccepted(state, comp, mine.district) : false;
+                          const shortCash = settle > 0 && state.cash < settle;
+                          const homeName = comp.preferredDistrict
+                            ? DISTRICTS.find((d) => d.id === comp.preferredDistrict)?.name ?? comp.preferredDistrict
+                            : null;
+                          const canPropose = both && accepted && !shortCash;
                           return (
-                            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", fontSize: 11 }}>
-                              <span style={{ color: C.creamSoft }}>🔁 Swap:</span>
-                              <select
-                                value={sel.mine ?? ""}
-                                onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, mine: +e.target.value } })}
-                                style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
-                              >
-                                <option value="">your building…</option>
-                                {myKlar.map((p) => (
-                                  <option key={p.id} value={p.id}>{p.typeLabel} · {p.districtName}</option>
-                                ))}
-                              </select>
-                              <select
-                                value={sel.theirs ?? ""}
-                                onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, theirs: +e.target.value } })}
-                                style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
-                              >
-                                <option value="">their building…</option>
-                                {(comp.portfolio ?? []).map((p) => (
-                                  <option key={p.id} value={p.id}>{p.typeLabel} · {p.districtName}</option>
-                                ))}
-                              </select>
-                              <button
-                                disabled={!sel.mine || !sel.theirs}
-                                onClick={() => dispatch({ type: "PROPOSE_SWAP", myPropertyId: sel.mine!, rivalName: comp.name, rivalPropertyId: sel.theirs! })}
-                                style={{ ...btnPrimaryStyle, background: BURGUNDY, fontSize: 11, padding: "4px 8px", opacity: sel.mine && sel.theirs ? 1 : 0.5 }}
-                                title="Mellanskillnaden regleras kontant. Distriktsbolag vill ha sin stadsdel; andra kräver en varm relation (standing ≥ 20). Lyckad affär: standing +8."
-                              >
-                                Propose
-                              </button>
+                            <div style={{ marginTop: 8, fontSize: 11 }}>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                <span style={{ color: C.creamSoft }}>🔁 Swap:</span>
+                                <select
+                                  value={sel.mine ?? ""}
+                                  onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, mine: +e.target.value } })}
+                                  style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
+                                >
+                                  <option value="">your building…</option>
+                                  {myKlar.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.typeLabel} · {p.districtName}</option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={sel.theirs ?? ""}
+                                  onChange={(e) => setSwapSel({ ...swapSel, [comp.name]: { ...sel, theirs: +e.target.value } })}
+                                  style={{ background: C.woodDark, color: C.parchment, border: `1px solid ${C.brass}66`, borderRadius: 4, fontSize: 11 }}
+                                >
+                                  <option value="">their building…</option>
+                                  {(comp.portfolio ?? []).map((p) => (
+                                    <option key={p.id} value={p.id}>{p.typeLabel} · {p.districtName}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  disabled={!canPropose}
+                                  onClick={() => dispatch({ type: "PROPOSE_SWAP", myPropertyId: sel.mine!, rivalName: comp.name, rivalPropertyId: sel.theirs! })}
+                                  style={{ ...btnPrimaryStyle, background: canPropose ? BURGUNDY : C.woodDark, fontSize: 11, padding: "4px 8px", opacity: canPropose ? 1 : 0.5, cursor: canPropose ? "pointer" : "default" }}
+                                  title="Mellanskillnaden regleras kontant. Distriktsbolag vill ha sin stadsdel; andra kräver en varm relation (standing ≥ 20). Lyckad affär: standing +8."
+                                >
+                                  Propose
+                                </button>
+                              </div>
+                              {both && (
+                                <div style={{ marginTop: 6, padding: "6px 8px", borderRadius: 5, background: C.woodDark, border: `1px solid ${accepted ? `${C.brass}66` : `${C.negativeBright}55`}` }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", color: C.creamSoft }}>
+                                    <span>Give {msek(propMarketValue(mine!, state))}</span>
+                                    <span>Get {msek(propMarketValue(theirs!, state))}</span>
+                                  </div>
+                                  <div style={{ marginTop: 2, fontWeight: 700, color: settle > 0 ? C.negativeBright : settle < 0 ? C.positive : C.parchment }}>
+                                    {settle > 0 ? `Cash settlement: you pay ${msek(settle)}` : settle < 0 ? `Cash settlement: you receive ${msek(-settle)}` : "Even swap — no cash changes hands"}
+                                    {shortCash ? " — insufficient cash" : ""}
+                                  </div>
+                                  <div style={{ marginTop: 3, fontWeight: 700, color: accepted ? C.positive : C.negativeBright }}>
+                                    {accepted
+                                      ? `✅ ${comp.name} will accept this swap.`
+                                      : `✖ ${comp.name} won't — ${comp.strategy === "distrikt" && homeName ? `give a building in ${homeName}, or ` : ""}warm the relationship (standing ≥ 20).`}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
