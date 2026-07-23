@@ -476,3 +476,25 @@ export function competitionBreach(s: GameState): { district: string; maxAllowed:
   }
   return null;
 }
+
+/** Rivalfusioner prövas också (tunna delar 5/7): myndigheten blockerar en
+ *  fusion som ger det sammanslagna bolaget flagrant dominans (> 55 %) i ett
+ *  distrikt. Tröskeln är högre än spelarens – myndigheten synar hårdast den
+ *  störste – men rena monopol stoppas oavsett vem. Returnerar distriktet. */
+export const RIVAL_MERGER_BLOCK_SHARE = 0.55;
+export function rivalMergerBlocked(s: GameState, buyer: Competitor, target: Competitor): string | null {
+  const combined = new Map<string, number>();
+  for (const p of [...(buyer.portfolio ?? []), ...(target.portfolio ?? [])]) {
+    combined.set(p.district, (combined.get(p.district) ?? 0) + 1);
+  }
+  for (const [district, mergedCount] of combined) {
+    const playerHere = s.portfolio.filter((p) => p.district === district && p.status === "klar").length;
+    const otherRivals = s.competitors
+      .filter((c) => c.name !== buyer.name && c.name !== target.name)
+      .reduce((a, c) => a + (c.portfolio ?? []).filter((p) => p.district === district).length, 0);
+    const listings = s.listings.filter((p) => p.district === district && p.status === "klar").length;
+    const total = mergedCount + playerHere + otherRivals + listings;
+    if (total >= 6 && mergedCount / total > RIVAL_MERGER_BLOCK_SHARE) return district;
+  }
+  return null;
+}

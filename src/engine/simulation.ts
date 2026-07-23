@@ -41,6 +41,7 @@ import {
   hostileDefense,
   integrationScore,
   ownerResponse,
+  rivalMergerBlocked,
 } from "./mna";
 import { SCENARIOS, rivalScenarioProgress, rivalWinsScenario } from "./scenarios";
 import { advanceStory, districtLocked, suppressOrganicApplications, unlockedDistrictsFor } from "./story";
@@ -1531,6 +1532,16 @@ export function advanceMonth(state: GameState): GameState {
   if (mergerPlan && mergerRoll < mergerGate) {
     const ca = s.competitors.find((c) => c.name === mergerPlan.buyer)!;
     const cb = s.competitors.find((c) => c.name === mergerPlan.target)!;
+    // Konkurrensprövning gäller även rivalfusioner (tunna delar 5/7):
+    // en fusion som ger flagrant distriktsdominans stoppas av myndigheten.
+    const blockedDistrict = rivalMergerBlocked(s, ca, cb);
+    if (blockedDistrict) {
+      const dName = DISTRICTS.find((d) => d.id === blockedDistrict)?.name ?? blockedDistrict;
+      events.push({
+        t: `⚖️ BLOCKED: the competition authority stops ${ca.name}'s takeover of ${cb.name} — the merger would hand them a monopoly in ${dName}.`,
+        kind: "info",
+      });
+    } else {
     const merged = {
       ...ca,
       cash: ca.cash + cb.cash,
@@ -1570,6 +1581,7 @@ export function advanceMonth(state: GameState): GameState {
       }
       s.stocks = s.stocks.filter((st) => st.id !== bStock.id);
       s.stockOrders = (s.stockOrders ?? []).filter((o) => o.stockId !== bStock.id);
+    }
     }
   }
 
@@ -2569,6 +2581,57 @@ export function advanceMonth(state: GameState): GameState {
     }
     return nc;
   });
+
+  // ── Uppstickare växer upp (tunna delar 5/7) ─────────────────────
+  // En liten aktör som byggt eget kapital och ett bestånd tar steget:
+  // small-flaggan faller och bolaget börsnoteras – de kan nu bli
+  // uppköpsmål via aktiemarknaden och tävla på riktigt om ledartröjan.
+  {
+    const GRADUATE_EQUITY = 120_000_000;
+    const GRADUATE_UNITS = 6;
+    for (let i = 0; i < s.competitors.length; i++) {
+      const c = s.competitors[i];
+      if (!c.small) continue;
+      if (c.equity < GRADUATE_EQUITY || (c.portfolio ?? []).length < GRADUATE_UNITS) continue;
+      s.competitors[i] = { ...c, small: false };
+      // Notera bolaget om det inte redan har en aktie (nytt id-suffix).
+      if (!s.stocks.some((st) => st.competitorName === c.name)) {
+        const shares = 200_000;
+        const price = Math.max(10, Math.round((c.equity / shares) * 100) / 100);
+        s.stocks = [
+          ...s.stocks,
+          {
+            id: `comp-grad-${c.name}`,
+            name: c.name,
+            sector: "fastighet",
+            price,
+            prevPrice: price,
+            monthClose: price,
+            targetPrice: price,
+            sharesOutstanding: shares,
+            owned: 0,
+            avgCost: 0,
+            dividendYield: 0.032,
+            beta: 1.15,
+            drift: 0.003,
+            volatility: 0.045,
+            history: [price],
+            competitorName: c.name,
+            eps: Math.round(price * 0.07 * 100) / 100,
+            analystRating: "Hold" as const,
+            targetKurs: Math.round(price * 1.05 * 100) / 100,
+            rivalPrevUnits: c.units,
+            rivalPrevNOI: c.monthlyNOI ?? 0,
+          },
+        ];
+      }
+      events.push({
+        t: `📈 COMING OF AGE: ${c.name} grows out of the challenger tier and lists on the exchange — the upstart is now a full rival, and a possible target.`,
+        kind: "event",
+        rival: c.name,
+      });
+    }
+  }
 
   // ── Flyttkedjor: nya bostäder suger uppåt ────────────────────────
   // När en ny bostad står klar i ett distrikt flyttar hushåll i äldre hus
