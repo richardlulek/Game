@@ -508,6 +508,9 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                               <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "earnout" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="75 % nu, 25 % om 24 mån OM beståndet levererar 85 % av dagens driftnetto.">
                                 Earn-out (75% now)
                               </button>
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "lbo" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="Leveraged buyout: bara 10 % kontant, resten hög-belånad förvärvsskuld som målets hyra ska bära. Går yield över räntan finansierar affären sig själv – annars en skuldspiral.">
+                                LBO (10% down)
+                              </button>
                               <button onClick={() => dispatch({ type: "WITHDRAW_DEAL" })} style={{ ...btnPrimaryStyle, background: C.woodDark, padding: "6px 10px" }}>
                                 Walk away
                               </button>

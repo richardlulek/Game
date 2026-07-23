@@ -112,6 +112,23 @@ describe("FÖRHANDLINGSFLÖDET: bud → motbud → avslut", () => {
     expect(cashDeal.debt).toBe(0 + 0); // ingen ny skuld (rivalen var skuldfri)
   });
 
+  it("LBO: liten kontantinsats, ~90 % blir förvärvsskuld", () => {
+    const c = rival("Sterling & Partners");
+    const accepted = (cash: number): GameState =>
+      makeState({
+        cash,
+        competitors: [c],
+        pendingDeal: { target: c.name, offer: 120_000_000, round: 2, status: "accepted", startedAbs: 13 },
+      });
+    const lbo = reducer(accepted(200_000_000), { type: "FINALIZE_DEAL", financing: "lbo" });
+    expect(lbo.competitors).toHaveLength(0); // affären stängd
+    expect(lbo.debt).toBeGreaterThan(100_000_000); // ~90 % av priset
+    expect(200_000_000 - lbo.cash).toBeLessThan(20_000_000); // bara handpenning + arvode ur kassan
+    // För liten kassa för ens handpenningen → affären uteblir.
+    const poor = reducer(accepted(8_000_000), { type: "FINALIZE_DEAL", financing: "lbo" });
+    expect(poor.competitors).toHaveLength(1);
+  });
+
   it("earn-out bokas vid avslut och förfaller bara om beståndet levererar", () => {
     seedRng(107);
     try {

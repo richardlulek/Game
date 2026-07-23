@@ -181,6 +181,10 @@ export function integrationScore(s: GameState): number {
   return Math.min(1, 0.6 + staffLevels * 0.02);
 }
 
+/** Leveraged buyout: liten kontantinsats + arrangörsarvode på förvärvsskulden. */
+export const LBO_DOWN = 0.10;
+export const LBO_FEE_PCT = 0.02;
+
 export function executeAcquisition(
   state: GameState,
   rivalName: string,
@@ -226,6 +230,16 @@ export function executeAcquisition(
     // en ny storägare på listan (uppköpstrycket ökar).
     ipoShares = { total: shares.total + newShares, public: shares.public + newShares };
     takeoverDelta = 2;
+  } else if (financing === "lbo") {
+    // Leveraged buyout: bara LBO_DOWN kontant, resten hög-belånad förvärvs-
+    // skuld (+ arrangörsarvode). Målets EGEN hyra ska bära skulden – går
+    // yield över räntan finansierar affären sig själv, annars en skuldspiral.
+    const down = Math.round(price * LBO_DOWN);
+    const loanBase = price - down;
+    const fee = Math.round(loanBase * LBO_FEE_PCT);
+    cashOut = down + fee;
+    newLoan = loanBase;
+    if (state.cash < cashOut) return { state, error: `An LBO needs ${msek(cashOut)} (${Math.round(LBO_DOWN * 100)}% down + arrangement fee).` };
   } else {
     // Earn-out: 75 % nu (25 % kontant / 75 % lån av den delen), resten
     // betalas om 24 mån OM beståndet håller 85 % av dagens driftnetto.
@@ -322,7 +336,7 @@ export function executeAcquisition(
       reputation: Math.min(100, state.reputation + 8),
       log: [
         {
-          t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} via ${financing === "kontant" ? "cash" : financing === "lan" ? "bank financing" : financing === "aktier" ? "a share issue" : "an earn-out structure"} – ${acquired.length} properties, ${msek(Math.round(rival.cash ?? 0))} in cash${(rival.debt ?? 0) > 0 ? ` and ${msek(Math.round(rival.debt ?? 0))} of assumed debt` : ""} added!${q ? " " + q : ""}${skeletonNote}`,
+          t: `🏢 ACQUISITION: ${rival.name} is merged into the group for ${msek(price)}${ownFrac > 0 ? ` (your ${pct(ownFrac)} stake was offset)` : ""} via ${financing === "kontant" ? "cash" : financing === "lan" ? "bank financing" : financing === "aktier" ? "a share issue" : financing === "lbo" ? "a leveraged buyout" : "an earn-out structure"} – ${acquired.length} properties, ${msek(Math.round(rival.cash ?? 0))} in cash${(rival.debt ?? 0) > 0 ? ` and ${msek(Math.round(rival.debt ?? 0))} of assumed debt` : ""} added!${q ? " " + q : ""}${skeletonNote}`,
           rival: rival.name,
           kind: "buy" as const,
         },

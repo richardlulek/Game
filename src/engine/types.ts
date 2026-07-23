@@ -144,7 +144,7 @@ export interface IndustryAsset {
 /* ── M&A 2.0 (mna.ts) ─────────────────────────────────────────────── */
 
 /** Finansieringsval vid bolagsförvärv. */
-export type DealFinancing = "kontant" | "lan" | "aktier" | "earnout";
+export type DealFinancing = "kontant" | "lan" | "aktier" | "earnout" | "lbo";
 
 /** Pågående bolagsförhandling: bud → svar (accept/motbud/avvisat) i rundor. */
 export interface PendingDeal {
