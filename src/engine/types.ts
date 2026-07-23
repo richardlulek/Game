@@ -1052,6 +1052,8 @@ export interface GameState {
   budpliktDone?: string[];
   /** Onboarding: vilka av rådgivarens introduktionsbrev som visats. */
   mnaIntroSeen?: string[];
+  /** Olivkvistar: per rival, absolutmånad då nästa gest är möjlig. */
+  oliveBranchCooldowns?: Record<string, number>;
   /** Pågående integrationer efter bolagsförvärv (mna.ts, batch 4). */
   integrations?: Integration[];
   /** Konkurrensmyndighetens avyttringskrav efter dominansaffärer (batch 5). */
@@ -1258,6 +1260,7 @@ export type GameAction =
   | { type: "HOSTILE_BID"; competitorName: string; amount: number }
   | { type: "BUY_DIVISION"; competitorName: string; district: string }
   | { type: "PROPOSE_SWAP"; myPropertyId: number; rivalName: string; rivalPropertyId: number }
+  | { type: "SEND_OLIVE_BRANCH"; rivalName: string }
   | { type: "SELL_PORTFOLIO_COMPANY"; district: string }
   | { type: "START_DUE_DILIGENCE"; competitorName: string }
   | { type: "RAISE_DEAL"; amount: number }

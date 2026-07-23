@@ -570,6 +570,32 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                             </div>
                           );
                         })()}
+                        {/* Olivkvisten: reparera en frostig relation aktivt */}
+                        {(() => {
+                          const standing = state.standing?.rivals?.[comp.name] ?? 0;
+                          const obCost = Math.max(500_000, Math.min(5_000_000, Math.round(comp.equity * 0.005)));
+                          const obUntil = state.oliveBranchCooldowns?.[comp.name] ?? 0;
+                          const obLeft = Math.max(0, obUntil - absNow);
+                          return (
+                            <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", fontSize: 11 }}>
+                              <span style={{ color: standing < -20 ? C.negativeBright : standing > 20 ? C.positive : C.creamSoft }}>
+                                Relation: {standing > 0 ? "+" : ""}{standing.toFixed(0)}
+                              </span>
+                              {obLeft > 0 ? (
+                                <span style={{ color: C.creamSoft }}>🕊️ next gesture in {obLeft} mo</span>
+                              ) : (
+                                <button
+                                  onClick={() => dispatch({ type: "SEND_OLIVE_BRANCH", rivalName: comp.name })}
+                                  disabled={state.cash < obCost}
+                                  style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 11, padding: "3px 8px", opacity: state.cash < obCost ? 0.5 : 1 }}
+                                  title="En synlig gest – gala i rivalens namn. Standing +6, rep +1. En per halvår och rival."
+                                >
+                                  🕊️ Olive branch ({msek(obCost)})
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {(() => {
                           const cap = marketCapOf(state, comp.name);
                           if (cap <= 0 || deal || state.hostileBid) return null;

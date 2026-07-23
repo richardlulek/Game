@@ -2643,8 +2643,33 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
     case "PASS_COMPETING_BID": {
+      // Att demonstrativt kliva åt sidan är också diplomati: rivalen som
+      // får huset utan strid minns gesten (standing +2).
+      const cbRival = state.competingBid?.rivalName;
       return { ...state, competingBid: undefined,
-        log: [{ t: "Du valde att inte delta i budgivningen.", kind: "info" }, ...state.log] };
+        standing: cbRival ? adjustStanding(state.standing, { kind: "rival", name: cbRival }, 2) : state.standing,
+        log: [{ t: cbRival ? `You step aside and let ${cbRival} take the deal uncontested — they notice (standing +2).` : "Du valde att inte delta i budgivningen.", kind: "info" }, ...state.log] };
+    }
+    case "SEND_OLIVE_BRANCH": {
+      // Olivkvisten: en dyr, synlig gest (välgörenhetsgala i rivalens namn,
+      // gemensam stadsfest) som tinar en frostig relation. En per halvår
+      // och rival – vänskap går inte att massköpa.
+      const obRival = state.competitors.find((c) => c.name === action.rivalName);
+      if (!obRival) return state;
+      const absNowOb = state.year * 12 + state.month;
+      const obUntil = state.oliveBranchCooldowns?.[obRival.name] ?? 0;
+      if (obUntil > absNowOb)
+        return log(state, `${obRival.name} just received your last gesture — wait ${obUntil - absNowOb} month(s) before the next.`, "warn");
+      const obCost = Math.max(500_000, Math.min(5_000_000, Math.round(obRival.equity * 0.005)));
+      if (state.cash < obCost) return log(state, `The gesture would cost ${msek(obCost)}.`, "warn");
+      return {
+        ...state,
+        cash: state.cash - obCost,
+        oliveBranchCooldowns: { ...(state.oliveBranchCooldowns ?? {}), [obRival.name]: absNowOb + 6 },
+        standing: adjustStanding(state.standing, { kind: "rival", name: obRival.name }, 6),
+        reputation: Math.min(100, +(state.reputation + 1).toFixed(1)),
+        log: [{ t: `🕊️ OLIVE BRANCH: you host a city gala in ${obRival.name}'s honor (${msek(obCost)}) — the frost thaws a little (standing +6, rep +1).`, kind: "expense" }, ...state.log],
+      };
     }
     case "IMPROVE_ENERGY": {
       const p = state.portfolio.find((x) => x.id === action.id);

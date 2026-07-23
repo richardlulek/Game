@@ -2224,7 +2224,9 @@ export function advanceMonth(state: GameState): GameState {
   // Tre engångsbrev vid rätt ögonblick i stället för tutorial-popups:
   // introduktionen när kassan räcker för affärer, budpliktsvarningen vid
   // första stora aktieposten, integrationsprimern efter första köpet.
-  if (!s.pendingDecision && (!s.story || s.story.done)) {
+  // Onboarding-breven är aldrig brådskande: de får inte tränga undan en
+  // pågående kris (tbtf-stödpaket, rekonstruktion) som äger beslutsrutan.
+  if (!s.pendingDecision && !s.crisisMonthsLeft && !s.receivership && (!s.story || s.story.done)) {
     const seen = s.mnaIntroSeen ?? [];
     const mark = (id: string) => { s.mnaIntroSeen = [...(s.mnaIntroSeen ?? []), id]; };
     if (!seen.includes("intro") && equityOf(s) >= 25_000_000 && s.competitors.length > 0) {
