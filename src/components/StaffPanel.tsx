@@ -1,6 +1,6 @@
 import { execSalaryMult, talentStars } from "../engine/executives";
 import { kr, msek } from "../engine/format";
-import { ELECTION_PERIOD, politicalFavorActive } from "../engine/politics";
+import { ELECTION_PERIOD, FAVOR_REQUEST_COST, politicalFavorActive } from "../engine/politics";
 import { STAFF_ROLES, hireFee, salariesTotal } from "../engine/progression";
 import type { GameAction, GameState } from "../engine/types";
 import { C, FONTS, THEME } from "../styles/tokens";
@@ -118,6 +118,27 @@ export function StaffPanel({ state, dispatch }: Props) {
               ) : (
                 <span style={{ color: C.creamSoft }}>No political favor</span>
               )}
+              {/* Politiskt kapital: löpande relation, spenderas på interimtjänst */}
+              <div style={{ marginTop: 6, fontSize: 11 }}>
+                <span style={{ color: (state.politics?.capital ?? 0) >= FAVOR_REQUEST_COST ? C.positive : C.creamSoft }}>
+                  🏛️ Political capital: {Math.round(state.politics?.capital ?? 0)}/100
+                </span>
+                {!favor && (
+                  <button
+                    onClick={() => dispatch({ type: "REQUEST_POLITICAL_FAVOR" })}
+                    disabled={(state.politics?.capital ?? 0) < FAVOR_REQUEST_COST}
+                    style={{
+                      marginLeft: 8, padding: "2px 8px", fontSize: 10.5, borderRadius: 4,
+                      border: `1px solid ${C.brass}`, background: C.burgundy, color: C.brassBright,
+                      cursor: (state.politics?.capital ?? 0) >= FAVOR_REQUEST_COST ? "pointer" : "default",
+                      opacity: (state.politics?.capital ?? 0) >= FAVOR_REQUEST_COST ? 1 : 0.5, fontWeight: 700,
+                    }}
+                    title={`Spend ${FAVOR_REQUEST_COST} capital on 12 months of city-hall favor between elections.`}
+                  >
+                    Call in a favor ({FAVOR_REQUEST_COST})
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );

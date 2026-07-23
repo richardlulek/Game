@@ -117,7 +117,13 @@ import {
 } from "./finInstitutions";
 import { esgRatingOf } from "./esg";
 import { rollExecutive, talentStars } from "./executives";
-import { politicalFavorActive } from "./politics";
+import {
+  CAPITAL_OPEN,
+  CAPITAL_SECRET,
+  FAVOR_REQUEST_COST,
+  FAVOR_REQUEST_MONTHS,
+  politicalFavorActive,
+} from "./politics";
 import { COFINANCE_SPEEDUP, cofinanceCost, infraKindById, lobbyCost } from "./infrastructure";
 import {
   SPINOFF_MIN_ASSETS,
@@ -1244,11 +1250,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
       }
       // Kampanjdonation (politics.ts): registrera stödet inför valet.
       if (e.campaign) {
+        // Donationen bygger också bestående politiskt kapital (politics.ts).
+        const cap = Math.min(100, (s.politics?.capital ?? 0) + (e.campaign.secret ? CAPITAL_SECRET : CAPITAL_OPEN));
         s.politics = {
           ...(s.politics ?? {}),
           backed: e.campaign.party,
           donation: e.campaign.amount,
           secret: e.campaign.secret ?? false,
+          capital: cap,
         };
       }
       // Berättelseläget: flaggor med sidoeffekter + kedjade brev.
@@ -2669,6 +2678,24 @@ export function reducer(state: GameState, action: GameAction): GameState {
         standing: adjustStanding(state.standing, { kind: "rival", name: obRival.name }, 6),
         reputation: Math.min(100, +(state.reputation + 1).toFixed(1)),
         log: [{ t: `🕊️ OLIVE BRANCH: you host a city gala in ${obRival.name}'s honor (${msek(obCost)}) — the frost thaws a little (standing +6, rep +1).`, kind: "expense" }, ...state.log],
+      };
+    }
+    case "REQUEST_POLITICAL_FAVOR": {
+      // Interimtjänst: spendera politiskt kapital på 12 månaders välvilja
+      // mellan valen – politiken är en löpande relation, inte en 4-årsloop.
+      if (politicalFavorActive(state))
+        return log(state, "You already hold the city's favor — spend it before asking for more.", "warn");
+      if ((state.politics?.capital ?? 0) < FAVOR_REQUEST_COST)
+        return log(state, `You need ${FAVOR_REQUEST_COST} political capital to call in a favor (you have ${Math.round(state.politics?.capital ?? 0)}).`, "warn");
+      return {
+        ...state,
+        politics: {
+          ...(state.politics ?? {}),
+          capital: (state.politics?.capital ?? 0) - FAVOR_REQUEST_COST,
+          favorMonthsLeft: FAVOR_REQUEST_MONTHS,
+          favorParty: state.electionResult ?? "city hall",
+        },
+        log: [{ t: `🤝 You call in a favor at city hall: ${FAVOR_REQUEST_MONTHS} months of political goodwill — faster zoning and cheaper land auctions.`, kind: "income" }, ...state.log],
       };
     }
     case "IMPROVE_ENERGY": {

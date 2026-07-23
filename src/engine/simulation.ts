@@ -129,11 +129,15 @@ import {
   CAMPAIGN_LEAD,
   CAMPAIGN_WIN_OPEN,
   CAMPAIGN_WIN_SECRET,
+  CAPITAL_HEAT_THRESHOLD,
+  CAPITAL_WIN_BONUS,
   ELECTION_PERIOD,
   FAVOR_MONTHS,
   SECRET_SCANDAL_CHANCE,
   campaignDecision,
+  campaignWinBoost,
   favorAuctionMult,
+  nextPoliticalCapital,
   politicalFavorActive,
 } from "./politics";
 import { maybePoachingDecision } from "./executives";
@@ -1377,7 +1381,8 @@ export function advanceMonth(state: GameState): GameState {
     }
     if (absM % ELECTION_PERIOD === 0) {
       const backed = s.politics?.backed ? POLITICAL_PARTIES.find((p) => p.id === s.politics!.backed) : undefined;
-      const winChance = s.politics?.secret ? CAMPAIGN_WIN_SECRET : CAMPAIGN_WIN_OPEN;
+      // Bestående politiskt kapital gör kampanjen lättare (politics.ts).
+      const winChance = (s.politics?.secret ? CAMPAIGN_WIN_SECRET : CAMPAIGN_WIN_OPEN) + campaignWinBoost(s);
       const party = backed && random01() < winChance ? backed : pick(POLITICAL_PARTIES);
       s = party.apply(s);
       s.electionResult = party.name;
@@ -1389,6 +1394,8 @@ export function advanceMonth(state: GameState): GameState {
           secret: s.politics?.secret,
           backed: null,
           donation: 0,
+          // Segern befäster relationen: kapital ovanpå det donationen gav.
+          capital: Math.min(100, (s.politics?.capital ?? 0) + CAPITAL_WIN_BONUS),
         };
         events.push({
           t: `🤝 Your campaign contribution is remembered at city hall: zoning reviews move faster and land auctions open cheaper for ${FAVOR_MONTHS} months.`,
@@ -1409,6 +1416,16 @@ export function advanceMonth(state: GameState): GameState {
           t: `📰 BRIBERY SCANDAL: The newspaper traces the foundation's campaign money to ${s.companyName ?? "your company"}. City hall freezes you out (rep −10, the favor is gone).`,
           kind: "warn",
         });
+      }
+    }
+    // Politiskt kapital driver mot 0 och eroderas av impopularitet – en
+    // impopulär hyresvärd (hög presshetta) tappar sina vänner i stadshuset.
+    if ((s.politics?.capital ?? 0) > 0) {
+      const before = s.politics!.capital ?? 0;
+      const after = nextPoliticalCapital(s);
+      s.politics = { ...s.politics, capital: after };
+      if (before - after > 3 && (s.pressHeat ?? 0) > CAPITAL_HEAT_THRESHOLD) {
+        events.push({ t: `🏛️ City hall distances itself from an unpopular landlord — your political capital erodes.`, kind: "warn" });
       }
     }
   }

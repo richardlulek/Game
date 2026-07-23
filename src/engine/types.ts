@@ -435,6 +435,10 @@ export interface PoliticsState {
   favorMonthsLeft?: number;
   /** Partiet som välviljan kommer ifrån (för UI:t). */
   favorParty?: string;
+  /** Politiskt kapital 0–100 (politics.ts): en bestående relation som byggs
+   *  av donationer och eroderas av impopularitet, spenderas på interimtjänster
+   *  mellan valen. Gör politiken till en löpande relation, inte en engångsloop. */
+  capital?: number;
 }
 
 /** Svårighetsgrad – påverkar startvillkor i Friläge och scenarier
@@ -1261,6 +1265,7 @@ export type GameAction =
   | { type: "BUY_DIVISION"; competitorName: string; district: string }
   | { type: "PROPOSE_SWAP"; myPropertyId: number; rivalName: string; rivalPropertyId: number }
   | { type: "SEND_OLIVE_BRANCH"; rivalName: string }
+  | { type: "REQUEST_POLITICAL_FAVOR" }
   | { type: "SELL_PORTFOLIO_COMPANY"; district: string }
   | { type: "START_DUE_DILIGENCE"; competitorName: string }
   | { type: "RAISE_DEAL"; amount: number }

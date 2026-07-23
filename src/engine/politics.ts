@@ -34,6 +34,42 @@ export const FAVOR_AUCTION_MULT = 0.92;
 /** Skandalrisk per månad för diskret finansierad välvilja. */
 export const SECRET_SCANDAL_CHANCE = 0.02;
 
+/* ── Politiskt kapital (tunna delar 6/7) ───────────────────────────
+   En bestående relation med stadshuset i stället för en engångsloop:
+   donationer bygger kapital, impopularitet (presshetta) eroderar det,
+   och det kan spenderas på en interimtjänst mellan valen. */
+/** Kapital en öppen respektive diskret donation ger. */
+export const CAPITAL_OPEN = 30;
+export const CAPITAL_SECRET = 20;
+/** Kapital en valseger med backat parti ger ovanpå donationen. */
+export const CAPITAL_WIN_BONUS = 25;
+/** Månatlig avklingning mot 0 (relationer svalnar utan underhåll). */
+export const CAPITAL_DECAY = 1;
+/** Presshetta över denna nivå eroderar kapital (impopulär hyresvärd). */
+export const CAPITAL_HEAT_THRESHOLD = 4;
+/** Kostnad i kapital för en interimtjänst mellan valen. */
+export const FAVOR_REQUEST_COST = 40;
+/** Interimtjänsten ger så här många månaders välvilja. */
+export const FAVOR_REQUEST_MONTHS = 12;
+
+export function politicalCapital(s: GameState): number {
+  return Math.max(0, Math.min(100, s.politics?.capital ?? 0));
+}
+
+/** Donationen bygger kapital, en vunnen relation gör kommande kampanjer
+ *  lättare (kapital > 50 ger +8 procentenheter vinstchans). */
+export function campaignWinBoost(s: GameState): number {
+  return politicalCapital(s) >= 50 ? 0.08 : 0;
+}
+
+/** Månatlig drift: avklingning + erosion av impopularitet. */
+export function nextPoliticalCapital(s: GameState): number {
+  let cap = politicalCapital(s) - CAPITAL_DECAY;
+  const heat = s.pressHeat ?? 0;
+  if (heat > CAPITAL_HEAT_THRESHOLD) cap -= (heat - CAPITAL_HEAT_THRESHOLD) * 1.5;
+  return Math.max(0, Math.min(100, +cap.toFixed(1)));
+}
+
 /** Donationens storlek skalar med bolagets storlek. */
 export function campaignDonationSize(equity: number): number {
   return Math.round(Math.min(25_000_000, Math.max(2_000_000, equity * 0.005)) / 100_000) * 100_000;
