@@ -232,6 +232,10 @@ export function PortfolioTable({ state, dispatch }: Props) {
           })}
         </div>
       )}
+      <div style={{ fontSize: 11, color: C.creamSoft, fontStyle: "italic", marginBottom: 10 }}>
+        📦 Tick buildings to bundle a custom package here — or manage packages, district sales and
+        spin-offs together in <strong>M&amp;A → Sell</strong>.
+      </div>
       {selected.size >= 2 && (() => {
         const props = state.portfolio.filter((p) => selected.has(p.id) && p.status === "klar" && !p.forSale);
         const value = props.reduce((a, p) => a + propMarketValue(p, state), 0);

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { msek, kr, pct } from "../engine/format";
 import { loanTerms } from "../engine/finance";
-import { propMarketValue } from "../engine/property";
+import { propMarketValue, propNOI } from "../engine/property";
+import { useUiStore } from "../store/uiStore";
 import { industryAssetValue } from "../engine/industries";
 import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
-import { PROPERTY_SPINOFF_MIN, SPINOFF_FLOATS, SPINOFF_MIN_LEVEL, propertySpinnable, propertySpinoffValuation, spinoffFee } from "../engine/spinoffs";
+import { PROPERTY_SPINOFF_MIN, SPINOFF_CAP_RATE, SPINOFF_FLOATS, SPINOFF_MIN_LEVEL, propertySpinnable, propertySpinoffValuation, spinoffFee } from "../engine/spinoffs";
 import { interestLabel, packageStats } from "../engine/selling";
 import { rivalICR } from "../engine/rivalFinance";
 import { personaFor } from "../engine/rivalPersonas";
@@ -33,6 +34,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
   const [spinFloat, setSpinFloat] = useState<Record<string, number>>({});
   // Flikar: köp / sälj / pågående – panelen var en enda lång rulle.
   const [dealTab, setDealTab] = useState<"buy" | "sell" | "deals">("buy");
+  const requestOpen = useUiStore((s) => s.requestOpen);
 
   // Score world pool properties by yield potential
   const poolScored = [...(state.worldPool ?? [])]
@@ -719,6 +721,19 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
           Bundle finished buildings and list them to institutional buyers — volume earns a package
           premium, and offers land in your 📨 inbox. Withdraw any time.
         </p>
+        {(() => {
+          const pkgOffers = (state.offers ?? []).filter((o) => o.packageId != null);
+          if (pkgOffers.length === 0) return null;
+          return (
+            <button
+              onClick={() => requestOpen("offers")}
+              style={{ ...btnPrimaryStyle, width: "auto", marginTop: 0, marginBottom: 12, background: BURGUNDY, fontSize: 12.5, padding: "7px 14px" }}
+              title="Open the offers inbox to accept, counter or decline."
+            >
+              📨 {pkgOffers.length} package offer{pkgOffers.length > 1 ? "s" : ""} waiting — open inbox →
+            </button>
+          );
+        })()}
         {(state.salePackages ?? []).length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
             {(state.salePackages ?? []).map((pkg) => {
@@ -819,10 +834,16 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
           <div style={{ fontFamily: FONTS.heading, color: C.brass, fontSize: 13, marginBottom: 4 }}>
             🏢 Spin off a district as a listed subsidiary
           </div>
-          <p style={{ color: C.creamSoft, fontSize: 11.5, marginBottom: 10 }}>
+          <p style={{ color: C.creamSoft, fontSize: 11.5, marginBottom: 6 }}>
             Float part of a district's buildings as their own listed company (PropCo). The
             buildings stay on the map but their rent flows to the subsidiary, which pays you
             quarterly dividends on the stake you keep. Requires company level {SPINOFF_MIN_LEVEL}.
+          </p>
+          <p style={{ color: C.gold, fontSize: 11.5, marginBottom: 10, fontStyle: "italic" }}>
+            Why do this? Raise capital <strong>without giving up control or debt</strong> — unlike a
+            package sale you keep the majority and the upside. Best on a high-yield district: the
+            market prices its rent above brick value, so you float at a premium, bank the cash, and
+            can buy the shares back cheap in a downturn.
           </p>
           {(() => {
             if ((state.companyLevel ?? 1) < SPINOFF_MIN_LEVEL)
@@ -836,16 +857,27 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
             return (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {[...byDistrict.entries()].map(([district, label]) => {
-                  const n = propertySpinnable(state, district).length;
+                  const spinProps = propertySpinnable(state, district);
+                  const n = spinProps.length;
                   const valuation = propertySpinoffValuation(state, district);
                   const float = spinFloat[district] ?? 0.4;
                   const proceeds = Math.round(valuation * float) - spinoffFee(valuation);
+                  // Premien: värderar börsen hyran över tegelvärdet? Det är själva
+                  // poängen med avknoppningen – flotta högt, behåll kontrollen.
+                  const book = spinProps.reduce((a, p) => a + propMarketValue(p, state), 0);
+                  const earnings = spinProps.reduce((a, p) => a + propNOI(p, state), 0) / SPINOFF_CAP_RATE;
+                  const premium = book > 0 ? earnings / book - 1 : 0;
                   return (
                     <div key={district} style={{ ...cardStyle, background: C.woodDark, minWidth: 230 }}>
                       <div style={{ fontWeight: 700, color: C.brassBright, fontSize: 13 }}>{label} PropCo</div>
                       <div style={{ fontSize: 11.5, color: C.creamSoft, marginTop: 3 }}>
                         {n} buildings · valuation {msek(valuation)}
                       </div>
+                      {premium > 0.02 && (
+                        <div style={{ fontSize: 11, color: C.positive, marginTop: 3, fontWeight: 700 }}>
+                          📈 Market prices the rent +{Math.round(premium * 100)}% over brick value
+                        </div>
+                      )}
                       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                         {SPINOFF_FLOATS.map((f) => (
                           <button
@@ -863,7 +895,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                         ))}
                       </div>
                       <div style={{ fontSize: 11.5, marginTop: 8, color: proceeds > 0 ? C.positive : C.negativeBright, fontWeight: 700 }}>
-                        Net proceeds ~{msek(proceeds)} · keep {Math.round((1 - float) * 100)}%
+                        Net proceeds ~{msek(proceeds)} · keep {Math.round((1 - float) * 100)}% + quarterly dividends
                       </div>
                       <button
                         disabled={proceeds <= 0}
