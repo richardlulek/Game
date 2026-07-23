@@ -27,6 +27,15 @@ export type ParcelContent =
     täta hus – då stängs de av. */
 const HOVER_MAX_DIST = 480;
 
+/** Markeringsringens radier. Tidigare var ringen bred (0.4 → 2.2, bredd 1.8);
+ *  i tätbebyggda distrikt lade sig grannars ringar omlott till en rörig
+ *  krokig grågloria kring husen. En smal lip (bredd 0.7) läser som en ren
+ *  tomtmarkering utan att svälla ut över gatan. */
+const ringArgs = (parcel: Parcel): [number, number, number] => {
+  const r = Math.max(parcel.w, parcel.d) / 2;
+  return [r + 0.4, r + 1.1, 48];
+};
+
 /** Alltid-synlig färgbeacon ovanför huset som visar ägarkategori (matchar
     kartlegenden): din, till salu, tomt, konkurrent. "Till salu" är en stor
     guldbricka med prislapp så köpobjekt syns tydligt (en liten gul prick var
@@ -221,7 +230,7 @@ function LockedExpansion({ parcel }: { parcel: Parcel }) {
       </mesh>
       {selected && (
         <mesh rotation-x={-Math.PI / 2} position={[0, 0.24, 0]}>
-          <ringGeometry args={[Math.max(parcel.w, parcel.d) / 2 + 0.4, Math.max(parcel.w, parcel.d) / 2 + 2.2, 40]} />
+          <ringGeometry args={ringArgs(parcel)} />
           <meshBasicMaterial color="#ffffff" />
         </mesh>
       )}
@@ -306,7 +315,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     return (
       <group position={[parcel.x, 0, parcel.z]}>
         <mesh rotation-x={-Math.PI / 2} position={[0, 0.24, 0]}>
-          <ringGeometry args={[Math.max(parcel.w, parcel.d) / 2 + 0.4, Math.max(parcel.w, parcel.d) / 2 + 2.2, 40]} />
+          <ringGeometry args={ringArgs(parcel)} />
           <meshBasicMaterial color="#ffffff" />
         </mesh>
       </group>
@@ -372,11 +381,15 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
   const fullH = building ? building.floors * FLOOR_HEIGHT : isSignature ? 46 : 0;
 
   // Helägda kvarter markeras med guldring på varje ingående tomt.
+  // Konkurrenttomter får ingen markring i vila – deras röda beacon räcker,
+  // och de täta rivalklustren i city slapp därmed den krokiga gråglorian.
   const ringColor = selected
     ? RING_COLORS.selected
-    : content.kind === "owned" && content.blockOwned
-      ? "#e8c96a"
-      : RING_COLORS[content.kind];
+    : content.kind === "rival"
+      ? null
+      : content.kind === "owned" && content.blockOwned
+        ? "#e8c96a"
+        : RING_COLORS[content.kind];
   // Statusikoner ovanför husen (ägda, färdiga): 📨 inkommet bud,
   // 🔑 lediga platser, 🏷️ utannonserad till försäljning. Klick öppnar
   // rätt vy direkt (budinkorg / hyresgäster / portfölj).
@@ -413,7 +426,7 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
       </mesh>
       {ringColor && (
         <mesh rotation-x={-Math.PI / 2} position={[0, 0.24, 0]}>
-          <ringGeometry args={[Math.max(parcel.w, parcel.d) / 2 + 0.4, Math.max(parcel.w, parcel.d) / 2 + 2.2, 40]} />
+          <ringGeometry args={ringArgs(parcel)} />
           <meshBasicMaterial color={ringColor} />
         </mesh>
       )}
