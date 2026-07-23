@@ -30,6 +30,8 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
   const [swapSel, setSwapSel] = useState<Record<string, { mine?: number; theirs?: number; boot?: number }>>({});
   // Fastighets-avknoppning: float (25/40/60 %) per distrikt.
   const [spinFloat, setSpinFloat] = useState<Record<string, number>>({});
+  // Flikar: köp / sälj / pågående – panelen var en enda lång rulle.
+  const [dealTab, setDealTab] = useState<"buy" | "sell" | "deals">("buy");
 
   // Score world pool properties by yield potential
   const poolScored = [...(state.worldPool ?? [])]
@@ -59,13 +61,32 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
 
   return (
     <div style={{ color: C.parchment, fontFamily: FONTS.body }}>
-      <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 20 }}>
+      <h2 style={{ fontFamily: FONTS.heading, color: C.brassBright, marginBottom: 12 }}>
         Acquisition flow
       </h2>
 
-      {/* Åtaganden: allt som pågår – förhandlingar, integrationer, krav */}
-      <CommitmentsPanel state={state} dispatch={dispatch} />
+      {/* Flikar: köp / sälj / pågående – bryter upp den långa rullen. */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: `1px solid ${C.brass}44` }}>
+        {([["buy", "Buy"], ["sell", "Sell"], ["deals", "In progress"]] as const).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setDealTab(id)}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: "8px 16px", fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700,
+              color: dealTab === id ? C.brassBright : C.creamSoft,
+              borderBottom: `2px solid ${dealTab === id ? C.brassBright : "transparent"}`,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
+      {/* Åtaganden: allt som pågår – förhandlingar, integrationer, krav */}
+      {dealTab === "deals" && <CommitmentsPanel state={state} dispatch={dispatch} />}
+
+      {dealTab === "buy" && (<>
       {/* ── Köpkalkylator ─────────────────────────────────────────── */}
       <section style={{ ...sectionStyle, background: "#1a1208", border: `1px solid ${C.brass}` }}>
         <h3 style={sectionHeadStyle}>Purchase calculator</h3>
@@ -672,7 +693,9 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
           </div>
         )}
       </section>
+      </>)}
 
+      {dealTab === "sell" && (<>
       {/* ── Sektion 4: Sälj paketbolag (säljsidans M&A) ───────────── */}
       <section style={sectionStyle}>
         <h3 style={sectionHeadStyle}>Sell a portfolio company</h3>
@@ -777,6 +800,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
           })()}
         </div>
       </section>
+      </>)}
     </div>
   );
 }
