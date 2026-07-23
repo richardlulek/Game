@@ -30,8 +30,10 @@ export function sidewalkWidth(district: string): number {
 
 /** Kantstenens bredd (den synliga lippen mot gräs/trottoar). */
 export const KERB_W = 0.5;
-/** Kantstenshöjd – en aning över trottoaren så kanten fångar ljus. */
-export const KERB_H = 0.26;
+/** Kantstenshöjd. Trottoaren toppar på 0.20; kantstenen ligger bara en
+ *  hårsmån över (0.21) så den läses som en diskret lip, inte en mur. Den
+ *  tidigare höjden 0.26 stack upp som en klump på gatunivå. */
+export const KERB_H = 0.21;
 
 /** Tunn kantsten längs de sidor av en bebyggd tomt som vetter mot gata –
  *  en crisp lip där tomten möter trottoaren. Inre kvartersgränser (mellan
@@ -90,9 +92,11 @@ export function drivewayFootprint(p: Parcel): { edge: "n" | "s" | "e" | "w"; wid
   return { edge, width: Math.min(Math.max(along * 0.32, 3.5), 7) };
 }
 
-/** En asfalterad infartsplatta på tomtens primära gatusida, som spänner
- *  från tomtkanten ut över trottoaren till gatan. Bredden skalar med
- *  tomten men hålls måttlig så det blir en infart, inte en hel framsida. */
+/** En platt asfaltinfart som PAVAR trottoaren mellan tomtkanten och gatan –
+ *  den fyller den sänkta kantstenens öppning. Den ligger i höjd med
+ *  trottoaren (topp ~0.22, precis proud) och sträcker sig ALDRIG ut i
+ *  körbanan; den slutar exakt vid gatukanten. Tidigare stack den upp som en
+ *  hög grå kloss 0.7 enheter in i gatan – vilket såg ut som ett hinder. */
 export function drivewayInstances(hasBuilding: (p: Parcel) => boolean): FurnitureInst[] {
   const items: FurnitureInst[] = [];
   for (const p of PARCELS) {
@@ -100,20 +104,19 @@ export function drivewayInstances(hasBuilding: (p: Parcel) => boolean): Furnitur
     const drive = drivewayFootprint(p);
     if (!drive) continue;
     const sw = sidewalkWidth(p.district);
-    // Överbrygga: från en bit in på tomten, ut över trottoaren (+ liten
-    // marginal in i gatan) så plattan möter körbanan sömlöst.
-    const span = sw + 1.4;
     const { edge, width: dw } = drive;
+    // Trottoaren löper från tomtkanten (halva djupet/bredden) och sw utåt.
+    // Infarten går från en aning in på tomten till exakt gatukanten.
+    const span = sw + 0.2;      // trottoarbredd + liten bit in på tomten
+    const y = 0.19, sy = 0.06;  // topp 0.22, strax över trottoarens 0.20
     if (edge === "n" || edge === "s") {
       const sign = edge === "s" ? 1 : -1;
-      const inner = p.d / 2 - 0.7; // startar strax innanför tomtkanten
-      const z = p.z + sign * (inner + span / 2);
-      items.push({ x: p.x, y: 0.11, z, sx: dw, sy: 0.16, sz: span });
+      const center = p.d / 2 + sw / 2 - 0.1; // mitt i trottoaren, dragen 0.1 inåt
+      items.push({ x: p.x, y, z: p.z + sign * center, sx: dw, sy, sz: span });
     } else {
       const sign = edge === "e" ? 1 : -1;
-      const inner = p.w / 2 - 0.7;
-      const x = p.x + sign * (inner + span / 2);
-      items.push({ x, y: 0.11, z: p.z, sx: span, sy: 0.16, sz: dw });
+      const center = p.w / 2 + sw / 2 - 0.1;
+      items.push({ x: p.x + sign * center, y, z: p.z, sx: span, sy, sz: dw });
     }
   }
   return items;
