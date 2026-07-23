@@ -305,6 +305,9 @@ export interface Tenant {
   /** Namngiven "notabel" hyresgäst (NOTABLE_TENANTS) – ett ansikte med en
    *  historia som flyttar in, växer och stannar lojal eller lämnar i vredesmod. */
   notableId?: string;
+  /** Veteran (tenantLife.ts): en hyresgäst som stannat 5+ år nöjd blir en
+   *  pelare i huset – lägre konkursrisk och ett namn man känner igen. */
+  veteran?: boolean;
 }
 
 /** Ett inkommande erbjudande: oombett uppköpsbud ("buyout"), bud på en

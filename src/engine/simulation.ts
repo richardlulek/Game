@@ -62,6 +62,7 @@ import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
 import { hasRelation, nemesisOf, pickMerger, rivalCycleMult } from "./rivalArcs";
 import { adjustStanding, rivalStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
+import { VETERAN_RISK_MULT, becomesVeteran, tenantLifeEvent } from "./tenantLife";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
 import { ageWearFactor, buildingAge } from "./lifecycle";
 import {
@@ -614,11 +615,25 @@ export function advanceMonth(state: GameState): GameState {
       // Tenant loyalty: consecutiveMonths halves default risk after 24+ months
       const consMonths = (t.consecutiveMonths ?? 0) + 1;
       const loyaltyFactor = consMonths >= 24 ? 0.5 : 1.0;
+      // Veteran (tenantLife.ts): en 5+-årig nöjd hyresgäst blir en pelare i
+      // huset – ett namn man känner igen och en tryggare betalare.
+      if (becomesVeteran(t, consMonths)) {
+        t.veteran = true;
+        events.push({ t: `🏅 ${t.name} in ${np.districtName} has been a loyal tenant for five years — a pillar of the building now.`, kind: "income" });
+      }
+      const veteranFactor = t.veteran ? VETERAN_RISK_MULT : 1.0;
       const recFactor = (s.recessionMonthsLeft ?? 0) > 0 ? 2.5 : 1.0;
       // Hyresgästernas livscykel: konkursrisken andas med konjunkturen.
       const cycleRisk = cyclePhaseNow === "bust" ? 1.6 : cyclePhaseNow === "boom" ? 0.6 : 1.0;
+      // Livshändelser: en nöjd, etablerad hyresgäst kan få ett mänskligt
+      // ögonblick (barn, expansion, jubileum) som knuffar nöjdheten.
+      const life = tenantLifeEvent(t, np, random01(), random01());
+      if (life) {
+        t.satisfaction = Math.min(100, (t.satisfaction ?? 60) + life.satDelta);
+        events.push({ t: life.text, kind: "info" });
+      }
       // Seasonal effect on default risk for residential
-      const effDefaultRisk = t.defaultRisk * loyaltyFactor * recFactor * cycleRisk * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
+      const effDefaultRisk = t.defaultRisk * loyaltyFactor * veteranFactor * recFactor * cycleRisk * (np.type === "bostad" ? (seasonFactor > 1 ? 0.9 : 1.1) : 1.0);
       if (random01() < effDefaultRisk) {
         const evictionCost = Math.round(t.rent * 2);
         monthlyNOI -= evictionCost;

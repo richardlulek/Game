@@ -279,6 +279,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
               <div>
                 <div style={{ display: "flex", gap: 7, alignItems: "baseline", flexWrap: "wrap" }}>
                   <span style={tenantName}>{t.name}</span>
+                  {t.veteran && <span style={{ fontSize: 11 }} title="Pillar tenant: loyal for five years or more — lower default risk">🏅</span>}
                   {t.profileName && <span style={profileTag}>{t.profileName}</span>}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 3 }}>
