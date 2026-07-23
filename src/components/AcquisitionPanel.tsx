@@ -4,7 +4,7 @@ import { loanTerms } from "../engine/finance";
 import { propMarketValue, propNOI } from "../engine/property";
 import { useUiStore } from "../store/uiStore";
 import { industryAssetValue } from "../engine/industries";
-import { HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
+import { DOMINANCE_DISTRICT_SHARE, HOSTILE_PREMIUM, MA_ADVISOR_FEE, PACKAGE_MIN_PROPS, PACKAGE_PHASE_MULT, VALUATION_UNCERTAINTY, acquisitionValuation, ddCostFor, ddDoneFor, districtShareAfter, divisionPrice, marketCapOf, swapAccepted } from "../engine/mna";
 import { PROPERTY_SPINOFF_MIN, SPINOFF_CAP_RATE, SPINOFF_FLOATS, SPINOFF_MIN_LEVEL, propertySpinnable, propertySpinoffValuation, spinoffFee } from "../engine/spinoffs";
 import { interestLabel, packageStats } from "../engine/selling";
 import { rivalICR } from "../engine/rivalFinance";
@@ -843,7 +843,9 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
             Why do this? Raise capital <strong>without giving up control or debt</strong> — unlike a
             package sale you keep the majority and the upside. Best on a high-yield district: the
             market prices its rent above brick value, so you float at a premium, bank the cash, and
-            can buy the shares back cheap in a downturn.
+            can buy the shares back cheap in a downturn. It's also a lawful way around the{" "}
+            <strong>dominance rules</strong>: floating out a majority drops your counted share of a
+            district you own too much of, so the regulator lets go — no fire-sale.
           </p>
           {(() => {
             if ((state.companyLevel ?? 1) < SPINOFF_MIN_LEVEL)
@@ -878,6 +880,15 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                           📈 Market prices the rent +{Math.round(premium * 100)}% over brick value
                         </div>
                       )}
+                      {(() => {
+                        const dom = districtShareAfter(state, district);
+                        if (!(dom.total >= 6 && dom.share > DOMINANCE_DISTRICT_SHARE - 0.05)) return null;
+                        return (
+                          <div style={{ fontSize: 11, color: C.gold, marginTop: 3, fontWeight: 700 }}>
+                            ⚖️ You hold {pct(dom.share)} here — a float cuts your counted dominance below the {Math.round(DOMINANCE_DISTRICT_SHARE * 100)}% line.
+                          </div>
+                        );
+                      })()}
                       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                         {SPINOFF_FLOATS.map((f) => (
                           <button

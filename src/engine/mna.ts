@@ -450,15 +450,30 @@ export function swapAccepted(s: GameState, comp: Competitor, myDistrict: string)
   return rivalStanding(s, comp.name) >= 20;
 }
 
-/** Spelarens andel av ett distrikts totala bestånd (färdiga hus). */
+/** Spelarens BEHÅLLNA ägarandel i ett PropCo (1 om huset inte är avknoppat). */
+function retainedStake(s: GameState, spinOffId: string | undefined): number {
+  if (!spinOffId) return 1;
+  const spin = (s.spinOffs ?? []).find((x) => x.id === spinOffId);
+  if (!spin) return 1;
+  const st = s.stocks.find((x) => x.id === spin.stockId);
+  if (!st || st.sharesOutstanding <= 0) return 1;
+  return Math.max(0, Math.min(1, st.owned / st.sharesOutstanding));
+}
+
+/** Spelarens andel av ett distrikts totala bestånd (färdiga hus).
+ *  Avknoppade hus (PropCo) räknas bara efter den ägarandel du BEHÅLLER –
+ *  floatar du ut en majoritet sjunker din räknade dominans, så avknoppning
+ *  blir ett lagligt sätt att möta konkurrensvillkoren utan brandförsäljning.
+ *  Husen finns kvar i distriktet, så de räknas fullt i nämnaren. */
 export function districtShareAfter(s: GameState, district: string): { share: number; mine: number; total: number } {
-  const mine = s.portfolio.filter((p) => p.district === district && p.status === "klar").length;
+  const myBuildings = s.portfolio.filter((p) => p.district === district && p.status === "klar");
+  const mine = myBuildings.reduce((a, p) => a + retainedStake(s, p.spinOffId), 0);
   const rivals = s.competitors.reduce(
     (a, c) => a + (c.portfolio ?? []).filter((p) => p.district === district).length,
     0,
   );
   const listings = s.listings.filter((p) => p.district === district && p.status === "klar").length;
-  const total = mine + rivals + listings;
+  const total = myBuildings.length + rivals + listings;
   return { share: total > 0 ? mine / total : 0, mine, total };
 }
 

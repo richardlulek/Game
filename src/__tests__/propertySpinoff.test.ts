@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { reducer } from "../engine";
 import { advanceMonth } from "../engine/simulation";
 import { PROPERTY_SPINOFF_MIN, propertySpinnable, propertySpinoffValuation } from "../engine/spinoffs";
+import { competitionBreach, districtShareAfter } from "../engine/mna";
 import type { GameState } from "../engine/types";
 import { makeProperty, makeState } from "./factories";
 
@@ -58,5 +59,25 @@ describe("FASTIGHETS-AVKNOPPNING: notering", () => {
     expect(typeof spin.lastMonthNet).toBe("number");
     // Husen förblir taggade efter månadsskiftet.
     expect(next.portfolio.filter((p) => p.spinOffId === spinId).length).toBe(4);
+  });
+});
+
+describe("FASTIGHETS-AVKNOPPNING: väg runt dominanskraven", () => {
+  it("floatar du ut en majoritet sjunker din räknade dominans under tröskeln", () => {
+    // Äg HELA distriktet (8 hus) → dominans, avyttring krävs.
+    const portfolio = Array.from({ length: 8 }, (_, i) =>
+      makeProperty({ id: 300 + i, district: "centrum", districtName: "Centrum", status: "klar", owned: true, askPrice: 5_000_000, baseRent: 40_000 }),
+    );
+    const s = makeState({ companyLevel: 4, cash: 50_000_000, portfolio });
+    expect(districtShareAfter(s, "centrum").share).toBeCloseTo(1, 5);
+    expect(competitionBreach(s)?.district).toBe("centrum");
+
+    // Avknoppa distriktet och floata ut 60 % → du behåller 40 %.
+    const after = reducer(s, { type: "SPIN_OFF_PROPERTIES", district: "centrum", floatPct: 0.6 });
+    const share = districtShareAfter(after, "centrum").share;
+    expect(share).toBeLessThan(0.45); // under regulatorns tröskel
+    expect(competitionBreach(after)).toBeNull(); // inget avyttringskrav längre
+    // Husen står kvar i distriktet (fullt i nämnaren, ~0.4 i täljaren).
+    expect(districtShareAfter(after, "centrum").total).toBe(8);
   });
 });
