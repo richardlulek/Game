@@ -72,11 +72,20 @@ const M: Record<string, CSSProperties> = {
   },
 };
 
-/** Färgförklaring för kartans markeringsringar. */
+/** Färgförklaring: ägarringar i kartläge, värmeskala i överläggen. */
 export function MapLegend() {
+  const overlay = useUiStore((s) => s.overlay);
+  // Värmeskalan går rött (dåligt, poäng 0) → grönt (bra, poäng 1) för alla tre.
+  const heat: Partial<Record<OverlayMode, string>> = {
+    vakans: "🔴 Vacant · 🟢 Fully let",
+    skick: "🔴 Poor · 🟢 Good",
+    avkastning: "🔴 Low yield · 🟢 High yield",
+  };
   return (
     <div style={M.legend}>
-      🔵 Yours · 🟡 For sale · 🟢 Lot · 🔴 Competitor
+      {overlay !== "ingen" && heat[overlay]
+        ? heat[overlay]
+        : "🔵 Yours · 🟡 For sale · 🟢 Lot · 🔴 Competitor"}
     </div>
   );
 }
