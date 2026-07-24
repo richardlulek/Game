@@ -18,7 +18,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={header}>
-          <span>📨 Inkommande bud ({offers.length})</span>
+          <span>📨 Incoming bids ({offers.length})</span>
           <button style={closeBtn} onClick={onClose}>✕</button>
         </div>
         <div style={goldRule} />
@@ -46,12 +46,12 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                     <span style={{ fontSize: 11, color: C.inkSoft }}>expires in {o.expiresIn} mo</span>
                   </div>
                   <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 3 }}>
-                    {o.from} bjuder
+                    {o.from} is bidding
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
                     <span style={{ fontFamily: FONTS.heading, fontSize: 20, fontWeight: 800, color: BURGUNDY }}>{msek(o.amount)}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: premium >= 0 ? C.positive : C.negative }}>
-                      {premium >= 0 ? "+" : ""}{premium.toFixed(0)}% mot marknad
+                      {premium >= 0 ? "+" : ""}{premium.toFixed(0)}% vs market
                     </span>
                   </div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 1 }}>
@@ -76,7 +76,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                           dispatch({ type: "COUNTER_OFFER", offerId: o.id, amount: Math.round((o.amount * m) / 10_000) * 10_000 })
                         }
                       >
-                        Motbud +{Math.round((m - 1) * 100)}%
+                        Counter +{Math.round((m - 1) * 100)}%
                       </button>
                     ))}
                     <button

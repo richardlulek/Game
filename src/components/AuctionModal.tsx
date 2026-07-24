@@ -81,11 +81,11 @@ export function AuctionModal({
   return (
     <div style={A.overlay}>
       <div style={A.box}>
-        <div style={A.title}>🏛️ Detaljplaneauktion — {a.districtName}</div>
+        <div style={A.title}>🏛️ Zoning auction — {a.districtName}</div>
         <div style={A.sub}>
           The municipality releases a new block with {a.parcels}{" "}
           {a.parcels === 1 ? "build-ready lot" : "build-ready lots"}. The winner owns the land.
-          Budrunda {a.round + 1} · utrop {msek(a.minBid)} · din kassa {msek(state.cash)}.
+          Bid round {a.round + 1} · opening {msek(a.minBid)} · your cash {msek(state.cash)}.
         </div>
         <div style={A.bidRow}>
           <div>
