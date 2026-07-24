@@ -93,7 +93,7 @@ export function CommitmentsPanel({ state, dispatch }: Props) {
             <button
               onClick={() => dispatch({ type: "INTEGRATION_RETENTION", target: integ.target })}
               style={{ background: C.woodDark, border: `1px solid ${C.brass}66`, color: C.parchment, borderRadius: 4, padding: "3px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
-              title="Golden handcuffs för målets nyckelpersoner: dämpar kulturkrock-churn och lyfter hur mycket av synergierna som realiseras."
+              title="Golden handcuffs for the target's key people: eases culture-clash churn and lifts how much of the synergies is realized."
             >
               🤝 Retain team ({msek(Math.max(500_000, Math.round(integ.synergyGoal * RETENTION_FEE_PCT)))})
             </button>

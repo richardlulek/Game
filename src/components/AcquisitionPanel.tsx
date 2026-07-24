@@ -341,7 +341,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
           <button
             onClick={() => dispatch({ type: "TOGGLE_MA_ADVISOR" })}
             style={{ ...btnPrimaryStyle, background: state.maAdvisor ? C.woodDark : BURGUNDY, padding: "6px 12px" }}
-            title={`Månadsarvode ${msek(MA_ADVISOR_FEE)}: rivalernas balansräkningar och stress som underrättelser.`}
+            title={`Monthly fee ${msek(MA_ADVISOR_FEE)}: rivals' balance sheets and distress as intelligence.`}
           >
             {state.maAdvisor ? "End M&A advisory mandate" : `Retain M&A advisors (${msek(MA_ADVISOR_FEE)}/mo)`}
           </button>
@@ -567,7 +567,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                   key={district}
                                   onClick={() => dispatch({ type: "BUY_DIVISION", competitorName: comp.name, district })}
                                   style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 11, padding: "4px 8px" }}
-                                  title={`Hela ${comp.name}s bestånd i distriktet (${n} hus) i EN affär – 5 % paketpremie, 25 % kontant.`}
+                                  title={`${comp.name}'s entire holding in the district (${n} buildings) in ONE deal — 5% package premium, 25% cash.`}
                                 >
                                   🏙️ Buy {DISTRICTS.find((d) => d.id === district)?.name ?? district} division ({n}) · {msek(divisionPrice(state, comp, district))}
                                 </button>
@@ -842,14 +842,14 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                     <button
                       onClick={() => dispatch({ type: "SELL_PORTFOLIO_COMPANY", district })}
                       style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 12, padding: "6px 10px", marginTop: 0, width: "auto" }}
-                      title={`Hela ditt bestånd i distriktet säljs som paketbolag till bäst kapitaliserade rival. Priset följer konjunkturen (boom +5 %, bust −15 %).`}
+                      title={`Your entire holding in the district is sold as a package company to the best-capitalized rival. The price follows the cycle (boom +5%, bust −15%).`}
                     >
                       🏷️ {label} ({n}) · orderly ~{msek(est)}
                     </button>
                     <button
                       onClick={() => dispatch({ type: "BREAK_UP_DISTRICT", district })}
                       style={{ ...btnPrimaryStyle, background: "#5a2233", fontSize: 11.5, padding: "5px 10px", marginTop: 0, width: "auto" }}
-                      title={`Raider-drag: stycka och flippa distriktet snabbt till en fokuspremie (+${Math.round((BREAKUP_PREMIUM - 1) * 100)}%) – men rykte −${BREAKUP_REP_HIT} och alla rivaler kyls (standing −${BREAKUP_STANDING_HIT}).`}
+                      title={`Raider move: break up and flip the district fast for a focus premium (+${Math.round((BREAKUP_PREMIUM - 1) * 100)}%) — but reputation −${BREAKUP_REP_HIT} and every rival cools (standing −${BREAKUP_STANDING_HIT}).`}
                     >
                       🔨 Break up & flip · ~{msek(breakupEst)} (rep −{BREAKUP_REP_HIT})
                     </button>

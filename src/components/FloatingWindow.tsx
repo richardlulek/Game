@@ -102,7 +102,7 @@ export function FloatingWindow({
         </span>
         <span style={{ display: "flex", gap: 6 }}>
           {onMinimize && (
-            <button onClick={onMinimize} title="Minimera till taskbaren" style={winBtn}>
+            <button onClick={onMinimize} title="Minimize to the taskbar" style={winBtn}>
               —
             </button>
           )}
