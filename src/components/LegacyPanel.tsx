@@ -109,7 +109,7 @@ export function LegacyPanel({ state, dispatch }: { state: GameState; dispatch: (
           background: "#fbfdff", marginBottom: 12,
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 6 }}>
-            <span style={{ color: "#5d6b7c" }}>Totalt utdelat</span>
+            <span style={{ color: "#5d6b7c" }}>Total paid out</span>
             <strong>{kr(state.dividendsPaid ?? 0)}</strong>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
