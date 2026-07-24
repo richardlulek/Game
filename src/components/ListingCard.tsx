@@ -140,7 +140,7 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
       {guide && (
         <div style={guideBox}>
           <span style={{ fontSize: 11, color: guide.color, fontWeight: 700 }}>
-            {p.typeLabel}: ~{guide.yield} cap rate
+            {p.typeLabel}: {guide.yield} cap rate
           </span>
           <span style={{ fontSize: 11, color: guide.color, marginLeft: 6 }}>· {guide.risk}</span>
         </div>

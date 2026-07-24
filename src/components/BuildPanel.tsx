@@ -39,7 +39,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
             return (
             <div key={l.id} style={S.card}>
               <div style={S.cardHead}>
-                <span style={S.badge}>Tomt</span>
+                <span style={S.badge}>Lot</span>
                 <span style={S.cardDistrict}>{l.districtName}</span>
               </div>
               <div style={S.cardValue}>{msek(l.price)}</div>
@@ -55,7 +55,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
                 </div>
               )}
               <div style={S.cardRow}>
-                <span>Yta</span>
+                <span>Area</span>
                 <strong>{l.area} m²</strong>
               </div>
               <button
@@ -69,7 +69,7 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
             );
           })}
       </div>
-      <h3 style={{ ...S.h3, marginTop: 24 }}>Mina tomter</h3>
+      <h3 style={{ ...S.h3, marginTop: 24 }}>My lots</h3>
       <div style={S.grid}>
         {state.lots.filter((l) => l.owned).length === 0 && (
           <div style={S.empty}>No lots yet. Buy one above to build.</div>
@@ -84,11 +84,11 @@ export function BuildPanel({ state, dispatch }: BuildPanelProps) {
             return (
               <div key={l.id} style={S.card}>
                 <div style={S.cardHead}>
-                  <span style={S.badge}>Min tomt</span>
+                  <span style={S.badge}>My lot</span>
                   <span style={S.cardDistrict}>{l.districtName}</span>
                 </div>
                 <div style={S.cardRow}>
-                  <span>Yta</span>
+                  <span>Area</span>
                   <strong>{l.area} m²</strong>
                 </div>
                 <select

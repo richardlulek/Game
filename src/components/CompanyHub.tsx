@@ -17,9 +17,9 @@ import { PortfolioTable } from "./PortfolioTable";
 
 /** Flik-id:n matchar de gamla fönster-id:na så TIERS-upplåsningarna gäller. */
 const HUB_TABS = [
-  { id: "bolaget", label: "Bolaget", icon: "🏠" },
-  { id: "bokslut", label: "Bokslut", icon: "📒" },
-  { id: "arv", label: "Arv", icon: "👑" },
+  { id: "bolaget", label: "Summary", icon: "🏠" },
+  { id: "bokslut", label: "Statements", icon: "📒" },
+  { id: "arv", label: "Legacy", icon: "👑" },
   { id: "milestones", label: "Milestones", icon: "🏅" },
   { id: "overview", label: "Overview", icon: "📊" },
   { id: "kpi", label: "KPI", icon: "📐" },

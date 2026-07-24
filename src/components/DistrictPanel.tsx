@@ -222,7 +222,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                 {/* Top rivals */}
                 {topRivals.length > 0 && (
                   <div style={{ fontSize: 11 }}>
-                    <span style={{ color: C.creamSoft }}>Topp rivaler: </span>
+                    <span style={{ color: C.creamSoft }}>Top rival: </span>
                     {topRivals.map(([name, cnt], i) => (
                       <span key={name}>
                         {i > 0 && <span style={{ color: C.creamSoft }}>, </span>}
@@ -272,7 +272,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                     width: "100%",
                   }}
                 >
-                  Investera i {d.name}
+                  Invest in {d.name}
                 </button>
               </div>
             </div>
