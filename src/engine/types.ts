@@ -1325,6 +1325,7 @@ export type GameAction =
   | { type: "BREAK_UP_DISTRICT"; district: string }
   | { type: "ACTIVIST_DIVIDEND"; competitorName: string }
   | { type: "INTEGRATION_RETENTION"; target: string }
+  | { type: "DEV_SEED" }
   | { type: "SHORT_STOCK"; stockId: string; qty: number }
   | { type: "COVER_SHORT"; stockId: string }
   | { type: "BUY_INDUSTRY"; id: number }

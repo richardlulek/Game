@@ -196,6 +196,17 @@ export default function FastighetsImperium() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingOpen]);
 
+  // Dev-granskning: ?dev i URL:en bootar direkt in i ett fyllt sandbox-parti,
+  // förbi titelskärm OCH berättelseläget – så UI, karta och paneler kan
+  // granskas utan story-modalerna. Rör aldrig ett normalt parti.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!new URLSearchParams(window.location.search).has("dev")) return;
+    startNew("sandbox", 1, "Dev Review Co", { cash: 50_000_000 });
+    dispatch({ type: "DEV_SEED" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;

@@ -58,6 +58,7 @@ import {
 import { adjustStanding } from "./standing";
 import { builtYearFor, calcCapacity, energyClassFor, genListing, genLot, makeTenant } from "./generators";
 import { initState } from "./initState";
+import { devSeed } from "./devSeed";
 import {
   BROKER_FEE,
   CONTRACTS,
@@ -2555,6 +2556,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
         integrations: (state.integrations ?? []).map((i) => (i.target === action.target ? { ...i, retained: true } : i)),
         log: [{ t: `🤝 RETENTION: you lock in the ${integ.target} team with golden handcuffs (${msek(fee)}). Culture-clash churn eases and more of the synergies will land.`, kind: "expense" }, ...state.log],
       };
+    }
+    case "DEV_SEED": {
+      // Endast för UI-granskning (?dev): fyller sandbox med innehåll.
+      return devSeed(state);
     }
     case "TOGGLE_MA_ADVISOR": {
       // Investmentbanken: månadsarvode mot deal pipeline (rivalernas
