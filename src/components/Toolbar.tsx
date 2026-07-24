@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { getVolume, playClick, setVolume } from "../audio/sound";
 import { formatGameDate } from "../engine/date";
 import { useGameStore } from "../store/gameStore";
-import { exportSaveFile, importSaveFile, saveGame } from "../store/persistence";
+import { exportSaveFile, getActiveSlot, importSaveFile, listSaveSlots, saveGame, setActiveSlot } from "../store/persistence";
+import { getAutosave, getReduceMotion, setAutosave, setReduceMotion } from "../store/prefs";
 import { BURGUNDY, C } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
@@ -17,11 +18,12 @@ interface ToolbarProps {
   onOpenOffers: () => void;
   soundOn: boolean;
   onToggleSound: () => void;
+  onQuitToTitle: () => void;
 }
 
 export function Toolbar({
   state, saved, onSave, onLoad,
-  offersCount, onOpenOffers, soundOn, onToggleSound,
+  offersCount, onOpenOffers, soundOn, onToggleSound, onQuitToTitle,
 }: ToolbarProps) {
   // Count warnings: tenants with monthsLeft <= 3 OR condition < 40 on klar properties
   const warnCount = state.portfolio.filter(
@@ -80,6 +82,7 @@ export function Toolbar({
         onLoad={onLoad}
         soundOn={soundOn}
         onToggleSound={onToggleSound}
+        onQuitToTitle={onQuitToTitle}
       />
       {warnCount > 0 && (
         <div style={S.toolbarWarn} title="Properties needing attention">
@@ -90,17 +93,25 @@ export function Toolbar({
   );
 }
 
-/** Inställningsmeny (⚙): ljud/volym, ladda och sparfil till/från disk –
+/** Inställningsmeny (⚙): ljud/volym, spar-slots, autospar, rörelse,
+ *  kortkommandon, sparfil till/från disk och avsluta till titeln –
  *  samlade bakom en knapp så översta raden får luft (viktigt på iPad). */
-function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
+function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: {
   state: GameState;
   onLoad: () => void;
   soundOn: boolean;
   onToggleSound: () => void;
+  onQuitToTitle: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [autosaveOn, setAutosaveOn] = useState(getAutosave());
+  const [reduceMotionOn, setReduceMotionOn] = useState(getReduceMotion());
+  const [showKeys, setShowKeys] = useState(false);
+  const [slots, setSlots] = useState(() => listSaveSlots());
+  const [activeSlot, setActiveSlotState] = useState(() => getActiveSlot());
   const fileRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const refreshSlots = () => { setSlots(listSaveSlots()); setActiveSlotState(getActiveSlot()); };
 
   // Stäng vid klick utanför menyn.
   useEffect(() => {
@@ -133,6 +144,16 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
     onLoad();           // … och ladda den direkt.
   };
 
+  // Spara till en vald slot och gör den aktiv (skriv-över bekräftas).
+  const saveToSlot = (slot: number) => {
+    const info = slots.find((s) => s.slot === slot);
+    if (info?.exists && slot !== activeSlot &&
+        !window.confirm(`Overwrite the save in slot ${slot} (year ${info.year})?`)) return;
+    saveGame(state, slot);
+    setActiveSlot(slot);
+    refreshSlots();
+  };
+
   const row: React.CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
     gap: 12, padding: "7px 4px", fontSize: 13, whiteSpace: "nowrap",
@@ -140,13 +161,17 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
   const rowBtn: React.CSSProperties = {
     ...S.toolbarMiniBtn, width: "100%", textAlign: "left" as const,
   };
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase",
+    color: C.brass, fontWeight: 700, padding: "2px 4px 6px",
+  };
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
       <button
         style={{ ...S.toolbarMiniBtn, ...(open ? { borderColor: BURGUNDY, color: "#ffd080" } : {}) }}
-        onClick={() => setOpen(!open)}
-        title="Settings: sound, load and save files"
+        onClick={() => { if (!open) refreshSlots(); setOpen(!open); }}
+        title="Settings: sound, save slots, autosave and more"
       >
         ⚙
       </button>
@@ -177,10 +202,43 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
               />
             </div>
           )}
+          <div style={row}>
+            <span style={{ color: C.creamSoft }} title="Automatically save to the active slot at the turn of each month">Autosave</span>
+            <button style={S.toolbarMiniBtn} onClick={() => { const v = !autosaveOn; setAutosave(v); setAutosaveOn(v); }}>
+              {autosaveOn ? "💾 On" : "Off"}
+            </button>
+          </div>
+          <div style={row}>
+            <span style={{ color: C.creamSoft }} title="Skip the story's camera pauses and shorten sweeps">Reduce motion</span>
+            <button style={S.toolbarMiniBtn} onClick={() => { const v = !reduceMotionOn; setReduceMotion(v); setReduceMotionOn(v); }}>
+              {reduceMotionOn ? "On" : "Off"}
+            </button>
+          </div>
+
           <div style={{ height: 1, background: `${C.brass}44`, margin: "6px 0" }} />
+          <div style={{ ...sectionLabel }}>Save slots</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 2 }}>
+            {slots.map((info) => (
+              <button
+                key={info.slot}
+                onClick={() => saveToSlot(info.slot)}
+                title={info.exists ? `Save to slot ${info.slot} (currently year ${info.year})` : `Save to empty slot ${info.slot}`}
+                style={{
+                  ...S.toolbarMiniBtn, flex: 1, textAlign: "center",
+                  ...(info.slot === activeSlot ? { borderColor: BURGUNDY, color: "#ffd080" } : {}),
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{info.slot === activeSlot ? "●" : "○"} {info.slot}</div>
+                <div style={{ fontSize: 10, color: C.creamSoft }}>{info.exists ? `yr ${info.year}` : "empty"}</div>
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 10.5, color: C.creamSoft, padding: "2px 4px 4px" }}>
+            Click a slot to save there. ● is active.
+          </div>
           <div style={row}>
             <button style={rowBtn} onClick={() => { setOpen(false); onLoad(); }}>
-              📂 Load saved game
+              📂 Load active slot
             </button>
           </div>
           <div style={row}>
@@ -204,6 +262,34 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound }: {
               e.target.value = "";
             }}
           />
+
+          <div style={{ height: 1, background: `${C.brass}44`, margin: "6px 0" }} />
+          <div style={row}>
+            <button style={rowBtn} onClick={() => setShowKeys((v) => !v)}>
+              ⌨︎ Keyboard shortcuts {showKeys ? "▲" : "▼"}
+            </button>
+          </div>
+          {showKeys && (
+            <div style={{ fontSize: 11.5, color: C.creamSoft, padding: "2px 6px 6px", lineHeight: 1.7 }}>
+              <div><strong style={{ color: C.parchment }}>Esc</strong> — close the top window</div>
+              <div><strong style={{ color: C.parchment }}>Space</strong> — pause / resume time</div>
+              <div><strong style={{ color: C.parchment }}>1–4</strong> — set game speed</div>
+              <div><strong style={{ color: C.parchment }}>Any key / click</strong> — skip a story pause</div>
+            </div>
+          )}
+          <div style={row}>
+            <button
+              style={{ ...rowBtn, color: "#e8a0a0", borderColor: "#7a3a3a" }}
+              onClick={() => {
+                if (window.confirm("Quit to the title screen? Save first if you want to keep unsaved progress.")) {
+                  setOpen(false);
+                  onQuitToTitle();
+                }
+              }}
+            >
+              🚪 Quit to title
+            </button>
+          </div>
         </div>
       )}
     </div>

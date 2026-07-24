@@ -17,6 +17,7 @@ import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
 import { listSaveSlots } from "../store/persistence";
+import { getAutosave, getReduceMotion } from "../store/prefs";
 import { S } from "../styles/styles";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
 import { Animations } from "./Animations";
@@ -138,6 +139,9 @@ export default function FastighetsImperium() {
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const [showVictory, setShowVictory] = useState(false);
   const clockSpeed = useGameStore((s) => s.clock.speed);
+  const setRunning = useGameStore((s) => s.setRunning);
+  const setSpeed   = useGameStore((s) => s.setSpeed);
+  const clockRunning = useGameStore((s) => s.clock.running);
   // Portföljvyn: kompakt lista (skannbar, för många fastigheter) eller
   // detaljerade kort. Default styrs av antalet fastigheter.
   const [portfolioView, setPortfolioView] = useState<"list" | "cards">(
@@ -271,6 +275,8 @@ export default function FastighetsImperium() {
     const cine = STORY_CINEMATICS[pendingId];
     if (!cine) return;
     const done = () => useUiStore.getState().setCinematic(null);
+    // Reducerad rörelse: hoppa över kamerapausen och visa brevet direkt.
+    if (getReduceMotion()) { done(); return; }
     if (frontOpen) {
       // Vänta bakom tidningen: håll brevet dolt men rör inte kameran än.
       const now = Date.now();
@@ -315,8 +321,38 @@ export default function FastighetsImperium() {
       prevMonth.current = absMonth;
       setPulseKey((k) => k + 1);
       if (soundOn && started) playTick();
+      // Autospar till aktiv slot vid månadsskifte (tyst, om påslaget).
+      if (started && !state.gameOver && getAutosave()) save();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [absMonth, soundOn, started]);
+
+  // Globala kortkommandon: Space = paus/play, 1–4 = hastighet. Ignoreras
+  // när fokus ligger i ett fält, och när ett beslut/slut blockerar klockan.
+  useEffect(() => {
+    if (!started) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      const blocked = state.gameOver || !!state.gameWon || !!state.pendingDecision;
+      if (blocked) return;
+      if (e.key === " ") { e.preventDefault(); setRunning(!clockRunning); }
+      else if (e.key === "1") setSpeed(1);
+      else if (e.key === "2") setSpeed(2);
+      else if (e.key === "3") setSpeed(4);
+      else if (e.key === "4") setSpeed(8);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [started, clockRunning, setRunning, setSpeed, state.gameOver, state.gameWon, state.pendingDecision]);
+
+  // Avsluta till titelskärmen (frivilligt spar sköts av spelaren/autospar).
+  const quitToTitle = () => {
+    setRunning(false);
+    setStarted(false);
+    setWins([]);
+    setMinimized([]);
+  };
 
   // Victory detection
   const prevWon = useRef(false);
@@ -431,6 +467,7 @@ export default function FastighetsImperium() {
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <Toolbar
         state={state} saved={saved} onSave={doSave} onLoad={doLoad}
+        onQuitToTitle={quitToTitle}
         offersCount={offersCount} onOpenOffers={() => setShowOffers(true)}
         soundOn={soundOn} onToggleSound={toggleSound}
       />
