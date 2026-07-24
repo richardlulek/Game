@@ -29,7 +29,7 @@ describe("initState med InitOptions", () => {
 
   it("utan options är allt som spelets grundbalans (och inga settings)", () => {
     const s = initState();
-    expect(s.cash).toBe(7_000_000);
+    expect(s.cash).toBe(5_000_000);
     expect(s.interestRate).toBe(2.5);
     expect(s.competitors.filter((c) => !c.small)).toHaveLength(AI_NAMES.length);
     expect(s.settings).toBeUndefined();

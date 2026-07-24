@@ -18,7 +18,7 @@ const WORLD_SIZE = 190;
  *  `opts` (svårighet/Friläge-anpassningar) styr startkapital, ränta
  *  och rivalernas antal/styrka – utelämnat = spelets grundbalans. */
 export function initState(opts?: InitOptions): GameState {
-  const startCash = opts?.cash ?? 7_000_000;
+  const startCash = opts?.cash ?? 5_000_000;
   const startRate = opts?.interestRate ?? 2.5;
   const rivalStrength = opts?.rivalStrength ?? 1;
   // Partiets slumpfrö: bevaras så partiet kan reproduceras från start.
