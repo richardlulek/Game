@@ -32,6 +32,7 @@ import { MegaLandmarks } from "./MegaProjects";
 import { Pedestrians, Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
+import { PerfProbe } from "../components/FpsMeter";
 
 const LABEL_STYLE: React.CSSProperties = {
   pointerEvents: "none",
@@ -243,6 +244,7 @@ const SUN = [260, 230, 120] as const;
 /** Hela 3D-stadsvyn. Ren renderare av GameState – ingen spellogik här. */
 export function CityCanvas() {
   const select = useUiStore((s) => s.select);
+  const showFps = useUiStore((s) => s.showFps);
   const ground = useMemo(() => groundTexture(26), []);
   return (
     <Canvas
@@ -320,6 +322,7 @@ export function CityCanvas() {
       <Traffic />
       <Pedestrians />
       <CameraRig />
+      {showFps && <PerfProbe />}
     </Canvas>
   );
 }

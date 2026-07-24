@@ -53,17 +53,29 @@ function ownerBeacon(content: ParcelContent): { emoji: string; bg: string; scale
 }
 
 /** Delad scratch-vektor för avståndsmätning (undviker alloc per frame). */
-const V3 = new Vector3();
-
 /** Kartikonerna har fast världsstorlek och blir enorma när kameran går ner
  *  på gatunivå (min-zoom 18). Hooken krymper och tonar ut spriten på nära
- *  håll så husdetaljerna syns i stället för en jätteikon. */
+ *  håll så husdetaljerna syns i stället för en jätteikon.
+ *
+ *  Prestanda: en useFrame per markör × hundratals hus = tung per-bildruta-CPU.
+ *  Toningen beror BARA på kameraavståndet, så vi hoppar över allt arbete när
+ *  kameran (och boost) står stilla – vilket är det vanliga fallet under spel.
+ *  Sprite-läget är statiskt, så världspositionen cachas efter första bildrutan
+ *  i stället för att traversera matrishierarkin (getWorldPosition) varje frame. */
 function useNearFade(baseScale: number, boost = 1) {
   const ref = useRef<Sprite>(null);
+  const lastCam = useRef(new Vector3(Infinity, Infinity, Infinity));
+  const lastBoost = useRef(-1);
+  const worldPos = useRef<Vector3 | null>(null);
   useFrame(({ camera }) => {
     const sp = ref.current;
     if (!sp) return;
-    const d = camera.position.distanceTo(sp.getWorldPosition(V3));
+    // Kameran stilla och boost oförändrad → toningen är redan rätt, hoppa över.
+    if (boost === lastBoost.current && camera.position.distanceToSquared(lastCam.current) < 0.02) return;
+    lastCam.current.copy(camera.position);
+    lastBoost.current = boost;
+    if (!worldPos.current) worldPos.current = sp.getWorldPosition(new Vector3());
+    const d = camera.position.distanceTo(worldPos.current);
     const NEAR = 130; // full storlek bortom detta
     const GONE = 26;  // helt borta närmare än detta
     const k = Math.max(0, Math.min(1, (d - GONE) / (NEAR - GONE)));
