@@ -15,6 +15,7 @@ import type { GameState, Property } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
+import { GRAPHICS_PRESETS } from "../store/prefs";
 import { Backdrop } from "./Backdrop";
 import { CameraRig, LodController } from "./CameraRig";
 import { Birds, Clouds, Harbor, Landmarks } from "./CityExtras";
@@ -248,11 +249,12 @@ const SUN = [260, 230, 120] as const;
 export function CityCanvas() {
   const select = useUiStore((s) => s.select);
   const showFps = useUiStore((s) => s.showFps);
+  const preset = useUiStore((s) => GRAPHICS_PRESETS[s.graphics]);
   const ground = useMemo(() => groundTexture(26), []);
   return (
     <Canvas
       shadows="soft"
-      dpr={[1, 2]}
+      dpr={preset.dpr}
       camera={{ position: [230, 300, 430], fov: 38, near: 5, far: 3000 }}
       onPointerMissed={() => select(null)}
       onCreated={({ gl }) => {
@@ -273,11 +275,12 @@ export function CityCanvas() {
       <hemisphereLight args={["#bfd6ea", "#939781", 0.6]} />
       {/* Varmt nyckelljus (sen eftermiddag) + kallt fyllnadsljus från motsatt håll. */}
       <directionalLight
+        key={`sun-${preset.shadowMap}`}
         position={[SUN[0], SUN[1], SUN[2]]}
         color="#ffe7c4"
         intensity={1.5}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
+        castShadow={preset.shadows}
+        shadow-mapSize={[preset.shadowMap || 1024, preset.shadowMap || 1024]}
         shadow-bias={-0.0004}
         shadow-camera-left={-540}
         shadow-camera-right={540}
@@ -320,10 +323,15 @@ export function CityCanvas() {
       <OwnerLuxuries />
       <RoggeCar />
       <MemoryNotes />
-      <Clouds />
-      <Birds />
-      <Traffic />
-      <Pedestrians />
+      {/* Levande stad – trafik/fotgängare/fåglar/moln. Släcks på Low. */}
+      {preset.ambient && (
+        <>
+          <Clouds />
+          <Birds />
+          <Traffic />
+          <Pedestrians />
+        </>
+      )}
       <CameraRig />
       <LodController />
       {showFps && <PerfProbe />}

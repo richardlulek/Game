@@ -38,3 +38,40 @@ export function getShowFps(): boolean {
 export function setShowFps(on: boolean): void {
   try { localStorage.setItem(SHOW_FPS_KEY, on ? "on" : "off"); } catch { /* ignore */ }
 }
+
+/* ── Grafikkvalitet ─────────────────────────────────────────────────────
+   Låter spelaren anpassa efter sin maskin. Reglagen som ger mest på svaga
+   (integrerade) GPU:er: renderupplösning (dpr), skuggor och avstånds-LOD. */
+const GRAPHICS_KEY = "fastighetsimperium:graphics";
+export type Quality = "low" | "medium" | "high";
+
+export interface GraphicsPreset {
+  /** Renderupplösning – störst effekt på fillrate-svaga iGPU:er. */
+  dpr: number;
+  /** Skuggpass (dyrt: extra geometrigenomgång). */
+  shadows: boolean;
+  /** Skuggkartans upplösning. */
+  shadowMap: number;
+  /** Levande stad: trafik, fotgängare, fåglar, moln. */
+  ambient: boolean;
+  /** Avstånd där husen blir instansierade block (lägre = mer aggressivt). */
+  lodEnter: number;
+  lodExit: number;
+}
+
+export const GRAPHICS_PRESETS: Record<Quality, GraphicsPreset> = {
+  low:    { dpr: 1,    shadows: false, shadowMap: 0,    ambient: false, lodEnter: 120, lodExit: 90 },
+  medium: { dpr: 1.35, shadows: true,  shadowMap: 1024, ambient: true,  lodEnter: 175, lodExit: 140 },
+  high:   { dpr: 2,    shadows: true,  shadowMap: 2048, ambient: true,  lodEnter: 220, lodExit: 180 },
+};
+
+export function getGraphics(): Quality {
+  try {
+    const v = localStorage.getItem(GRAPHICS_KEY);
+    return v === "low" || v === "medium" || v === "high" ? v : "high";
+  } catch { return "high"; }
+}
+
+export function setGraphics(q: Quality): void {
+  try { localStorage.setItem(GRAPHICS_KEY, q); } catch { /* ignore */ }
+}

@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { Vector3 } from "three";
 import { parcelById } from "../engine/city";
 import { useUiStore } from "../store/uiStore";
+import { GRAPHICS_PRESETS } from "../store/prefs";
 
 /** Minimal strukturell typ för MapControls – slipper three-stdlib-import. */
 interface ControlsLike {
@@ -11,22 +12,22 @@ interface ControlsLike {
 }
 
 /** Avstånds-LOD: EN useFrame läser kamerans avstånd till mål och slår om
- *  uiStore.lodFar när vyn går in i/ur översikt. Hysteres (220 in, 180 ut) så
- *  läget inte flimrar vid tröskeln, och store-set:et sker BARA vid växling –
- *  inte varje bildruta. Hus tappar då småmeshar och statusmärken döljs, vilket
- *  skär draw calls just när hela staden är i bild (värsta fallet). */
-const LOD_ENTER = 220;
-const LOD_EXIT = 180;
+ *  uiStore.lodFar när vyn går in i/ur översikt. Hysteres (enter/exit ur
+ *  grafikpresetet) så läget inte flimrar vid tröskeln, och store-set:et sker
+ *  BARA vid växling – inte varje bildruta. Hus blir instansierade block och
+ *  statusmärken döljs, vilket skär draw calls när hela staden är i bild.
+ *  Lägre kvalitet → lägre tröskel → block redan vid måttlig utzoomning. */
 const _t = new Vector3();
 
 export function LodController() {
   const far = useRef(false);
+  const preset = useUiStore((s) => GRAPHICS_PRESETS[s.graphics]);
   useFrame((rootState) => {
     const controls = rootState.controls as unknown as ControlsLike | null;
     if (!controls) return;
     _t.set(controls.target.x, controls.target.y, controls.target.z);
     const d = rootState.camera.position.distanceTo(_t);
-    const next = far.current ? d > LOD_EXIT : d > LOD_ENTER;
+    const next = far.current ? d > preset.lodExit : d > preset.lodEnter;
     if (next !== far.current) {
       far.current = next;
       useUiStore.getState().setLodFar(next);

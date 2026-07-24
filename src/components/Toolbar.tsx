@@ -107,6 +107,8 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
   const [open, setOpen] = useState(false);
   const showFpsMeter = useUiStore((s) => s.showFps);
   const setShowFpsMeter = useUiStore((s) => s.setShowFps);
+  const graphics = useUiStore((s) => s.graphics);
+  const setGraphicsQuality = useUiStore((s) => s.setGraphics);
   const [autosaveOn, setAutosaveOn] = useState(getAutosave());
   const [reduceMotionOn, setReduceMotionOn] = useState(getReduceMotion());
   const [showKeys, setShowKeys] = useState(false);
@@ -222,6 +224,21 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
             <button style={S.toolbarMiniBtn} onClick={() => setShowFpsMeter(!showFpsMeter)}>
               {showFpsMeter ? "On" : "Off"}
             </button>
+          </div>
+          <div style={row}>
+            <span style={{ color: C.creamSoft }} title="Lower it if the game runs slowly. Low turns off shadows, ambient life and renders leaner — best for integrated graphics.">Graphics</span>
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["low", "medium", "high"] as const).map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setGraphicsQuality(q)}
+                  title={q === "low" ? "No shadows, no ambient life, lean render" : q === "medium" ? "Balanced" : "Full detail"}
+                  style={{ ...S.toolbarMiniBtn, padding: "4px 8px", ...(graphics === q ? { borderColor: BURGUNDY, color: "#ffd080" } : {}) }}
+                >
+                  {q === "low" ? "Low" : q === "medium" ? "Med" : "High"}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div style={{ height: 1, background: `${C.brass}44`, margin: "6px 0" }} />

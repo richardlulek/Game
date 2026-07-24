@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { create } from "zustand";
-import { getShowFps, setShowFps } from "./prefs";
+import { getGraphics, getShowFps, setGraphics, setShowFps, type Quality } from "./prefs";
 
 /** Kartlager à la Capitalism Lab: färga egna hus efter en nyckelmetrik. */
 export type OverlayMode = "ingen" | "vakans" | "skick" | "avkastning";
@@ -54,6 +54,9 @@ interface UiStore {
    *  LodController i Canvas; hus tappar småmeshar och statusmärken döljs. */
   lodFar: boolean;
   setLodFar: (far: boolean) => void;
+  /** Grafikkvalitet (low/medium/high). Persisteras via prefs. */
+  graphics: Quality;
+  setGraphics: (q: Quality) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -80,4 +83,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setShowFps: (on) => { setShowFps(on); set({ showFps: on }); },
   lodFar: false,
   setLodFar: (lodFar) => set({ lodFar }),
+  graphics: getGraphics(),
+  setGraphics: (graphics) => { setGraphics(graphics); set({ graphics }); },
 }));
