@@ -42,9 +42,9 @@ describe("AKTIEÄGARAKTIVISM: tvingad extrautdelning", () => {
   it("en post ≥ 10 % tömmer rivalens kassa och ger dig din andel", () => {
     const s = base(0.2); // 20 %
     const after = reducer(s, { type: "ACTIVIST_DIVIDEND", competitorName: "Harborwick Group" });
-    // Utdelning = 50 % av 20M = 10M; din andel 20 % = 2M.
-    expect(after.cash - s.cash).toBe(2_000_000);
-    expect(after.competitors[0].cash).toBe(10_000_000); // halva kassan ut
+    // Utdelning = 35 % av 20M = 7M; din andel 20 % = 1.4M.
+    expect(after.cash - s.cash).toBe(1_400_000); // 20% av 35%×20M
+    expect(after.competitors[0].cash).toBe(13_000_000); // 35% av kassan ut
     expect(after.standing?.rivals?.["Harborwick Group"]).toBeLessThan(0);
     // Cooldown: en andra kampanj direkt avvisas.
     const again = reducer(after, { type: "ACTIVIST_DIVIDEND", competitorName: "Harborwick Group" });
