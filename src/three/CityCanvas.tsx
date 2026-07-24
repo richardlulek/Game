@@ -32,6 +32,7 @@ import { MegaLandmarks } from "./MegaProjects";
 import { Pedestrians, Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
+import { BuildingBlocks } from "./BuildingBlocks";
 import { PerfProbe } from "../components/FpsMeter";
 
 const LABEL_STYLE: React.CSSProperties = {
@@ -100,6 +101,7 @@ function overlayTint(p: Property, state: GameState, mode: OverlayMode): string {
 function CityParcels() {
   const state = useGameStore((s) => s.state);
   const overlay = useUiStore((s) => s.overlay);
+  const lodFar = useUiStore((s) => s.lodFar);
   const { portfolio, listings, lots, competitors } = state;
 
   const byParcel = useMemo(() => {
@@ -180,6 +182,7 @@ function CityParcels() {
   return (
     <>
       <StaticCity occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
+      {lodFar && <BuildingBlocks byParcel={byParcel} overlayActive={overlay !== "ingen"} />}
       {parcelNodes}
     </>
   );

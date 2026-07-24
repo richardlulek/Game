@@ -454,7 +454,9 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
             handlers={handlers}
           />
         )}
-        {building && !underConstruction && (
+        {/* LOD: i översikt ersätts det fulla huset av ett instansierat block
+            (BuildingBlocks) – här ritas inget så vi slipper dubbelrita. */}
+        {building && !underConstruction && !lodFar && (
           <GrowIn handlers={{}}>
             {"prop" in content && content.prop.storyTag === "arvet" ? (
               /* Morfars hus: unik modell med tillbyggnader, presenning och flaggstång. */
