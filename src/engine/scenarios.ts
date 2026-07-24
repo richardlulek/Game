@@ -31,7 +31,7 @@ export const SCENARIOS: Scenario[] = [
   {
     id: "arvet",
     title: "Grandpa's Inheritance",
-    subtitle: "Story mode · 9 chapters",
+    subtitle: "Story mode · 11 chapters",
     desc: "You inherit a run-down house on Villa Hill and $850,000 from grandpa's freezer. The campaign teaches everything – with Gus, Ruth at the bank and Rog Flint.",
     icon: "📜",
     check: (s) => !!s.story?.done,
