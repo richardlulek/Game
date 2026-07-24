@@ -1,5 +1,5 @@
 import { execSalaryMult, talentStars } from "../engine/executives";
-import { kr, msek } from "../engine/format";
+import { kr } from "../engine/format";
 import { ELECTION_PERIOD, FAVOR_REQUEST_COST, politicalFavorActive } from "../engine/politics";
 import { STAFF_ROLES, hireFee, salariesTotal } from "../engine/progression";
 import type { GameAction, GameState } from "../engine/types";
@@ -79,7 +79,7 @@ export function StaffPanel({ state, dispatch }: Props) {
                   disabled={!canHire}
                   onClick={() => dispatch({ type: "HIRE_STAFF", role: r.id })}
                 >
-                  {atMax ? "Max level" : level === 0 ? `Hire · ${msek(fee)}` : `Promote · ${msek(fee)}`}
+                  {atMax ? "Max level" : level === 0 ? `Hire · ${kr(fee)}` : `Promote · ${kr(fee)}`}
                 </button>
                 {level > 0 && (
                   <button style={fireBtn} onClick={() => dispatch({ type: "FIRE_STAFF", role: r.id })}>
