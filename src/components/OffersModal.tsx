@@ -51,7 +51,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
                     <span style={{ fontFamily: FONTS.heading, fontSize: 20, fontWeight: 800, color: BURGUNDY }}>{msek(o.amount)}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: premium >= 0 ? C.positive : C.negative }}>
-                      {premium >= 0 ? "+" : ""}{premium.toFixed(0)} % mot marknad
+                      {premium >= 0 ? "+" : ""}{premium.toFixed(0)}% mot marknad
                     </span>
                   </div>
                   <div style={{ fontSize: 11, color: C.inkSoft, marginTop: 1 }}>
@@ -76,7 +76,7 @@ export function OffersModal({ state, dispatch, onClose }: Props) {
                           dispatch({ type: "COUNTER_OFFER", offerId: o.id, amount: Math.round((o.amount * m) / 10_000) * 10_000 })
                         }
                       >
-                        Motbud +{Math.round((m - 1) * 100)} %
+                        Motbud +{Math.round((m - 1) * 100)}%
                       </button>
                     ))}
                     <button

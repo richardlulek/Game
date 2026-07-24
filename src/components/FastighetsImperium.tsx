@@ -545,7 +545,7 @@ export default function FastighetsImperium() {
               <span style={{ fontSize: 10, color: C.creamSoft, whiteSpace: "nowrap" }}>You: {prog.label}</span>
               {leadRival && (
                 <span style={{ fontSize: 10, color: rivalPct > pct ? "#f87a7a" : "#aaa", whiteSpace: "nowrap" }}>
-                  {leadRival.name}: {Math.round(rivalPct * 100)} %{rivalPct > pct ? " ⚠️" : ""}
+                  {leadRival.name}: {Math.round(rivalPct * 100)}%{rivalPct > pct ? " ⚠️" : ""}
                 </span>
               )}
             </div>

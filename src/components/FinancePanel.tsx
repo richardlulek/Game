@@ -631,7 +631,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                       return (
                         <div key={b.id} style={{ fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: "1px solid #eee" }}>
                           <span>
-                            {b.green ? "🌱 " : ""}{msek(b.amount)} @ {b.rate.toFixed(2)} %
+                            {b.green ? "🌱 " : ""}{msek(b.amount)} @ {b.rate.toFixed(2)}%
                             {b.breached && <span style={{ color: "#c0392b", fontWeight: 700 }}> · covenant breached</span>}
                           </span>
                           <span style={{ display: "flex", gap: 4 }}>

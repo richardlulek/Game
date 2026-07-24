@@ -105,7 +105,7 @@ export function StatsPanel({ state }: { state: GameState }) {
               <div style={{ flex: 1, height: 10, background: "#e4dfd2", borderRadius: 5, overflow: "hidden" }}>
                 <div style={{ width: `${Math.min(100, (v / maxDev) * 100)}%`, height: "100%", background: v >= 1 ? "#22a06b" : "#c0392b" }} />
               </div>
-              <span style={{ width: 52, textAlign: "right", fontWeight: 700 }}>{Math.round(v * 100)} %</span>
+              <span style={{ width: 52, textAlign: "right", fontWeight: 700 }}>{Math.round(v * 100)}%</span>
             </div>
           ))}
         </div>

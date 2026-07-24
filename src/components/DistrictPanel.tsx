@@ -172,7 +172,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: 12, marginBottom: 12 }}>
                 <span style={{ color: C.creamSoft }}>Growth:</span>
                 <span style={{ fontWeight: 700, color: d.growth >= 1.1 ? C.positive : C.parchment }}>
-                  {(d.growth * 100).toFixed(0)} %
+                  {(d.growth * 100).toFixed(0)}%
                 </span>
 
                 <span style={{ color: C.creamSoft }}>Demand:</span>
@@ -185,7 +185,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
 
                 <span style={{ color: C.creamSoft }}>Area development:</span>
                 <span style={{ fontWeight: 700, color: devScore >= 1.1 ? C.positive : devScore >= 1.0 ? C.gold : C.negative }}>
-                  {(devScore * 100).toFixed(1)} %
+                  {(devScore * 100).toFixed(1)}%
                 </span>
               </div>
 
@@ -234,7 +234,7 @@ export function DistrictPanel({ state, dispatch }: Props) {
                 )}
                 {topRivals.length === 0 && myCount > 0 && (
                   <div style={{ fontSize: 11, color: C.positive, fontStyle: "italic" }}>
-                    Inga rivaler i detta distrikt
+                    No rivals in this district
                   </div>
                 )}
               </div>

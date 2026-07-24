@@ -556,7 +556,7 @@ function LimitOrdersPanel({ orders, state, dispatch }: { orders: LimitOrder[]; s
                 </span>
                 <span style={{ fontSize: 12, color: C.inkSoft }}>
                   Limit price {kr(o.limitPrice)}{" · "}Now: {stock ? kr(stock.price) : "—"}
-                  {dist !== null && <span style={{ color: Math.abs(dist) < 3 ? C.positive : C.inkSoft }}> ({dist > 0 ? "+" : ""}{dist.toFixed(1)} % till trigger)</span>}
+                  {dist !== null && <span style={{ color: Math.abs(dist) < 3 ? C.positive : C.inkSoft }}> ({dist > 0 ? "+" : ""}{dist.toFixed(1)}% till trigger)</span>}
                 </span>
               </div>
               <button style={{ ...secondaryBtn, padding: "5px 12px", fontSize: 12 }} onClick={() => dispatch({ type: "CANCEL_LIMIT_ORDER", orderId: o.id })}>Cancel</button>
@@ -763,7 +763,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
                     IPO price: {state.ipoPrice ? kr(state.ipoPrice) : "—"}
                     {state.ipoPrice && fbab.price !== state.ipoPrice && (
                       <span style={{ color: fbab.price >= state.ipoPrice ? C.green : "#b83030", marginLeft: 6, fontWeight: 700 }}>
-                        {fbab.price >= state.ipoPrice ? "+" : ""}{(((fbab.price / state.ipoPrice) - 1) * 100).toFixed(1)} %
+                        {fbab.price >= state.ipoPrice ? "+" : ""}{(((fbab.price / state.ipoPrice) - 1) * 100).toFixed(1)}%
                       </span>
                     )}
                   </div>

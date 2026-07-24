@@ -168,14 +168,14 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
       <div style={{ ...statRow, marginTop: 8 }}>
         <Stat
           label="Yield on cost"
-          value={`${yieldPct.toFixed(1)} %`}
+          value={`${yieldPct.toFixed(1)}%`}
           color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#c07f16" : "#c0392b"}
         />
         <Stat label="Invested" value={`$${(invested / 1e6).toFixed(1)}M`} />
         {cashOnCash !== null && (
           <Stat
             label="Total return"
-            value={`${cashOnCash >= 0 ? "+" : ""}${cashOnCash.toFixed(0)} %`}
+            value={`${cashOnCash >= 0 ? "+" : ""}${cashOnCash.toFixed(0)}%`}
             color={cashOnCash >= 0 ? "#27660a" : "#c0392b"}
           />
         )}
@@ -756,7 +756,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
                   }
                   style={{ flex: 1 }}
                 />
-                <span style={{ fontWeight: 700, fontSize: 13, minWidth: 38 }}>{Math.round(currentMgrSettings.rentTargetPct * 100)} %</span>
+                <span style={{ fontWeight: 700, fontSize: 13, minWidth: 38 }}>{Math.round(currentMgrSettings.rentTargetPct * 100)}%</span>
                 <Chip
                   label={
                     currentMgrSettings.rentTargetPct < 0.95 ? "Trygg" :
@@ -772,7 +772,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
               </div>
               {currentMgrSettings.rentTargetPct > 1.10 && (
                 <div style={{ fontSize: 11, color: "#c07f16", marginTop: 6 }}>
-                  ⚠ Mål {Math.round(currentMgrSettings.rentTargetPct * 100)} % – 60 % chans att hyresgäster lämnar vid förlängning.
+                  ⚠ Target {Math.round(currentMgrSettings.rentTargetPct * 100)}% — 60% chance tenants leave at renewal.
                 </div>
               )}
 

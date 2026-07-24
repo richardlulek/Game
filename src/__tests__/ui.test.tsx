@@ -55,8 +55,8 @@ describe("ui-bibliotek", () => {
   });
 
   it("hjälpformaterare", () => {
-    expect(signed(0.032)).toBe("+3.2 %");
-    expect(signed(-0.014)).toBe("-1.4 %");
+    expect(signed(0.032)).toBe("+3.2%");
+    expect(signed(-0.014)).toBe("-1.4%");
     expect(trendColor(1)).not.toBe(trendColor(-1));
   });
 });

@@ -138,7 +138,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
               </span>
             ) : (
               <span style={{ fontSize: 13, fontWeight: 700, color: yieldColor }}>
-                {yieldPct.toFixed(1)} % yield
+                {yieldPct.toFixed(1)}% yield
               </span>
             )
           )}

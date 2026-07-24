@@ -13,8 +13,9 @@ import { BURGUNDY, C, FONTS, THEME } from "../../styles/tokens";
 
 /** Grön för ≥0, röd annars. */
 export const trendColor = (v: number) => (v >= 0 ? C.positive : C.negative);
-/** "+3.2 %" / "−1.4 %" från en andel (0.032). */
-export const signed = (v: number) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " %";
+/** "+3.2%" / "−1.4%" från en andel (0.032). Utan mellanslag före %
+ *  för att matcha den dominerande stilen i UI:t. */
+export const signed = (v: number) => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
 
 // ── Kort ────────────────────────────────────────────────────────────────
 

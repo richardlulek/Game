@@ -849,7 +849,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                     <button
                       onClick={() => dispatch({ type: "BREAK_UP_DISTRICT", district })}
                       style={{ ...btnPrimaryStyle, background: "#5a2233", fontSize: 11.5, padding: "5px 10px", marginTop: 0, width: "auto" }}
-                      title={`Raider-drag: stycka och flippa distriktet snabbt till en fokuspremie (+${Math.round((BREAKUP_PREMIUM - 1) * 100)} %) – men rykte −${BREAKUP_REP_HIT} och alla rivaler kyls (standing −${BREAKUP_STANDING_HIT}).`}
+                      title={`Raider-drag: stycka och flippa distriktet snabbt till en fokuspremie (+${Math.round((BREAKUP_PREMIUM - 1) * 100)}%) – men rykte −${BREAKUP_REP_HIT} och alla rivaler kyls (standing −${BREAKUP_STANDING_HIT}).`}
                     >
                       🔨 Break up & flip · ~{msek(breakupEst)} (rep −{BREAKUP_REP_HIT})
                     </button>
