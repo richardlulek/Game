@@ -589,7 +589,7 @@ export default function FastighetsImperium() {
                         {/* Vyväxlare: kompakt lista (skannbar) eller detaljkort. */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
                           <span style={{ fontFamily: FONTS.heading, fontWeight: 700, color: C.brassBright, fontSize: 15 }}>
-                            {state.portfolio.length} {state.portfolio.length === 1 ? "fastighet" : "fastigheter"}
+                            {state.portfolio.length} {state.portfolio.length === 1 ? "property" : "properties"}
                           </span>
                           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                             {portfolioView === "cards" && (

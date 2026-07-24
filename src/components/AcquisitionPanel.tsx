@@ -452,7 +452,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                           <button
                             onClick={() => dispatch({ type: "START_DUE_DILIGENCE", competitorName: comp.name })}
                             style={{ ...btnPrimaryStyle, background: C.woodDark, padding: "4px 10px", fontSize: 11.5 }}
-                            title="2 månader: exakta böcker, ingen risk för lik i garderoben efter köpet."
+                            title="2 months: clean books, no skeletons in the closet after closing."
                           >
                             🔍 Due diligence ({msek(ddCostFor(state, comp))})
                           </button>
@@ -496,19 +496,19 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                           <>
                             <div style={{ color: C.positive, fontWeight: 700 }}>Agreed at {msek(deal.offer)} — choose financing to close:</div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "kontant" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="Full köpeskilling ur kassan – ingen ny skuld.">
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "kontant" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="Full price out of cash — no new debt.">
                                 Cash ({msek(deal.offer)})
                               </button>
-                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "lan" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="25 % kontant, resten banklån.">
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "lan" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="25% down, the rest bank-financed.">
                                 Bank loan ({msek(Math.round(deal.offer * 0.25))} down)
                               </button>
-                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "aktier" })} style={{ ...btnPrimaryStyle, background: state.ipoActive ? BURGUNDY : C.woodDark, padding: "6px 10px" }} title="Riktad emission till säljaren – ingen kassa, men utspädning (kräver börsnotering).">
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "aktier" })} style={{ ...btnPrimaryStyle, background: state.ipoActive ? BURGUNDY : C.woodDark, padding: "6px 10px" }} title="A share issue to the seller — no cash out, but dilution (requires a listing).">
                                 Shares {state.ipoActive ? "" : "(requires IPO)"}
                               </button>
-                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "earnout" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="75 % nu, 25 % om 24 mån OM beståndet levererar 85 % av dagens driftnetto.">
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "earnout" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="75% now, 25% in 24 months IF the portfolio delivers 85% of current NOI.">
                                 Earn-out (75% now)
                               </button>
-                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "lbo" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="Leveraged buyout: bara 10 % kontant, resten hög-belånad förvärvsskuld som målets hyra ska bära. Går yield över räntan finansierar affären sig själv – annars en skuldspiral.">
+                              <button onClick={() => dispatch({ type: "FINALIZE_DEAL", financing: "lbo" })} style={{ ...btnPrimaryStyle, background: BURGUNDY, padding: "6px 10px" }} title="Leveraged buyout: only 10% down, the rest high-leverage acquisition debt the target rent must service. If yield beats the rate it funds itself — otherwise a debt spiral.">
                                 LBO (10% down)
                               </button>
                               <button onClick={() => dispatch({ type: "WITHDRAW_DEAL" })} style={{ ...btnPrimaryStyle, background: C.woodDark, padding: "6px 10px" }}>
@@ -624,7 +624,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                   disabled={!canPropose}
                                   onClick={() => dispatch({ type: "PROPOSE_SWAP", myPropertyId: sel.mine!, rivalName: comp.name, rivalPropertyId: sel.theirs!, cashBoot: boot })}
                                   style={{ ...btnPrimaryStyle, background: canPropose ? BURGUNDY : C.woodDark, fontSize: 11, padding: "4px 8px", opacity: canPropose ? 1 : 0.5, cursor: canPropose ? "pointer" : "default" }}
-                                  title="Bjud en mellanskillnad. Under det jämna värdet kontrar rivalen. Distriktsbolag vill ha sin stadsdel; andra kräver standing ≥ 20. Lyckad affär: standing +8."
+                                  title="Offer a cash settlement. Below the fair value the rival counters. District players want their own area; others need standing >= 20. A deal warms the relationship (standing +8)."
                                 >
                                   Propose
                                 </button>
@@ -682,7 +682,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                                   onClick={() => dispatch({ type: "SEND_OLIVE_BRANCH", rivalName: comp.name })}
                                   disabled={state.cash < obCost}
                                   style={{ ...btnPrimaryStyle, background: C.woodDark, fontSize: 11, padding: "3px 8px", opacity: state.cash < obCost ? 0.5 : 1 }}
-                                  title="En synlig gest – gala i rivalens namn. Standing +6, rep +1. En per halvår och rival."
+                                  title="A visible gesture — a gala in the rival honour. Standing +6, reputation +1. One per half-year per rival."
                                 >
                                   🕊️ Olive branch ({msek(obCost)})
                                 </button>
@@ -699,7 +699,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                               onClick={() => dispatch({ type: "HOSTILE_BID", competitorName: comp.name, amount: hostileMin })}
                               disabled={state.cash < Math.round(hostileMin * 0.25)}
                               style={{ ...btnPrimaryStyle, background: C.woodDark, border: `1px solid ${C.negativeBright}66`, marginTop: 6, fontSize: 11.5, padding: "6px 10px", opacity: state.cash < Math.round(hostileMin * 0.25) ? 0.5 : 1 }}
-                              title="Gå förbi styrelsen till aktieägarna: 125 % av börsvärdet. Styrelsen kan svara med vit riddare eller återköp – och staden minns en raid."
+                              title="Go over the board to the shareholders: 125% of market cap. The board can answer with a white knight or a buyback — and the city remembers a raid."
                             >
                               ⚔️ Hostile bid ({msek(hostileMin)})
                             </button>
@@ -720,7 +720,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                               onClick={() => dispatch({ type: "ACTIVIST_DIVIDEND", competitorName: comp.name })}
                               disabled={onCd || (comp.cash ?? 0) <= 0}
                               style={{ ...btnPrimaryStyle, background: C.woodDark, border: `1px solid ${C.gold}66`, marginTop: 6, fontSize: 11.5, padding: "6px 10px", opacity: onCd || (comp.cash ?? 0) <= 0 ? 0.5 : 1 }}
-                              title="Aktieägaraktivism: din post tvingar fram en extrautdelning som tömmer rivalens kassa (kassa till dig pro rata), men styrelsen ogillar det (standing −6)."
+                              title="Shareholder activism: your stake forces a special dividend that drains the rival cash (paid to you pro rata), but the board resents it (standing -6)."
                             >
                               📢 Activist dividend · you hold {pct(stake)} → {msek(myCut)}{onCd ? ` (cooldown ${cd - absNow}mo)` : ""}
                             </button>
@@ -803,7 +803,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                   key={e.label}
                   onClick={() => dispatch({ type: "LIST_PACKAGE", ids: e.ids, ask: Math.round(e.value) })}
                   style={{ ...btnPrimaryStyle, background: C.woodDark, width: "auto", marginTop: 0, fontSize: 12, padding: "6px 12px" }}
-                  title="Lista hela distriktets färdiga hus som ett paket. Finjustera urval och pris i Portfölj-fliken."
+                  title="List the district finished buildings as one package. Fine-tune the selection and price in the Portfolio tab."
                 >
                   📦 Package {e.label} ({e.ids.length}) · ask ~{msek(Math.round(e.value))}
                 </button>
@@ -945,7 +945,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                         disabled={proceeds <= 0}
                         onClick={() => dispatch({ type: "SPIN_OFF_PROPERTIES", district, floatPct: float })}
                         style={{ ...btnPrimaryStyle, background: proceeds > 0 ? BURGUNDY : C.woodDark, opacity: proceeds > 0 ? 1 : 0.5, cursor: proceeds > 0 ? "pointer" : "default", fontSize: 12 }}
-                        title="Notera distriktet som eget PropCo. Husen stannar på kartan; hyran går till dottern som delar ut kvartalsvis."
+                        title="List the district as its own PropCo. The buildings stay on the map; the rent flows to the subsidiary, which pays quarterly dividends."
                       >
                         List {label} PropCo
                       </button>

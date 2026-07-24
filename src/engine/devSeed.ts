@@ -38,6 +38,7 @@ export function devSeed(s: GameState): GameState {
     ...s,
     cash: 800_000_000,
     companyLevel: 5, // låser upp spin-off/aktivism i granskningen
+    tutorialDismissed: true, // ingen guide-popup över panelerna vid granskning
     competitors,
     // Ge spelaren en ägarpost i första rival-aktien (för aktivism-granskning).
     stocks: s.stocks.map((st, i) =>
