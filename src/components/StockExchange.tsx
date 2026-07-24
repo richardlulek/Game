@@ -338,9 +338,9 @@ function StockDetail({ stock, state, dispatch }: { stock: Stock; state: GameStat
         {stock.targetKurs !== undefined && <Metric label="Target price" value={kr(stock.targetKurs)} color={stock.targetKurs > stock.price ? C.green : "#b83030"} />}
         <Metric label="Dividend" value={`${pct(stock.dividendYield)}/yr`} />
         <Metric label="Mktcap" value={msek(marketCap)} />
-        <Metric label="52v intervall" value={<span style={{ fontSize: 12 }}>{kr(low52)}–{kr(high52)}</span>} color={fromHigh < -0.15 ? "#b83030" : C.inkSoft} />
+        <Metric label="52w range" value={<span style={{ fontSize: 12 }}>{kr(low52)}–{kr(high52)}</span>} color={fromHigh < -0.15 ? "#b83030" : C.inkSoft} />
         <Metric label="Ownership" value={pct(ownShare)} color={ownShare > 0.5 ? BURGUNDY : C.ink} />
-        {stock.owned > 0 && <Metric label="Orealiserat" value={(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))} color={trendColor(unrealized)} />}
+        {stock.owned > 0 && <Metric label="Unrealized" value={(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))} color={trendColor(unrealized)} />}
       </div>
 
       {/* Rivalinsyn (feature 8) */}
@@ -726,7 +726,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 14 }}>
           <div><div style={subLabel}>Holdings (market)</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{msek(holdingsValue)}</div><div style={{ fontSize: 11, color: C.inkSoft }}>{kr(holdingsValue)}</div></div>
           <div><div style={subLabel}>Cost basis</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.ink }}>{kr(costBasis)}</div></div>
-          <div><div style={subLabel}>Orealiserat resultat</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: trendColor(unrealized) }}>{(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))}</div><div style={{ ...num, fontSize: 12, fontWeight: 700, color: trendColor(unrealized) }}>{signed(unrealizedPct)}</div></div>
+          <div><div style={subLabel}>Unrealized P/L</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: trendColor(unrealized) }}>{(unrealized >= 0 ? "+" : "−") + kr(Math.abs(unrealized))}</div><div style={{ ...num, fontSize: 12, fontWeight: 700, color: trendColor(unrealized) }}>{signed(unrealizedPct)}</div></div>
           <div><div style={subLabel}>Total dividends</div><div style={{ ...num, fontSize: 20, fontWeight: 700, color: C.green }}>{kr(state.dividendsReceived)}</div></div>
         </div>
       </div>
