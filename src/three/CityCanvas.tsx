@@ -168,12 +168,18 @@ function CityParcels() {
   // Organiskt framvuxna dekorhus – identiteten följer arrayen i state.
   const grown = useMemo(() => new Set(state.ambientGrown ?? []), [state.ambientGrown]);
 
+  // Tomtnoderna byggs bara om när byParcel ändras (köp, månadsskifte) – inte
+  // vid varje dagstick. Kombinerat med memo på ParcelNode betyder det att den
+  // rullande kalendern inte rör hela stadens komponentträd varje bildruta.
+  const parcelNodes = useMemo(
+    () => PARCELS.map((pc) => <ParcelNode key={pc.id} parcel={pc} content={byParcel.get(pc.id)} />),
+    [byParcel],
+  );
+
   return (
     <>
       <StaticCity occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
-      {PARCELS.map((pc) => (
-        <ParcelNode key={pc.id} parcel={pc} content={byParcel.get(pc.id)} />
-      ))}
+      {parcelNodes}
     </>
   );
 }

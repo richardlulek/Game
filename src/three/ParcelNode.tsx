@@ -1,6 +1,6 @@
 import { Html, useCursor } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Color, Vector3, type Group, type Sprite, type SpriteMaterial } from "three";
 import type { Parcel } from "../engine/city";
 import { expansionByBlock, parcelHash } from "../engine/city";
@@ -294,7 +294,7 @@ function LockedExpansion({ parcel }: { parcel: Parcel }) {
 }
 
 /** En tomtruta: markplatta, trottoar mot gatan, byggnad, ring, tooltip. */
-export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: ParcelContent }) {
+function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: ParcelContent }) {
   const selected = useUiStore((s) => s.selectedParcelId === parcel.id);
   const select = useUiStore((s) => s.select);
   const requestOpen = useUiStore((s) => s.requestOpen);
@@ -500,3 +500,10 @@ export function ParcelNode({ parcel, content }: { parcel: Parcel; content?: Parc
     </group>
   );
 }
+
+/* Memoiserad: propsen (parcel, content) är referensstabila mellan dagsticks
+   – advanceDay rör bara day/stocks, inte portfolio/listings/lots/competitors,
+   så byParcel-cachen ger samma content-referens. Utan memo renderade varje
+   tomt i staden om sig (5 store-subscriptions + hooks) vid varje dagstick;
+   nu hoppas de över tills innehållet faktiskt ändras (köp, månadsskifte). */
+export const ParcelNode = memo(ParcelNodeInner);

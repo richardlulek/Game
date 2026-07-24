@@ -13,7 +13,7 @@
    ParcelNode – de behöver raycast, markeringar och skickfärg.
    ============================================================ */
 
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import {
   BoxGeometry,
   BufferGeometry,
@@ -403,7 +403,7 @@ function AmbientBuildings({ occupied, lockedBlocks, grown, onAmbientClick }: Cit
 }
 
 /** Hela den statiska staden – fyra billiga komponenter. */
-export function StaticCity({ occupied, lockedBlocks, grown }: CityProps) {
+function StaticCityInner({ occupied, lockedBlocks, grown }: CityProps) {
   const select = useUiStore((s) => s.select);
 
   // Dekorhusen ritas sammanslaget men är ändå klickbara: träffpunkten
@@ -426,3 +426,8 @@ export function StaticCity({ occupied, lockedBlocks, grown }: CityProps) {
     </>
   );
 }
+
+/* Memoiserad: occupied/lockedBlocks/grown är memoiserade i CityParcels och
+   stabila mellan dagsticks, så den statiska staden (trottoarer, plattor, träd,
+   dekorhus) rekoncilieras inte varje bildruta medan kalendern rullar. */
+export const StaticCity = memo(StaticCityInner);
