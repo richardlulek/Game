@@ -37,7 +37,6 @@ import {
   TREE_TRUNK,
 } from "./colors";
 import { ambientColorFor, districtFloors } from "./districtBuildings";
-import { drivewayInstances, plotKerbInstances } from "./streetFurniture";
 import { ambientProfile } from "../engine/landDeals";
 import {
   facadeEmissiveTexture,
@@ -91,45 +90,11 @@ function Sidewalks({ lockedBlocks }: { lockedBlocks: Set<string> }) {
   return <primitive object={mesh} />;
 }
 
-/* ── Tomtkant + infart: rena gränser och tydliga in-/utfarter ──────── */
-
-function StreetFurniture({ occupied, lockedBlocks, grown }: CityProps) {
-  const hasBuilding = (p: Parcel) =>
-    !isLocked(p, lockedBlocks) && (occupied.has(p.id) || hasAmbientBuilding(p, grown));
-
-  // Infartsplattorna (asfalt) – ligger under kantstenen, ovanpå trottoaren.
-  const drives = useMemo(
-    () =>
-      buildInstances(
-        new BoxGeometry(1, 1, 1),
-        new MeshStandardMaterial({ color: "#8f9196", roughness: 0.92 }),
-        drivewayInstances(hasBuilding),
-        { receive: true },
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [occupied, lockedBlocks, grown],
-  );
-  // Tomtkanten (ljus kantsten) – en jämn lip runt hela den bebyggda tomten.
-  const kerbs = useMemo(
-    () =>
-      buildInstances(
-        new BoxGeometry(1, 1, 1),
-        new MeshStandardMaterial({ color: "#d2cfc4", roughness: 0.85 }),
-        plotKerbInstances(hasBuilding),
-        { receive: true },
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [occupied, lockedBlocks, grown],
-  );
-  useDisposable(drives);
-  useDisposable(kerbs);
-  return (
-    <>
-      <primitive object={drives} />
-      <primitive object={kerbs} />
-    </>
-  );
-}
+/* Tomtkant + infart togs bort: kantstenslippen runt hela tomten och
+   asfaltinfarten staplades ovanpå trottoaren och gav ett rörigt
+   dubbelt kantband vid infarten och runt området. Trottoaren (Sidewalks)
+   läser nu ensam som en ren fastighetsgräns. streetFurniture.ts finns
+   kvar om en diskret infart ska återinföras senare. */
 
 /* ── Markplattor för icke-interaktiva tomter ───────────────────────── */
 
@@ -455,7 +420,6 @@ export function StaticCity({ occupied, lockedBlocks, grown }: CityProps) {
   return (
     <>
       <Sidewalks lockedBlocks={lockedBlocks} />
-      <StreetFurniture occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
       <PlotPlates occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} onAmbientClick={onAmbientClick} />
       <ParkTrees occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
       <AmbientBuildings occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} onAmbientClick={onAmbientClick} />
