@@ -4,6 +4,7 @@ import { formatGameDate } from "../engine/date";
 import { useGameStore } from "../store/gameStore";
 import { exportSaveFile, getActiveSlot, importSaveFile, listSaveSlots, saveGame, setActiveSlot } from "../store/persistence";
 import { getAutosave, getReduceMotion, setAutosave, setReduceMotion } from "../store/prefs";
+import { useUiStore } from "../store/uiStore";
 import { BURGUNDY, C } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
@@ -104,6 +105,8 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
   onQuitToTitle: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const showFpsMeter = useUiStore((s) => s.showFps);
+  const setShowFpsMeter = useUiStore((s) => s.setShowFps);
   const [autosaveOn, setAutosaveOn] = useState(getAutosave());
   const [reduceMotionOn, setReduceMotionOn] = useState(getReduceMotion());
   const [showKeys, setShowKeys] = useState(false);
@@ -212,6 +215,12 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
             <span style={{ color: C.creamSoft }} title="Skip the story's camera pauses and shorten sweeps">Reduce motion</span>
             <button style={S.toolbarMiniBtn} onClick={() => { const v = !reduceMotionOn; setReduceMotion(v); setReduceMotionOn(v); }}>
               {reduceMotionOn ? "On" : "Off"}
+            </button>
+          </div>
+          <div style={row}>
+            <span style={{ color: C.creamSoft }} title="Show a live frames-per-second meter (bottom-right)">Show FPS</span>
+            <button style={S.toolbarMiniBtn} onClick={() => setShowFpsMeter(!showFpsMeter)}>
+              {showFpsMeter ? "On" : "Off"}
             </button>
           </div>
 

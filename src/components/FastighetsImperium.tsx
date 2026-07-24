@@ -41,6 +41,7 @@ import { StoryHud } from "./StoryHud";
 import { TitleScreen } from "./TitleScreen";
 import { Toasts } from "./Toasts";
 import { Toolbar } from "./Toolbar";
+import { FpsMeter } from "./FpsMeter";
 import { StockExchange } from "./StockExchange";
 import { ResearchPanel } from "./ResearchPanel";
 import { StaffPanel } from "./StaffPanel";
@@ -192,6 +193,7 @@ export default function FastighetsImperium() {
   // "offers" öppnar budinkorgen, annars ett fönster-id.
   const pendingOpen = useUiStore((s) => s.pendingOpen);
   const clearOpen = useUiStore((s) => s.clearOpen);
+  const showFps = useUiStore((s) => s.showFps);
   useEffect(() => {
     if (!pendingOpen) return;
     if (pendingOpen === "offers") setShowOffers(true);
@@ -870,6 +872,7 @@ export default function FastighetsImperium() {
       )}
 
       {/* ── Reaktiva lager ──────────────────────────────────── */}
+      {showFps && <FpsMeter />}
       <Toasts log={state.log} />
       {showOffers && (
         <OffersModal state={state} dispatch={dispatch} onClose={() => setShowOffers(false)} />

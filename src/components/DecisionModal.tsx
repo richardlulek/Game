@@ -64,7 +64,7 @@ export function DecisionModal({ state, dispatch }: Props) {
               style={{ background: "none", border: "none", fontSize: 12, color: C.inkSoft, cursor: "pointer", textDecoration: "underline" }}
               onClick={() => dispatch({ type: "SNOOZE_DECISION" })}
             >
-              Skjut upp beslutet (−2 reputation)
+              Postpone the decision (−2 reputation)
             </button>
           </div>
         )}

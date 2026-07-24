@@ -7,6 +7,7 @@
 
 const AUTOSAVE_KEY = "fastighetsimperium:autosave";
 const REDUCE_MOTION_KEY = "fastighetsimperium:reduceMotion";
+const SHOW_FPS_KEY = "fastighetsimperium:showFps";
 
 /** Autospar till aktiv slot vid varje månadsskifte. Standard: på. */
 export function getAutosave(): boolean {
@@ -26,4 +27,14 @@ export function getReduceMotion(): boolean {
 
 export function setReduceMotion(on: boolean): void {
   try { localStorage.setItem(REDUCE_MOTION_KEY, on ? "on" : "off"); } catch { /* ignore */ }
+}
+
+/** Visa FPS-mätaren (nere till höger). Standard: av. */
+export function getShowFps(): boolean {
+  try { return localStorage.getItem(SHOW_FPS_KEY) === "on"; }
+  catch { return false; }
+}
+
+export function setShowFps(on: boolean): void {
+  try { localStorage.setItem(SHOW_FPS_KEY, on ? "on" : "off"); } catch { /* ignore */ }
 }

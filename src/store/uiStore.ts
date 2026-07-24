@@ -5,6 +5,7 @@
    ============================================================ */
 
 import { create } from "zustand";
+import { getShowFps, setShowFps } from "./prefs";
 
 /** Kartlager à la Capitalism Lab: färga egna hus efter en nyckelmetrik. */
 export type OverlayMode = "ingen" | "vakans" | "skick" | "avkastning";
@@ -46,6 +47,9 @@ interface UiStore {
   /** Öppen minneslapp (berättelseläget) – kortet renderas i DOM-lagret. */
   openNoteId: string | null;
   setOpenNote: (id: string | null) => void;
+  /** FPS-mätaren synlig? Persisteras i localStorage via prefs. */
+  showFps: boolean;
+  setShowFps: (on: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -68,4 +72,6 @@ export const useUiStore = create<UiStore>((set) => ({
   clearOpen: () => set({ pendingOpen: null }),
   openNoteId: null,
   setOpenNote: (openNoteId) => set({ openNoteId }),
+  showFps: getShowFps(),
+  setShowFps: (on) => { setShowFps(on); set({ showFps: on }); },
 }));
