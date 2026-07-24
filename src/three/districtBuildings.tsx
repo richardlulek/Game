@@ -21,6 +21,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { PropTypeKey } from "../engine/types";
+import { useUiStore } from "../store/uiStore";
 import { FLOOR_HEIGHT, facadeBoxGeometry, type PointerHandlers } from "./BuildingShapes";
 import {
   PALETTE_FUNKIS,
@@ -175,6 +176,8 @@ export interface DistrictBuildingProps {
 
 /** Solpanel på platt tak – svagt lutad, mörkblå glaspanel. */
 function SolarPanel({ w, d, y, x = 0, z = 0 }: { w: number; d: number; y: number; x?: number; z?: number }) {
+  // Avstånds-LOD: osynlig från översikt – hoppas över där för färre draws.
+  if (useUiStore((s) => s.lodFar)) return null;
   return (
     <mesh castShadow position={[x, y, z]} rotation-z={0.07}>
       <boxGeometry args={[w, 0.14, d]} />
@@ -191,6 +194,8 @@ function SolarPanel({ w, d, y, x = 0, z = 0 }: { w: number; d: number; y: number
 function EntranceDetail({
   type, w, d, sx, sz, color, seed,
 }: { type: PropTypeKey; w: number; d: number; sx: number; sz: number; color: string; seed: number }) {
+  // Avstånds-LOD: gatuplansdetaljer syns inte i översikt – hoppas över där.
+  if (useUiStore((s) => s.lodFar)) return null;
   const along = sx !== 0; // gatuväggen löper i z-led
   const px = sx * (w / 2 + 0.18);
   const pz = sz * (d / 2 + 0.18);
@@ -240,6 +245,8 @@ function EntranceDetail({
 /** Takdetaljer: skorstenar, ventilationshuvar och takfönster gör platta
  *  tak levande – seedat så varje hus får sin egen uppsättning. */
 function RoofClutter({ w, d, y, seed }: { w: number; d: number; y: number; seed: number }) {
+  // Avstånds-LOD: takskorstenar/ventiler är osynliga från översikt.
+  if (useUiStore((s) => s.lodFar)) return null;
   const items: ReactNode[] = [];
   if (seed % 2 === 0)
     items.push(

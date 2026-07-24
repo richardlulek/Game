@@ -1,5 +1,6 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
+import { Vector3 } from "three";
 import { parcelById } from "../engine/city";
 import { useUiStore } from "../store/uiStore";
 
@@ -7,6 +8,31 @@ import { useUiStore } from "../store/uiStore";
 interface ControlsLike {
   target: { x: number; y: number; z: number };
   update: () => void;
+}
+
+/** Avstånds-LOD: EN useFrame läser kamerans avstånd till mål och slår om
+ *  uiStore.lodFar när vyn går in i/ur översikt. Hysteres (220 in, 180 ut) så
+ *  läget inte flimrar vid tröskeln, och store-set:et sker BARA vid växling –
+ *  inte varje bildruta. Hus tappar då småmeshar och statusmärken döljs, vilket
+ *  skär draw calls just när hela staden är i bild (värsta fallet). */
+const LOD_ENTER = 220;
+const LOD_EXIT = 180;
+const _t = new Vector3();
+
+export function LodController() {
+  const far = useRef(false);
+  useFrame((rootState) => {
+    const controls = rootState.controls as unknown as ControlsLike | null;
+    if (!controls) return;
+    _t.set(controls.target.x, controls.target.y, controls.target.z);
+    const d = rootState.camera.position.distanceTo(_t);
+    const next = far.current ? d > LOD_EXIT : d > LOD_ENTER;
+    if (next !== far.current) {
+      far.current = next;
+      useUiStore.getState().setLodFar(next);
+    }
+  });
+  return null;
 }
 
 /** Glider kamera + kontrollmål mot tomtrutan i senaste fokus-begäran.

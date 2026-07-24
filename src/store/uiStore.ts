@@ -50,6 +50,10 @@ interface UiStore {
   /** FPS-mätaren synlig? Persisteras i localStorage via prefs. */
   showFps: boolean;
   setShowFps: (on: boolean) => void;
+  /** Avstånds-LOD: true när kameran är i översikt (utzoomad). Sätts av
+   *  LodController i Canvas; hus tappar småmeshar och statusmärken döljs. */
+  lodFar: boolean;
+  setLodFar: (far: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -74,4 +78,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setOpenNote: (openNoteId) => set({ openNoteId }),
   showFps: getShowFps(),
   setShowFps: (on) => { setShowFps(on); set({ showFps: on }); },
+  lodFar: false,
+  setLodFar: (lodFar) => set({ lodFar }),
 }));

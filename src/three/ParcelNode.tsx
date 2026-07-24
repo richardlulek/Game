@@ -311,6 +311,7 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
   const select = useUiStore((s) => s.select);
   const requestOpen = useUiStore((s) => s.requestOpen);
   const overlayActive = useUiStore((s) => s.overlay !== "ingen");
+  const lodFar = useUiStore((s) => s.lodFar);
   const unlockedExpansion = useGameStore((s) =>
     parcel.expansion ? (s.state.unlockedBlocks ?? []).includes(parcel.blockId) : true,
   );
@@ -492,7 +493,9 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
           const be = ownerBeacon(content);
           return be ? <BeaconSprite y={Math.min(fullH, 150) + 3.5} be={be} /> : null;
         })()}
-        {badges.map((b, i) => (
+        {/* LOD: statusmärkena är hanteringsdetaljer man agerar på inzoomad –
+            i översikt är de klustrat brus och kostar draws, så de döljs. */}
+        {!lodFar && badges.map((b, i) => (
           <StatusBadge key={b.emoji} emoji={b.emoji} title={b.title} y={Math.min(fullH, 150) + 11} order={i} onClick={b.action} />
         ))}
       </group>

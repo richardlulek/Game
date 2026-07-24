@@ -16,7 +16,7 @@ import { useGameStore } from "../store/gameStore";
 import type { OverlayMode } from "../store/uiStore";
 import { useUiStore } from "../store/uiStore";
 import { Backdrop } from "./Backdrop";
-import { CameraRig } from "./CameraRig";
+import { CameraRig, LodController } from "./CameraRig";
 import { Birds, Clouds, Harbor, Landmarks } from "./CityExtras";
 import { Headquarters } from "./Headquarters";
 import { MemoryNotes, RoggeCar } from "./StoryProps";
@@ -322,6 +322,7 @@ export function CityCanvas() {
       <Traffic />
       <Pedestrians />
       <CameraRig />
+      <LodController />
       {showFps && <PerfProbe />}
     </Canvas>
   );
