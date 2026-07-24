@@ -306,7 +306,7 @@ function StockDetail({ stock, state, dispatch }: { stock: Stock; state: GameStat
       {/* Graf + tidsval */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontFamily: FONTS.heading, fontWeight: 700, color: BURGUNDY, fontSize: 14 }}>
-          Kursutveckling{" "}
+          Price history{" "}
           <span style={{ color: trendColor(chartChange), fontSize: 13 }}>{signed(chartChange)}</span>
         </div>
         <div style={{ display: "flex", gap: 4 }}>
@@ -701,7 +701,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
       <div style={{ background: THEME.woodBar, border: `2px solid ${C.brass}`, borderRadius: 6, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap", boxShadow: THEME.panelShadow }}>
         <div>
           <div style={{ fontFamily: FONTS.display, fontSize: 26, fontWeight: 900, color: C.brassBright, letterSpacing: 3, textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>STOCK EXCHANGE</div>
-          <div style={{ fontFamily: FONTS.heading, fontSize: 13, color: C.creamSoft }}>Stockholm Stock Exchange · {calYear(state.year)}</div>
+          <div style={{ fontFamily: FONTS.heading, fontSize: 13, color: C.creamSoft }}>City Stock Exchange · {calYear(state.year)}</div>
           <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: C.creamSoft }}>{cycleLabel}</span>
             <span style={{ fontSize: 11, color: C.creamSoft }}>· Policy rate {state.interestRate.toFixed(2)}%</span>
@@ -711,7 +711,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           <Spark data={sh} width={120} height={34} color={C.brass} />
           <div style={{ textAlign: "right" }}>
             <div style={{ ...subLabel, color: C.brassDim }}>Market index</div>
-            <div style={{ fontFamily: FONTS.heading, fontSize: 28, fontWeight: 700, color: C.brassBright, lineHeight: 1.1 }}>{index.toLocaleString("sv-SE")}</div>
+            <div style={{ fontFamily: FONTS.heading, fontSize: 28, fontWeight: 700, color: C.brassBright, lineHeight: 1.1 }}>{index.toLocaleString("en-US")}</div>
             <div style={{ fontFamily: FONTS.heading, fontSize: 14, fontWeight: 700, color: indexChange >= 0 ? C.positiveBright : C.negativeBright }}>{signed(indexChange)} vs last month</div>
           </div>
         </div>

@@ -98,6 +98,9 @@ export const S: Record<string, CSSProperties> = {
     fontStyle: "normal",
     fontWeight: 700,
     color: "#fff",
+    // Skugga så siffran syns både på det fyllda stapelfältet och på den
+    // ljusa restbanan när tillståndet är lågt (kort fyllnad).
+    textShadow: "0 0 3px rgba(0,0,0,0.9), 0 0 1px rgba(0,0,0,0.9)",
     lineHeight: "16px",
   },
 

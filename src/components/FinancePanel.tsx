@@ -124,16 +124,16 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
           <div style={S.financeCol}>
             <h3 style={S.h3OnLight}>Balance sheet</h3>
             <div style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
+              display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10,
               padding: "8px 10px", marginBottom: 8, borderRadius: 6,
               background: rating.score >= 60 ? "#eef8f2" : rating.score >= 36 ? "#fdf6e3" : "#fdecea",
               border: `1px solid ${rating.score >= 60 ? "#22a06b" : rating.score >= 36 ? "#c9a13b" : "#c0392b"}`,
             }}>
-              <span style={{ fontSize: 12.5 }}>
+              <span style={{ fontSize: 12.5, lineHeight: 1.5 }}>
                 Credit rating <strong style={{ fontSize: 15 }}>{rating.rating}</strong>
                 <span style={{ color: "#888" }}> · {rating.drivers.join(" · ")}</span>
               </span>
-              <span style={{ fontSize: 11, color: "#888" }}>spread {rating.spreadDelta >= 0 ? "+" : ""}{rating.spreadDelta.toFixed(1)} pp</span>
+              <span style={{ fontSize: 11, color: "#888", whiteSpace: "nowrap", flexShrink: 0 }}>spread {rating.spreadDelta >= 0 ? "+" : ""}{rating.spreadDelta.toFixed(1)}pp</span>
             </div>
             <Line l="Cash" v={kr(state.cash)} />
             <Line l="Property value" v={kr(totalValue)} />
@@ -145,7 +145,7 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
 
           <div style={S.financeCol}>
             <h3 style={S.h3OnLight}>Income (annualized)</h3>
-            <Line l="Net operating income" v={kr(totalNOI)} accent="#27660a" />
+            <Line l="Net operating income" v={kr(totalNOI)} accent={totalNOI >= 0 ? "#27660a" : "#c0392b"} />
             <Line l="Interest cost" v={"−" + kr(annualInterest)} accent="#c0392b" />
             <Line l="Cash flow" v={kr(totalNOI - annualInterest)} bold />
             <h3 style={{ ...S.h3OnLight, marginTop: 18 }}>Macro (the central bank)</h3>

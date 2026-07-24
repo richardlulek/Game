@@ -117,7 +117,7 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
         <strong style={strong}>
           {p.tenants.length > 0
             ? `${p.tenants.length} of ${p.capacity} rented`
-            : `${p.capacity} units, vacant`}
+            : `${p.capacity} ${p.capacity === 1 ? "unit" : "units"}, vacant`}
         </strong>
       </div>
 
