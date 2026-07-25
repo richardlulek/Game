@@ -11,11 +11,10 @@
    mörka titelskärmen osv. Defaulten är spelets guld-och-gräddvita
    identitet. Byt bara props, aldrig konsten. */
 
+import { SIGNET_TL_PATH, WORDMARK_DESCRIPTOR_PATH, WORDMARK_TITLE_PATH } from "./brandPaths";
+
 const GOLD = "#d6b25e";
 const CREAM = "#f3ede0";
-
-const SERIF = "Georgia, 'Times New Roman', serif";
-const SANS = "'Inter', 'Segoe UI', system-ui, sans-serif";
 
 interface MarkProps {
   /** Byggnader/bokstäver – huvudkonturen. Default gräddvit. */
@@ -57,31 +56,21 @@ export function Signet({
         <rect x="144" y="164" width="14" height="24" />
         <rect x="162" y="170" width="12" height="18" />
       </g>
-      <text
-        x="120"
-        y="140"
-        textAnchor="middle"
-        fontFamily={SERIF}
-        fontWeight={700}
-        fontSize={120}
-        fill={primary}
-        letterSpacing={-6}
-      >
-        TL
-      </text>
+      <path d={SIGNET_TL_PATH} fill={primary} />
     </svg>
   );
 }
 
 /** Koncept 6 – horisontell ordbild: serif-titel, guld-skyline-linje och
- *  en spärrad descriptor. Skala via width i `style`. */
+ *  en spärrad descriptor. Texten är KONTURSATT (paths, se brandPaths.ts) så
+ *  loggan ser identisk ut på alla maskiner. Skala via width i `style`. */
 export function Wordmark({
   primary = CREAM,
   accent = GOLD,
-  descriptor = "PROPERTY TYCOON",
+  showDescriptor = true,
   style,
   className,
-}: MarkProps & { descriptor?: string | null }) {
+}: MarkProps & { showDescriptor?: boolean }) {
   return (
     <svg
       viewBox="0 0 620 160"
@@ -90,18 +79,7 @@ export function Wordmark({
       className={className}
       style={style}
     >
-      <text
-        x="310"
-        y="72"
-        textAnchor="middle"
-        fontFamily={SERIF}
-        fontWeight={700}
-        fontSize={58}
-        fill={primary}
-        letterSpacing={1}
-      >
-        THE LANDLORD
-      </text>
+      <path d={WORDMARK_TITLE_PATH} fill={primary} />
       <g fill={accent}>
         <rect x="70" y="104" width="480" height="3" />
         <rect x="150" y="92" width="9" height="12" />
@@ -114,20 +92,7 @@ export function Wordmark({
         <rect x="453" y="86" width="11" height="18" />
         <rect x="468" y="98" width="8" height="6" />
       </g>
-      {descriptor && (
-        <text
-          x="310"
-          y="132"
-          textAnchor="middle"
-          fontFamily={SANS}
-          fontWeight={400}
-          fontSize={15}
-          fill={accent}
-          letterSpacing={7}
-        >
-          {descriptor}
-        </text>
-      )}
+      {showDescriptor && <path d={WORDMARK_DESCRIPTOR_PATH} fill={accent} />}
     </svg>
   );
 }
