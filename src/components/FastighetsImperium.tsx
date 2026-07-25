@@ -37,6 +37,7 @@ import { PortfolioTable } from "./PortfolioTable";
 import { RivalsPanel } from "./RivalsPanel";
 import { StatusBar } from "./StatusBar";
 import { MemoryNoteCard } from "./MemoryNoteCard";
+import { SplashScreen } from "./SplashScreen";
 import { StoryHud } from "./StoryHud";
 import { TitleScreen } from "./TitleScreen";
 import { Toasts } from "./Toasts";
@@ -126,6 +127,10 @@ export default function FastighetsImperium() {
   useGameClock();
 
   const [started, setStarted] = useState(false);
+  // Laddbild vid uppstart – hoppas över i ?dev-läget (snabb sandbox-boot).
+  const [showSplash, setShowSplash] = useState(
+    () => !new URLSearchParams(window.location.search).has("dev"),
+  );
   // Undertrycker tidningsmodalen när en nivåändring kommer från load.
   const suppressNews = useRef(false);
   // Cap2-modell: kartan är alltid grundvyn; flera fönster kan vara öppna
@@ -458,6 +463,7 @@ export default function FastighetsImperium() {
       <>
         <Animations />
         <TitleScreen slots={listSaveSlots()} onNew={startNew} onContinue={startContinue} />
+        {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
       </>
     );
   }
