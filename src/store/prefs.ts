@@ -60,9 +60,9 @@ export interface GraphicsPreset {
 }
 
 export const GRAPHICS_PRESETS: Record<Quality, GraphicsPreset> = {
-  low:    { dpr: 1,    shadows: false, shadowMap: 0,    ambient: false, lodEnter: 120, lodExit: 90 },
-  medium: { dpr: 1.35, shadows: true,  shadowMap: 1024, ambient: true,  lodEnter: 175, lodExit: 140 },
-  high:   { dpr: 2,    shadows: true,  shadowMap: 2048, ambient: true,  lodEnter: 220, lodExit: 180 },
+  low:    { dpr: 1,    shadows: false, shadowMap: 0,    ambient: false, lodEnter: 440, lodExit: 380 },
+  medium: { dpr: 1.35, shadows: true,  shadowMap: 1024, ambient: true,  lodEnter: 600, lodExit: 530 },
+  high:   { dpr: 2,    shadows: true,  shadowMap: 2048, ambient: true,  lodEnter: 720, lodExit: 640 },
 };
 
 export function getGraphics(): Quality {
