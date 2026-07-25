@@ -144,7 +144,7 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
   // Export: native "Spara som…"-dialog på desktop, annars webbläsar-nedladdning.
   const doExport = async () => {
     const json = exportSaveFile(state);
-    const name = `property-empire-${new Date().toISOString().slice(0, 10)}.json`;
+    const name = `the-landlord-${new Date().toISOString().slice(0, 10)}.json`;
     if ((await saveGameFile(json, name)) !== "web") return; // native skötte det (eller avbröts)
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);

@@ -4,12 +4,10 @@
    UI-temat. Redigera konstanterna nedan när namn/utvecklare är spikat. */
 
 import { useEffect, useState } from "react";
-import logoUrl from "../assets/logo.png";
-import { FONTS } from "../styles/tokens";
+import { Signet, Wordmark } from "./Brand";
 
 // ── Redigera dessa när branding är bestämd ──────────────────────────────
-const GAME_NAME = "PROPERTY EMPIRE";
-const TAGLINE = "Build an empire block by block";
+const GAME_NAME = "The Landlord";
 const DEVELOPER = "Richard Lulek";
 const DEV_BLURB = "An independent property-tycoon game — a living 3D city, rival moguls and a boardroom of M&A.";
 const YEAR = new Date().getFullYear();
@@ -33,8 +31,6 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
   }, [onDone]);
 
-  const [first, ...rest] = GAME_NAME.split(" ");
-
   return (
     <div
       onClick={dismiss}
@@ -55,31 +51,20 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
         overflow: "hidden",
       }}
     >
-      <img
-        src={logoUrl}
-        alt={GAME_NAME}
-        width={160}
-        height={160}
+      <div
         style={{
           borderRadius: 28,
+          padding: 18,
+          background: "rgba(255,255,255,0.03)",
           boxShadow: `0 18px 60px rgba(0,0,0,0.55), 0 0 0 1px ${GOLD}55`,
           animation: "fi-splash-rise 0.8s cubic-bezier(.2,.8,.2,1)",
         }}
-      />
-      <h1
-        style={{
-          fontFamily: FONTS.heading,
-          fontSize: 46,
-          fontWeight: 800,
-          letterSpacing: 3,
-          margin: "22px 0 2px",
-          color: CREAM,
-        }}
       >
-        {first}
-        {rest.length > 0 && <span style={{ color: GOLD }}> {rest.join(" ")}</span>}
-      </h1>
-      <p style={{ fontSize: 15, color: MUTED, letterSpacing: 0.6, margin: 0 }}>{TAGLINE}</p>
+        <Signet size={128} title={GAME_NAME} />
+      </div>
+      <Wordmark
+        style={{ width: 400, maxWidth: "82vw", marginTop: 22, height: "auto" }}
+      />
 
       <div
         style={{

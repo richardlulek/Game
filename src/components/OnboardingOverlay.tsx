@@ -18,7 +18,7 @@ function deriveTutorialStep(state: GameState): number {
 
 const STEPS = [
   {
-    title: "Welcome to Property Empire!",
+    title: "Welcome to The Landlord!",
     // Startkapitalet varierar med svårighet/anpassningar – fyll i vid render.
     body: "You start with {CASH} in the bank. Open the Market tab and buy your first property — pick one that fits your budget and click Buy.",
     icon: "🏠",

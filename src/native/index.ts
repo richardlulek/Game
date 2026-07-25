@@ -72,7 +72,7 @@ export async function saveGameFile(json: string, defaultName: string): Promise<F
   const { invoke } = await import("@tauri-apps/api/core");
   const path = await save({
     defaultPath: defaultName,
-    filters: [{ name: "Property Empire save", extensions: ["json"] }],
+    filters: [{ name: "The Landlord save", extensions: ["json"] }],
   });
   if (!path) return "cancelled";
   await invoke("write_save", { path, contents: json });
@@ -88,7 +88,7 @@ export async function loadGameFile(): Promise<string | null | "web"> {
   const picked = await open({
     multiple: false,
     directory: false,
-    filters: [{ name: "Property Empire save", extensions: ["json"] }],
+    filters: [{ name: "The Landlord save", extensions: ["json"] }],
   });
   const path = typeof picked === "string" ? picked : null;
   if (!path) return null;

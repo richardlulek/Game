@@ -8,6 +8,7 @@ import type { DifficultyId, InitOptions, ScenarioId } from "../engine/types";
 import { msek } from "../engine/format";
 import type { SlotInfo } from "../store/persistence";
 import { C, FONTS, THEME } from "../styles/tokens";
+import { Wordmark } from "./Brand";
 
 interface Props {
   slots: SlotInfo[];
@@ -132,11 +133,14 @@ export function TitleScreen({ slots, onNew, onContinue }: Props) {
         {phase === "start" && (
           <>
             <div style={overline}>· ESTABLISHED 2000 ·</div>
-            <div style={title}>PROPERTY&shy;EMPIRE</div>
+            <Wordmark
+              primary="#f3ede0"
+              accent="#d6b25e"
+              style={{ width: 440, maxWidth: "80vw", height: "auto", margin: "6px auto 4px", display: "block" }}
+            />
             <div style={rule}>
               <span style={diamond}>◆</span>
             </div>
-            <div style={subtitle}>Build an empire block by block</div>
 
             <div style={btnRow}>
               {anySave && (
@@ -479,11 +483,6 @@ const overline: React.CSSProperties = {
   fontFamily: FONTS.body, fontSize: 13, letterSpacing: 6,
   color: C.brass, fontWeight: 600, marginBottom: 14,
 };
-const title: React.CSSProperties = {
-  fontFamily: FONTS.display, fontSize: "clamp(34px, 7vw, 64px)", fontWeight: 900,
-  color: C.brassBright, letterSpacing: 3, lineHeight: 1.05,
-  textShadow: "0 2px 10px rgba(0,0,0,0.7)",
-};
 const rule: React.CSSProperties = {
   height: 2, background: THEME.goldRule, margin: "20px auto 16px", maxWidth: 320,
   position: "relative",
@@ -491,10 +490,6 @@ const rule: React.CSSProperties = {
 const diamond: React.CSSProperties = {
   position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)",
   color: C.brass, fontSize: 16, background: "rgba(16,32,26,0.9)", padding: "0 8px",
-};
-const subtitle: React.CSSProperties = {
-  fontFamily: FONTS.heading, fontStyle: "italic", fontSize: "clamp(14px,2.2vw,19px)",
-  color: C.creamText, marginBottom: 30,
 };
 const btnRow: React.CSSProperties = { display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" };
 const modeCard = (sel: boolean): React.CSSProperties => ({

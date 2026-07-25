@@ -18,11 +18,11 @@ rör inte resten av kodbasen.
 
 ## Första gången: generera ikoner
 
-Tauri-bygget kräver ikonfilerna som `tauri.conf.json` pekar på. Generera dem
-från en käll-PNG (helst ≥ 1024×1024):
+Tauri-bygget kräver ikonfilerna som `tauri.conf.json` pekar på. Käll-loggan
+(Signet-märket "TL", 1024×1024) ligger i repo-roten som `logo.png`:
 
 ```bash
-npm run tauri icon path/to/logo.png
+npm run tauri icon logo.png
 ```
 
 Det fyller `src-tauri/icons/` med alla format (.ico/.icns/.png).

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Property Empire",
+  "productName": "The Landlord",
   "version": "2.0.0",
   "identifier": "com.propertyempire.game",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Property Empire",
+        "title": "The Landlord",
         "width": 1440,
         "height": 900,
         "minWidth": 1024,
@@ -39,6 +39,6 @@
     "copyright": "",
     "category": "Game",
     "shortDescription": "Property tycoon – build an empire block by block.",
-    "longDescription": "Property Empire is a property-tycoon game: buy, build, lease and grow across a living 3D city with rivals, an M&A boardroom and a story campaign."
+    "longDescription": "The Landlord is a property-tycoon game: buy, build, lease and grow across a living 3D city with rivals, an M&A boardroom and a story campaign."
   }
 }
