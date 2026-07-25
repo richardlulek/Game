@@ -67,9 +67,25 @@ Kör `npm run build` (Vite → `dist/`), buntar det i skalet och producerar:
 - **Cloud saves** – spelet sparar i `localStorage`. Enklast: Steam Auto-Cloud
   på save-mappen, eller migrera export/import (finns redan i ⚙-menyn) till en
   fil-baserad save via native-bron. *Inte krav för EA, men rekommenderat.*
-- **Achievements / rich presence** – trevligt men inte krav för EA. Läggs till
-  som Rust-kommandon i `src-tauri/src/lib.rs` och anropas via
-  `src/native/index.ts`.
+- **Achievements** – trevligt men inte krav för EA. **Stommen finns redan**:
+  frontend-bron `steam.unlock(id)` (`src/native/index.ts`, no-op på webb) →
+  Rust-kommandot `steam_unlock` (`src-tauri/src/lib.rs`, loggar bara just nu).
+  För att göra det skarpt:
+  1. Skapa app-ID + definiera achievements i Steamworks backend.
+  2. Ladda ner Steamworks-SDK:t; lägg `steam_api64.dll` bredvid exe:n och
+     `steam_appid.txt` (ditt app-ID) i `src-tauri/` för dev.
+  3. Lägg `steamworks = "0.11"` i `src-tauri/Cargo.toml`, initiera klienten i
+     `run()`, spara den i Tauri-state, pumpa `run_callbacks()` i en tråd.
+  4. Byt kroppen i `steam_unlock` mot de riktiga anropen (se kommentaren där).
+  5. Koppla `steam.unlock(ACHIEVEMENTS.x)` till spelhändelser (köp första huset,
+     nå 50 MSEK, klara kampanjen …). Kandidat-ID:n ligger i `ACHIEVEMENTS`.
+
+### Native saves (klart)
+
+Export/Import i ⚙-menyn använder riktiga "Spara som…/Öppna…"-dialoger på
+desktop (webben faller tillbaka på nedladdning). Skrivningen sker i Rust-
+kommandona `write_save`/`read_save`. Detta är också grunden för Steam Cloud –
+peka Auto-Cloud på mappen dit spelet skriver.
 
 ## Prestanda
 

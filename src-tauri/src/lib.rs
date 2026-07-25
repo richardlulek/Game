@@ -17,11 +17,24 @@ fn read_save(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
+/// Steam-achievement – STOMME. Loggar bara tills Steamworks kopplas på.
+/// När du har app-ID + Steamworks-SDK: lägg `steamworks`-craten i Cargo.toml,
+/// initiera klienten i run() nedan och lagra den i Tauri-state, och byt
+/// kroppen här mot:
+///     client.user_stats().achievement(&id).set()?;
+///     client.user_stats().store_stats()?;
+/// (samt en bakgrundstråd som pumpar client.run_callbacks()).
+#[tauri::command]
+fn steam_unlock(id: String) -> Result<(), String> {
+    println!("[steam] unlock achievement (stub): {id}");
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![write_save, read_save])
+        .invoke_handler(tauri::generate_handler![write_save, read_save, steam_unlock])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

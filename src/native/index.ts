@@ -27,17 +27,37 @@ export function shell(): "tauri" | "electron" | "web" {
   return "web";
 }
 
-/* Framtida native-anrop läggs till nedan, alltid webbsäkra (no-op/fallback
-   när !isDesktop). Exempel på hur Steam-lagret kommer se ut:
+/* ── Steam ────────────────────────────────────────────────────────────────
+   Skelett. På webben: no-op. På desktop: anropar Rust-kommandot steam_unlock,
+   som just nu bara loggar (ingen steamworks-crate än). När app-ID + Steamworks-
+   SDK finns byts Rust-sidan mot riktiga anrop – FRONTEND-koden nedan står orörd.
+   Allt är fel-tolerant: saknas kommandot kraschar aldrig spelet. */
+export const steam = {
+  /** Lås upp en achievement. Anropas från spelhändelser (se ACHIEVEMENTS). */
+  async unlock(id: string): Promise<void> {
+    if (!isDesktop()) return;
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("steam_unlock", { id });
+    } catch {
+      /* Steam ej igång / kommando saknas – tyst no-op, aldrig krasch. */
+    }
+  },
+};
 
-   export const steam = {
-     async unlockAchievement(id: string): Promise<void> {
-       if (!isDesktop()) return;                       // webben: no-op
-       const { invoke } = await import("@tauri-apps/api/core");
-       await invoke("steam_unlock", { id });           // Rust-kommando
-     },
-   };
-*/
+/** Planerade achievement-ID:n (matchar det man definierar i Steamworks
+ *  backend). Anropa steam.unlock(ACHIEVEMENTS.x) på rätt ställe i spelet när
+ *  Steam-lagret är på. Inget är inkopplat i spelhändelser ännu – det är ett
+ *  designsteg som görs när ID:na är låsta i Steamworks. */
+export const ACHIEVEMENTS = {
+  firstProperty: "first_property",   // köp din första fastighet
+  firstMillion: "equity_1m",         // nå 1 MSEK eget kapital
+  fiftyMillion: "equity_50m",        // nå 50 MSEK
+  billionaire: "equity_1b",          // nå 1 miljard
+  campaignDone: "campaign_complete", // klara kampanjen
+  districtDominance: "own_district", // äg ett helt distrikt
+  hostileTakeover: "hostile_win",    // vinn ett fientligt bud
+} as const;
 
 /** Resultat av ett fil-native-anrop. "web" = kör webbläsarens fallback. */
 export type FileResult = "saved" | "cancelled" | "web";
