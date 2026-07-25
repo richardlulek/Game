@@ -10,3 +10,6 @@ dist-ssr
 !.claude/settings.json
 !.claude/hooks/
 .claude/settings.local.json
+
+# Scratchpad for throwaway working files (logo explorations, notes)
+scratchpad/
