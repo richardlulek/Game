@@ -160,9 +160,9 @@ describe("bolagsnamn", () => {
     const fresh = reducer(makeState({}), {
       type: "RESET",
       scenarioId: "sandbox",
-      companyName: "Lulek Fastigheter AB",
+      companyName: "Meridian Fastigheter AB",
     });
-    expect(fresh.companyName).toBe("Lulek Fastigheter AB");
+    expect(fresh.companyName).toBe("Meridian Fastigheter AB");
     expect(fresh.companyLevel).toBe(1);
 
     const renamed = reducer(fresh, { type: "SET_COMPANY_NAME", name: "  Nya Namnet  " });

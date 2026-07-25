@@ -8,7 +8,6 @@ import { Signet, Wordmark } from "./Brand";
 
 // ── Redigera dessa när branding är bestämd ──────────────────────────────
 const GAME_NAME = "The Landlord";
-const DEVELOPER = "Richard Lulek";
 const DEV_BLURB = "An independent property-tycoon game — a living 3D city, rival moguls and a boardroom of M&A.";
 const YEAR = new Date().getFullYear();
 // ────────────────────────────────────────────────────────────────────────
@@ -80,13 +79,10 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
       </div>
 
       <footer style={{ position: "absolute", bottom: 34, left: 0, right: 0, textAlign: "center", padding: "0 24px" }}>
-        <div style={{ fontSize: 13, color: CREAM, fontWeight: 700, letterSpacing: 0.5 }}>
-          A game by <span style={{ color: GOLD }}>{DEVELOPER}</span>
-        </div>
-        <div style={{ fontSize: 12, color: MUTED, maxWidth: 560, margin: "6px auto 0", lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: MUTED, maxWidth: 560, margin: "0 auto", lineHeight: 1.5 }}>
           {DEV_BLURB}
         </div>
-        <div style={{ fontSize: 11, color: "#8c7c6c", marginTop: 8 }}>© {YEAR} {DEVELOPER} · Early Access</div>
+        <div style={{ fontSize: 11, color: "#8c7c6c", marginTop: 8 }}>© {YEAR} {GAME_NAME} · Early Access</div>
       </footer>
 
       <style>{`
