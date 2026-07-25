@@ -44,7 +44,7 @@ export function Toolbar({
   return (
     <div style={S.toolbar}>
       <div style={S.toolbarLogo}>
-        PROPERTY<span style={{ color: BURGUNDY }}>EMPIRE</span>
+        THE&nbsp;<span style={{ color: "#d6b25e" }}>LANDLORD</span>
       </div>
       <div style={S.toolbarDate}>
         {formatGameDate(state.day ?? 1, state.month, state.year)}
