@@ -9,6 +9,12 @@ export default defineConfig({
   // en preview-URL osv). Absolut base som "/Game/" ger 404 på JS/CSS när
   // hosten inte ligger på exakt den vägen → bara grön bakgrundssida.
   base: "./",
+  server: {
+    // Bevaka ALDRIG Rust-bygget (src-tauri/target skriver tusentals filer
+    // under `tauri dev`). Utan detta kraschar Vites filbevakare med EBUSY,
+    // särskilt om projektet ligger i en synkad mapp (OneDrive/Dropbox).
+    watch: { ignored: ["**/src-tauri/**"] },
+  },
   test: {
     // Engine-testerna är ren TS utan DOM-beroenden.
     environment: "node",
