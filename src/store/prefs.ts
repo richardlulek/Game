@@ -59,10 +59,16 @@ export interface GraphicsPreset {
   lodExit: number;
 }
 
+// Bygg-LOD (instansierade block i översikt) är AVSTÄNGT tillsvidare: blocken
+// saknar fönstertextur och blev fula släta pelare. lodEnter satt bortom
+// kamerans maxavstånd (1000) → lodFar blir aldrig sant → husen renderas alltid
+// fullt. All LOD-infrastruktur ligger kvar; för att återaktivera (när blocken
+// texturerats) sänk lodEnter/lodExit till rimliga avstånd igen.
+const LOD_OFF = { lodEnter: 100000, lodExit: 99000 };
 export const GRAPHICS_PRESETS: Record<Quality, GraphicsPreset> = {
-  low:    { dpr: 1,    shadows: false, shadowMap: 0,    ambient: false, lodEnter: 440, lodExit: 380 },
-  medium: { dpr: 1.35, shadows: true,  shadowMap: 1024, ambient: true,  lodEnter: 600, lodExit: 530 },
-  high:   { dpr: 2,    shadows: true,  shadowMap: 2048, ambient: true,  lodEnter: 720, lodExit: 640 },
+  low:    { dpr: 1,    shadows: false, shadowMap: 0,    ambient: false, ...LOD_OFF },
+  medium: { dpr: 1.35, shadows: true,  shadowMap: 1024, ambient: true,  ...LOD_OFF },
+  high:   { dpr: 2,    shadows: true,  shadowMap: 2048, ambient: true,  ...LOD_OFF },
 };
 
 export function getGraphics(): Quality {
