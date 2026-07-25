@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Grundläggande behörigheter för huvudfönstret.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

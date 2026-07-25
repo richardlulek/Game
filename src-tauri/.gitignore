@@ -1,0 +1,3 @@
+# Rust-bygge och Tauri-genererade filer
+/target
+/gen/schemas
