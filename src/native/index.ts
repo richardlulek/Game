@@ -38,3 +38,39 @@ export function shell(): "tauri" | "electron" | "web" {
      },
    };
 */
+
+/** Resultat av ett fil-native-anrop. "web" = kör webbläsarens fallback. */
+export type FileResult = "saved" | "cancelled" | "web";
+
+/** Spara sparfilstext via native "Spara som…"-dialog (desktop). Dialogen
+ *  väljer sökväg; själva skrivningen sker i ett litet Rust-kommando (full
+ *  diskåtkomst, ingen fs-scope att tappa på). Webben får "web" tillbaka och
+ *  gör sin egen nedladdning. */
+export async function saveGameFile(json: string, defaultName: string): Promise<FileResult> {
+  if (!isDesktop()) return "web";
+  const { save } = await import("@tauri-apps/plugin-dialog");
+  const { invoke } = await import("@tauri-apps/api/core");
+  const path = await save({
+    defaultPath: defaultName,
+    filters: [{ name: "Property Empire save", extensions: ["json"] }],
+  });
+  if (!path) return "cancelled";
+  await invoke("write_save", { path, contents: json });
+  return "saved";
+}
+
+/** Läs en sparfil via native "Öppna…"-dialog (desktop). Returnerar filens
+ *  text, null om avbrutet, eller "web" så anroparen kör webb-fallback. */
+export async function loadGameFile(): Promise<string | null | "web"> {
+  if (!isDesktop()) return "web";
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const { invoke } = await import("@tauri-apps/api/core");
+  const picked = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: "Property Empire save", extensions: ["json"] }],
+  });
+  const path = typeof picked === "string" ? picked : null;
+  if (!path) return null;
+  return await invoke<string>("read_save", { path });
+}

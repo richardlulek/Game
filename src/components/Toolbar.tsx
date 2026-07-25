@@ -5,6 +5,7 @@ import { useGameStore } from "../store/gameStore";
 import { exportSaveFile, getActiveSlot, importSaveFile, listSaveSlots, saveGame, setActiveSlot } from "../store/persistence";
 import { getAutosave, getReduceMotion, setAutosave, setReduceMotion } from "../store/prefs";
 import { useUiStore } from "../store/uiStore";
+import { loadGameFile, saveGameFile } from "../native";
 import { BURGUNDY, C } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
@@ -128,18 +129,9 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
     return () => window.removeEventListener("pointerdown", close);
   }, [open]);
 
-  const doExport = () => {
-    const blob = new Blob([exportSaveFile(state)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `fastighetsimperium-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-  };
-
-  const doImport = async (file: File) => {
-    const imported = importSaveFile(await file.text());
+  // Gemensam import-hantering: validera → bekräfta → in i aktiv slot → ladda.
+  const applyImport = (text: string) => {
+    const imported = importSaveFile(text);
     if (!imported) {
       window.alert("The file could not be read as a save file.");
       return;
@@ -147,6 +139,28 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
     if (!window.confirm("Import the save file? It overwrites the game in the active slot.")) return;
     saveGame(imported); // in i aktiv slot …
     onLoad();           // … och ladda den direkt.
+  };
+
+  // Export: native "Spara som…"-dialog på desktop, annars webbläsar-nedladdning.
+  const doExport = async () => {
+    const json = exportSaveFile(state);
+    const name = `property-empire-${new Date().toISOString().slice(0, 10)}.json`;
+    if ((await saveGameFile(json, name)) !== "web") return; // native skötte det (eller avbröts)
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
+  // Import: native "Öppna…"-dialog på desktop, annars webbläsarens filväljare.
+  const startImport = async () => {
+    const res = await loadGameFile();
+    if (res === "web") { fileRef.current?.click(); return; } // webb: dölj filinput
+    if (res === null) return;                                 // avbrutet
+    applyImport(res);
   };
 
   // Spara till en vald slot och gör den aktiv (skriv-över bekräftas).
@@ -268,12 +282,12 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
             </button>
           </div>
           <div style={row}>
-            <button style={rowBtn} onClick={doExport} title="Download a save file (JSON) as a backup">
+            <button style={rowBtn} onClick={() => void doExport()} title="Save a backup file (JSON)">
               ⬇︎ Export save file
             </button>
           </div>
           <div style={row}>
-            <button style={rowBtn} onClick={() => fileRef.current?.click()} title="Load a previously exported save file">
+            <button style={rowBtn} onClick={() => void startImport()} title="Load a previously exported save file">
               ⬆︎ Import save file
             </button>
           </div>
@@ -284,7 +298,7 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
             style={{ display: "none" }}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void doImport(f);
+              if (f) void f.text().then(applyImport);
               e.target.value = "";
             }}
           />
