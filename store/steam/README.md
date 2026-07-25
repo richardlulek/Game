@@ -39,6 +39,25 @@ Skärmdumparna och heron här är tagna under mjukvaru-GL. Inför EA:
 - Spela in en **trailer** (30–60 s) – enda tillgången som måste komma från
   live-spel.
 
+## Trailer
+
+`../trailer/the-landlord-trailer-60s.mp4` – 60 s announce-trailer
+(1920×1080@30, H.264+AAC), byggd som motion-graphics över riktiga
+in-game-bilder enligt `trailer-script.md`. Ljudspåret är klippt av **spelets
+egen musik** (Pixabay-licensen tillåter användning i video): Coffee Shop Jazz
+under cold open → Big City Big Dreams droppar på stadsavtäckningen (en stark
+downbeat är linjerad mot 11.0 s och spårets egen breakdown landar under
+loggan). Klippen är snappade mot 88 BPM-beatgriden.
+
+Bygga om: `store/generators/build_audio.py` (kräver `jazz.wav`/`city.wav` –
+avkoda mp3:orna i `src/audio/music/` med ffmpeg) och sedan
+`store/generators/render_trailer.py` (Pillow + numpy + imageio-ffmpeg).
+
+> Detta är en **announce/previz-trailer från stillbilder**. Till 1.0-sidan
+> bör huvudtrailern innehålla riktigt gameplay-material (Valve föredrar det)
+> – spela in enligt shot-listan i `trailer-script.md` och klipp mot samma
+> ljudspår.
+
 ## Bygga om heron
 
 ```bash
