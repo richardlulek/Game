@@ -653,6 +653,10 @@ export interface CompanyPolicy {
   rejectBelowQuality?: number;
   /** CFO amorterar automatiskt ned mot mål-LTV när kassan tillåter. */
   autoAmort?: { enabled: boolean; ltvTarget: number; cashFloor: number };
+  /** Belåningsgrad vid FÖRVÄRV (0–0.85). Saknas = låna så mycket banken
+   *  tillåter, vilket var det enda beteendet tidigare. Kapas alltid av
+   *  bankens maxLtv – du kan välja att låna mindre, aldrig mer. */
+  purchaseLtv?: number;
   /** Förvaltningschefen försäkrar automatiskt fastigheter över värdegränsen. */
   autoInsure?: { enabled: boolean; minValue: number };
   /** Förvaltningschefen energiuppgraderar mot målklassen när kassan tillåter. */

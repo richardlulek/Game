@@ -136,6 +136,22 @@ export function loanTerms(state: GameState): LoanTerms {
   };
 }
 
+/**
+ * Belåningsgrad som faktiskt används vid ett FÖRVÄRV (köp, auktion, bygge,
+ * affär med rival). Banken sätter taket; policyn kan välja att ligga under.
+ *
+ * Tidigare lånade varje förvärv maximalt – hävstången var en regel, inte ett
+ * val. Att kunna köpa med lägre belåning är hela skillnaden mellan en
+ * försiktig och en aggressiv strategi, och syns direkt i räntetäckningen och
+ * därmed i kreditbetyget.
+ */
+export function acquisitionLtv(state: GameState): number {
+  const { maxLtv } = loanTerms(state);
+  const target = state.policy?.purchaseLtv;
+  if (target === undefined) return maxLtv;
+  return Math.max(0, Math.min(maxLtv, target));
+}
+
 /** Summerat marknadsvärde för hela portföljen. */
 export function portfolioValue(state: GameState): number {
   return state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);

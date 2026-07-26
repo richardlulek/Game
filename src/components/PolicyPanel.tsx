@@ -6,6 +6,7 @@
 import { CONTRACTS } from "../engine/leasing";
 import { kr, msek } from "../engine/format";
 import type { CompanyPolicy, ContractKind, GameAction, GameState, GlobalManagerSettings } from "../engine/types";
+import { loanTerms } from "../engine/finance";
 import { BURGUNDY } from "../styles/tokens";
 
 const P: Record<string, React.CSSProperties> = {
@@ -78,6 +79,8 @@ export function PolicyPanel({
 
   const aa = pol.autoAccept ?? { enabled: false, minQuality: 1.0, contract: "standard" as ContractKind };
   const am = pol.autoAmort ?? { enabled: false, ltvTarget: 0.6, cashFloor: 2_000_000 };
+  // Bankens tak – policyn kan bara välja lägre.
+  const { maxLtv } = loanTerms(state);
   const ad = pol.autoDividend ?? { enabled: false, pct: 0.25, cashFloor: 5_000_000 };
   const ai = pol.autoInsure ?? { enabled: false, minValue: 10_000_000 };
   const ae = pol.autoEnergy ?? { enabled: false, targetClass: "B" as const, cashFloor: 3_000_000 };
@@ -151,6 +154,38 @@ export function PolicyPanel({
       <div style={P.card}>
         <div style={P.cardTitle}>💼 Finance</div>
         <Gate ok={hasCfo} need="Finance chief/CFO (Staff)" />
+
+        {/* Belåningsgrad vid förvärv. Utan val lånar varje köp maximalt –
+            hävstången blir då en regel i stället för en strategi. */}
+        <div style={P.row}>
+          <span style={P.label}>Leverage on purchases</span>
+          <button
+            style={toggleStyle(pol.purchaseLtv !== undefined)}
+            onClick={() => set({ purchaseLtv: pol.purchaseLtv === undefined ? Math.round(maxLtv * 100) / 100 : undefined })}
+          >
+            {pol.purchaseLtv === undefined ? "MAX" : "SET"}
+          </button>
+        </div>
+        {pol.purchaseLtv !== undefined && (
+          <div style={P.row}>
+            <span style={P.label}>Buy at LTV</span>
+            <input
+              type="range" min={0} max={85} step={5}
+              value={Math.round(pol.purchaseLtv * 100)}
+              onChange={(e) => set({ purchaseLtv: +e.target.value / 100 })}
+              style={{ flex: 1, accentColor: BURGUNDY, minWidth: 120 }}
+            />
+            <span style={P.value}>{Math.round(pol.purchaseLtv * 100)}%</span>
+          </div>
+        )}
+        <div style={{ ...P.hint, marginTop: -2 }}>
+          {pol.purchaseLtv === undefined
+            ? `Every purchase borrows the most the bank allows — ${Math.round(maxLtv * 100)}% at your reputation.`
+            : pol.purchaseLtv > maxLtv
+              ? `The bank caps you at ${Math.round(maxLtv * 100)}% — purchases use that.`
+              : `Purchases use ${Math.round(pol.purchaseLtv * 100)}% debt. Lower leverage means a bigger down payment, but stronger interest coverage and a better credit rating.`}
+        </div>
+
         <div style={P.row}>
           <span style={P.label}>Amortize automatically toward target LTV</span>
           <button style={toggleStyle(am.enabled)} onClick={() => set({ autoAmort: { ...am, enabled: !am.enabled } })}>

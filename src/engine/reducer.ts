@@ -17,7 +17,7 @@ import {
   cityProjectCost,
   eligibleCityBlocks,
 } from "./cityProjects";
-import {
+import { acquisitionLtv,
   CONVERTIBLE_MAX_OF_EQUITY,
   CONVERTIBLE_RATE_DISCOUNT,
   CONVERTIBLE_TERM,
@@ -285,7 +285,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const p = state.listings.find((x) => x.id === action.id);
       if (!p) return state;
       if (districtLocked(state, p.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
-      const { maxLtv } = loanTerms(state);
+      const maxLtv = acquisitionLtv(state); // policyn kan välja lägre än bankens tak
       const down = p.askPrice * (1 - maxLtv);
       // Konkurrensverket: dominans i distriktet → förvärvsprövning med avgift.
       const share = districtShareOf(state, p.district);
@@ -326,7 +326,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const nowAbs = state.year * 12 + state.month;
       if ((p.bidRejectedAbs ?? -99) + 2 > nowAbs)
         return log(state, `The seller of ${p.typeLabel} in ${p.districtName} won't consider new bids from you yet – wait or buy at the ask price.`, "warn");
-      const { maxLtv } = loanTerms(state);
+      const maxLtv = acquisitionLtv(state); // policyn kan välja lägre än bankens tak
       const bid = Math.max(0, Math.round(action.amount));
       const down = bid * (1 - maxLtv);
       if (state.cash < down)
@@ -890,7 +890,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Byggmästarkedjan: erfarna byggteam bygger billigare (milestoneChains).
       const cost = Math.round(lot.area * t.buildCostM2 * buildCostMult(state) * chainBuildCostMult(state));
       const buildLeft = Math.max(4, t.buildMonths + buildMonthsDelta(state));
-      const { maxLtv } = loanTerms(state);
+      const maxLtv = acquisitionLtv(state); // policyn kan välja lägre än bankens tak
       const down = cost * (1 - maxLtv);
       if (state.cash < down)
         return log(state, `The build requires ${msek(down)} in cash (the rest is a loan).`, "warn");
@@ -2176,7 +2176,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const prop = comp.portfolio[propIdx];
       const ref = prop.askPrice;
       const ratio = action.amount / ref;
-      const { maxLtv } = loanTerms(state);
+      const maxLtv = acquisitionLtv(state); // policyn kan välja lägre än bankens tak
       const down = action.amount * (1 - maxLtv);
       if (state.cash < down)
         return log(state, `You need ${msek(down)} as a down payment to buy from ${action.competitorName}.`, "warn");
@@ -2226,7 +2226,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (!prop) return state;
       if (districtLocked(state, prop.district)) return log(state, "🔒 The area is locked – the story opens the city chapter by chapter. Continue the campaign to open it.", "warn");
       const ref = prop.askPrice;
-      const { maxLtv } = loanTerms(state);
+      const maxLtv = acquisitionLtv(state); // policyn kan välja lägre än bankens tak
       const down = action.amount * (1 - maxLtv);
       if (state.cash < down)
         return log(state, `You need ${msek(down)} as a down payment for the off-market purchase.`, "warn");
@@ -2726,7 +2726,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const listing = state.listings.find((p) => p.id === cb.listingId);
       if (!listing) return { ...state, competingBid: undefined };
       const myBid = Math.round(cb.amount * 1.02);
-      const { maxLtv } = loanTerms(state);
+      const maxLtv = acquisitionLtv(state); // policyn kan välja lägre än bankens tak
       const down = myBid * (1 - maxLtv);
       if (state.cash < down)
         return log(state, `You need ${msek(down)} as a down payment to raise the bid to ${msek(myBid)}.`, "warn");
@@ -3193,7 +3193,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
         return log(state, "The property is already owned by a company.", "warn");
       const deal = ambientAsk(parcel, state);
       const prof = ambientProfile(parcel);
-      const { maxLtv } = loanTerms(state);
+      const maxLtv = acquisitionLtv(state); // policyn kan välja lägre än bankens tak
       const down = deal.ask * (1 - maxLtv);
       if (state.cash < down)
         return log(state, `The owner asks ${msek(deal.ask)} — down payment ${msek(down)} is missing.`, "warn");
