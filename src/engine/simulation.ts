@@ -80,7 +80,6 @@ import {
 } from "./rivalFinance";
 import { INFRA_KINDS_2, accessibilityOf, gentrificationDrift, openInfra } from "./infrastructure";
 import {
-  ACTIVIST_TAKEOVER_AT,
   CRISIS_MONTHS,
   DOMINANCE_SUPERVISED_SHARE,
   FUNDS,
@@ -122,7 +121,7 @@ import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, taxAuditMult, wearMult } from "./progression";
 import { newId, pick, random01, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
-import { applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, priceStocks, quarterlyEarnings, rivalFbabShares, rivalHoldingsValue, rivalNews, rivalShareTrading, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
+import { activistControl, applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, priceStocks, quarterlyEarnings, rivalFbabShares, rivalHoldingsValue, rivalNews, rivalShareTrading, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
@@ -1770,15 +1769,19 @@ export function advanceMonth(state: GameState): GameState {
       const before = s.takeoverPressure ?? 0;
       s.takeoverPressure = +Math.max(0, Math.min(activistCeilPct, before + delta)).toFixed(2);
       const stake = s.takeoverPressure;
-      const threshold = Math.min(ACTIVIST_TAKEOVER_AT, playerPct);
-      if (delta > 0 && reasons.length && Math.floor(stake / 10) > Math.floor(before / 10)) {
+      // Kan fonden faktiskt ta kontrollen? Har du majoritet, eller räcker
+      // inte den köpbara floaten till tröskeln, är hotet omöjligt – då ska
+      // varken varningar eller krav på återköpspengar komma.
+      const control = activistControl(s);
+      const threshold = control.threshold;
+      if (control.possible && delta > 0 && reasons.length && Math.floor(stake / 10) > Math.floor(before / 10)) {
         events.push({
           t: `🦈 Kronfelt Capital now owns ${Math.round(stake)}% of the company (${reasons.join(" and ")}). You hold ${Math.round(playerPct)}% — they take over past ${Math.round(threshold)}%. Dividends, buybacks or stronger returns push them out.`,
           kind: "warn",
         });
       }
       // Sista varningen: aktivisten närmar sig röstmajoritet → fientligt bud.
-      if (stake >= threshold - 6 && before < threshold - 6 && stake < threshold && !s.pendingDecision) {
+      if (control.possible && stake >= threshold - 6 && before < threshold - 6 && stake < threshold && !s.pendingDecision) {
         const buybackCost = Math.round(Math.max(5_000_000, eq * 0.06));
         s.pendingDecision = {
           id: "hostile_takeover",
@@ -1820,7 +1823,7 @@ export function advanceMonth(state: GameState): GameState {
         };
         events.push({ t: "🚨 HOSTILE BID: Kronfelt Capital moves on the board. A decision is required immediately!", kind: "warn" });
       }
-      if (stake >= threshold) {
+      if (control.possible && stake >= threshold) {
         s.gameOver = true;
         s.gameOverReason = {
           icon: "🦈",

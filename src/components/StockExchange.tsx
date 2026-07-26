@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { calYear } from "../engine/date";
 import { kr, msek, pct } from "../engine/format";
-import { COURTAGE, rivalFbabShares, stockHoldingsValue } from "../engine/stocks";
+import { COURTAGE, activistControl, rivalFbabShares, stockHoldingsValue } from "../engine/stocks";
 import type { Competitor, GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
 import { OwnershipPanel } from "./OwnershipPanel";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
@@ -746,8 +746,11 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
         const floatPct = (shares.public / shares.total) * 100;
         const playerPct = 100 - floatPct;
         const freePct = Math.max(0, floatPct - activistPct - rivalPct);
-        const threshold = Math.min(50, playerPct);
-        const danger = activistPct >= threshold - 10;
+        // Samma beräkning som simuleringen använder – tidigare räknade de var
+        // för sig och kunde larma om ett övertagande som inte kunde ske.
+        const control = activistControl(state);
+        const threshold = control.threshold;
+        const danger = control.possible && activistPct >= threshold - 10;
         const seg = (w: number, bg: string) => ({ width: `${Math.max(0, w)}%`, background: bg, height: 10 });
         return (
           <div style={{ ...card, border: `2px solid ${C.brass}` }}>
@@ -791,7 +794,9 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
             <div style={{ fontSize: 11, color: C.inkSoft }}>
               {danger
                 ? `🚨 Kronfelt takes control past ${Math.round(threshold)}% — defend with dividends or buybacks.`
-                : `The activist builds on idle cash and weak returns; takeover past ${Math.round(threshold)}%.`}{" "}
+                : control.safeReason
+                  ? `🛡 ${control.safeReason}`
+                  : `The activist builds on idle cash and weak returns; takeover past ${Math.round(threshold)}%.`}{" "}
               Corporate actions (share issue, buyback, private purchases) live in Company → Group.
             </div>
           </div>

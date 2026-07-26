@@ -774,3 +774,58 @@ export function holdingsOfOwner(s: GameState, owner: string): OwnerStake[] {
   }
   return out.sort((a, b) => b.value - a.value);
 }
+
+/* ── Kontrollen över ditt eget bolag ──────────────────────────────────────
+   Aktivistfonden kan bara köpa det som faktiskt är till salu: den fria
+   floaten minus rivalernas innehav. Har DU röstmajoritet kan du inte röstas
+   bort – oavsett hur stor fonden blir.
+
+   Tidigare räknade simuleringen och börspanelen var för sig, med samma
+   formel `min(50, dinAndel)`, utan att väga in taket. Med 51 % ägande blev
+   tröskeln 50 % medan fondens tak låg på 49 %: övertagandet var omöjligt,
+   men varningarna och kravet på återköpspengar kom ändå. Nu räknas det på
+   ETT ställe, och möjligheten prövas innan något larm går. */
+
+/** Absolut andel där kontrollen anses förlorad om du saknar majoritet. */
+export const ACTIVIST_CONTROL_AT = 50;
+
+export interface ActivistControl {
+  /** Din andel av rösterna (totalen minus floaten). */
+  playerPct: number;
+  activistPct: number;
+  rivalPct: number;
+  /** Fri float som ingen äger ännu. */
+  freePct: number;
+  /** Det MESTA aktivisten kan nå: floaten minus rivalernas aktier. */
+  ceilingPct: number;
+  /** Andel där kontrollen går förlorad. */
+  threshold: number;
+  /** Kan övertagandet över huvud taget ske? */
+  possible: boolean;
+  /** Varför du är trygg (när possible = false). */
+  safeReason?: string;
+}
+
+export function activistControl(s: GameState): ActivistControl {
+  const shares = s.ipoShares ?? { total: 10_000_000, public: 3_000_000 };
+  const total = Math.max(1, shares.total);
+  const floatPct = (shares.public / total) * 100;
+  const playerPct = 100 - floatPct;
+  const activistPct = s.takeoverPressure ?? 0;
+  const rivalPct = (rivalFbabShares(s) / total) * 100;
+  const freePct = Math.max(0, floatPct - activistPct - rivalPct);
+  const ceilingPct = Math.max(0, ((shares.public - rivalFbabShares(s)) / total) * 100);
+  const threshold = Math.min(ACTIVIST_CONTROL_AT, playerPct);
+
+  let possible = true;
+  let safeReason: string | undefined;
+  if (playerPct > 50) {
+    possible = false;
+    safeReason = `You hold ${playerPct.toFixed(0)}% of the votes — control cannot be taken from you.`;
+  } else if (ceilingPct < threshold) {
+    possible = false;
+    safeReason = `Only ${ceilingPct.toFixed(0)}% is available to buy — not enough to reach ${Math.round(threshold)}%.`;
+  }
+
+  return { playerPct, activistPct, rivalPct, freePct, ceilingPct, threshold, possible, safeReason };
+}
