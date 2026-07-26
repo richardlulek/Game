@@ -667,6 +667,11 @@ export interface CompanyPolicy {
   /** CFO delar ut en andel av överskottskassan varje kvartal (pro rata till
    *  aktieägarna efter noteringen; lugnar aktivistfonden). */
   autoDividend?: { enabled: boolean; pct: number; cashFloor: number };
+  /** Renoveringsprogrammet: vilka åtgärder portföljdirektören får beställa
+   *  på egen hand, och hur mycket kassa som alltid ska lämnas orörd. Ett
+   *  jobb i taget – direktören tar det som ger mest tillbaka per krona
+   *  bland de tillåtna. Tom lista = direktören renoverar ingenting. */
+  autoWorks?: { enabled: boolean; allowed: string[]; cashFloor: number };
 }
 
 /** En inkommen ansökan om att hyra – väntar på spelarens besked. */

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { blockGap } from "../engine/blocks";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
+import { workPaybackYears, workSpec, type WorkId } from "../engine/works";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
@@ -23,12 +24,27 @@ interface Props {
   wide?: boolean;
 }
 
-const UPG_EFFECT: Record<string, string> = {
-  renovering: "+18% rent · +35 condition",
-  energi:     "−20% operating cost · +10 condition",
-  tillbygg:   "+25% value · +10% rent",
-  smart:      "−30% vacancy",
+/* Vad varje åtgärd gör med hyra respektive värde – hämtas ur åtgärds-
+   katalogen (engine/works.ts) så panelen och renoveringsprogrammet i
+   Policy visar exakt samma tal. */
+const FAMILY_TAG: Record<string, { t: string; c: string }> = {
+  hyra:  { t: "RENT",  c: "#2a6a1a" },
+  värde: { t: "VALUE", c: "#7a5c2a" },
+  drift: { t: "COST",  c: "#2a4a6a" },
 };
+
+function workSummary(id: string): string {
+  const w = workSpec(id as WorkId);
+  if (!w) return "";
+  return [
+    w.rent ? `+${Math.round(w.rent * 100)}% rent` : null,
+    w.value ? `+${Math.round(w.value * 100)}% value` : null,
+    w.capacity ? `+${w.capacity} unit` : null,
+    w.opex ? `−${Math.round(w.opex * 100)}% operating cost` : null,
+    w.vacancy ? `−${Math.round(w.vacancy * 100)}% vacancy` : null,
+    w.conditionTo ? `condition → ${w.conditionTo}` : w.condition ? `+${w.condition} condition` : null,
+  ].filter(Boolean).join(" · ");
+}
 
 const RAISE_OPTIONS  = [5, 10, 20] as const;
 const LOWER_OPTIONS  = [5, 10, 15] as const;
@@ -564,7 +580,15 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           <ActionBtn
             key={u.id}
             label={done ? `✓ ${u.name}` : pending ? `⏳ ${u.name} in progress (${pending.monthsLeft} mo left)` : `${u.name} · ${msek(cost)}`}
-            sub={pending ? "Tenants stay and pay rent during the work" : UPG_EFFECT[u.id] ?? u.desc}
+            sub={
+              pending
+                ? "Tenants stay and pay rent during the work"
+                : `${FAMILY_TAG[workSpec(u.id as WorkId)?.family ?? "drift"]?.t ?? ""} · ${workSummary(u.id) || u.desc}${
+                    Number.isFinite(workPaybackYears(p, state, u.id as WorkId))
+                      ? ` · pays for itself in ${workPaybackYears(p, state, u.id as WorkId).toFixed(1)} yr`
+                      : ""
+                  }`
+            }
             color={done ? "#27660a" : canDo ? "#5a2a3a" : undefined}
             done={done}
             disabled={done || !canDo}

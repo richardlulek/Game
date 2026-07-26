@@ -127,6 +127,7 @@ import { activistControl, applyStockNews, executeLimitOrders, fbabSharesOf, mayb
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
 import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
+import { pickManagerWork, workSpec } from "./works";
 import { centralBankDecision, curveInverted, longRate, tickInflation } from "./centralBank";
 import { SYSTEMIC_SHARE, TBTF_SHARE, cyclePressures, nextHeat, nextOverhang, nextPhase, nextVacAnchor, playerMarketShare } from "./cycle";
 import {
@@ -965,6 +966,42 @@ export function advanceMonth(state: GameState): GameState {
           events.push({ t: `⚡ Energipolicyn uppgraderade ${target.typeLabel} i ${target.districtName} till klass ${nextClass} (${kr(cost)}).`, kind: "upg" });
         }
       }
+    }
+  }
+
+  // ── Renoveringsprogrammet ────────────────────────────────────────
+  // Direktören beställer ETT investeringsjobb i månaden, det som ger mest
+  // tillbaka per krona bland de åtgärder policyn tillåter. Utvecklings-
+  // projekt (totalrenovering, påbyggnad) tar huset ur drift och beställs
+  // därför bara på hus som redan står tomma.
+  {
+    const job = pickManagerWork(s);
+    if (job) {
+      const spec = workSpec(job.work)!;
+      const target = s.portfolio.find((p) => p.id === job.propertyId)!;
+      cashflow(s, -job.cost, `renoveringsprogram: ${job.work}`);
+      s.portfolio = s.portfolio.map((p) => {
+        if (p.id !== job.propertyId) return p;
+        const np: typeof p = { ...p, capexTotal: (p.capexTotal ?? 0) + job.cost };
+        if (spec.needsVacant) {
+          // Utvecklingsprojekt: huset går i byggnation som vid START_RENOVATION.
+          return {
+            ...np,
+            status: "bygger" as const,
+            buildLeft: spec.months,
+            renovation: { kind: job.work as "totalrenovering" | "påbyggnad" },
+            applications: [],
+          };
+        }
+        return {
+          ...np,
+          pendingWorks: [...(np.pendingWorks ?? []), { kind: "uppgradering" as const, upgradeId: job.work, monthsLeft: spec.months }],
+        };
+      });
+      events.push({
+        t: `🛠️ The renovation programme ordered ${spec.name.toLowerCase()} for ${target.typeLabel} in ${target.districtName} (${kr(job.cost)}, ${spec.months} mo) — ${spec.family === "hyra" ? "rent-driven" : spec.family === "värde" ? "value-driven" : "cost-driven"}.`,
+        kind: "upg",
+      });
     }
   }
 

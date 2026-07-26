@@ -111,6 +111,18 @@ export const UPGRADES: Upgrade[] = [
     desc: "Lowers operating costs.",
   },
   {
+    // Ren värdeåtgärd: värderaren går förbi fasaden innan hyresrullen läses.
+    // Hyran rör sig knappt – hela vinsten ligger i värderingen och skicket.
+    id: "fasad",
+    name: "Facade refurbishment",
+    cost: 0.07,
+    rentBoost: 0.02,
+    valueBoost: 0.12,
+    condBoost: 12,
+    months: 2,
+    desc: "Raises value and condition — barely touches the rent.",
+  },
+  {
     id: "tillbygg",
     name: "Extension",
     cost: 0.22,

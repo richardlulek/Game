@@ -7,6 +7,8 @@ import { CONTRACTS } from "../engine/leasing";
 import { kr, msek } from "../engine/format";
 import type { CompanyPolicy, ContractKind, GameAction, GameState, GlobalManagerSettings } from "../engine/types";
 import { loanTerms } from "../engine/finance";
+import { globalManagerFee } from "../engine/simulation";
+import { WORKS, pickManagerWork, workSpec } from "../engine/works";
 import { BURGUNDY } from "../styles/tokens";
 
 const P: Record<string, React.CSSProperties> = {
@@ -75,7 +77,11 @@ export function PolicyPanel({
     state.globalManager ?? { active: false, minCondition: 45, minTenantQuality: 0.8, rentTargetPct: 1.0 };
   const setGm = (patch: Partial<GlobalManagerSettings>) =>
     dispatch({ type: "SET_GLOBAL_MANAGER", settings: { ...gmS, ...patch } });
-  const gmFee = 15_000 + state.portfolio.length * 1_500;
+  // Arvodet som det faktiskt räknas i simulationen – även när direktören
+  // ännu inte är anlitad (då som förhandsbesked om vad det skulle kosta).
+  const gmFee = globalManagerFee(
+    hasDirector ? state : { ...state, globalManager: { ...gmS, active: true } },
+  );
 
   const aa = pol.autoAccept ?? { enabled: false, minQuality: 1.0, contract: "standard" as ContractKind };
   const am = pol.autoAmort ?? { enabled: false, ltvTarget: 0.6, cashFloor: 2_000_000 };
@@ -84,6 +90,17 @@ export function PolicyPanel({
   const ad = pol.autoDividend ?? { enabled: false, pct: 0.25, cashFloor: 5_000_000 };
   const ai = pol.autoInsure ?? { enabled: false, minValue: 10_000_000 };
   const ae = pol.autoEnergy ?? { enabled: false, targetClass: "B" as const, cashFloor: 3_000_000 };
+  const aw = pol.autoWorks ?? { enabled: false, allowed: ["energi", "smart"], cashFloor: 3_000_000 };
+  const toggleWork = (id: string) =>
+    set({
+      autoWorks: {
+        ...aw,
+        allowed: aw.allowed.includes(id) ? aw.allowed.filter((x) => x !== id) : [...aw.allowed, id],
+      },
+    });
+  // Vad programmet skulle beställa just nu – gör policyn konkret i stället
+  // för abstrakt.
+  const nextJob = pickManagerWork(state);
 
   return (
     <div style={P.wrap}>
@@ -304,7 +321,7 @@ export function PolicyPanel({
           <span style={{ fontSize: 11.5, color: "#777" }}>
             {hasDirector
               ? `Fee ${kr(gmFee)}/mo — manages the whole portfolio per the instructions below.`
-              : `Fee ${kr(gmFee)}/mo ($15,000 + $1,500 per property). Without a director you manage yourself – free, but above the office capacity an extra cost applies.`}
+              : `Fee ${kr(gmFee)}/mo — a small fixed staff plus 3% of the rent per property. Without a director you manage yourself – free, but above the office capacity an extra cost applies.`}
           </span>
         </div>
         <div style={P.row}>
@@ -343,6 +360,104 @@ export function PolicyPanel({
           like manual maintenance) — 100 keeps every building in top shape but costs accordingly. Properties
           with their own employed manager follow that manager's instructions instead.
           {hasDirector ? "" : " The instructions are saved and apply as soon as the director is hired."}
+        </div>
+      </div>
+
+      {/* ── Renoveringsprogrammet ────────────────────────────────── */}
+      <div style={{ ...P.card, background: "#eef2f6" }}>
+        <div style={P.cardTitle}>🛠️ Renovation programme (what the director is allowed to do)</div>
+        <Gate ok={hasDirector} need="portfolio director (above)" />
+        <div style={P.row}>
+          <span style={P.label}>Let the director invest</span>
+          <button style={toggleStyle(aw.enabled)} onClick={() => set({ autoWorks: { ...aw, enabled: !aw.enabled } })}>
+            {aw.enabled ? "ON" : "OFF"}
+          </button>
+          <span style={{ fontSize: 11.5, color: "#777" }}>
+            One job a month across the whole portfolio — whichever ticked job returns the most per krona.
+          </span>
+        </div>
+
+        {aw.enabled && (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, margin: "6px 0 8px" }}>
+              {WORKS.map((w) => {
+                // Underhållet står med för jämförelsens skull men beställs av
+                // skicktröskeln ovanför – inte av programmet. Två system som
+                // beställer samma jobb vore bara förvirrande.
+                const byThreshold = w.id === "underhåll";
+                const on = !byThreshold && aw.allowed.includes(w.id);
+                const family =
+                  w.family === "hyra" ? { t: "RENT", c: "#2a6a1a" }
+                  : w.family === "värde" ? { t: "VALUE", c: "#7a5c2a" }
+                  : { t: "COST", c: "#2a4a6a" };
+                return (
+                  <button
+                    key={w.id}
+                    onClick={() => { if (!byThreshold) toggleWork(w.id); }}
+                    disabled={byThreshold}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8, textAlign: "left",
+                      padding: "6px 8px", borderRadius: 6,
+                      cursor: byThreshold ? "default" : "pointer",
+                      border: `1px solid ${on ? BURGUNDY : "#c6cfd8"}`,
+                      background: on ? "#fff" : "#e4e9ee",
+                      opacity: byThreshold ? 0.55 : on ? 1 : 0.7,
+                    }}
+                  >
+                    <span style={{ width: 14 }}>{on ? "✓" : ""}</span>
+                    <span style={{
+                      fontSize: 9.5, fontWeight: 700, letterSpacing: 0.5, color: "#fff",
+                      background: family.c, padding: "2px 5px", borderRadius: 3, minWidth: 42, textAlign: "center",
+                    }}>
+                      {family.t}
+                    </span>
+                    <span style={{ minWidth: 150, fontWeight: 600, fontSize: 12 }}>{w.name}</span>
+                    <span style={{ fontSize: 11, color: "#555", minWidth: 210 }}>
+                      {[
+                        w.rent ? `rent +${Math.round(w.rent * 100)}%` : null,
+                        w.value ? `value +${Math.round(w.value * 100)}%` : null,
+                        w.capacity ? `+${w.capacity} unit` : null,
+                        w.opex ? `opex −${Math.round(w.opex * 100)}%` : null,
+                        w.vacancy ? `vacancy −${Math.round(w.vacancy * 100)}%` : null,
+                        w.conditionTo ? `condition → ${w.conditionTo}` : w.condition ? `condition +${w.condition}` : null,
+                      ].filter(Boolean).join(" · ")}
+                    </span>
+                    <span style={{ fontSize: 11, color: "#777", marginLeft: "auto", whiteSpace: "nowrap" }}>
+                      {byThreshold
+                        ? "set by the maintenance threshold above"
+                        : `${Math.round(w.cost * 100)}% of value · ${w.months} mo${w.needsVacant ? " · must be empty" : ""}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={P.row}>
+              <span style={P.label}>Never spend below</span>
+              {[1, 3, 5, 10].map((m) => (
+                <button key={m} style={chipStyle(aw.cashFloor === m * 1_000_000)}
+                  onClick={() => set({ autoWorks: { ...aw, cashFloor: m * 1_000_000 } })}>
+                  {msek(m * 1_000_000)}
+                </button>
+              ))}
+            </div>
+            <div style={{ ...P.hint, color: nextJob ? "#2a6a1a" : undefined }}>
+              {nextJob
+                ? `Next up: ${workSpec(nextJob.work)?.name.toLowerCase()} on ${state.portfolio.find((p) => p.id === nextJob.propertyId)?.typeLabel} in ${state.portfolio.find((p) => p.id === nextJob.propertyId)?.districtName} — ${kr(nextJob.cost)}.`
+                : !hasDirector
+                  ? "Nothing will be ordered until the portfolio director is hired above."
+                  : aw.allowed.length === 0
+                    ? "Nothing ticked — the director will not renovate anything."
+                    : "Nothing queued right now: either every ticked job is done, the cash floor blocks it, or the buildings that need one are still let."}
+            </div>
+          </>
+        )}
+
+        <div style={P.hint}>
+          Rent-driven jobs raise what the building earns, and the value follows through the rent roll —
+          slowly, as contracts are rewritten. Value-driven jobs raise the valuation straight away but barely
+          touch the rent. Cost-driven jobs show up in neither, only in what is left at the bottom.
+          Full renovation and extra floor take the building out of service, so the director only orders them
+          on properties that already stand empty.
         </div>
       </div>
     </div>
