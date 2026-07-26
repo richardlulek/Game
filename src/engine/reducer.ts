@@ -957,7 +957,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // lånar inte ut mot fallande säkerheter.
       if ((state.crisisMonthsLeft ?? 0) > 0)
         return log(state, "🏦 The credit market is closed during the crisis — no new leverage until the market stabilizes.", "warn");
-      const { maxLtv } = loanTerms(state);
+      // Refinansiering är den enda vägen att frigöra kapital ur beståndet, och
+      // därmed hela tillväxtmotorn. Den följer VALD belåningsgrad – tidigare
+      // lånade den alltid upp till bankens tak, vilket låste ute varje
+      // strategi som medvetet ville ligga lägre.
+      const maxLtv = acquisitionLtv(state);
       const portVal = state.portfolio.reduce((a, p) => a + propMarketValue(p, state), 0);
       const maxDebt = Math.floor(portVal * maxLtv);
       const draw = Math.min(action.amount, Math.max(0, maxDebt - state.debt));

@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { acquisitionLtv, loanTerms } from "../engine/finance";
 import { reducer } from "../engine/reducer";
+import { propMarketValue } from "../engine/property";
 import { makeProperty, makeState } from "./factories";
 import type { GameState } from "./../engine/types";
 
@@ -84,5 +85,46 @@ describe("policyns belåningsgrad vid förvärv", () => {
     const after = reducer(s, { type: "BUY", id: 55 });
     expect(after.portfolio).toHaveLength(0);
     expect(after.debt).toBe(0);
+  });
+});
+
+/* Refinansiering är den enda vägen att frigöra kapital ur beståndet, och
+   därmed hela tillväxtmotorn. Den följde tidigare alltid bankens tak, vilket
+   låste ute varje strategi som medvetet ville ligga lägre: de kunde köpa
+   försiktigt, men aldrig växa. */
+describe("refinansiering följer vald belåningsgrad", () => {
+  const withProperty = (over: Partial<GameState> = {}) =>
+    makeState({
+      cash: 1_000_000, debt: 0, reputation: 50,
+      portfolio: [makeProperty({ id: 1, baseRent: 2_200_000, capacity: 4 })],
+      ...over,
+    }) as GameState;
+
+  it("utan vald nivå lånas upp till bankens tak", () => {
+    const s = withProperty();
+    const after = reducer(s, { type: "REFINANCE", amount: 500_000_000 });
+    const value = propMarketValue(s.portfolio[0], s);
+    expect(after.debt).toBeCloseTo(Math.floor(value * loanTerms(s).maxLtv), -3);
+  });
+
+  it("med vald nivå stannar belåningen där – inte på bankens tak", () => {
+    const s = withProperty({ policy: { purchaseLtv: 0.4 } });
+    const after = reducer(s, { type: "REFINANCE", amount: 500_000_000 });
+    const value = propMarketValue(s.portfolio[0], s);
+    expect(after.debt).toBeCloseTo(Math.floor(value * 0.4), -3);
+    expect(after.debt).toBeLessThan(Math.floor(value * loanTerms(s).maxLtv));
+  });
+
+  it("frigör ändå kapital – annars kan låg belåning aldrig växa", () => {
+    const s = withProperty({ policy: { purchaseLtv: 0.4 } });
+    const after = reducer(s, { type: "REFINANCE", amount: 500_000_000 });
+    expect(after.cash).toBeGreaterThan(s.cash);
+  });
+
+  it("ligger man redan över sin nivå frigörs inget", () => {
+    const s = withProperty({ policy: { purchaseLtv: 0.2 }, debt: 30_000_000 });
+    const after = reducer(s, { type: "REFINANCE", amount: 500_000_000 });
+    expect(after.debt).toBe(s.debt);
+    expect(after.cash).toBe(s.cash);
   });
 });

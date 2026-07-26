@@ -137,13 +137,14 @@ export function loanTerms(state: GameState): LoanTerms {
 }
 
 /**
- * Belåningsgrad som faktiskt används vid ett FÖRVÄRV (köp, auktion, bygge,
- * affär med rival). Banken sätter taket; policyn kan välja att ligga under.
+ * Belåningsgrad som bolaget faktiskt kör på – vid förvärv (köp, auktion,
+ * bygge, affär med rival) OCH vid refinansiering. Banken sätter taket;
+ * policyn kan välja att ligga under.
  *
- * Tidigare lånade varje förvärv maximalt – hävstången var en regel, inte ett
- * val. Att kunna köpa med lägre belåning är hela skillnaden mellan en
- * försiktig och en aggressiv strategi, och syns direkt i räntetäckningen och
- * därmed i kreditbetyget.
+ * Tidigare lånade både förvärv och refinansiering maximalt – hävstången var
+ * en regel, inte ett val. Eftersom refinansiering är det enda sättet att
+ * frigöra kapital ur beståndet låste det ute varje strategi som medvetet
+ * ville ligga lägre: de kunde köpa försiktigt, men aldrig växa.
  */
 export function acquisitionLtv(state: GameState): number {
   const { maxLtv } = loanTerms(state);
