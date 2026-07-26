@@ -47,6 +47,7 @@ async function capture(name, frames, kind, stepFn) {
 
   for (let i = 0; i < frames; i++) {
     if (stepFn) await stepFn(i);
+    if (kind === 'ui' && i % 10 === 0) await dismissModals();
     const file = path.join(dir, `f${String(i).padStart(5, '0')}.png`);
     if (kind === 'city') await canvas.screenshot({ path: file });
     else await page.screenshot({ path: file, animations: 'disabled' });
@@ -61,6 +62,16 @@ async function capture(name, frames, kind, stepFn) {
   }
   const s = (Date.now() - t0) / 1000;
   console.log(` klart – ${s.toFixed(0)}s (${(s / frames).toFixed(2)}s/ruta)`);
+}
+
+/** Beslutsmodaler dyker upp när klockan rullar och lägger sig över bilden.
+ *  Skjut upp dem innan varje ruta så tagningarna inte blockeras. */
+async function dismissModals() {
+  const postpone = page.locator('button', { hasText: 'Postpone the decision' }).first();
+  if (await postpone.count()) { await postpone.click({ force: true }).catch(() => {}); return; }
+  // Nyhetsmodal och liknande stängs med Escape.
+  const modalish = page.locator('text=/Breaking|NEWS|Chapter/i').first();
+  if (await modalish.count()) await page.keyboard.press('Escape').catch(() => {});
 }
 
 /** Klicka en knapp vars text/aria-label/title innehåller `text`. */

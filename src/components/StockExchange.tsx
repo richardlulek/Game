@@ -10,6 +10,7 @@ import { calYear } from "../engine/date";
 import { kr, msek, pct } from "../engine/format";
 import { COURTAGE, rivalFbabShares, stockHoldingsValue } from "../engine/stocks";
 import type { Competitor, GameAction, GameState, LimitOrder, Sector, Stock } from "../engine/types";
+import { OwnershipPanel } from "./OwnershipPanel";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { AreaChart, FlashCell, GoldRule, Sparkline as Spark, signed, trendColor } from "./ui";
 import { RivalCard } from "./RivalCard";
@@ -640,6 +641,7 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "manad", dir: -1 });
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showOwnership, setShowOwnership] = useState(false);
 
   const index = Math.round(state.marketSentiment * 1000);
   const sh = state.sentimentHistory ?? [];
@@ -795,6 +797,19 @@ export function StockExchange({ state, dispatch }: StockExchangeProps) {
           </div>
         );
       })()}
+
+      {/* Ägarkartan: vem äger vem på börsen (korsägandet byggs i stocks.ts). */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <button
+          onClick={() => setShowOwnership((v) => !v)}
+          style={{
+            ...chip(showOwnership), alignSelf: "flex-start",
+          }}
+        >
+          {showOwnership ? "▾" : "▸"} 🕸 Ownership — who owns whom
+        </button>
+        {showOwnership && <OwnershipPanel state={state} />}
+      </div>
 
       <LimitOrdersPanel orders={openOrders} state={state} dispatch={dispatch} />
 

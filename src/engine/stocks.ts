@@ -681,3 +681,96 @@ export function quarterlyEarnings(
 }
 
 export { COURTAGE };
+
+/* ── Ägarkartan ───────────────────────────────────────────────────────────
+   Vem äger vem, och hur mycket. Korsägandet byggs redan upp av
+   rivalShareTrading ovan, men låg tidigare bara som siffror i tillståndet.
+   Funktionerna nedan sammanställer det till en läsbar bild för UI:t.
+
+   Ägare kan vara spelaren, en rival eller marknaden (floaten). Andelar
+   räknas mot bolagets totala antal aktier – för spelarens eget bolag mot
+   ipoShares.total, för noterade rivaler mot sharesOutstanding. */
+
+export interface OwnerStake {
+  /** Ägarens namn ("You" för spelaren, "Market" för floaten). */
+  owner: string;
+  kind: "player" | "rival" | "activist" | "market";
+  shares: number;
+  /** Andel av bolagets totala aktier, 0–1. */
+  share: number;
+  /** Marknadsvärde på posten. */
+  value: number;
+}
+
+export interface CompanyOwnership {
+  /** Bolaget som ägs. */
+  stockId: string;
+  name: string;
+  /** true för spelarens eget noterade bolag. */
+  isPlayer: boolean;
+  totalShares: number;
+  price: number;
+  stakes: OwnerStake[];
+}
+
+/** Ägarbilden för ETT noterat bolag: alla kända ägare, störst först. */
+export function ownershipOf(s: GameState, stock: Stock): CompanyOwnership {
+  const isPlayer = stock.id === "FBAB";
+  const total = isPlayer ? (s.ipoShares?.total ?? 0) : stock.sharesOutstanding;
+  const stakes: OwnerStake[] = [];
+  const add = (owner: string, kind: OwnerStake["kind"], shares: number) => {
+    if (shares <= 0 || total <= 0) return;
+    stakes.push({ owner, kind, shares, share: shares / total, value: shares * stock.price });
+  };
+
+  if (isPlayer) {
+    // Spelarens egen post = totalen minus floaten.
+    add("You", "player", total - (s.ipoShares?.public ?? 0));
+    // Aktivistfonden anges i procent av totalen.
+    add("Kronfelt Capital", "activist", Math.round((total * (s.takeoverPressure ?? 0)) / 100));
+  } else {
+    add("You", "player", stock.owned);
+  }
+
+  for (const c of s.competitors ?? []) {
+    const sh = (c.stockHoldings ?? [])
+      .filter((h) => h.stockId === stock.id)
+      .reduce((a, h) => a + h.shares, 0);
+    add(c.name, "rival", sh);
+  }
+
+  // Resten ligger hos marknaden.
+  const known = stakes.reduce((a, x) => a + x.shares, 0);
+  add("Market", "market", Math.max(0, total - known));
+
+  stakes.sort((a, b) => b.shares - a.shares);
+  return { stockId: stock.id, name: stock.name, isPlayer, totalShares: total, price: stock.price, stakes };
+}
+
+/** Ägarbilden för alla noterade bolag (spelarens eget först om det är noterat). */
+export function ownershipMap(s: GameState): CompanyOwnership[] {
+  const listed = (s.stocks ?? []).filter((st) => st.id !== "FBAB" || s.ipoActive);
+  return listed
+    .map((st) => ownershipOf(s, st))
+    .sort((a, b) => Number(b.isPlayer) - Number(a.isPlayer) || b.totalShares * b.price - a.totalShares * a.price);
+}
+
+/** Vad ETT bolag äger i andra – motsatt riktning mot ownershipOf. */
+export function holdingsOfOwner(s: GameState, owner: string): OwnerStake[] {
+  const out: OwnerStake[] = [];
+  const push = (st: Stock, shares: number) => {
+    const total = st.id === "FBAB" ? (s.ipoShares?.total ?? 0) : st.sharesOutstanding;
+    if (shares <= 0 || total <= 0) return;
+    out.push({ owner: st.name, kind: "rival", shares, share: shares / total, value: shares * st.price });
+  };
+  if (owner === "You") {
+    for (const st of s.stocks ?? []) if (st.id !== "FBAB") push(st, st.owned);
+  } else {
+    const c = (s.competitors ?? []).find((x) => x.name === owner);
+    for (const h of c?.stockHoldings ?? []) {
+      const st = (s.stocks ?? []).find((x) => x.id === h.stockId);
+      if (st) push(st, h.shares);
+    }
+  }
+  return out.sort((a, b) => b.value - a.value);
+}
