@@ -64,9 +64,10 @@ Kör `npm run build` (Vite → `dist/`), buntar det i skalet och producerar:
 ## Steam-features (i tur och ordning)
 
 - **Overlay** (Shift+Tab) – funkar när Steam kör exe:n.
-- **Cloud saves** – spelet sparar i `localStorage`. Enklast: Steam Auto-Cloud
-  på save-mappen, eller migrera export/import (finns redan i ⚙-menyn) till en
-  fil-baserad save via native-bron. *Inte krav för EA, men rekommenderat.*
+- **Cloud saves** – **klart att koppla på.** Spelet skriver numera varje
+  sparning som en riktig fil (se "Sparfiler" nedan), så Steam Auto-Cloud
+  behöver bara peka på mappen. *Starkt rekommenderat till EA – förlorad
+  progression är den vanligaste orsaken till negativa recensioner.*
 - **Achievements** – trevligt men inte krav för EA. **Stommen finns redan**:
   frontend-bron `steam.unlock(id)` (`src/native/index.ts`, no-op på webb) →
   Rust-kommandot `steam_unlock` (`src-tauri/src/lib.rs`, loggar bara just nu).
@@ -80,12 +81,36 @@ Kör `npm run build` (Vite → `dist/`), buntar det i skalet och producerar:
   5. Koppla `steam.unlock(ACHIEVEMENTS.x)` till spelhändelser (köp första huset,
      nå 50 MSEK, klara kampanjen …). Kandidat-ID:n ligger i `ACHIEVEMENTS`.
 
-### Native saves (klart)
+### Sparfiler (klart)
 
-Export/Import i ⚙-menyn använder riktiga "Spara som…/Öppna…"-dialoger på
-desktop (webben faller tillbaka på nedladdning). Skrivningen sker i Rust-
-kommandona `write_save`/`read_save`. Detta är också grunden för Steam Cloud –
-peka Auto-Cloud på mappen dit spelet skriver.
+**Alla tre sparplatser skrivs som riktiga filer på desktop.** Spelet
+autosparar fortfarande i `localStorage` (snabbt, blockerar aldrig spelet),
+men varje sparning speglas till:
+
+```
+<appdata>/saves/slot-1.json   ← Windows: %APPDATA%\com.thelandlord.game\saves
+```
+
+Den exakta sökvägen visas i ⚙-menyn under sparplatserna.
+
+Vid uppstart synkas de två hållen mot varandra och **den nyaste vinner**:
+
+- Fil nyare än `localStorage` → filen läses in (så en sparning som Steam Cloud
+  hämtat från en annan dator plockas upp automatiskt).
+- `localStorage` nyare → filen skrivs om.
+- Tom `localStorage` (rensad appdata, ny installation) → progressionen
+  återställs från fil.
+- Trasig fil → ignoreras, det fungerande sparet rörs aldrig.
+
+Skrivningen går via en temporärfil som byts in, så ett strömavbrott mitt i
+en sparning aldrig lämnar en trasig fil efter sig. Beteendet är låst med test
+i `src/__tests__/diskSaves.test.ts`.
+
+**Steam Auto-Cloud:** peka den på `saves`-mappen ovan med mönstret `*.json`.
+Inget mer krävs – ingen Steamworks-SDK-integration behövs för Auto-Cloud.
+
+Export/Import i ⚙-menyn finns kvar som manuell backup och använder riktiga
+"Spara som…/Öppna…"-dialoger (webben faller tillbaka på nedladdning).
 
 ## Prestanda
 

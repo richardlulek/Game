@@ -59,6 +59,48 @@ export const ACHIEVEMENTS = {
   hostileTakeover: "hostile_win",    // vinn ett fientligt bud
 } as const;
 
+/* ── Slot-sparningar på disk (desktop) ────────────────────────────────────
+   Spelet autosparar i localStorage. På desktop speglas varje sparning även
+   till <appdata>/saves/slot-N.json via Rust, så att Steam Cloud kan synka
+   dem, spelaren kan säkerhetskopiera, och progressionen överlever att
+   webview-datan rensas. På webben är allt nedan tysta no-ops. */
+
+/** Skriv en slot till disk. Returnerar false på webben eller vid fel. */
+export async function writeSlotFile(slot: number, json: string): Promise<boolean> {
+  if (!isDesktop()) return false;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("save_slot", { slot, contents: json });
+    return true;
+  } catch (e) {
+    console.warn("Kunde inte spegla sparfilen till disk:", e);
+    return false;
+  }
+}
+
+/** Läs en slot från disk. null = finns inte / webben / fel. */
+export async function readSlotFile(slot: number): Promise<string | null> {
+  if (!isDesktop()) return null;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return (await invoke<string | null>("load_slot", { slot })) ?? null;
+  } catch (e) {
+    console.warn("Kunde inte läsa sparfilen från disk:", e);
+    return null;
+  }
+}
+
+/** Mappen sparfilerna ligger i (för Steam Auto-Cloud och UI). null på webben. */
+export async function saveFolder(): Promise<string | null> {
+  if (!isDesktop()) return null;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<string>("save_dir");
+  } catch {
+    return null;
+  }
+}
+
 /** Resultat av ett fil-native-anrop. "web" = kör webbläsarens fallback. */
 export type FileResult = "saved" | "cancelled" | "web";
 

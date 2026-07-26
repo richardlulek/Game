@@ -9,6 +9,7 @@ import { calcCapacity } from "../engine/generators";
 import { industryListPrice } from "../engine/industries";
 import { agendaFor } from "../engine/initState";
 import { syncIdCounter } from "../engine/random";
+import { isDesktop, readSlotFile, writeSlotFile } from "../native";
 import type { GameState, Property } from "../engine/types";
 
 const SAVE_KEY_LEGACY = "fastighetsimperium:save"; // slot 1 (bakåtkompatibel nyckel)
@@ -211,7 +212,9 @@ const migrations: Record<number, (state: GameState) => GameState> = {
   },
 };
 
-/** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot). */
+/** Sparar nuvarande tillstånd till localStorage (slot 1–3, standard aktiv slot).
+ *  På desktop speglas sparningen dessutom till en riktig fil (se hydrateFromDisk).
+ *  Spegling sker i bakgrunden så att autosparet aldrig hackar spelet. */
 export function saveGame(state: GameState, slot?: number): boolean {
   const s = slot ?? getActiveSlot();
   const payload: SaveFile = {
@@ -219,13 +222,85 @@ export function saveGame(state: GameState, slot?: number): boolean {
     savedAt: new Date().toISOString(),
     state,
   };
+  const raw = JSON.stringify(payload);
   try {
-    localStorage.setItem(getSaveKey(s), JSON.stringify(payload));
-    return true;
+    localStorage.setItem(getSaveKey(s), raw);
   } catch (e) {
     console.warn("Kunde inte spara spelet:", e);
     return false;
   }
+  void writeSlotFile(s, raw); // desktop: no-op på webben
+  return true;
+}
+
+/** Tidsstämpeln i en rå sparfil (0 om den saknas/är trasig). */
+function savedAtMs(raw: string | null): number {
+  if (!raw) return 0;
+  try {
+    const t = (JSON.parse(raw) as Partial<SaveFile>).savedAt;
+    const ms = t ? Date.parse(t) : NaN;
+    return Number.isFinite(ms) ? ms : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Desktop: läser in sparfiler från disk till localStorage vid uppstart.
+ * Filen vinner när den är nyare än localStorage – så en sparning som Steam
+ * Cloud hämtat från en annan dator, eller som ligger kvar efter att
+ * webview-datan rensats, plockas upp automatiskt.
+ *
+ * Anropas under laddbilden, innan slot-listan visas. Tyst no-op på webben.
+ * Returnerar antalet slots som hämtades från disk.
+ */
+export async function hydrateFromDisk(): Promise<number> {
+  if (!isDesktop()) return 0;
+  let restored = 0;
+  for (const slot of [1, 2, 3]) {
+    try {
+      const fromDisk = await readSlotFile(slot);
+      if (!fromDisk) continue;
+      const key = getSaveKey(slot);
+      const local = localStorage.getItem(key);
+      if (savedAtMs(fromDisk) <= savedAtMs(local)) continue; // localStorage är lika ny/nyare
+      if (!parseSaveFile(fromDisk)) continue;                // trasig fil – rör inte localStorage
+      localStorage.setItem(key, fromDisk);
+      restored += 1;
+    } catch (e) {
+      console.warn(`Kunde inte hämta slot ${slot} från disk:`, e);
+    }
+  }
+  return restored;
+}
+
+/**
+ * Desktop: skriver localStorage-sparningar till disk om filen saknas eller är
+ * äldre. Kör en gång vid uppstart så att spelare som redan har sparningar från
+ * en tidigare version får dem migrerade till filer (och därmed till Steam Cloud).
+ */
+export async function backfillToDisk(): Promise<number> {
+  if (!isDesktop()) return 0;
+  let written = 0;
+  for (const slot of [1, 2, 3]) {
+    try {
+      const local = localStorage.getItem(getSaveKey(slot));
+      if (!local) continue;
+      const onDisk = await readSlotFile(slot);
+      if (savedAtMs(local) <= savedAtMs(onDisk)) continue;
+      if (await writeSlotFile(slot, local)) written += 1;
+    } catch (e) {
+      console.warn(`Kunde inte skriva slot ${slot} till disk:`, e);
+    }
+  }
+  return written;
+}
+
+/** Synkar sparningar åt båda håll vid uppstart (disk ↔ localStorage). */
+export async function syncSavesWithDisk(): Promise<{ restored: number; written: number }> {
+  const restored = await hydrateFromDisk();
+  const written = await backfillToDisk();
+  return { restored, written };
 }
 
 /** Tolkar rå sparfils-JSON: versionskontroll + migreringar. */

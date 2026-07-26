@@ -5,7 +5,7 @@ import { useGameStore } from "../store/gameStore";
 import { exportSaveFile, getActiveSlot, importSaveFile, listSaveSlots, saveGame, setActiveSlot } from "../store/persistence";
 import { getAutosave, getReduceMotion, setAutosave, setReduceMotion } from "../store/prefs";
 import { useUiStore } from "../store/uiStore";
-import { loadGameFile, saveGameFile } from "../native";
+import { loadGameFile, saveFolder, saveGameFile } from "../native";
 import { BURGUNDY, C } from "../styles/tokens";
 import { S } from "../styles/styles";
 import { ClockControls } from "./ClockControls";
@@ -118,6 +118,9 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
   const fileRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const refreshSlots = () => { setSlots(listSaveSlots()); setActiveSlotState(getActiveSlot()); };
+  // Desktop: var sparfilerna ligger (null på webben) – visas under slot-raden.
+  const [saveDir, setSaveDir] = useState<string | null>(null);
+  useEffect(() => { void saveFolder().then(setSaveDir).catch(() => {}); }, []);
 
   // Stäng vid klick utanför menyn.
   useEffect(() => {
@@ -275,6 +278,12 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
           </div>
           <div style={{ fontSize: 10.5, color: C.creamSoft, padding: "2px 4px 4px" }}>
             Click a slot to save there. ● is active.
+            {saveDir && (
+              <>
+                <br />
+                <span title={saveDir}>Saved as files in <code style={{ color: C.brassBright }}>{saveDir}</code></span>
+              </>
+            )}
           </div>
           <div style={row}>
             <button style={rowBtn} onClick={() => { setOpen(false); onLoad(); }}>

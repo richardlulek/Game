@@ -16,7 +16,7 @@ import type { InitOptions, ScenarioId } from "../engine/types";
 import { useGameClock } from "../hooks/useGameClock";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
-import { listSaveSlots } from "../store/persistence";
+import { listSaveSlots, syncSavesWithDisk } from "../store/persistence";
 import { getAutosave, getReduceMotion } from "../store/prefs";
 import { S } from "../styles/styles";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
@@ -131,6 +131,18 @@ export default function FastighetsImperium() {
   const [showSplash, setShowSplash] = useState(
     () => !new URLSearchParams(window.location.search).has("dev"),
   );
+  // Desktop: synka sparfiler mot disk innan titelskärmen visar slot-listan.
+  // Sker under laddbilden, så väntan syns inte. saveTick tvingar omläsning av
+  // listan när något hämtats från disk (t.ex. via Steam Cloud).
+  const [saveTick, setSaveTick] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    syncSavesWithDisk()
+      .then(({ restored }) => { if (alive && restored > 0) setSaveTick((t) => t + 1); })
+      .catch(() => { /* sparningar i localStorage fungerar ändå */ });
+    return () => { alive = false; };
+  }, []);
+
   // Undertrycker tidningsmodalen när en nivåändring kommer från load.
   const suppressNews = useRef(false);
   // Cap2-modell: kartan är alltid grundvyn; flera fönster kan vara öppna
@@ -465,7 +477,7 @@ export default function FastighetsImperium() {
     return (
       <>
         <Animations />
-        <TitleScreen slots={listSaveSlots()} onNew={startNew} onContinue={startContinue} />
+        <TitleScreen key={saveTick} slots={listSaveSlots()} onNew={startNew} onContinue={startContinue} />
         {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
       </>
     );
