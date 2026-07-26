@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { equityOf, loanTerms, ltvOf, portfolioValue } from "../engine/finance";
+import { propMarketValue } from "../engine/property";
 import { makeProperty, makeState } from "./factories";
 
 describe("loanTerms (reputationsbaserade lånevillkor)", () => {
@@ -36,19 +37,21 @@ describe("LTV och eget kapital", () => {
     expect(ltvOf(makeState({ debt: 1_000_000 }))).toBe(0);
   });
 
+  /* Här testas RELATIONEN, inte värderingsformeln (den ägs av
+     property.test.ts) – därför härleds förväntat värde ur propMarketValue. */
   it("LTV = skuld / portföljvärde", () => {
-    // Ett objekt värt 38 400 000, skuld 19 200 000 → LTV 0.5
     const p = makeProperty({ area: 1000, condition: 100 });
-    const s = makeState({ portfolio: [p], debt: 19_200_000 });
-    expect(portfolioValue(s)).toBe(38_400_000);
-    expect(ltvOf(s)).toBeCloseTo(0.5, 6);
+    const s = makeState({ portfolio: [p], debt: 0 });
+    const value = propMarketValue(p, s);
+    expect(portfolioValue(s)).toBe(value);
+    const withDebt = { ...s, debt: value / 2 };
+    expect(ltvOf(withDebt)).toBeCloseTo(0.5, 6);
   });
 
   it("eget kapital = kassa + fastighetsvärde − skuld", () => {
     const p = makeProperty({ area: 1000, condition: 100 });
     const s = makeState({ portfolio: [p], cash: 1_000_000, debt: 19_200_000 });
-    // 1 000 000 + 38 400 000 − 19 200 000 = 20 200 000
-    expect(equityOf(s)).toBe(20_200_000);
+    expect(equityOf(s)).toBe(1_000_000 + propMarketValue(p, s) - 19_200_000);
   });
 });
 

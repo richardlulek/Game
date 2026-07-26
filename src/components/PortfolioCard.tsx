@@ -4,7 +4,7 @@ import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
-import { pendingWork, propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propYieldOnCost } from "../engine/property";
+import { pendingWork, propAnnualOpex, propInvestedCost, propMarketValue, propNOI, propPotentialRent, propStabilisedValue, propYieldOnCost } from "../engine/property";
 import { buildingAge, isObsolete, obsolescenceFactor } from "../engine/lifecycle";
 import { districtTier, maxDevLevel } from "../engine/districtTiers";
 import { buildCostMult } from "../engine/progression";
@@ -80,6 +80,9 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
   const invested    = propInvestedCost(p);
   const yieldPct    = propYieldOnCost(p, state) * 100;
   const marketYield = value > 0 ? (noi / value) * 100 : 0;
+  // Vad vakansen kostar i VÄRDE (inte bara kassaflöde) – den nya
+  // avkastningsvärderingens tydligaste konsekvens för spelaren.
+  const vacancyValueGap = (propStabilisedValue(p, state) - value) / 1e6;
   const condIn3     = Math.max(10, Math.round(p.condition - 3 * 0.45));
   const totalEarned = p.totalEarnedRent ?? 0;
   const unrealGain  = value - invested;
@@ -185,6 +188,12 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         {(p.capexTotal ?? 0) > 0 ? ` + capex ${((p.capexTotal ?? 0) / 1e6).toFixed(1)} M` : ""})
         · {marketYield.toFixed(1)}% on market value
       </div>
+      {vacancyValueGap > 0.05 && (
+        <div style={{ fontSize: 10.5, color: "#c0392b", marginTop: 3 }}>
+          Empty space is holding the value back by ~${vacancyValueGap.toFixed(1)}M — let it and the
+          valuation follows.
+        </div>
+      )}
 
       {/* Avdelare mellan nyckeltalen ovan och inställningar/funktioner nedan. */}
       <div style={{ height: 1, background: "#cdd6e2", margin: "12px 0 14px" }} />
