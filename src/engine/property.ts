@@ -43,18 +43,17 @@ export function pendingWork(
    värdet här helt substansbaserat och intäkterna justerade bara ±10 %, vilket
    gjorde att en tom byggnad var nästan lika mycket värd som en fullt uthyrd.
 
-   Nu vägs substansvärdet mot ett avkastningsvärde. Avkastningskravet FÖRANKRAS
-   i objektets egen stabiliserade avkastning, så ett fullt uthyrt objekt till
-   marknadshyra värderas som förut (balansneutralt) – medan vakans, över-/
-   underhyra och ränteläge slår igenom på riktigt.                            */
+   Nu vägs substansvärdet mot ett avkastningsvärde: stabiliserat driftnetto
+   delat med ett avkastningskrav som sätts av TILLGÅNGSSLAG och LÄGE (se
+   BASE_YIELD och DISTRICT_YIELD_MULT nedan). Samma driftnetto är alltså värt
+   olika mycket beroende på vad och var objektet är – precis som på riktigt –
+   och vakans, över-/underhyra och skick slår igenom på värdet.               */
 
 /** Avkastningsvärderingens vikt mot substansvärdet (0 = bara substans). */
-const INCOME_WEIGHT = 0.5;
-/** Premie för ett fullt uthyrt objekt till marknadshyra, mot substansvärdet.
- *  Samma nivå som den gamla beläggningspremien, så att ett stabiliserat
- *  bestånd värderas oförändrat och spelbalansen inte flyttas – det är bara
- *  AVVIKELSER från stabiliserat läge som nu får rätt genomslag. */
-const FULL_LET_PREMIUM = 0.10;
+const INCOME_WEIGHT = 0.7;
+/** Andel av det färdiga värdet som ett pågående bygge är värt (mark plus
+ *  nedlagt arbete). */
+const BUILD_STAGE_SHARE = 0.5;
 /** År av uteblivet driftnetto som dras av för att fylla en vakans
  *  (uthyrningstid + rabatter) – motsvarar värderarens vakansavdrag. */
 const VOID_YEARS = 2.5;
@@ -68,38 +67,89 @@ const CONDITION_RISK = 0.12;
  *  sliten byggnad har ett värde i sig (mark + stomme) – och golvet gör
  *  modellen robust mot objekt vars hyra är orimlig i förhållande till
  *  substansen, som annars skulle kollapsa i värde. */
-const INCOME_FLOOR = 0.6;
+const INCOME_FLOOR = 0.5;
+/** Tak för avkastningsvärdet. Skyddar mot att ett objekt med extrem hyra
+ *  i förhållande till substansen skenar i värde. */
+const INCOME_CEILING = 1.7;
 
-/** Direktavkastningskrav för ett objekt: förankrat i dess egen stabiliserade
- *  avkastning, plus riskpåslag för vakans och skick. Räntans effekt ligger
- *  redan i substansvärdet via rateValueFactor och dubbelräknas därför inte. */
-function capRateFor(p: Property, state: GameState, assetValue: number, stabilisedNOI: number): number {
-  const implied = assetValue > 0 ? stabilisedNOI / assetValue : 0.05;
-  // Kalibrering: vid full uthyrning ska den vägda värderingen landa på
-  // substansvärde × (1 + FULL_LET_PREMIUM), dvs samma som före ändringen.
-  const anchor = 1 + FULL_LET_PREMIUM / INCOME_WEIGHT;
-  const base = Math.max(0.02, Math.min(0.15, implied / anchor));
+/* ── Avkastningskrav per tillgångsslag ────────────────────────────────────
+   Marknadens prissättning av RISK: samma driftnetto är värt olika mycket
+   beroende på vad och var det är. Bostäder har den stabilaste efterfrågan
+   och handlas därför på lägst avkastningskrav; industri den mest cykliska
+   och specialiserade efterfrågan och därmed högst.
+
+       bostad  <  kontor  <  butik  <  industri
+
+   Justera nivåerna här om marknadssynen ändras – det är den enda plats
+   yieldstrukturen sätts. */
+const BASE_YIELD: Record<string, number> = {
+  bostad: 0.0475,   // stabilast kassaflöde, djupast investerarmarknad
+  kontor: 0.055,  // längre kontrakt men konjunkturkänsligt
+  butik: 0.0605,   // omsättningsberoende hyresgäster, strukturell risk
+  industri: 0.0685, // cykliskt, specialiserade lokaler, tunnare andrahandsmarknad
+};
+const DEFAULT_YIELD = 0.0575;
+
+/* Områdesrisk: läget prissätts som ett påslag/avdrag på avkastningskravet.
+   Ett A-läge betalas med lägre yield, ett osäkert läge kräver högre – det
+   gäller ALLA tillgångsslag, även bostäder. */
+const DISTRICT_YIELD_MULT: Record<string, number> = {
+  finans: 0.92,    // A-läge, djupast marknad
+  centrum: 0.95,   // etablerat city
+  kulle: 0.98,     // attraktivt bostadsläge
+  innerstad: 1.0,  // referensläge
+  hamnen: 1.06,    // omvandlingsområde – högre osäkerhet
+  förort: 1.08,    // tunnare hyresmarknad
+  industri: 1.15,  // smalast köparkrets
+};
+
+/** Direktavkastningskrav för ett objekt: marknadens krav för tillgångsslaget
+ *  och läget, plus riskpåslag för vakans och eftersatt skick. Räntans effekt
+ *  ligger redan i substansvärdet via rateValueFactor och dubbelräknas inte. */
+function capRateFor(p: Property, state: GameState): number {
+  const base = BASE_YIELD[p.type] ?? DEFAULT_YIELD;
+  const district = DISTRICT_YIELD_MULT[p.district] ?? 1;
+  // Områdesutveckling: ett distrikt som lyfts prissätts som ett bättre läge.
+  const dev = districtDevOf(state, p.district);
+  const devAdj = 1 / Math.max(0.85, Math.min(1.2, dev));
   const occupancy = p.capacity > 0 ? p.tenants.length / p.capacity : 0;
   const vacancyRisk = VACANCY_RISK * (1 - occupancy);
   const conditionRisk = CONDITION_RISK * Math.max(0, (70 - p.condition) / 70);
-  return base * (1 + vacancyRisk + conditionRisk);
+  return base * district * devAdj * (1 + vacancyRisk + conditionRisk);
+}
+
+/** Avkastningskravet för ett objekt – exponerat för UI och tester. */
+export function propCapRate(p: Property, state: GameState): number {
+  return capRateFor(p, state);
 }
 
 /** Avkastningsvärde: stabiliserat driftnetto kapitaliserat, minus kostnaden
- *  att fylla vakansen (plus premie för hyra över marknadsnivå). */
-export function propIncomeValue(p: Property, state: GameState, assetValue: number): number {
+ *  att fylla vakansen (plus premie för hyra över marknadsnivå).
+ *  `asStabilised` värderar objektet som fullt uthyrt till marknadshyra – används
+ *  för pågående byggen och för att visa vad vakansen kostar. */
+export function propIncomeValue(
+  p: Property,
+  state: GameState,
+  assetValue: number,
+  asStabilised = false,
+): number {
   const stabilisedNOI = propPotentialRent(p, state) - propAnnualOpex(p, state);
   if (stabilisedNOI <= 0) return assetValue; // olönsam typ – substansen bär värdet
-  const cap = capRateFor(p, state, assetValue, stabilisedNOI);
-  const capitalised = stabilisedNOI / cap;
+  const forCap = asStabilised
+    ? { ...p, tenants: Array.from({ length: Math.max(1, p.capacity) }, () => p.tenants[0] ?? null) }
+    : p;
+  const capitalised = stabilisedNOI / capRateFor(forCap as Property, state);
 
-  const actualNOI = propNOI(p, state);
+  const actualNOI = asStabilised ? stabilisedNOI : propNOI(p, state);
   const gap = stabilisedNOI - actualNOI;
   const adj =
     gap > 0
       ? -gap * VOID_YEARS // vakans/underhyra: kostar att fylla
       : Math.min(-gap * TERM_YEARS, capitalised * 0.15); // överhyra: premie, men tak
-  return Math.max(assetValue * INCOME_FLOOR, capitalised + adj);
+  return Math.max(
+    assetValue * INCOME_FLOOR,
+    Math.min(assetValue * INCOME_CEILING, capitalised + adj),
+  );
 }
 
 /** Värdet objektet skulle ha fullt uthyrt till marknadshyra. Skillnaden mot
@@ -144,15 +194,13 @@ export function propMarketValue(p: Property, state: GameState): number {
   const access = accessValueMult(state, p.district);
   const assetValue = p.area * d.base * condFactor * state.marketMod * d.growth * p.valueMult * dev * loc * rate * hood * obs * access;
 
-  // Pågående bygge: halva det FÄRDIGA, stabiliserade värdet (mark + nedlagt
-  // arbete). Ska inte straffas för vakans – huset har inga hyresgäster ännu.
-  if (p.status === "bygger") return Math.round(assetValue * (1 + FULL_LET_PREMIUM) * 0.5);
-
-  // Substansvärde vägt mot avkastningsvärde. Ett fullt uthyrt objekt till
-  // marknadshyra landar på substansvärde × (1 + FULL_LET_PREMIUM) – samma som
-  // före ändringen; vakans och hyresläge flyttar det därifrån.
-  const incomeValue = propIncomeValue(p, state, assetValue);
-  return Math.round(assetValue * (1 - INCOME_WEIGHT) + incomeValue * INCOME_WEIGHT);
+  // Pågående bygge: halva det FÄRDIGA värdet (mark + nedlagt arbete). Räknas
+  // som om huset stod uthyrt – det ska inte straffas för en vakans som ännu
+  // inte kan fyllas. BUILD_STAGE_SHARE = andelen av färdigvärdet.
+  const finished = p.status === "bygger" ? { ...p, status: "klar" as const } : p;
+  const incomeValue = propIncomeValue(finished, state, assetValue, p.status === "bygger");
+  const blended = assetValue * (1 - INCOME_WEIGHT) + incomeValue * INCOME_WEIGHT;
+  return Math.round(p.status === "bygger" ? blended * BUILD_STAGE_SHARE : blended);
 }
 
 /** Faktisk årshyra (summa av alla hyresgästers kontraktshyra, vakant = 0). */

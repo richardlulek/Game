@@ -17,6 +17,10 @@ import { advanceMonth } from "../engine/simulation";
 import type { GameState } from "../engine/types";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 
+/** Fyra hyresgäster till marknadsmässig hyra – gör fixturen ekonomiskt rimlig. */
+const letUnits = (seed: number) =>
+  Array.from({ length: 4 }, (_, i) => makeTenantFixture({ id: seed * 100 + i, rent: 55_000 }));
+
 /* Den emergenta cykeln (masterplan fas 1): boom/bust härleds ur stadens
    obalanser i stället för en slumptimer. */
 
@@ -92,8 +96,10 @@ describe("EMERGENT CYKEL: obalanserna styr, inte timern", () => {
       debt: 40_000_000,
       bonds: [{ id: "b", amount: 10_000_000, rate: 4, matureAbs: 999 }],
       commercialPaper: { amount: 5_000_000, rate: 4, matureAbs: 999 },
-      portfolio: [makeProperty({ id: 1, askPrice: 50_000_000 })],
-      competitors: [{ name: "R", cash: 0, units: 1, equity: 0, strategy: "värde", portfolio: [makeProperty({ id: 2, askPrice: 50_000_000 })] }],
+      // Realistisk hyresnivå: värderingen är avkastningsbaserad, så ett objekt
+      // utan hyra värderas inte som ett fullvärdigt bestånd.
+      portfolio: [makeProperty({ id: 1, askPrice: 50_000_000, baseRent: 2_600_000, capacity: 4, tenants: letUnits(1) })],
+      competitors: [{ name: "R", cash: 0, units: 1, equity: 0, strategy: "värde", portfolio: [makeProperty({ id: 2, askPrice: 50_000_000, baseRent: 2_600_000, capacity: 4, tenants: letUnits(2) })] }],
     });
     const ratio = cityCreditRatio(s);
     expect(ratio).toBeGreaterThan(0.3);

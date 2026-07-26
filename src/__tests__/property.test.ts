@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   propAnnualOpex,
+  propCapRate,
   propAnnualRent,
   propMarketValue,
   propNOI,
   propPotentialRent,
 } from "../engine/property";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
+import type { PropTypeKey } from "../engine/types";
 
 describe("propMarketValue", () => {
   /* Värderingen väger substansvärde mot avkastningsvärde (driftnetto genom
@@ -30,8 +32,11 @@ describe("propMarketValue", () => {
   it("ger fullt uthyrt objekt en premie mot substansvärdet", () => {
     const s = makeState();
     const full = atMarketRent(realistic(), s);
-    // Substans 38,4 MSEK + 10 % beläggningspremie.
-    expect(propMarketValue(full, s)).toBeCloseTo(38_400_000 * 1.1, -5);
+    // Bostad i centrum handlas på ett lägre avkastningskrav än vad enbart
+    // substansen implicerar, så ett stabiliserat objekt värderas över den.
+    const premium = propMarketValue(full, s) / 38_400_000 - 1;
+    expect(premium).toBeGreaterThan(0.05);
+    expect(premium).toBeLessThan(0.30);
   });
 
   it("värderar ned en tom fastighet rejält mot en fullt uthyrd", () => {
@@ -82,11 +87,12 @@ describe("propMarketValue", () => {
   it("låter aldrig värdet kollapsa, även med orimligt låg hyra", () => {
     // Skydd mot att avkastningsbenet drar ned värdet mot noll om ett objekts
     // hyra är orealistisk i förhållande till substansen (mark + stomme har
-    // alltid ett värde). Golvet är 60 % av substansvärdet.
+    // alltid ett värde). Golvet är 50 % av substansvärdet, vilket efter
+    // vägningen ger som lägst ~65 % av substansen.
     const s = makeState();
     const p = makeProperty({ area: 1000, condition: 100, baseRent: 1_000, capacity: 4, tenants: [] });
     // Substansvärde = 1000 × 32000 × 1.2 = 38,4 MSEK.
-    expect(propMarketValue(p, s)).toBeGreaterThan(38_400_000 * 0.75);
+    expect(propMarketValue(p, s)).toBeGreaterThan(38_400_000 * 0.6);
   });
 });
 
@@ -139,5 +145,51 @@ describe("propNOI (driftnetto)", () => {
     const lowerOpex = makeProperty({ baseRent: 100_000, tenants: [], opexMult: 0.8 });
     expect(propNOI(lowerOpex, makeState())).toBeGreaterThan(propNOI(base, makeState()));
     expect(propNOI(base, makeState({ taxMod: 1.04 }))).toBeLessThan(propNOI(base, makeState()));
+  });
+});
+
+/* ── Yieldstruktur ────────────────────────────────────────────────────────
+   Marknaden prissätter RISK: samma driftnetto är värt olika mycket beroende
+   på tillgångsslag och läge. Detta är den ekonomiska modellens kärna och
+   ska inte kunna glida i tysthet. */
+describe("avkastningskrav (yieldstruktur)", () => {
+  const at = (type: PropTypeKey, district = "innerstad") =>
+    makeProperty({
+      type, district, area: 1000, condition: 100,
+      baseRent: 2_200_000, capacity: 4,
+      tenants: Array.from({ length: 4 }, (_, i) => makeTenantFixture({ id: 300 + i })),
+    });
+
+  it("bostad < kontor < butik < industri, allt annat lika", () => {
+    const s = makeState();
+    const y = (t: PropTypeKey) => propCapRate(at(t), s);
+    expect(y("bostad")).toBeLessThan(y("kontor"));
+    expect(y("kontor")).toBeLessThan(y("butik"));
+    expect(y("butik")).toBeLessThan(y("industri"));
+  });
+
+  it("A-läge kräver lägre avkastning än osäkert läge – även för bostäder", () => {
+    const s = makeState();
+    const y = (d: string) => propCapRate(at("bostad", d), s);
+    // Finansdistriktet (A-läge) < innerstad (referens) < förort < industriområde.
+    expect(y("finans")).toBeLessThan(y("innerstad"));
+    expect(y("innerstad")).toBeLessThan(y("förort"));
+    expect(y("förort")).toBeLessThan(y("industri"));
+  });
+
+  it("samma driftnetto är värt mer i ett bättre läge", () => {
+    const s = makeState();
+    // Samma objekt, olika distrikt → lägre avkastningskrav ger högre värde.
+    expect(propMarketValue(at("kontor", "finans"), s))
+      .toBeGreaterThan(propMarketValue(at("kontor", "industri"), s));
+  });
+
+  it("vakans och eftersatt skick höjer avkastningskravet", () => {
+    const s = makeState();
+    const full = at("kontor");
+    const empty = { ...full, tenants: [] };
+    const worn = { ...full, condition: 30 };
+    expect(propCapRate(empty, s)).toBeGreaterThan(propCapRate(full, s));
+    expect(propCapRate(worn, s)).toBeGreaterThan(propCapRate(full, s));
   });
 });

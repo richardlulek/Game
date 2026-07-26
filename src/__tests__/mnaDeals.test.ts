@@ -68,11 +68,15 @@ describe("FÖRHANDLINGSFLÖDET: bud → motbud → avslut", () => {
       s = tick(s);
       expect(s.pendingDeal?.status).toBe("accepted");
       const debtBefore = s.debt;
+      // Rivalen amorterar medan förhandlingen pågår, så det är skulden VID
+      // TILLTRÄDET som övertas – inte den den hade när budet lades.
+      const assumed = Math.round(s.competitors.find((x) => x.name === c.name)!.debt ?? 0);
+      expect(assumed).toBeGreaterThan(0);
       s = reducer(s, { type: "FINALIZE_DEAL", financing: "lan" });
       expect(s.competitors.find((x) => x.name === c.name)).toBeUndefined();
       expect(s.pendingDeal).toBeNull();
-      // 25 % kontant, 75 % lån + rivalens 20M övertagna.
-      expect(s.debt).toBeGreaterThanOrEqual(debtBefore + Math.round(counter * 0.75) + 20_000_000 - 2);
+      // 25 % kontant, 75 % lån + rivalens övertagna skuld.
+      expect(s.debt).toBeGreaterThanOrEqual(debtBefore + Math.round(counter * 0.75) + assumed - 2);
     } finally {
       clearRng();
     }

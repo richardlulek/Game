@@ -69,8 +69,11 @@ describe("MIDGAME-INTRÄDE: staden får påfyllnad av utmanare", () => {
       let s = makeState({
         competitors: ["Northgate Properties", "Wellspring Invest", "Coastline Ltd", "City Core Group"].map(large),
       });
+      // Inträdet är en sällsynt händelse (~0,4 %/mån och bara utanför bust),
+      // så 600 månader missar det i drygt en tiondel av fallen oavsett kod.
+      // 1800 månader gör provet robust utan att ändra vad som testas.
       let entered = false;
-      for (let m = 0; m < 600 && !entered; m++) {
+      for (let m = 0; m < 1800 && !entered; m++) {
         s = tick(s);
         entered = s.log.some((e) => e.t.includes("NEW PLAYER"));
       }
