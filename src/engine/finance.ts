@@ -233,3 +233,30 @@ export function ltvOf(state: GameState): number {
   const totalDebt = state.debt + (state.revolving?.used ?? 0);
   return state.portfolio.length ? totalDebt / portfolioValue(state) : 0;
 }
+
+/* ── Checkräkningskrediten ─────────────────────────────────────────
+   Krediten är bankens svar på hur mycket utrymme du lämnat kvar åt dig
+   själv. Två delar:
+
+     · 5 % av beståndets värde – grundlinan, alla får den.
+     · en fjärdedel av det OANVÄNDA pantutrymmet (bankens tak minus din
+       skuld) – det du kunde ha belånat men lät bli.
+
+   Därför blir låg belåning faktiskt trygg och inte bara långsam: den som
+   ligger på 40 % när banken tillåter 64,5 % har en rejäl kreditlina att
+   möta en svacka med, medan den som ligger i taket bara har grundlinan.
+   Krediten räknas om varje månad – den följer beståndet i stället för att
+   frysa fast på det värde portföljen råkade ha den månad den beviljades. */
+const REVOLVER_OF_VALUE = 0.05;
+const REVOLVER_OF_HEADROOM = 0.25;
+const REVOLVER_FLOOR = 500_000;
+
+export function revolvingLimitOf(state: GameState): number {
+  const value = portfolioValue(state);
+  if (value <= 0) return REVOLVER_FLOOR;
+  const headroom = Math.max(0, loanTerms(state).maxLtv * value - state.debt);
+  const limit = value * REVOLVER_OF_VALUE + headroom * REVOLVER_OF_HEADROOM;
+  // Aldrig under det som redan är utnyttjat: banken drar inte undan mattan
+  // mitt i en svacka, den slutar bara låna ut mer.
+  return Math.max(REVOLVER_FLOOR, state.revolving?.used ?? 0, Math.round(limit));
+}

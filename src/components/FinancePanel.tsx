@@ -488,6 +488,11 @@ export function FinancePanel({ state, dispatch, equity, ltv, terms }: FinancePan
                 <Line l="Credit limit" v={kr(state.revolving.limit)} />
                 <Line l="Drawn" v={kr(state.revolving.used)} />
                 <Line l="Available" v={kr(state.revolving.limit - state.revolving.used)} accent="#27660a" />
+                <div style={{ fontSize: 11, opacity: 0.75, margin: "2px 0 6px" }}>
+                  The line is 5% of portfolio value plus a quarter of your unused mortgage
+                  headroom — borrow less against the buildings and the bank leaves you a
+                  bigger cushion for a bad month.
+                </div>
                 <div style={S.amortRow}>
                   <input type="range" min="0" max={state.revolving.limit - state.revolving.used}
                     step="100000" value={Math.min(drawAmt, state.revolving.limit - state.revolving.used)}

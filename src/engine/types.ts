@@ -279,6 +279,9 @@ export interface PendingWork {
   upgradeId?: string;
   /** Ny fastighetstyp (kind === "ändrad_användning"). */
   targetType?: PropTypeKey;
+  /** Skickhöjning när jobbet är klart (kind === "underhåll"). Saknas → 15,
+   *  hela jobbet. Ett delvis betalt underhåll ger proportionerlig effekt. */
+  gain?: number;
 }
 
 /** Profil för en typ av hyresgäst. */

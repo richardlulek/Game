@@ -9,6 +9,7 @@
    kassan över golvet – äkta insolvens. Ren logik, inga React-beroenden.
    ============================================================ */
 
+import { loanTerms } from "./finance";
 import { msek } from "./format";
 import { propMarketValue } from "./property";
 import { random01 } from "./random";
@@ -131,6 +132,26 @@ export function maxRaisable(state: GameState): number {
 /** Äkta insolvens: inte ens full likvidering lyfter kassan över golvet. */
 export function isInsolvent(state: GameState): boolean {
   return state.cash + maxRaisable(state) < BANKRUPTCY_FLOOR;
+}
+
+/**
+ * Sant när bolaget står helt utan verksamhet OCH utan medel att starta om:
+ * inga fastigheter, inga industritillgångar och för lite kvar för att klara
+ * kontantinsatsen på det billigaste objektet på marknaden. Ett sådant bolag
+ * kan bara vänta på att de fasta kostnaderna ska ta det – därför avslutas
+ * partiet där i stället för att rulla vidare i tomma månader.
+ */
+export function cannotRestart(state: GameState): boolean {
+  if (state.portfolio.length > 0) return false;
+  if ((state.industryPortfolio ?? []).some((a) => !a.spinOffId)) return false;
+  const cheapest = state.listings.reduce(
+    (min, p) => (p.askPrice > 0 && p.askPrice < min ? p.askPrice : min),
+    Number.POSITIVE_INFINITY,
+  );
+  // Inga annonser just nu: använd en normal småfastighet som riktmärke.
+  const entryPrice = Number.isFinite(cheapest) ? cheapest : 4_000_000;
+  const downPayment = entryPrice * (1 - loanTerms(state).maxLtv);
+  return state.cash < downPayment;
 }
 
 /** Tillämpar EN stökförsäljning på tillståndet (muterar en kopia av fälten

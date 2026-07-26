@@ -58,6 +58,7 @@ import {
   imposeRestructuringTerms,
   isInsolvent,
   maxRaisable,
+  cannotRestart,
   receiverAutoLiquidate,
 } from "./receivership";
 import { findNotableMoveIn, notableById, signNotable } from "./notableTenants";
@@ -109,6 +110,7 @@ import {
   equityOf,
   loanTerms,
   portfolioValue,
+  revolvingLimitOf,
 } from "./finance";
 import { covenantBreach, creditRatingOf } from "./rating";
 import { tickCityEvent } from "./cityEvents";
@@ -146,6 +148,36 @@ import { maybePoachingDecision } from "./executives";
 import { SPINOFF_DIVIDEND_PAYOUT, SPINOFF_UPKEEP_COND, SPINOFF_UPKEEP_PCT, spinoffSharePrice } from "./spinoffs";
 import { INDUSTRY_TEMPLATES } from "./industryData";
 import type { CompetitorStrategy, GameState, InfraProject, LogEntry, Offer, Tenant } from "./types";
+
+/* Portföljdirektörens arvode: en liten fast stab plus 3 % av hyran per hus
+   (golv 2 500 kr) – kostnaden följer beståndet i stället för att ligga som en
+   platt klumpsumma över även det allra minsta bolaget. */
+/* Underhåll: en hel rond kostar 2 % av värdet och ger +15 skick. Förvaltaren
+   får lägga högst halva kassan på en rond, och gör inget alls om den inte
+   räcker till minst en fjärdedel av jobbet. */
+export const MAINTAIN_GAIN = 15;
+const MAINTAIN_CASH_SHARE = 0.5;
+const MAINTAIN_MIN_SHARE = 0.25;
+
+const GM_FEE_BASE = 4_000;
+const GM_FEE_OF_RENT = 0.03;
+const GM_FEE_MIN_PER_PROP = 2_500;
+
+/**
+ * Portföljdirektörens månadsarvode. Kostnaden följer det som faktiskt
+ * förvaltas – 3 % av hyran per hus (samma sats som en enskild förvaltare
+ * tar) med ett golv per hus, plus en liten fast stab. Ett fast arvode slukade
+ * tidigare fyra tiondelar av hyran i ett enhusbolag och gjorde det första
+ * huset olönsamt oavsett belåningsgrad. Ingen portfölj, inget arvode.
+ */
+export function globalManagerFee(state: GameState): number {
+  if (!state.globalManager?.active || state.portfolio.length === 0) return 0;
+  const perProp = state.portfolio.reduce(
+    (a, p) => a + Math.max(GM_FEE_MIN_PER_PROP, Math.round(p.tenants.reduce((b, t) => b + t.rent, 0) * GM_FEE_OF_RENT)),
+    0,
+  );
+  return GM_FEE_BASE + perProp;
+}
 
 /**
  * Enda kanalen för att ändra spelarens kassa i månadssimuleringen. Ett positivt
@@ -424,10 +456,12 @@ export function advanceMonth(state: GameState): GameState {
           continue;
         }
         switch (w.kind) {
-          case "underhåll":
-            np.condition = Math.min(100, np.condition + 15);
-            events.push({ t: `🔧 Maintenance done: ${np.typeLabel} in ${np.districtName} (+15 condition).`, kind: "upg" });
+          case "underhåll": {
+            const gain = Math.round(w.gain ?? MAINTAIN_GAIN);
+            np.condition = Math.min(100, np.condition + gain);
+            events.push({ t: `🔧 Maintenance done: ${np.typeLabel} in ${np.districtName} (+${gain} condition).`, kind: "upg" });
             break;
+          }
           case "energi": {
             const CLASSES = ["F", "E", "D", "C", "B", "A"] as const;
             const idx = CLASSES.indexOf((np.energyClass ?? "D") as (typeof CLASSES)[number]);
@@ -566,12 +600,27 @@ export function advanceMonth(state: GameState): GameState {
         monthlyNOI -= managerCost;
       }
       if (np.condition < effectiveMaintainThreshold && !pendingWork(np, "underhåll")) {
-        const maintainCost = Math.round(propMarketValue(np, s) * 0.02);
-        if (s.cash >= maintainCost) {
-          monthlyNOI -= maintainCost;
-          np.capexTotal = (np.capexTotal ?? 0) + maintainCost;
-          np.pendingWorks = [...(np.pendingWorks ?? []), { kind: "underhåll" as const, monthsLeft: 1 }];
-          events.push({ t: `🔧 The manager ordered maintenance of ${np.typeLabel} in ${np.districtName} (threshold ${effectiveMaintainThreshold}) – +15 condition at month-end.`, kind: "upg" });
+        // Hela ronden kostar 2 % av värdet och ger +15 skick. Räcker inte
+        // kassan till hela jobbet lagar förvaltaren det den har råd med –
+        // taket och stammarna får vänta. Utan den delbetalningen fanns en
+        // fälla som stängde igen: ett litet bolag vars marginal är tiotusen
+        // i månaden kunde aldrig betala en klumpsumma på ett par hundra
+        // tusen, huset förföll, värdet föll, och med värdet marginalen.
+        const fullCost = Math.round(propMarketValue(np, s) * 0.02);
+        const spendable = Math.round(Math.max(0, s.cash) * MAINTAIN_CASH_SHARE);
+        const cost = Math.min(fullCost, spendable);
+        if (fullCost > 0 && cost >= fullCost * MAINTAIN_MIN_SHARE) {
+          const share = cost / fullCost;
+          const gain = Math.max(1, Math.round(MAINTAIN_GAIN * share));
+          monthlyNOI -= cost;
+          np.capexTotal = (np.capexTotal ?? 0) + cost;
+          np.pendingWorks = [...(np.pendingWorks ?? []), { kind: "underhåll" as const, monthsLeft: 1, gain }];
+          events.push({
+            t: share >= 0.999
+              ? `🔧 The manager ordered maintenance of ${np.typeLabel} in ${np.districtName} (threshold ${effectiveMaintainThreshold}) – +${gain} condition at month-end.`
+              : `🔧 The manager ordered partial maintenance of ${np.typeLabel} in ${np.districtName} — cash only covered ${Math.round(share * 100)}% of the job, +${gain} condition at month-end.`,
+            kind: "upg",
+          });
         }
       }
     }
@@ -930,11 +979,12 @@ export function advanceMonth(state: GameState): GameState {
     });
   }
 
-  // Global portföljdirektör: månadsarvode
-  if (s.globalManager?.active) {
-    const gmCost = 15000 + s.portfolio.length * 1500;
-    monthlyNOI -= gmCost;
-  }
+  // Global portföljdirektör: månadsarvode. Arvodet står i proportion till det
+  // som faktiskt förvaltas – 3 % av hyran per hus (samma sats som en enskild
+  // förvaltare tar), med ett golv per hus och en liten fast stab ovanpå. Den
+  // tidigare fasta avgiften på 15 000 kr slukade fyra tiondelar av hyran i ett
+  // enhusbolag och gjorde det första huset olönsamt oavsett belåningsgrad.
+  monthlyNOI -= globalManagerFee(s);
 
   // ── Bolagets kontor: overhead och överbelastning ────────────────
   {
@@ -3097,12 +3147,25 @@ export function advanceMonth(state: GameState): GameState {
   const repGain = monthlyReputation(s);
   if (repGain > 0) s.reputation = Math.min(100, s.reputation + repGain);
 
-  // Revolving credit auto-unlock at rep 40
-  if (s.reputation >= 40 && !s.revolving) {
-    const portVal = s.portfolio.reduce((a, p) => a + propMarketValue(p, s), 0);
-    const limit = Math.max(500_000, Math.round(portVal * 0.05));
-    s.revolving = { limit, used: 0 };
-    events.push({ t: `💳 Revolving credit activated: ${kr(limit)} available (5% of portfolio value).`, kind: "income" });
+  // Revolving credit auto-unlock at rep 40. Linan räknas sedan om varje
+  // månad (revolvingLimitOf): den följer beståndets värde och det oanvända
+  // pantutrymmet, i stället för att frysa fast på det värde portföljen råkade
+  // ha den månad krediten beviljades.
+  if (s.reputation >= 40) {
+    const limit = revolvingLimitOf(s);
+    if (!s.revolving) {
+      s.revolving = { limit, used: 0 };
+      events.push({ t: `💳 Revolving credit activated: ${kr(limit)} available — 5% of portfolio value plus a quarter of your unused mortgage headroom. Keep leverage low and the line grows.`, kind: "income" });
+    } else if (limit !== s.revolving.limit) {
+      const prev = s.revolving.limit;
+      s.revolving = { ...s.revolving, limit };
+      // Bara rejäla förändringar är värda en rad i loggen.
+      if (Math.abs(limit - prev) > Math.max(250_000, prev * 0.2))
+        events.push({
+          t: `💳 The bank ${limit > prev ? "raised" : "lowered"} the revolving credit line to ${kr(limit)} (was ${kr(prev)}) — it follows your portfolio value and unused mortgage headroom.`,
+          kind: limit > prev ? "income" : "warn",
+        });
+    }
   }
 
   // Advisory board auto-unlock at rep milestones
@@ -3853,6 +3916,20 @@ export function advanceMonth(state: GameState): GameState {
         if (res.sold > 0 && s.cash >= BANKRUPTCY_FLOOR) {
           Object.assign(s, imposeRestructuringTerms(s));
           s.log = [{ t: `⚖️ The receiver stepped in and sold ${res.sold} propert${res.sold > 1 ? "ies" : "y"} to keep the company alive — and the bank imposes ${RESTRUCTURING_MONTHS}-month covenants.`, kind: "warn" }, ...s.log];
+        }
+        // Sålde förvaltaren ALLT och lämnade för lite kvar för att komma
+        // tillbaka in på marknaden är partiet slut här. Alternativet – ett
+        // bolag utan hus, utan hyror och utan råd att köpa – är inte ett
+        // parti man kan spela vidare, bara ett decennium av tomma månader
+        // innan de fasta kostnaderna hinner ikapp.
+        if (!s.gameOver && cannotRestart(s)) {
+          s.gameOver = true;
+          s.gameOverReason = {
+            icon: "🧾",
+            title: "The receiver sold everything",
+            text: `The liquidity crisis forced the receiver to sell the entire portfolio at distress prices. What is left — ${kr(s.cash)} in cash — is not enough for a down payment on anything on the market, and with no properties there is no rent coming in. Next run: keep a cash buffer that covers a few months of costs, and use the revolving credit line before the account goes negative.`,
+          };
+          s.log = [{ t: "🧾 The receiver sold the last property. Without properties, rent or capital to buy again, the company is wound up.", kind: "warn" }, ...s.log];
         }
         if (s.cash < BANKRUPTCY_FLOOR) {
           s.gameOver = true;
