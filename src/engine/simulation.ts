@@ -153,6 +153,12 @@ import type { CompetitorStrategy, GameState, InfraProject, LogEntry, Offer, Tena
 /* Portföljdirektörens arvode: en liten fast stab plus 3 % av hyran per hus
    (golv 2 500 kr) – kostnaden följer beståndet i stället för att ligga som en
    platt klumpsumma över även det allra minsta bolaget. */
+/* Ett bolag utan hus: hur länge det får stå tomt innan det avvecklas, och
+   när varningen går ut. Ett år är gott om tid för marknaden att byta annonser
+   – men inte ett decennium av tomma månader. */
+const WIND_UP_MONTHS = 12;
+const WIND_UP_WARN_MONTHS = 6;
+
 /* Underhåll: en hel rond kostar 2 % av värdet och ger +15 skick. Förvaltaren
    får lägga högst halva kassan på en rond, och gör inget alls om den inte
    räcker till minst en fjärdedel av jobbet. */
@@ -4046,6 +4052,36 @@ export function advanceMonth(state: GameState): GameState {
   if (s.restructuringTerms && !s.receivership && s.year * 12 + s.month >= s.restructuringTerms.untilAbs) {
     s.restructuringTerms = undefined;
     s.log = [{ t: "🏦 The restructuring covenants have expired — the bank restores normal amortization and lending terms.", kind: "info" }, ...s.log];
+  }
+
+  // ── Bolaget står tomt ────────────────────────────────────────────
+  // Sista huset kan försvinna på fler sätt än via förvaltaren: sålt på ett
+  // bud, avvecklat i en affär. Utfallet är detsamma – inga hus, inga hyror,
+  // och för lite kvar för att komma in på marknaden igen. Utan den här
+  // kontrollen rullade partiet vidare i tomma månader tills de fasta
+  // kostnaderna hann ikapp; i femtioårsmätningen stod ett bolag så i tio år
+  // och räknades ändå som levande.
+  //
+  // Till skillnad från förvaltarens tvångslikvidering, som är entydig och
+  // avslutar direkt, ges den här vägen ett år: marknaden byter annonser och
+  // en hyra eller en försäljning kan hinna ändra läget.
+  if (!s.gameOver && !s.settings?.noBankruptcy) {
+    if (s.portfolio.length === 0 && cannotRestart(s)) {
+      s.emptyMonths = (s.emptyMonths ?? 0) + 1;
+      if (s.emptyMonths === WIND_UP_WARN_MONTHS)
+        s.log = [{ t: `⚠️ The company has owned nothing for ${WIND_UP_WARN_MONTHS} months and cannot cover a down payment on anything for sale. Raise capital or the company is wound up in ${WIND_UP_MONTHS - WIND_UP_WARN_MONTHS} months.`, kind: "warn" }, ...s.log];
+      if (s.emptyMonths >= WIND_UP_MONTHS) {
+        s.gameOver = true;
+        s.gameOverReason = {
+          icon: "🧾",
+          title: "The company is wound up",
+          text: `For ${WIND_UP_MONTHS} months the company has owned no properties, collected no rent, and held too little — ${kr(s.cash)} — to cover a down payment on anything on the market. There is nothing left to run. Next run: keep a cash buffer that covers a few months of costs, and never let the portfolio go to zero without the capital to buy back in.`,
+        };
+        s.log = [{ t: `🧾 Wound up: a year without properties, without rent and without the capital to buy back in.`, kind: "warn" }, ...s.log];
+      }
+    } else if (s.emptyMonths) {
+      s.emptyMonths = 0;
+    }
   }
   if (CASHFLOW_DEBUG && cashLedger.length) {
     const net = cashLedger.reduce((a, c) => a + c.delta, 0);

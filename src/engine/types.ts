@@ -1110,6 +1110,9 @@ export interface GameState {
   rateMode?: "variable" | "fixed";
   fixedRate?: number;
   fixedUntilAbs?: number;
+  /** Månader i rad utan fastigheter och utan råd att köpa in sig igen.
+   *  Når den taket avvecklas bolaget (simulation.ts). */
+  emptyMonths?: number;
   revolving?: { limit: number; used: number };
   dividendsPaid?: number;
   advisors?: string[];
