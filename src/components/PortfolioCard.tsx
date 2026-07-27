@@ -9,7 +9,7 @@ import { pendingWork, propAnnualOpex, propInvestedCost, propMarketValue, propNOI
 import { buildingAge, isObsolete, obsolescenceFactor } from "../engine/lifecycle";
 import { districtTier, maxDevLevel } from "../engine/districtTiers";
 import { buildCostMult } from "../engine/progression";
-import { QUICK_SALE_FACTOR, attractiveness, interestChance, interestLabel } from "../engine/selling";
+import { QUICK_SALE_FACTOR, attractiveness, equityRecycle, interestChance, interestLabel } from "../engine/selling";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
 import { BuildingArt } from "./BuildingArt";
@@ -105,6 +105,10 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
   const cashOnCash  = invested > 0
     ? ((totalEarned + unrealGain) / invested) * 100
     : null;
+  // Övervärdet som köpkraft (selling.equityRecycle) – visas när det är stort
+  // nog att betyda något, så att omsättning av beståndet blir en synlig väg
+  // och inte en hemlighet man måste räkna ut själv.
+  const recycle = equityRecycle(p, state);
 
   // Kassaflödesanalys
   const grossRentMo  = p.tenants.reduce((s, t) => s + t.rent, 0);
@@ -191,6 +195,11 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           color={yieldPct >= 5 ? "#27660a" : yieldPct >= 3 ? "#c07f16" : "#c0392b"}
         />
         <Stat label="Invested" value={`$${(invested / 1e6).toFixed(1)}M`} />
+        <Stat
+          label="Unrealised gain"
+          value={`${unrealGain >= 0 ? "+" : "−"}$${Math.abs(unrealGain / 1e6).toFixed(1)}M`}
+          color={unrealGain >= 0 ? "#27660a" : "#c0392b"}
+        />
         {cashOnCash !== null && (
           <Stat
             label="Total return"
@@ -204,6 +213,14 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
         {(p.capexTotal ?? 0) > 0 ? ` + capex ${((p.capexTotal ?? 0) / 1e6).toFixed(1)} M` : ""})
         · {marketYield.toFixed(1)}% on market value
       </div>
+      {recycle && (
+        <div style={{ fontSize: 10.5, color: "#7a5c2a", marginTop: 3 }}>
+          ${(recycle.uplift / 1e6).toFixed(1)}M of this value is gain you have never banked. Sold at
+          market it frees about ${(recycle.net / 1e6).toFixed(1)}M in cash — at your {Math.round(recycle.ltv * 100)}%
+          purchase leverage, the deposit on roughly {recycle.count} more {recycle.count === 1 ? "property" : "properties"}.
+          Early on that is often the only way to grow: the rent alone will not save it up.
+        </div>
+      )}
       {vacancyValueGap > 0.05 && (
         <div style={{ fontSize: 10.5, color: "#c0392b", marginTop: 3 }}>
           Empty space is holding the value back by ~${vacancyValueGap.toFixed(1)}M — let it and the

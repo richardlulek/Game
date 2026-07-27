@@ -8,6 +8,7 @@
    Ren logik utan React-beroenden.
    ============================================================ */
 
+import { acquisitionLtv } from "./finance";
 import { propMarketValue, propNOI } from "./property";
 import { random01 } from "./random";
 import type { Competitor, GameState, Property, SalePackage } from "./types";
@@ -158,4 +159,58 @@ export function rivalSellChance(c: Competitor, phase: "boom" | "bust" | "stable"
   const base = c.strategy === "tillväxt" ? 0.015 : c.strategy === "värde" ? 0.08 : 0.05;
   const cycle = phase === "boom" ? 1.6 : phase === "bust" ? 0.7 : 1;
   return Math.min(0.25, base * cycle);
+}
+
+/* ── Övervärdet som köpkraft ───────────────────────────────────────
+   Tidigt i spelet räcker varken kassaflödet eller refinansieringen till
+   nästa kontantinsats: ett enda hus kastar av sig några hundra tusen om
+   året, och en insats är flera miljoner. Det som DÄREMOT finns är vinsten
+   som ligger låst i huset man redan äger – skillnaden mellan vad man
+   betalade (plus nedlagd capex) och vad marknaden säger idag.
+
+   Att sälja och lägga pengarna i flera hus är därför inte ett nederlag
+   utan den normala vägen ut ur enhusfällan. Mätningen över 50 år är
+   entydig: samma strategi som omsätter beståndet tidigt landar på
+   elva hus i stället för ett. Funktionen räknar ut vad en försäljning
+   faktiskt frigör, så att spelaren kan se vägen i stället för att
+   behöva räkna ut den själv. */
+
+/** Övervärde som andel av investerat kapital innan det är värt att sälja. */
+export const RECYCLE_UPLIFT_THRESHOLD = 0.2;
+
+export interface EquityRecycle {
+  /** Övervärdet: marknadsvärde − (köpeskilling + capex). */
+  uplift: number;
+  /** Kontant efter att lånet på huset lösts. */
+  net: number;
+  /** Belåningsgraden nya köp görs på. */
+  ltv: number;
+  /** Ungefär så här många normalobjekt räcker det till i kontantinsats. */
+  count: number;
+}
+
+/**
+ * Vad en försäljning av `p` till marknadsvärde skulle frigöra, uttryckt i
+ * hur många nya objekt kontantinsatsen räcker till. Null när övervärdet är
+ * för litet för att vara värt att realisera, eller när det inte ens räcker
+ * till ett objekt – då är det bättre att behålla och förvalta.
+ */
+export function equityRecycle(p: Property, state: GameState): EquityRecycle | null {
+  if (p.status !== "klar") return null;
+  const value = propMarketValue(p, state);
+  const invested = (p.purchasePrice || value) + (p.capexTotal ?? 0);
+  const uplift = value - invested;
+  if (invested <= 0 || uplift <= invested * RECYCLE_UPLIFT_THRESHOLD) return null;
+  // Samma skuldavräkning som vid försäljning (reducer SELL).
+  const payoff = Math.min(state.debt, (p.purchasePrice || value) * 0.6);
+  const net = value - payoff;
+  const ltv = acquisitionLtv(state);
+  const asks = state.listings
+    .filter((l) => l.status === "klar" && l.askPrice > 0)
+    .map((l) => l.askPrice)
+    .sort((a, b) => a - b);
+  const typical = asks.length ? asks[Math.floor(asks.length / 2)] : value;
+  const deposit = typical * (1 - ltv);
+  const count = deposit > 0 ? Math.floor(net / deposit) : 0;
+  return count >= 1 ? { uplift, net, ltv, count } : null;
 }
