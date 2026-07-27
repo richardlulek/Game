@@ -5,14 +5,15 @@
    mycket skuld som uppstod, om fastigheterna kom in med rätt anskaffnings-
    värde, och om belåningsgraden man valt i Policy respekterades.
 
-   Testerna här beskriver vad koden GÖR idag. Två av dem dokumenterar
-   avvikelser som mätsonden (acquisitionRoutes.probe) blottade och som ännu
-   inte är åtgärdade – de är märkta därefter, så att ingen läser dem som
-   ett godkännande. */
+   Mätsonden (acquisitionRoutes.probe) blottade tre fel som nu är lagade:
+   förvärvsskulden prövas mot värdet på det som förvärvas, divisionsaffären
+   följer samma belåningsgrad som vanliga köp, och policyn når hela vägen.
+   LBO:n har ett eget, högre tak – hög belåning är hela instrumentet. */
 import { describe, expect, it } from "vitest";
 import { reducer } from "../engine/reducer";
-import { acquisitionLtv, loanTerms, ltvOf, portfolioValue } from "../engine/finance";
+import { loanTerms, ltvOf } from "../engine/finance";
 import { propMarketValue } from "../engine/property";
+import { LBO_MAX_LTV } from "../engine/mna";
 import { clearRng, seedRng } from "../engine/random";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 import type { Competitor, DealFinancing, GameState, Property } from "../engine/types";
@@ -111,18 +112,21 @@ describe("divisionsaffär: hela distriktet i en klump", () => {
     });
   });
 
-  /* AVVIKELSE – ej åtgärdad. Divisionsaffären har 25 % kontantinsats
-     hårdkodad, vilket ger 75 % belåning oavsett bankens tak (64,5 % vid
-     rykte 50) och oavsett vad spelaren valt i Policy. */
-  it("AVVIKELSE: ignorerar både bankens tak och policyn", () => {
+  it("lånar enligt bankens tak, inte 75 % som förr", () => {
+    run(() => {
+      const s = base();
+      const after = reducer(s, { type: "BUY_DIVISION", competitorName: "Harborwick", district: "innerstad" });
+      expect(ltvOf(after)).toBeLessThanOrEqual(loanTerms(s).maxLtv + 0.01);
+    });
+  });
+
+  it("policyns belåningsgrad når hela vägen fram", () => {
     run(() => {
       const s = base({ policy: { purchaseLtv: 0.4 } });
       const after = reducer(s, { type: "BUY_DIVISION", competitorName: "Harborwick", district: "innerstad" });
-      const borrowed = after.debt - s.debt;
-      const paid = (s.cash - after.cash) + borrowed;
-      expect(borrowed / paid).toBeCloseTo(0.75, 2);
-      expect(borrowed / paid).toBeGreaterThan(loanTerms(s).maxLtv);
-      expect(borrowed / paid).toBeGreaterThan(acquisitionLtv(s));
+      expect(ltvOf(after)).toBeCloseTo(0.4, 1);
+      const free = reducer(base(), { type: "BUY_DIVISION", competitorName: "Harborwick", district: "innerstad" });
+      expect(after.debt).toBeLessThan(free.debt);
     });
   });
 });
@@ -146,13 +150,16 @@ describe("bolagsaffär: finansieringsformerna", () => {
     });
   });
 
-  it("LBO lägger nästan hela priset i förvärvsskuld", () => {
+  it("LBO:n lånar mot husen, inte mot priset – premien är egen insats", () => {
     run(() => {
       const s = base();
-      const after = closeDeal(s, "lbo");
-      const borrowed = after.debt - s.debt;
-      const paid = (s.cash - after.cash) + borrowed;
-      expect(borrowed / paid).toBeGreaterThan(0.85);
+      const assets = s.competitors[0].portfolio!.reduce((a, p) => a + propMarketValue(p, s), 0);
+      const borrowed = closeDeal(s, "lbo").debt - s.debt;
+      expect(borrowed).toBeCloseTo(assets * LBO_MAX_LTV, -6);
+      // Priset ligger över tillgångsvärdet – mellanskillnaden går inte att låna.
+      const paid = (s.cash - closeDeal(s, "lbo").cash) + borrowed;
+      expect(paid).toBeGreaterThan(assets);
+      expect(borrowed).toBeLessThan(paid);
     });
   });
 
@@ -167,25 +174,47 @@ describe("bolagsaffär: finansieringsformerna", () => {
     });
   });
 
-  /* AVVIKELSE – ej åtgärdad. Förvärvsskulden prövas inte mot värdet på det
-     som förvärvas, så ett lånefinansierat bolagsköp lämnar bolaget med
-     högre skuld än tillgångarna är värda. Mätt: 108 % vid "lan",
-     129 % vid "lbo". */
-  it("AVVIKELSE: lånefinansierat bolagsköp ger belåning över 100 %", () => {
+  it("förvärvsskulden prövas mot husen – aldrig över 100 % belåning", () => {
     run(() => {
       const s = base();
-      const after = closeDeal(s, "lan");
-      expect(portfolioValue(after)).toBeGreaterThan(0);
-      expect(ltvOf(after)).toBeGreaterThan(1);
+      for (const f of ["lan", "lbo", "earnout"] as DealFinancing[]) {
+        const after = closeDeal(s, f);
+        expect(after.portfolio).toHaveLength(4);
+        expect(ltvOf(after)).toBeLessThan(1);
+      }
     });
   });
 
-  it("AVVIKELSE: policyns belåningsgrad når inte bolagsaffären", () => {
+  it("LBO har sitt eget, högre tak – det är ett högriskval, inte ett vanligt lån", () => {
     run(() => {
-      const free = closeDeal(base(), "lan");
-      const capped = closeDeal(base({ policy: { purchaseLtv: 0.4 } }), "lan");
-      // Samma skuld trots att policyn säger 40 %.
-      expect(capped.debt).toBe(free.debt);
+      const s = base();
+      const lbo = ltvOf(closeDeal(s, "lbo"));
+      const loan = ltvOf(closeDeal(s, "lan"));
+      expect(lbo).toBeCloseTo(LBO_MAX_LTV, 1);
+      expect(lbo).toBeGreaterThan(loan);
+      expect(lbo).toBeGreaterThan(loanTerms(s).maxLtv);
+    });
+  });
+
+  it("LBO binder minst kontanter – därför väljer man den", () => {
+    run(() => {
+      const s = base();
+      const lbo = s.cash - closeDeal(s, "lbo").cash;
+      const loan = s.cash - closeDeal(s, "lan").cash;
+      const cash = s.cash - closeDeal(s, "kontant").cash;
+      expect(lbo).toBeLessThan(loan);
+      expect(loan).toBeLessThan(cash);
+    });
+  });
+
+  it("policyns belåningsgrad når bolagsaffären – men rör inte LBO:n", () => {
+    run(() => {
+      const cautiousLoan = closeDeal(base({ policy: { purchaseLtv: 0.4 } }), "lan");
+      expect(closeDeal(base(), "lan").debt).toBeGreaterThan(cautiousLoan.debt);
+      expect(ltvOf(cautiousLoan)).toBeCloseTo(0.4, 1);
+      // LBO:n följer sitt eget tak och bryr sig inte om policyn.
+      expect(closeDeal(base({ policy: { purchaseLtv: 0.4 } }), "lbo").debt)
+        .toBe(closeDeal(base(), "lbo").debt);
     });
   });
 });

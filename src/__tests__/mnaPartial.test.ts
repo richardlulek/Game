@@ -14,6 +14,7 @@ import {
 import { propMarketValue } from "../engine/property";
 import { clearRng, seedRng } from "../engine/random";
 import { reducer } from "../engine/reducer";
+import { acquisitionLtv } from "../engine/finance";
 import { advanceMonth } from "../engine/simulation";
 import type { Competitor, GameState } from "../engine/types";
 import { makeProperty, makeState } from "./factories";
@@ -41,7 +42,11 @@ describe("DIVISIONSKÖP: ett distrikt, en affär", () => {
     const sold = after.competitors.find((c) => c.name === seller.name)!;
     expect(sold.portfolio).toHaveLength(1); // centrum-huset kvar
     expect(sold.debt!).toBeLessThan(50_000_000); // 70 % av likviden till skulden
-    expect(after.debt).toBe(price - Math.round(price * 0.25));
+    // Lånet tas mot husen i divisionen, inte mot paketpriset: högst
+    // acquisitionLtv av deras marknadsvärde. Premien är egen insats.
+    const assets = props.reduce((a, p) => a + propMarketValue(p, s), 0);
+    expect(after.debt).toBe(Math.min(price - Math.round(price * 0.25), Math.round(assets * acquisitionLtv(s))));
+    expect(after.debt).toBeLessThan(price - Math.round(price * 0.25));
   });
 });
 

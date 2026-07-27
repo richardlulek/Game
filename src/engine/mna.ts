@@ -19,6 +19,7 @@
    Ren logik, inga React-beroenden.
    ============================================================ */
 
+import { acquisitionLtv } from "./finance";
 import { msek, pct } from "./format";
 import { energySynergyMult, industryAssetValue } from "./industries";
 import { propAnnualOpex, propMarketValue, propPotentialRent } from "./property";
@@ -182,6 +183,35 @@ export function integrationScore(s: GameState): number {
 }
 
 /** Leveraged buyout: liten kontantinsats + arrangörsarvode på förvärvsskulden. */
+/* ── Förvärvsskuldens tak ──────────────────────────────────────────
+   Banken lånar mot HUSEN som förvärvas, inte mot priset. Betalar man en
+   premie över tillgångsvärdet – för kontrollen, för synergierna – är den
+   premien spelarens egen insats. Utan det taget kunde ett lånefinansierat
+   bolagsköp lämna bolaget på 108 % belåning och en LBO på 129 %: insolvent
+   mot marknadsvärdet i samma ögonblick som affären stängde, med ett klick
+   och utan att någon fråga ställdes.
+
+   LBO:n har ett EGET, högre tak. Hög belåning är hela instrumentet och ska
+   förbli ett skarpt högriskval – men även den stannar under vad husen är
+   värda, så affären kan gå illa utan att vara dödsdömd på förhand. */
+export const LBO_MAX_LTV = 0.9;
+
+/** Marknadsvärdet på det bestånd som förvärvas – säkerheten för lånet. */
+export function acquiredAssetValue(state: GameState, rival: Competitor): number {
+  return (rival.portfolio ?? []).reduce((a, p) => a + propMarketValue(p, state), 0);
+}
+
+/** Högsta förvärvsskuld affären kan bära. LBO har eget tak; övriga följer
+ *  samma belåningsgrad som vanliga fastighetsköp, policyn inräknad. */
+export function acquisitionDebtCap(
+  state: GameState,
+  rival: Competitor,
+  financing: DealFinancing,
+): number {
+  const ltv = financing === "lbo" ? LBO_MAX_LTV : acquisitionLtv(state);
+  return Math.round(acquiredAssetValue(state, rival) * ltv);
+}
+
 export const LBO_DOWN = 0.10;
 export const LBO_FEE_PCT = 0.02;
 
@@ -239,9 +269,11 @@ export function executeAcquisition(
     if (state.cash < price) return { state, error: `Cash purchase requires ${msek(price)}.` };
     cashOut = price;
   } else if (financing === "lan") {
-    cashOut = Math.round(price * 0.25);
-    newLoan = price - cashOut;
-    if (state.cash < cashOut) return { state, error: `You need ${msek(cashOut)} (25% down payment).` };
+    // Högst 75 % av priset, och aldrig mer än husen bär.
+    newLoan = Math.min(price - Math.round(price * 0.25), acquisitionDebtCap(state, rival, financing));
+    cashOut = price - newLoan;
+    if (state.cash < cashOut)
+      return { state, error: `You need ${msek(cashOut)} in cash — the bank lends against the buildings (${msek(acquisitionDebtCap(state, rival, financing))}), not against the price.` };
   } else if (financing === "aktier") {
     if (!state.ipoActive) return { state, error: "Share payment requires a listed company (IPO)." };
     const own = state.stocks.find((x) => x.competitorName === "__player__");
@@ -257,19 +289,21 @@ export function executeAcquisition(
     // Leveraged buyout: bara LBO_DOWN kontant, resten hög-belånad förvärvs-
     // skuld (+ arrangörsarvode). Målets EGEN hyra ska bära skulden – går
     // yield över räntan finansierar affären sig själv, annars en skuldspiral.
-    const down = Math.round(price * LBO_DOWN);
-    const loanBase = price - down;
+    const cap = acquisitionDebtCap(state, rival, financing);
+    const loanBase = Math.min(price - Math.round(price * LBO_DOWN), cap);
     const fee = Math.round(loanBase * LBO_FEE_PCT);
-    cashOut = down + fee;
     newLoan = loanBase;
-    if (state.cash < cashOut) return { state, error: `An LBO needs ${msek(cashOut)} (${Math.round(LBO_DOWN * 100)}% down + arrangement fee).` };
+    cashOut = price - newLoan + fee;
+    if (state.cash < cashOut)
+      return { state, error: `An LBO needs ${msek(cashOut)} — the acquisition debt is capped at ${Math.round(LBO_MAX_LTV * 100)}% of what the buildings are worth (${msek(cap)}), plus the arrangement fee.` };
   } else {
     // Earn-out: 75 % nu (25 % kontant / 75 % lån av den delen), resten
     // betalas om 24 mån OM beståndet håller 85 % av dagens driftnetto.
     const nowPart = Math.round(price * 0.75);
-    cashOut = Math.round(nowPart * 0.25);
-    newLoan = nowPart - cashOut;
-    if (state.cash < cashOut) return { state, error: `You need ${msek(cashOut)} (25% down on the upfront part).` };
+    newLoan = Math.min(nowPart - Math.round(nowPart * 0.25), acquisitionDebtCap(state, rival, financing));
+    cashOut = nowPart - newLoan;
+    if (state.cash < cashOut)
+      return { state, error: `You need ${msek(cashOut)} in cash on the upfront part — the bank lends against the buildings, not against the price.` };
     const noiNow = (rival.portfolio ?? []).reduce(
       (a, p) => a + (propPotentialRent(p, state) - propAnnualOpex(p, state)) / 12,
       0,

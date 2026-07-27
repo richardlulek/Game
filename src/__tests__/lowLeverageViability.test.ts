@@ -11,10 +11,11 @@
 
    Dessutom: när förvaltaren tvingats sälja allt är partiet slut på riktigt,
    i stället för ett decennium av tomma månader.                            */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loanTerms, portfolioValue, revolvingLimitOf } from "../engine/finance";
 import { cannotRestart } from "../engine/receivership";
 import { advanceMonth, globalManagerFee } from "../engine/simulation";
+import { clearRng, seedRng } from "../engine/random";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
 import type { GameState } from "../engine/types";
 
@@ -102,8 +103,14 @@ describe("portföljdirektörens arvode står i proportion till beståndet", () =
 
 describe("förvaltaren lagar det kassan räcker till", () => {
   const gm = { active: true, minCondition: 60, minTenantQuality: 0.5, rentTargetPct: 1.0 };
+  // Försäkrat hus och seedad slump: annars kunde en katastrofhändelse
+  // (~1,5 %/mån på oförsäkrat) sänka skicket 25 poäng mitt i mätningen och
+  // få testet att falla ungefär var trettionde körning.
   const worn = (cash: number) =>
-    makeState({ cash, portfolio: [house({ condition: 40 })], globalManager: gm }) as GameState;
+    makeState({ cash, portfolio: [house({ condition: 40, insurance: true })], globalManager: gm }) as GameState;
+
+  beforeEach(() => seedRng(9001));
+  afterEach(() => clearRng());
 
   /** Skicket efter att underhållsronden hunnit bli klar (beställs månad 1,
    *  landar månad 2). Slitaget under tiden gör att vi mäter riktningen. */

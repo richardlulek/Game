@@ -3,7 +3,8 @@
    finansieringsval och earn-outs förfaller bara om beståndet levererar. */
 
 import { describe, expect, it } from "vitest";
-import { MAX_DEAL_ROUNDS, ownerAskPrice, ownerResponse } from "../engine/mna";
+import { LBO_MAX_LTV, MAX_DEAL_ROUNDS, acquiredAssetValue, ownerAskPrice, ownerResponse } from "../engine/mna";
+import { acquisitionLtv } from "../engine/finance";
 import { clearRng, seedRng } from "../engine/random";
 import { reducer } from "../engine/reducer";
 import { advanceMonth } from "../engine/simulation";
@@ -72,11 +73,18 @@ describe("FÖRHANDLINGSFLÖDET: bud → motbud → avslut", () => {
       // TILLTRÄDET som övertas – inte den den hade när budet lades.
       const assumed = Math.round(s.competitors.find((x) => x.name === c.name)!.debt ?? 0);
       expect(assumed).toBeGreaterThan(0);
+      const before = s;
+      const assets = acquiredAssetValue(s, s.competitors.find((x) => x.name === c.name)!);
       s = reducer(s, { type: "FINALIZE_DEAL", financing: "lan" });
       expect(s.competitors.find((x) => x.name === c.name)).toBeUndefined();
       expect(s.pendingDeal).toBeNull();
-      // 25 % kontant, 75 % lån + rivalens övertagna skuld.
-      expect(s.debt).toBeGreaterThanOrEqual(debtBefore + Math.round(counter * 0.75) + assumed - 2);
+      // Förvärvsskulden lånas mot HUSEN, inte mot priset: högst
+      // acquisitionLtv av det förvärvade beståndets värde, plus rivalens
+      // övertagna skuld. Betalar man en premie över tillgångsvärdet är
+      // premien egen insats.
+      const cap = Math.round(assets * acquisitionLtv(before));
+      expect(s.debt).toBeCloseTo(debtBefore + Math.min(Math.round(counter * 0.75), cap) + assumed, -5);
+      expect(s.debt).toBeLessThan(debtBefore + Math.round(counter * 0.75) + assumed);
     } finally {
       clearRng();
     }
@@ -124,10 +132,13 @@ describe("FÖRHANDLINGSFLÖDET: bud → motbud → avslut", () => {
         competitors: [c],
         pendingDeal: { target: c.name, offer: 120_000_000, round: 2, status: "accepted", startedAbs: 13 },
       });
-    const lbo = reducer(accepted(200_000_000), { type: "FINALIZE_DEAL", financing: "lbo" });
+    const start = accepted(200_000_000);
+    const assets = acquiredAssetValue(start, c);
+    const lbo = reducer(start, { type: "FINALIZE_DEAL", financing: "lbo" });
     expect(lbo.competitors).toHaveLength(0); // affären stängd
-    expect(lbo.debt).toBeGreaterThan(100_000_000); // ~90 % av priset
-    expect(200_000_000 - lbo.cash).toBeLessThan(20_000_000); // bara handpenning + arvode ur kassan
+    // LBO:n har sitt EGNA, högre tak – men lånar mot husen, inte mot priset.
+    expect(lbo.debt).toBeCloseTo(assets * LBO_MAX_LTV, -6);
+    expect(lbo.debt / assets).toBeCloseTo(LBO_MAX_LTV, 1);
     // För liten kassa för ens handpenningen → affären uteblir.
     const poor = reducer(accepted(8_000_000), { type: "FINALIZE_DEAL", financing: "lbo" });
     expect(poor.competitors).toHaveLength(1);

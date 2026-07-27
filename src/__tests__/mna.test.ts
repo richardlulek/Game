@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import { acquisitionValuation } from "../engine/mna";
 import { propMarketValue } from "../engine/property";
 import { reducer } from "../engine/reducer";
+import { acquisitionLtv } from "../engine/finance";
+import { acquiredAssetValue } from "../engine/mna";
 import type { Competitor } from "../engine/types";
 import { makeProperty, makeState } from "./factories";
 
@@ -94,8 +96,11 @@ describe("ACQUIRE_RIVAL: skulden följer med köpet", () => {
     const price = Math.round(comp.equity * 1.35);
     const after = reducer(s, { type: "ACQUIRE_RIVAL", competitorName: comp.name, amount: price });
     expect(after.competitors).toHaveLength(0);
-    // Skuld = förvärvslånet (75 % av priset) + rivalens övertagna 40M.
-    expect(after.debt).toBe(price - Math.round(price * 0.25) + 40_000_000);
+    // Skuld = förvärvslånet + rivalens övertagna 40M. Lånet tas mot det
+    // förvärvade beståndet, inte mot priset, så en premie över
+    // tillgångsvärdet får betalas kontant.
+    const assets = acquiredAssetValue(s, comp);
+    expect(after.debt).toBe(Math.min(price - Math.round(price * 0.25), Math.round(assets * acquisitionLtv(s))) + 40_000_000);
     expect(after.log[0].t).toContain("assumed debt");
   });
 });

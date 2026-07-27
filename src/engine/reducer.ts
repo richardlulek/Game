@@ -2363,8 +2363,15 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (divProps.length < 2)
         return log(state, `${seller.name} has no division to sell there (needs 2+ properties).`, "warn");
       const price = divisionPrice(state, seller, action.district);
-      const down = Math.round(price * 0.25);
-      if (state.cash < down) return log(state, `The division deal needs ${msek(down)} (25% down).`, "warn");
+      // Banken lånar mot husen i divisionen, inte mot paketpriset – och
+      // följer den belåningsgrad som gäller vid vanliga fastighetsköp.
+      // Tidigare låg 25 % kontantinsats hårdkodad här, vilket gav 75 %
+      // belåning oavsett bankens tak och oavsett vad policyn sade.
+      const divAssets = divProps.reduce((a, p) => a + propMarketValue(p, state), 0);
+      const loan = Math.min(price - Math.round(price * 0.25), Math.round(divAssets * acquisitionLtv(state)));
+      const down = price - loan;
+      if (state.cash < down)
+        return log(state, `The division deal needs ${msek(down)} in cash — the bank lends against the buildings (${msek(Math.round(divAssets * acquisitionLtv(state)))}), not against the package price.`, "warn");
       const absNowDiv = state.year * 12 + state.month;
       const bought = divProps.map((p) => ({
         ...p,
@@ -2379,7 +2386,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       let divState: GameState = {
         ...state,
         cash: state.cash - down,
-        debt: state.debt + (price - down),
+        debt: state.debt + loan,
         portfolio: [...state.portfolio, ...bought],
         competitors: state.competitors.map((c) =>
           c.name === seller.name
