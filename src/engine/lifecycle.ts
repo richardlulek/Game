@@ -37,6 +37,15 @@ export function obsolescenceFactor(p: Property, state: GameState): number {
   return +Math.max(0.7, 1 - effOver * 0.006).toFixed(4);
 }
 
+/** Slitagets grovsteg med åldern: ett hus över 30 år slits 40 % snabbare, över
+ *  15 år 20 % snabbare. Låg tidigare inline i simulationen; hör hemma här så
+ *  att HELA åldrandet bor i en modul – annars går det varken att resonera om
+ *  eller att mäta isolerat. Beteendet är oförändrat. */
+export function ageStepFactor(p: Property, state: GameState): number {
+  const age = buildingAge(p, state);
+  return age >= 30 ? 1.4 : age >= 15 ? 1.2 : 1.0;
+}
+
 /** Accelererat slitage för hus äldre än 40 år: stommar, stammar och tak
  *  ger sig samtidigt. +1 % slitage per år över 40, tak ×1.6. */
 export function ageWearFactor(p: Property, state: GameState): number {

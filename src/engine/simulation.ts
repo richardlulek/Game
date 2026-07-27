@@ -67,7 +67,7 @@ import { adjustStanding, rivalStanding } from "./standing";
 import { tenantScoreOf } from "./tenantScore";
 import { VETERAN_RISK_MULT, becomesVeteran, tenantLifeEvent } from "./tenantLife";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
-import { ageWearFactor, buildingAge } from "./lifecycle";
+import { ageStepFactor, ageWearFactor, buildingAge } from "./lifecycle";
 import {
   RIVAL_CASH_BUFFER,
   RIVAL_ICR_GRACE_MONTHS,
@@ -626,8 +626,7 @@ export function advanceMonth(state: GameState): GameState {
       }
     }
     // Building age extra wear – hus över 40 år accelererar (lifecycle.ts).
-    const propAge = s.year - (np.builtYear ?? s.year);
-    const ageFactor = (propAge >= 30 ? 1.4 : propAge >= 15 ? 1.2 : 1.0) * ageWearFactor(np, s);
+    const ageFactor = ageStepFactor(np, s) * ageWearFactor(np, s);
     // Seasonal effect on vacancy for residential
     const seasonFactor = np.type === "bostad" ? season : 1.0;
     // Short-term rental: higher effective rent but higher vacancy, no tenants
