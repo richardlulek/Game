@@ -2,6 +2,7 @@ import { useState } from "react";
 import { blockGap } from "../engine/blocks";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { workPaybackYears, workSpec, type WorkId } from "../engine/works";
+import { propInsurancePremium } from "../engine/property";
 import { canStartPhased, phaseCost, phasedTotalCost, phasedTotalMonths } from "../engine/phased";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
@@ -894,7 +895,7 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
             {p.insurance ? "🛡️ Insured" : "⚠️ Not insured"}
           </span>
           <span style={{ fontSize: 11, color: C.inkSoft, marginLeft: 6 }}>
-            {p.insurance ? "($2,000/mo)" : "(fire, water, liability)"}
+            {p.insurance ? `(${kr(propInsurancePremium(p, state))}/mo)` : "(fire, water, liability)"}
           </span>
         </div>
         <button

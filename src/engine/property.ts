@@ -10,6 +10,7 @@ import { rateValueFactor } from "./economyLife";
 import { obsolescenceFactor } from "./lifecycle";
 import { accessRentMult, accessValueMult } from "./infrastructure";
 import { DISTRICTS, PROP_TYPES } from "./data";
+import { OWN_INSURER_PREMIUM_MULT } from "./finInstitutions";
 import {
   REGULATED_RENT,
   SINGLE_TENANT_OPEX_CUT,
@@ -172,6 +173,25 @@ export function propStabilisedValue(p: Property, state: GameState): number {
     })),
   };
   return propMarketValue(full, state);
+}
+
+/* ── Försäkringspremien ────────────────────────────────────────────
+   0,40 % av marknadsvärdet per år, med ett golv på 2 000 kr/mån. Golvet
+   biter bara under ~6 MSEK i värde – ovanför det är premien värdebaserad,
+   och ett hus på 46 MSEK kostar drygt 15 000 kr i månaden.
+
+   Ligger här, inte inne i simulationen, för att panelerna ska kunna visa
+   samma siffra som faktiskt debiteras. Tidigare stod "$2,000/mo" hårdkodat
+   i både fastighetskortet och kvittot i loggen – för de flesta hus en
+   underskattning på flera gånger pengarna. */
+export const INSURANCE_RATE = 0.004;
+export const INSURANCE_FLOOR = 2_000;
+
+/** Månadspremien för ETT hus, inklusive rabatten om bolaget äger ett eget
+ *  försäkringsbolag (det tecknar de egna husen till självkostnad). */
+export function propInsurancePremium(p: Property, state: GameState): number {
+  const base = Math.max(INSURANCE_FLOOR, Math.round((propMarketValue(p, state) * INSURANCE_RATE) / 12));
+  return Math.round(base * (state.ownedInsurer ? OWN_INSURER_PREMIUM_MULT : 1));
 }
 
 /** Marknadsvärde för en fastighet givet nuvarande tillstånd.

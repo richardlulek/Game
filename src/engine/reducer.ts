@@ -102,7 +102,7 @@ import {
 } from "./mna";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { nextBidRound } from "./lifecycle";
-import { pendingWork, propMarketValue, propNOI, propPotentialRent } from "./property";
+import { pendingWork, propInsurancePremium, propMarketValue, propNOI, propPotentialRent } from "./property";
 import {
   RESEARCH,
   STAFF_ROLES,
@@ -2658,7 +2658,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         portfolio: state.portfolio.map((x) => x.id === action.id ? { ...x, insurance: true } : x),
-        log: [{ t: `🛡️ Insurance taken out for ${p.typeLabel} in ${p.districtName} ($2,000/mo).`, kind: "info" }, ...state.log],
+        log: [{ t: `🛡️ Insurance taken out for ${p.typeLabel} in ${p.districtName} (${kr(propInsurancePremium(p, state))}/mo — 0.4% of value per year).`, kind: "info" }, ...state.log],
       };
     }
     case "CANCEL_INSURANCE": {

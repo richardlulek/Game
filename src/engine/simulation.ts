@@ -118,7 +118,7 @@ import { tickCityEvent } from "./cityEvents";
 import { aggressionOf, rivalQuote } from "./rivalPersonas";
 import { kr, msek } from "./format";
 import { calYear, daysInMonth, formatMonthYear } from "./date";
-import { pendingWork, propAnnualOpex, propMarketValue, propNOI, propPotentialRent } from "./property";
+import { pendingWork, propAnnualOpex, propInsurancePremium, propMarketValue, propNOI, propPotentialRent } from "./property";
 import { genListing, genLot, genWorldProperty, makeTenant } from "./generators";
 import { seasonOf } from "./season";
 import { RESEARCH, monthlyReputation, salariesTotal, taxAuditMult, wearMult } from "./progression";
@@ -126,7 +126,7 @@ import { newId, pick, random01, rnd } from "./random";
 import { attractiveness, interestChance, offerAmount, packageOfferAmount, packageStats, pickStrategicSale, rivalSellChance } from "./selling";
 import { activistControl, applyStockNews, executeLimitOrders, fbabSharesOf, maybeListingEvents, priceStocks, quarterlyEarnings, rivalFbabShares, rivalHoldingsValue, rivalNews, rivalShareTrading, stepSentiment, stepStocksDaily, stockHoldingsValue } from "./stocks";
 import { industryAssetValue, makeIndustryAssetFromTemplate, tickHotel, tickEnergy, tickLogistik } from "./industries";
-import { OWN_INSURER_PREMIUM_MULT, tickBank, tickInsurer } from "./finInstitutions";
+import { tickBank, tickInsurer } from "./finInstitutions";
 import { tickPopulation } from "./population";
 import { pickManagerWork, workSpec } from "./works";
 import { centralBankDecision, curveInverted, longRate, tickInflation } from "./centralBank";
@@ -1198,13 +1198,7 @@ export function advanceMonth(state: GameState): GameState {
   if (insuredProps.length > 0) {
     // Premium: 0.40 % av marknadsvärde per år (min 2 000 kr/mån per fastighet).
     // Eget försäkringsbolag tecknar de egna husen till självkostnad: −40 %.
-    const ownInsurerMult = s.ownedInsurer ? OWN_INSURER_PREMIUM_MULT : 1;
-    const insCost = Math.round(
-      insuredProps.reduce(
-        (sum, p) => sum + Math.max(2_000, Math.round((propMarketValue(p, s) * 0.004) / 12)),
-        0,
-      ) * ownInsurerMult,
-    );
+    const insCost = insuredProps.reduce((sum, p) => sum + propInsurancePremium(p, s), 0);
     monthlyNOI -= insCost;
     s.insuranceCost = insCost;
   } else {
