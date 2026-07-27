@@ -112,6 +112,51 @@ Inget mer krävs – ingen Steamworks-SDK-integration behövs för Auto-Cloud.
 Export/Import i ⚙-menyn finns kvar som manuell backup och använder riktiga
 "Spara som…/Öppna…"-dialoger (webben faller tillbaka på nedladdning).
 
+## Röktest av skalet (Linux, utan skärm)
+
+Ett Linux-bygge validerar Rust-koden, `tauri.conf.json`, ikonerna och att
+frontend buntas in. Det ersätter INTE ett Windows-bygge – Steam-artefakten är
+en `.exe` och måste byggas på Windows – men det fångar allt som går sönder i
+skalet när spelkoden ändrats.
+
+```bash
+# Engångs, på en Ubuntu-maskin
+apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+  libayatana-appindicator3-dev libssl-dev build-essential pkg-config
+
+cd src-tauri && cargo check        # fångar config-/ikonfel på en minut
+cd .. && npm run tauri:build -- --debug --no-bundle
+```
+
+Kör binären utan skärm och titta på fönstret:
+
+```bash
+Xvfb :99 -screen 0 1440x900x24 &
+DISPLAY=:99 ./src-tauri/target/debug/property-empire &
+# skärmdump: ffmpeg -f x11grab -video_size 1440x900 -i :99 -frames:v 1 ut.png
+# klicka:    DISPLAY=:99 xdotool mousemove X Y click 1
+```
+
+**Sparvägen är det som är värt att verifiera** – den kan inte testas i vitest.
+Grunda ett bolag och kontrollera att filen finns:
+
+```bash
+ls ~/.local/share/com.thelandlord.game/saves/     # → slot-1.json
+```
+
+Steam Cloud-scenariot testas genom att radera webview-lagringen och starta om.
+Splashen ska då erbjuda **Continue**, slotkortet ska visa siffrorna ur FILEN,
+och partiet ska ladda:
+
+```bash
+rm -rf ~/.local/share/com.thelandlord.game/localstorage \
+       ~/.local/share/com.thelandlord.game/storage
+```
+
+Verifierat på nuvarande kod: bygget går igenom, fönstret renderar hela
+3D-staden under mjukvarurendering, `slot-1.json` skrivs vid bolagsgrundandet,
+och efter att localStorage raderats läses partiet tillbaka från disk.
+
 ## Prestanda
 
 - Grafikinställningar (⚙ → Graphics: Low/Med/High) låter spelaren anpassa
