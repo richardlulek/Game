@@ -605,6 +605,11 @@ export interface Property {
   wholeBlock?: boolean;
   /** Pågående utvecklingsprojekt (status "bygger" med befintligt hus). */
   renovation?: { kind: RenovationKind; targetCapacity?: number };
+  /** Etapprenovering (phased.ts): huset föryngras en lokal i taget medan
+   *  hyresgästerna bor kvar. `done` av `total` etapper klara, `monthsLeft`
+   *  månader kvar på den pågående. */
+  phased?: { done: number; total: number; monthsLeft: number };
+
   /** Antal genomförda utbyggnadsprojekt (påbyggnad/nybyggnation). Höjer
    *  byggnaden synligt på 3D-kartan så stadens utveckling går att följa. */
   devLevel?: number;
@@ -1361,6 +1366,8 @@ export type GameAction =
   | { type: "UPGRADE_COMPANY" }
   | { type: "BUY_PR" }
   | { type: "START_RENOVATION"; id: number; kind: RenovationKind; targetCapacity?: number }
+  | { type: "START_PHASED"; id: number }
+  | { type: "STOP_PHASED"; id: number }
   | { type: "REDEVELOP"; id: number }
   | { type: "SET_ASK_RENT"; id: number; pct: number }
   | { type: "ACCEPT_APPLICATION"; id: number; applicationId: number; contract: ContractKind }

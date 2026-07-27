@@ -82,7 +82,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
   if (!building && vacant > 0) flags.push({ label: `${vacant} vacant`, color: "#b5542a" });
   if (!building && soonest !== null && soonest <= 3) flags.push({ label: `⏰ ${soonest} mo`, color: "#c0392b" });
   else if (!building && soonest !== null && soonest <= 12) flags.push({ label: `⏰ ${soonest} mo`, color: "#c07f16" });
-  if (!building && p.condition < 50) flags.push({ label: `🔧 cond ${p.condition}`, color: "#c0392b" });
+  if (!building && p.condition < 50) flags.push({ label: `🔧 cond ${Math.round(p.condition)}`, color: "#c0392b" });
   if (p.forSale) flags.push({ label: "🏷️ for sale", color: "#3d54d8" });
   if (p.managed) flags.push({ label: "🤝 managed", color: "#27660a" });
   if (p.regulated) flags.push({ label: "🏛️ regulated", color: "#2a4a8a" });

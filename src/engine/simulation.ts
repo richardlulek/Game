@@ -68,6 +68,7 @@ import { tenantScoreOf } from "./tenantScore";
 import { VETERAN_RISK_MULT, becomesVeteran, tenantLifeEvent } from "./tenantLife";
 import { cityVacancyRate, movePressure, rateAppetite } from "./economyLife";
 import { ageStepFactor, ageWearFactor, buildingAge } from "./lifecycle";
+import { PHASED_MONTHS_PER_UNIT, PHASED_SATISFACTION_HIT, applyPhase, phaseCost, phasedRentReduction } from "./phased";
 import {
   RIVAL_CASH_BUFFER,
   RIVAL_ICR_GRACE_MONTHS,
@@ -631,6 +632,45 @@ export function advanceMonth(state: GameState): GameState {
         }
       }
     }
+    // ── Etapprenovering ──────────────────────────────────────────
+    // En lokal i taget medan resten av huset betalar hyra. Nedsättningen
+    // för den störda lokalen dras från driftnettot; när etappen är klar
+    // stänger applyPhase sin andel av gapet till noll års ålder, skick 100
+    // och full hyrespotential, och nästa etapp beställs om kassan räcker.
+    if (np.phased) {
+      monthlyNOI -= phasedRentReduction(np);
+      if (np.phased.monthsLeft > 0) {
+        np.phased = { ...np.phased, monthsLeft: np.phased.monthsLeft - 1 };
+        if (np.phased.monthsLeft === 0) {
+          const before = np.phased.done;
+          Object.assign(np, applyPhase(np, s));
+          events.push({
+            t: np.phased
+              ? `🔨 Stage ${before + 1} of ${np.phased.total} done on ${np.typeLabel} in ${np.districtName} — the building is ${buildingAge(np, s)} years old and in ${Math.round(np.condition)} condition.`
+              : `🔨 The phased renovation of ${np.typeLabel} in ${np.districtName} is complete — age reset, condition 100, energy class A, and the tenants never had to move out.`,
+            kind: "upg",
+          });
+        }
+      }
+      // Nästa etapp startar när kassan räcker – annars pausar programmet
+      // och väntar, utan att förfalla.
+      if (np.phased && np.phased.monthsLeft === 0) {
+        const cost = phaseCost(np, s);
+        if (s.cash >= cost) {
+          cashflow(s, -cost, "etapprenovering");
+          np.capexTotal = (np.capexTotal ?? 0) + cost;
+          np.phased = { ...np.phased, monthsLeft: PHASED_MONTHS_PER_UNIT };
+          // En störd hyresgäst per etapp: bygget märks.
+          if (np.tenants.length > 0) {
+            const idx = np.phased.done % np.tenants.length;
+            np.tenants = np.tenants.map((t, i) =>
+              i === idx ? { ...t, satisfaction: Math.max(0, (t.satisfaction ?? 70) - PHASED_SATISFACTION_HIT) } : t,
+            );
+          }
+        }
+      }
+    }
+
     // Building age extra wear – hus över 40 år accelererar (lifecycle.ts).
     const ageFactor = ageStepFactor(np, s) * ageWearFactor(np, s);
     // Seasonal effect on vacancy for residential
@@ -984,10 +1024,15 @@ export function advanceMonth(state: GameState): GameState {
     if (job) {
       const spec = workSpec(job.work)!;
       const target = s.portfolio.find((p) => p.id === job.propertyId)!;
-      cashflow(s, -job.cost, `renoveringsprogram: ${job.work}`);
+      if (job.work !== "etapprenovering") cashflow(s, -job.cost, `renoveringsprogram: ${job.work}`);
       s.portfolio = s.portfolio.map((p) => {
         if (p.id !== job.propertyId) return p;
         const np: typeof p = { ...p, capexTotal: (p.capexTotal ?? 0) + job.cost };
+        if (job.work === "etapprenovering") {
+          // Programmet startar bara – fastighetsloopen driver etapperna och
+          // betalar dem en och en, så kostnaden dras inte här.
+          return { ...p, phased: { done: 0, total: Math.max(1, p.capacity), monthsLeft: 0 } };
+        }
         if (spec.needsVacant) {
           // Utvecklingsprojekt: huset går i byggnation som vid START_RENOVATION.
           return {

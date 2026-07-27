@@ -28,7 +28,7 @@ const SEEDS = [11, 23, 37, 51, 68, 74, 89, 103, 117, 128];
 
 /** Vad direktören får beställa: allt utom underhållet, som styrs av
  *  skicktröskeln. Det är hela poängen – en direktör som gör mer än att laga. */
-const ALLOWED_WORKS = ["energi", "smart", "fasad", "renovering", "tillbygg", "totalrenovering", "påbyggnad"];
+const ALLOWED_WORKS = ["energi", "smart", "fasad", "renovering", "tillbygg", "totalrenovering", "påbyggnad", "etapprenovering"];
 
 /** Tidigt skede: så länge beståndet är mindre än så här är omsättning av
  *  hus en väg framåt – sälj det som byggt upp ett övervärde och lägg
@@ -166,7 +166,7 @@ function play(seed: number, years: number, recycle: boolean): Run {
       const wasOver = s.gameOver;
       // Bara uppgraderingar räknas – underhållet ligger på skicktröskeln.
       const before = s.portfolio.map(
-        (p) => [p.id, (p.pendingWorks ?? []).filter((w) => w.kind === "uppgradering").length, p.status] as const,
+        (p) => [p.id, (p.pendingWorks ?? []).filter((w) => w.kind === "uppgradering").length, p.status, !!p.phased] as const,
       );
       s = advanceMonth({ ...s, pendingDecision: null, auction: undefined });
 
@@ -181,6 +181,8 @@ function play(seed: number, years: number, recycle: boolean): Run {
           jobs[newWork.upgradeId] = (jobs[newWork.upgradeId] ?? 0) + 1;
         if (prev[2] === "klar" && p.status === "bygger" && p.renovation?.kind)
           jobs[p.renovation.kind] = (jobs[p.renovation.kind] ?? 0) + 1;
+        // Etapprenoveringen bor i sitt eget fält – räkna när ett program startar.
+        if (!prev[3] && p.phased) jobs["etapprenovering"] = (jobs["etapprenovering"] ?? 0) + 1;
       }
 
       if (s.gameOver && !wasOver && bankruptYear === null) bankruptYear = Math.floor(m / 12) + 1;

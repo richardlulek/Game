@@ -28,6 +28,7 @@
    ============================================================ */
 
 import { UPGRADES } from "./data";
+import { canStartPhased } from "./phased";
 import { propMarketValue, propPotentialRent } from "./property";
 import type { GameState, Property } from "./types";
 
@@ -38,6 +39,7 @@ export type WorkId =
   | "fasad"
   | "renovering"
   | "tillbygg"
+  | "etapprenovering"
   | "totalrenovering"
   | "påbyggnad";
 
@@ -111,6 +113,12 @@ export const WORKS: WorkSpec[] = [
     blurb: "More square metres. The biggest single lift in value that leaves the tenants in place.",
   },
   {
+    id: "etapprenovering", name: "Phased renovation", family: "hyra",
+    cost: 0.24, months: 2, needsVacant: false, repeatable: false,
+    rent: 0.15, value: 0, condition: 0, conditionTo: 100, opex: 0, vacancy: 0, capacity: 0,
+    blurb: "Stairwell by stairwell: age reset and condition 100 without anyone moving out. Two months per unit, and the unit being worked on pays half rent.",
+  },
+  {
     id: "totalrenovering", name: "Full renovation", family: "hyra",
     cost: 0.18, months: 6, needsVacant: true, repeatable: false,
     rent: 0.15, value: 0, condition: 0, conditionTo: 100, opex: 0, vacancy: 0, capacity: 0,
@@ -142,7 +150,7 @@ export function workCost(p: Property, state: GameState, id: WorkId): number {
 export function workDone(p: Property, id: WorkId): boolean {
   const w = BY_ID.get(id);
   if (!w || w.repeatable) return false;
-  if (id === "totalrenovering" || id === "påbyggnad") return false; // går att göra om
+  if (id === "totalrenovering" || id === "påbyggnad" || id === "etapprenovering") return false; // går att göra om
   return p.upgrades.includes(id);
 }
 
@@ -155,6 +163,11 @@ export function workAvailable(p: Property, id: WorkId): boolean {
   if (workDone(p, id)) return false;
   if ((p.pendingWorks ?? []).length > 0) return false;
   if (w.needsVacant && p.tenants.length > 0) return false;
+  // Etapprenoveringen har egna villkor: minst två lokaler att dela upp
+  // arbetet på, och inget program redan igång.
+  if (id === "etapprenovering") return canStartPhased(p);
+  // Ett hus mitt i en etapprenovering tar inte emot andra jobb.
+  if (p.phased) return false;
   return true;
 }
 

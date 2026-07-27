@@ -2,6 +2,7 @@ import { useState } from "react";
 import { blockGap } from "../engine/blocks";
 import { DISTRICTS, PROP_TYPES, UPGRADES } from "../engine/data";
 import { workPaybackYears, workSpec, type WorkId } from "../engine/works";
+import { canStartPhased, phaseCost, phasedTotalCost, phasedTotalMonths } from "../engine/phased";
 import { loanTerms } from "../engine/finance";
 import { kr, msek } from "../engine/format";
 import { CONTRACTS, effectiveAskRent, maxCapacityFor } from "../engine/leasing";
@@ -613,6 +614,30 @@ export function PortfolioCard({ p, state, dispatch, wide }: Props) {
           />
         );
       })}
+
+      {/* Etapprenovering: föryngring UTAN att tömma huset. */}
+      {p.status === "klar" && (p.phased || canStartPhased(p)) && (
+        p.phased ? (
+          <ActionBtn
+            label={`🔨 Phased renovation · stage ${p.phased.done + 1} of ${p.phased.total}`}
+            sub={
+              p.phased.monthsLeft > 0
+                ? `${p.phased.monthsLeft} mo left on this stage · the unit being worked on pays half rent · click to stop after it`
+                : `Waiting for cash — the next stage costs ${msek(phaseCost(p, state))}. Click to stop; what is done stays done.`
+            }
+            color="#7a5c2a"
+            onClick={() => dispatch({ type: "STOP_PHASED", id: p.id })}
+          />
+        ) : (
+          <ActionBtn
+            label={`🔨 Phased renovation · ${msek(phasedTotalCost(p, state))}`}
+            sub={`RENT · ${p.capacity} stages, ${phasedTotalMonths(p)} mo · age reset, condition 100, energy class A · nobody moves out, the unit under work pays half rent`}
+            color="#5a2a3a"
+            disabled={state.gameOver}
+            onClick={() => dispatch({ type: "START_PHASED", id: p.id })}
+          />
+        )
+      )}
 
       {/* ── Utvecklingsprojekt (kräver vakant fastighet) ─────────── */}
       {p.status === "klar" && (

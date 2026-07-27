@@ -148,6 +148,7 @@ import {
   spinoffValuation,
 } from "./spinoffs";
 import { newId, random01 } from "./random";
+import { PHASED_MIN_UNITS, canStartPhased, phasedTotalCost, phasedTotalMonths } from "./phased";
 import { QUICK_SALE_FACTOR, attractiveness } from "./selling";
 import { advanceDay, advanceMonth } from "./simulation";
 import { MEMORY_NOTES, applyStoryFlag, districtLocked, foundNotes, hasFlag, markNegotiated, noteFlag, seedStory, storyDecisionById, suppressOrganicApplications } from "./story";
@@ -3895,6 +3896,47 @@ export function reducer(state: GameState, action: GameAction): GameState {
       // Manuellt månadssteg: kör hela månadssimuleringen och landa på dag 1
       // i den nya månaden så att den rullande kalendern förblir koherent.
       return { ...advanceMonth(state), day: 1 };
+    case "START_PHASED": {
+      // Etapprenovering: huset föryngras en lokal i taget medan hyresgästerna
+      // bor kvar. Ingen kostnad här – fastighetsloopen betalar etapp för
+      // etapp, så programmet pausar av sig självt när kassan tryter.
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p) return state;
+      if (!canStartPhased(p))
+        return log(state, `A phased renovation needs at least ${PHASED_MIN_UNITS} units and no other project running.`, "warn");
+      const total = Math.max(1, p.capacity);
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) =>
+          x.id === p.id ? { ...x, phased: { done: 0, total, monthsLeft: 0 } } : x,
+        ),
+        log: [
+          {
+            t: `🔨 Phased renovation started on ${p.typeLabel} in ${p.districtName}: ${total} stages, ${msek(phasedTotalCost(p, state))} in total, ${phasedTotalMonths(p)} months — the tenants stay, and the unit being worked on pays half rent.`,
+            kind: "upg",
+          },
+          ...state.log,
+        ],
+      };
+    }
+    case "STOP_PHASED": {
+      // Avbryter efter pågående etapp. Det som redan är gjort behålls –
+      // halva huset renoverat är halva åldern bort.
+      const p = state.portfolio.find((x) => x.id === action.id);
+      if (!p?.phased) return state;
+      const done = p.phased.done;
+      return {
+        ...state,
+        portfolio: state.portfolio.map((x) => (x.id === p.id ? { ...x, phased: undefined } : x)),
+        log: [
+          {
+            t: `🛑 The phased renovation of ${p.typeLabel} in ${p.districtName} is stopped after ${done} of ${p.phased.total} stages. What is done stays done.`,
+            kind: "info",
+          },
+          ...state.log,
+        ],
+      };
+    }
     case "START_RENOVATION": {
       // Utvecklingsprojekt: totalrenovering (skick/energi/hyra), påbyggnad
       // (+yta/kapacitet/värde) eller lokalanpassning (ändrat antal lokaler –
