@@ -6,6 +6,7 @@
 import { formatGameDate } from "../engine/date";
 import { msek } from "../engine/format";
 import type { GameState } from "../engine/types";
+import { benchmarkLine, postMortem } from "../engine/postMortem";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
 
 interface Props {
@@ -28,6 +29,7 @@ export function GameOverModal({ state, onNewGame, onDismiss }: Props) {
   const years = Math.floor(monthsPlayed / 12);
   const peakEquity = Math.max(0, ...state.history.map((h) => h.equity));
   const milestonesCount = (state.milestones ?? []).length;
+  const pm = postMortem(state);
 
   return (
     <div style={{
@@ -72,6 +74,33 @@ export function GameOverModal({ state, onNewGame, onDismiss }: Props) {
             </div>
           ))}
         </div>
+
+        {/* Vad partiet visade, i siffror. Inga råd – slutsatsen är spelarens
+            att dra. Mätningen bakom jämförelsen: peakLeverage.probe. */}
+        {pm.peakYear !== null && pm.peakEquity > 0 && (
+          <div style={{
+            background: "#efe6e0", border: `1px solid ${C.brass}`, borderRadius: 6,
+            padding: "12px 16px", marginBottom: 18, textAlign: "left", fontSize: 13, lineHeight: 1.55,
+          }}>
+            <div style={{ fontSize: 10, color: "#8a7268", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+              The record
+            </div>
+            <div>
+              Equity peaked in year {pm.peakYear} at {msek(pm.peakEquity)}, with{" "}
+              <strong>{pm.peakProperties} {pm.peakProperties === 1 ? "property" : "properties"}</strong>{" "}
+              and {Math.round(pm.peakLtv * 100)}% loan-to-value.
+              {pm.largestPortfolio > pm.peakProperties && (
+                <> The largest it ever got was {pm.largestPortfolio}{pm.largestYear !== null ? `, in year ${pm.largestYear}` : ""}.</>
+              )}
+              {pm.yearsAfterPeak > 0 && (
+                pm.drawdown >= 1
+                  ? <> Over the {pm.yearsAfterPeak} {pm.yearsAfterPeak === 1 ? "year" : "years"} that followed, equity fell past zero.</>
+                  : <> Over the {pm.yearsAfterPeak} {pm.yearsAfterPeak === 1 ? "year" : "years"} that followed, equity fell {Math.round(pm.drawdown * 100)}%.</>
+              )}
+            </div>
+            <div style={{ marginTop: 8, color: "#6b5a52" }}>{benchmarkLine(pm)}</div>
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           <button

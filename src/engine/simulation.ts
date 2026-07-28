@@ -110,6 +110,7 @@ import {
   amortInfoOf,
   equityOf,
   loanTerms,
+  ltvOf,
   portfolioValue,
   revolvingLimitOf,
 } from "./finance";
@@ -3955,6 +3956,25 @@ export function advanceMonth(state: GameState): GameState {
 
   const equity = equityOf(s);
   s.history = [...s.history, { month: s.history.length, equity }].slice(-120);
+
+  // ── Toppen och det största beståndet ─────────────────────────────
+  // Sparas för slutskärmens obduktion. Mätningen över 30 partier visade att
+  // det som skiljer de bolag som klarar femtio år från dem som faller inte är
+  // belåningen (42 % mot 47 % vid toppen) utan STORLEKEN: 24,3 fastigheter
+  // mot 2,5. Utan de här två fälten kan slutskärmen inte berätta det, för
+  // `history` bär bara kapital per månad.
+  const absNowPeak = s.year * 12 + s.month;
+  if (!s.peak || equity > s.peak.equity) {
+    s.peak = {
+      monthAbs: absNowPeak,
+      equity,
+      properties: s.portfolio.length,
+      ltv: ltvOf(s),
+    };
+  }
+  if (!s.largestPortfolio || s.portfolio.length > s.largestPortfolio.count) {
+    s.largestPortfolio = { count: s.portfolio.length, monthAbs: absNowPeak };
+  }
   // Statistik-panelens tidsserier: EK, driftnetto, kassa, portföljvärde
   // och bästa rivalens EK - kurvorna är tycoon-spelarens belöning.
   s.statsHistory = [

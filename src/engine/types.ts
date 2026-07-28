@@ -987,6 +987,12 @@ export interface GameState {
   lots: Lot[];
   competitors: Competitor[];
   log: LogEntry[];
+  /** Toppen: högsta egna kapital partiet nådde, och hur bolaget såg ut just
+   *  då. Slutskärmens obduktion bygger på detta – `history` bär bara kapital
+   *  per månad och kan inte säga något om beståndet. */
+  peak?: { monthAbs: number; equity: number; properties: number; ltv: number };
+  /** Största bestånd partiet någonsin ägde, och när det nåddes. */
+  largestPortfolio?: { count: number; monthAbs: number };
   history: HistoryPoint[];
   gameOver: boolean;
   /** Varför spelet tog slut – visas på slutskärmen (GameOverModal).
