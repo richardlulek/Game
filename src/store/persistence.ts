@@ -303,8 +303,16 @@ export async function syncSavesWithDisk(): Promise<{ restored: number; written: 
   return { restored, written };
 }
 
-/** Tolkar rå sparfils-JSON: versionskontroll + migreringar. */
-function parseSaveFile(raw: string): GameState | null {
+/**
+ * Tolkar rå sparfils-JSON: versionskontroll + migreringar.
+ *
+ * Exporterad för att sparfilernas BAKÅTKOMPATIBILITET ska gå att testa –
+ * se `src/__tests__/saveCompat.test.ts`, som laddar en riktig fil från varje
+ * släppt version. Regeln vid patchning står i RELEASE.md: ett nytt VALFRITT
+ * fält kräver ingen migrering, ett fält som byter form eller försvinner
+ * kräver höjd SAVE_VERSION och en post i `migrations`.
+ */
+export function parseSaveFile(raw: string): GameState | null {
   try {
     const parsed = JSON.parse(raw) as Partial<SaveFile>;
     // Stöd även oversionerade/äldre sparfiler som var rå GameState.

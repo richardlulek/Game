@@ -51,6 +51,12 @@ Kör `npm run build` (Vite → `dist/`), buntar det i skalet och producerar:
 > Rust-sidan med `npm run tauri init` och sedan återställa `frontendDist`,
 > fönster-config och `identifier` i `tauri.conf.json`.
 
+## Att släppa en version
+
+Hela ordningen — grenmodell, versionsnummer, sparfilsregeln och checklistan
+från grön svit till promotad Steam-build — står i **`RELEASE.md`**. Avsnittet
+nedan är bara SteamPipe-delen av den.
+
 ## Ladda upp till Steam (SteamPipe)
 
 1. I Steamworks: skapa app-ID, en **depot** (Windows) och en `beta`-gren.
