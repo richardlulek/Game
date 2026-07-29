@@ -118,7 +118,7 @@ describe("rivalernas strategiska försäljningar", () => {
     const sale = pickStrategicSale(c, makeState({}), "stable");
     expect(sale).not.toBeNull();
     expect(c.portfolio[sale!.index].district).toBe("hamnen");
-    expect(sale!.motive).toContain("renodlar");
+    expect(sale!.motive).toContain("focusing");
   });
 
   it("slitna hus säljs som renovation opportunity med rabatt", () => {

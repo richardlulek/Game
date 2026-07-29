@@ -59,7 +59,7 @@ describe("advanceMonth – bygge", () => {
     const next = advanceMonth(makeState({ portfolio: [p], debt: 0 }));
     expect(next.portfolio[0].status).toBe("klar");
     expect(next.portfolio[0].buildLeft).toBe(0);
-    expect(next.log.some((l) => l.t.includes("Nyproduktion klar"))).toBe(true);
+    expect(next.log.some((l) => l.t.includes("New build complete"))).toBe(true);
   });
 });
 

@@ -110,13 +110,13 @@ export function blockMixFor(
   let satBonus = 0;
   const parts: string[] = [];
   if (p.type === "bostad") {
-    if (types.has("butik")) { satBonus += 5; rentMult *= 1.03; parts.push("butik i kvarteret"); }
-    if (types.has("industri")) { satBonus -= 7; rentMult *= 0.97; parts.push("industri intill"); }
+    if (types.has("butik")) { satBonus += 5; rentMult *= 1.03; parts.push("shops in the block"); }
+    if (types.has("industri")) { satBonus -= 7; rentMult *= 0.97; parts.push("industry next door"); }
   } else if (p.type === "butik") {
     if (types.has("bostad")) { rentMult *= 1.05; parts.push("residential drives foot traffic"); }
-    if (types.has("kontor")) { rentMult *= 1.04; parts.push("kontor ger lunchkunder"); }
+    if (types.has("kontor")) { rentMult *= 1.04; parts.push("offices bring lunch customers"); }
   } else if (p.type === "kontor") {
-    if (types.has("butik")) { satBonus += 3; rentMult *= 1.03; parts.push("service i bottenplan"); }
+    if (types.has("butik")) { satBonus += 3; rentMult *= 1.03; parts.push("services at street level"); }
   }
   if (anchorInBlock) { satBonus += 5; rentMult *= 1.02; parts.push("anchor tenant ⭐"); }
   return {

@@ -395,11 +395,11 @@ export function advanceMonth(state: GameState): GameState {
   const maturingBonds = (s.bonds ?? []).filter((b) => b.matureAbs <= nowAbsBond);
   for (const bond of maturingBonds) {
     if (s.cash >= bond.amount) {
-      cashflow(s, -bond.amount, "obligation återbetald");
+      cashflow(s, -bond.amount, "bond repaid");
       events.push({ t: `🏦 Bond of ${msek(bond.amount)} repaid at maturity.`, kind: "info" });
     } else {
       s.reputation = Math.max(0, s.reputation - 10);
-      cashflow(s, -bond.amount * 0.5, "obligation nödlöst i förtid");
+      cashflow(s, -bond.amount * 0.5, "bond emergency-redeemed early");
       // En missad obligation bränner bankrelationen hårt.
       s.standing = adjustStanding(s.standing, { kind: "bank" }, -15);
       events.push({ t: `⚠️ Bond of ${msek(bond.amount)} could not be repaid! Reputation −10.`, kind: "warn" });
@@ -477,7 +477,7 @@ export function advanceMonth(state: GameState): GameState {
             if (idx < 5) np.energyClass = CLASSES[idx + 1];
             np.condition = Math.min(100, np.condition + 5);
             np.rentMult = +(np.rentMult * 1.03).toFixed(3);
-            events.push({ t: `⚡ Energiuppgradering klar: ${np.typeLabel} i ${np.districtName} → klass ${np.energyClass} (+3 % hyra, +5 skick).`, kind: "upg" });
+            events.push({ t: `⚡ Energy upgrade complete: ${np.typeLabel} in ${np.districtName} → class ${np.energyClass} (+3 % rent, +5 condition).`, kind: "upg" });
             break;
           }
           case "uppgradering": {
@@ -489,7 +489,7 @@ export function advanceMonth(state: GameState): GameState {
               if (u.vacancyCut) np.vacancyMult *= 1 - u.vacancyCut;
               if (u.valueBoost) np.valueMult *= 1 + u.valueBoost;
               if (u.condBoost) np.condition = Math.min(100, np.condition + u.condBoost);
-              events.push({ t: `🛠️ ${u.name} klar: ${np.typeLabel} i ${np.districtName}.`, kind: "upg" });
+              events.push({ t: `🛠️ ${u.name} complete: ${np.typeLabel} in ${np.districtName}.`, kind: "upg" });
             }
             break;
           }
@@ -510,7 +510,7 @@ export function advanceMonth(state: GameState): GameState {
               np.typeLabel = t.label;
               np.baseRent = Math.round(value * t.rentFactor * 12);
               np.condition = Math.max(60, np.condition - 10);
-              events.push({ t: `🏗️ Ombyggnad klar i ${np.districtName}: nu ${t.label}.`, kind: "upg" });
+              events.push({ t: `🏗️ Conversion complete in ${np.districtName}: now ${t.label}.`, kind: "upg" });
             }
             break;
           }
@@ -532,7 +532,7 @@ export function advanceMonth(state: GameState): GameState {
             const target = np.renovation.targetCapacity ?? np.capacity;
             np.capacity = target;
             events.push({
-              t: `🔨 Lokalanpassning klar: ${np.typeLabel} i ${np.districtName} har nu ${target} ${target === 1 ? "stor lokal (premiumhyra +10 %)" : "lokaler"}.`,
+              t: `🔨 Unit reconfiguration complete: ${np.typeLabel} in ${np.districtName} now has ${target} ${target === 1 ? "large unit (premium rent +10 %)" : "units"}.`,
               kind: "income",
             });
           } else if (np.renovation.kind === "totalrenovering") {
@@ -541,7 +541,7 @@ export function advanceMonth(state: GameState): GameState {
             np.rentMult = +(np.rentMult * 1.15).toFixed(3);
             np.builtYear = s.year;
             events.push({
-              t: `✨ Totalrenovering klar: ${np.typeLabel} i ${np.districtName} – skick 100, energiklass A, +15 % hyrespotential.`,
+              t: `✨ Full renovation complete: ${np.typeLabel} in ${np.districtName} – condition 100, energy class A, +15 % rent potential.`,
               kind: "income",
             });
           } else if (np.renovation.kind === "nybyggnation") {
@@ -584,7 +584,7 @@ export function advanceMonth(state: GameState): GameState {
           s.reputation = Math.min(100, s.reputation + 5);
           bumpChainCounter(s, "builds"); // kedjan Byggmästaren
           events.push({
-            t: `🏗️ Nyproduktion klar: ${np.typeLabel} i ${np.districtName}. Reputation +5.`,
+            t: `🏗️ New build complete: ${np.typeLabel} in ${np.districtName}. Reputation +5.`,
             kind: "income",
           });
         }
@@ -753,7 +753,7 @@ export function advanceMonth(state: GameState): GameState {
         events.push({
           t: notable
             ? `📈 ${t.name} is booming and takes more space in ${np.districtName} (+15% rent).`
-            : `📈 ${t.name} expanderar i ${np.districtName} – hyr mer yta (+15 % hyra).`,
+            : `📈 ${t.name} expands in ${np.districtName} – leasing more space (+15 % rent).`,
           kind: "income",
         });
       }
@@ -1009,7 +1009,7 @@ export function advanceMonth(state: GameState): GameState {
               ? { ...p, energyClass: nextClass as typeof p.energyClass, condition: Math.min(100, p.condition + 5), rentMult: +(p.rentMult * 1.03).toFixed(3), capexTotal: (p.capexTotal ?? 0) + cost }
               : p,
           );
-          events.push({ t: `⚡ Energipolicyn uppgraderade ${target.typeLabel} i ${target.districtName} till klass ${nextClass} (${kr(cost)}).`, kind: "upg" });
+          events.push({ t: `⚡ The energy policy upgraded ${target.typeLabel} in ${target.districtName} to class ${nextClass} (${kr(cost)}).`, kind: "upg" });
         }
       }
     }
@@ -1177,7 +1177,7 @@ export function advanceMonth(state: GameState): GameState {
   if (s.ownedBank) {
     const r = tickBank(s.ownedBank, s);
     s.ownedBank = { ...r.bank, totalNet: r.bank.totalNet + r.net };
-    cashflow(s, r.net, "bankrörelsen");
+    cashflow(s, r.net, "banking operations");
     monthlyNOI += r.net;
     r.events.forEach((e) => events.push(e));
     if (s.month === 12)
@@ -1189,7 +1189,7 @@ export function advanceMonth(state: GameState): GameState {
   if (s.ownedInsurer) {
     const r = tickInsurer(s.ownedInsurer, s);
     s.ownedInsurer = { ...r.insurer, totalNet: r.insurer.totalNet + r.net };
-    cashflow(s, r.net, "försäkringsrörelsen");
+    cashflow(s, r.net, "insurance operations");
     monthlyNOI += r.net;
     r.events.forEach((e) => events.push(e));
   }
@@ -1231,12 +1231,12 @@ export function advanceMonth(state: GameState): GameState {
       }),
     }));
     if (indexCount > 0)
-      events.push({ t: `📊 Hyresindex: alla hyror justerade +2 % (KPI-indexering, ${indexCount} kontrakt).`, kind: "income" });
+      events.push({ t: `📊 Rent index: all rents adjusted +2 % (CPI indexation, ${indexCount} contracts).`, kind: "income" });
   }
 
   const effectiveRate = (s.rateMode === "fixed" && s.fixedRate != null) ? s.fixedRate : loanTerms(s).rate;
   const interest = (s.debt * (effectiveRate / 100)) / 12;
-  cashflow(s, monthlyNOI - interest, "månadens driftnetto minus ränta");
+  cashflow(s, monthlyNOI - interest, "monthly NOI less interest");
 
   // Monthly property tax (22% of positive net income, offset by depreciation + ESG class A bonus)
   {
@@ -1341,13 +1341,13 @@ export function advanceMonth(state: GameState): GameState {
   // kassan inte lösa in konverteras pappret till dyrt banklån.
   if (s.commercialPaper) {
     const cp = s.commercialPaper;
-    cashflow(s, -Math.round((cp.amount * cp.rate) / 100 / 12), "certifikatränta");
+    cashflow(s, -Math.round((cp.amount * cp.rate) / 100 / 12), "commercial paper interest");
     const nowAbsCp = s.year * 12 + s.month;
     if (nowAbsCp >= cp.matureAbs) {
       const frozen = (s.crisisMonthsLeft ?? 0) > 0 || (s.marketCycle?.phase === "bust" && random01() < 0.4);
       if (frozen) {
         if (s.cash >= cp.amount) {
-          cashflow(s, -cp.amount, "certifikat inlösta");
+          cashflow(s, -cp.amount, "commercial paper redeemed");
           s.commercialPaper = undefined;
           events.push({
             t: `📃 CP MARKET FROZEN: no buyers at rollover — the program of ${kr(cp.amount)} is repaid from cash.`,
@@ -1388,13 +1388,13 @@ export function advanceMonth(state: GameState): GameState {
       const issuerAlive = s.competitors.some((c) => c.name === rb.rival);
       if (!issuerAlive) {
         // Emittenten uppköpt/borta: förvaltaren löser boet till 60 %.
-        cashflow(s, Math.round(rb.amount * 0.6), "obligationsåtervinning");
+        cashflow(s, Math.round(rb.amount * 0.6), "bond recovery");
         events.push({ t: `📜 ${rb.rival} is gone — the bond of ${kr(rb.amount)} recovers 60% from the estate.`, kind: "warn" });
         continue;
       }
       coupons += Math.round((rb.amount * rb.rate) / 100 / 12);
       if (nowAbsRb >= rb.matureAbs) {
-        cashflow(s, rb.amount, "obligationsförfall (rival)");
+        cashflow(s, rb.amount, "bond maturity (rival)");
         events.push({ t: `📜 ${rb.rival}'s bond matures — ${kr(rb.amount)} repaid in full.`, kind: "income" });
         continue;
       }
@@ -1410,7 +1410,7 @@ export function advanceMonth(state: GameState): GameState {
     const fbab = s.stocks.find((st) => st.competitorName === "__player__");
     const remainingCv: NonNullable<GameState["convertibles"]> = [];
     for (const cv of s.convertibles ?? []) {
-      cashflow(s, -Math.round((cv.amount * cv.rate) / 100 / 12), "konvertibelränta");
+      cashflow(s, -Math.round((cv.amount * cv.rate) / 100 / 12), "convertible interest");
       // Kursen nådde triggern: skulden blir aktier (utspädning i floaten).
       if (fbab && s.ipoShares && fbab.price >= cv.issuePrice * CONVERTIBLE_TRIGGER) {
         const newShares = Math.round(cv.amount / cv.issuePrice);
@@ -1423,7 +1423,7 @@ export function advanceMonth(state: GameState): GameState {
       }
       if (nowAbsCv >= cv.matureAbs) {
         if (s.cash >= cv.amount) {
-          cashflow(s, -cv.amount, "konvertibel inlöst");
+          cashflow(s, -cv.amount, "convertible redeemed");
           events.push({ t: `📜 Convertible of ${kr(cv.amount)} matured without converting — repaid at par.`, kind: "info" });
         } else {
           s.debt += cv.amount;
@@ -1485,7 +1485,7 @@ export function advanceMonth(state: GameState): GameState {
   if (s.debt > 0) {
     const ai = amortInfoOf(s);
     if (ai.monthly > 0) {
-      cashflow(s, -ai.monthly, "auto-försäkring (policy)");
+      cashflow(s, -ai.monthly, "auto-insurance (policy)");
       s.debt = Math.max(0, s.debt - ai.monthly);
       if (s.month % 3 === 0) {
         events.push({
@@ -2462,7 +2462,7 @@ export function advanceMonth(state: GameState): GameState {
   }
 
   // Investmentbankens arvode och färdiga due diligence-rapporter (batch 2).
-  if (s.maAdvisor) cashflow(s, -MA_ADVISOR_FEE, "M&A-rådgivning");
+  if (s.maAdvisor) cashflow(s, -MA_ADVISOR_FEE, "M&A advisory");
   if ((s.ddInProgress ?? []).length > 0) {
     const absNowDd = s.year * 12 + s.month;
     const still: typeof s.ddInProgress = [];
@@ -2729,7 +2729,7 @@ export function advanceMonth(state: GameState): GameState {
             poolBaseRent: undefined,
           },
         ];
-        events.push({ t: `🏷️ ${c.name} ${sale.motive}: ${selling.typeLabel} i ${selling.districtName} till salu (${msek(sale.price)}).`, kind: "event" });
+        events.push({ t: `🏷️ ${c.name} ${sale.motive}: ${selling.typeLabel} in ${selling.districtName} up for sale (${msek(sale.price)}).`, kind: "event" });
       }
     }
     nc.units = nc.portfolio.length;
@@ -2866,7 +2866,7 @@ export function advanceMonth(state: GameState): GameState {
     if (fresh.length > 0) {
       const asset = makeIndustryAssetFromTemplate(pick(fresh), newId(), s);
       s.industryListings = [...(s.industryListings ?? []), asset];
-      events.push({ t: `🏭 Ny industri till salu: ${asset.name} (${msek(asset.purchasePrice)}).`, kind: "info" });
+      events.push({ t: `🏭 New industrial asset for sale: ${asset.name} (${msek(asset.purchasePrice)}).`, kind: "info" });
     }
   }
   // Konkurrent köper från marknaden med strategi-filtrering – även
@@ -3009,8 +3009,8 @@ export function advanceMonth(state: GameState): GameState {
           propId: pkg.propertyIds[0],
           propertyIds: pkg.propertyIds,
           packageId: pkg.id,
-          propLabel: `${pkg.name} (${pkg.propertyIds.length} fastigheter)`,
-          districtName: "paketaffär",
+          propLabel: `${pkg.name} (${pkg.propertyIds.length} properties)`,
+          districtName: "portfolio deal",
           from,
           amount,
           expiresIn: 3,
@@ -3082,7 +3082,7 @@ export function advanceMonth(state: GameState): GameState {
       const qty = st.shortQty!;
       const pnl = Math.round(qty * (st.shortAvgPrice - st.price));
       const collateral = Math.round(st.shortAvgPrice * qty * 1.5);
-      cashflow(s, Math.max(0, collateral + pnl), "blankning återförd");
+      cashflow(s, Math.max(0, collateral + pnl), "short position closed");
       events.push({ t: `🚨 Margin call! Short in ${st.name} force-covered @ ${kr(st.price)}. Loss: ${kr(Math.abs(pnl))}.`, kind: "warn" });
       return { ...st, shortQty: 0, shortAvgPrice: 0 };
     }
@@ -3104,7 +3104,7 @@ export function advanceMonth(state: GameState): GameState {
   if (subIncome > 0) {
     cashflow(s, subIncome, "dotterbolagsvinst");
     if (s.month % 3 === 0)
-      events.push({ t: `🏛️ Dotterbolagen bidrog med ${kr(subIncome * 3)} i kvartalet.`, kind: "income" });
+      events.push({ t: `🏛️ The subsidiaries contributed ${kr(subIncome * 3)} this quarter.`, kind: "income" });
   }
 
   // ── IPO: uppdatera aktiekurs ───────────────────────────────────
@@ -3160,7 +3160,7 @@ export function advanceMonth(state: GameState): GameState {
             ? { ...p, condition: Math.min(SPINOFF_UPKEEP_COND, p.condition + 1.2) }
             : p;
         });
-        if (propNet !== 0) cashflow(s, -propNet, "driftnetto till fastighets-avknoppning");
+        if (propNet !== 0) cashflow(s, -propNet, "NOI to property spin-off");
       }
       const net = (spinoffNet[spin.id] ?? 0) + propNet - upkeep;
       let ns: typeof spin = { ...spin, cash: spin.cash + net, lastMonthNet: net };
@@ -3189,7 +3189,7 @@ export function advanceMonth(state: GameState): GameState {
           const toPlayer = Math.round((div * st.owned) / st.sharesOutstanding);
           ns = { ...ns, cash: ns.cash - div, dividendsPaidToPlayer: ns.dividendsPaidToPlayer + toPlayer };
           if (toPlayer > 0) {
-            cashflow(s, toPlayer, "utdelning från avknoppning");
+            cashflow(s, toPlayer, "dividend from spin-off");
             s.dividendsReceived = (s.dividendsReceived ?? 0) + toPlayer;
             events.push({
               t: `🔔 ${spin.name} pays a quarterly dividend: ${kr(toPlayer)} on your ${Math.round((st.owned / st.sharesOutstanding) * 100)}% stake.`,
@@ -3221,7 +3221,7 @@ export function advanceMonth(state: GameState): GameState {
   // ── Löner (anställda) ───────────────────────────────────────────
   const salaries = salariesTotal(s);
   if (salaries > 0) {
-    cashflow(s, -salaries, "löner");
+    cashflow(s, -salaries, "salaries");
     if (s.month % 3 === 0)
       events.push({ t: `👔 Salaries paid: ${kr(salaries)}/mo.`, kind: "expense" });
   }
@@ -3272,7 +3272,7 @@ export function advanceMonth(state: GameState): GameState {
       const def = RESEARCH.find((r) => r.id === s.activeResearch!.id);
       s.researchDone = [...(s.researchDone ?? []), s.activeResearch.id];
       s.activeResearch = null;
-      events.push({ t: `🔬 Forskning klar: ${def?.name ?? ""} — ${def?.effect ?? ""}.`, kind: "income" });
+      events.push({ t: `🔬 Research complete: ${def?.name ?? ""} — ${def?.effect ?? ""}.`, kind: "income" });
     } else {
       s.activeResearch = { ...s.activeResearch, monthsLeft: left };
     }
@@ -3796,7 +3796,7 @@ export function advanceMonth(state: GameState): GameState {
       if ((s.crisisMonthsLeft ?? 0) > 0 && s.debt > 0) {
         const forced = Math.min(Math.max(0, s.cash), Math.round(s.debt * 0.02));
         if (forced > 0) {
-          cashflow(s, -forced, "tvångsamortering (covenant)");
+          cashflow(s, -forced, "forced amortisation (covenant)");
           s.debt -= forced;
           events.push({ t: `🏦 COVENANTBROTT I KRIS: ${breach}. Banken tvingar fram amortering: ${msek(forced)}.`, kind: "warn" });
         } else {

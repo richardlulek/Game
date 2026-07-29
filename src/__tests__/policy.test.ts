@@ -118,12 +118,12 @@ describe("policy: förvaltningschefens skydd och energi", () => {
     });
     const s1 = advanceMonth(s0);
     expect(s1.portfolio[0].energyClass).toBe("C"); // ett steg per månad
-    expect(s1.log.some((l) => l.t.includes("Energipolicyn"))).toBe(true);
+    expect(s1.log.some((l) => l.t.includes("energy policy"))).toBe(true);
     const s2 = advanceMonth({ ...s1, log: [] });
     expect(s2.portfolio[0].energyClass).toBe("B"); // klar vid målet
     const s3 = advanceMonth({ ...s2, log: [] });
     expect(s3.portfolio[0].energyClass).toBe("B"); // stannar där
-    expect(s3.log.some((l) => l.t.includes("Energipolicyn"))).toBe(false);
+    expect(s3.log.some((l) => l.t.includes("energy policy"))).toBe(false);
   });
 });
 

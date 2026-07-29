@@ -88,12 +88,12 @@ export function StatsPanel({ state }: { state: GameState }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <Chart title="Equity vs. best rival" series={[
-        { label: "Du", values: eq, color: BURGUNDY },
+        { label: "You", values: eq, color: BURGUNDY },
         { label: "Best rival", values: rival, color: "#3d6db3" },
       ]} />
       <Chart title="Net operating income per month" series={[{ label: "NOI", values: noi, color: "#22a06b" }]} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Chart title="Kassa" series={[{ label: "Kassa", values: cash, color: "#c07f16" }]} />
+        <Chart title="Cash" series={[{ label: "Cash", values: cash, color: "#c07f16" }]} />
         <Chart title="Portfolio value" series={[{ label: "Properties", values: port, color: "#4757c8" }]} />
       </div>
       <div style={card}>

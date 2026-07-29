@@ -69,7 +69,7 @@ describe("A2: utvecklingsprojekt", () => {
     expect(s.portfolio[0].condition).toBe(100);
     expect(s.portfolio[0].energyClass).toBe("A");
     expect(s.portfolio[0].renovation).toBeUndefined();
-    expect(s.log.some((l) => l.t.includes("Totalrenovering klar"))).toBe(true);
+    expect(s.log.some((l) => l.t.includes("Full renovation complete"))).toBe(true);
   });
 
   it("påbyggnad ökar yta, kapacitet och värde", () => {

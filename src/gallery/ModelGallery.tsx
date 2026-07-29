@@ -35,20 +35,20 @@ function mkParcel(district: string, id: string, w = 17, d = 17): Parcel {
 
 const VARIANTS: { v: FacadeVariant; label: string }[] = [
   { v: "normal", label: "normal" },
-  { v: "tänt", label: "tänt (fullt uthyrt)" },
-  { v: "släckt", label: "släckt (vakant)" },
-  { v: "sliten", label: "sliten (skick < 40)" },
+  { v: "tänt", label: "lit (fully let)" },
+  { v: "släckt", label: "dark (vacant)" },
+  { v: "sliten", label: "worn (condition < 40)" },
 ];
 
 const FAMILIES: { district: string; label: string; type: PropTypeKey; w: number; d: number; seed: number }[] = [
-  { district: "centrum", label: "Centrum (stenstad)", type: "kontor", w: 17, d: 17, seed: 6 },
-  { district: "innerstad", label: "Innerstad (funkis)", type: "bostad", w: 17, d: 17, seed: 3 },
-  { district: "innerstad", label: "Innerstad (tegel)", type: "butik", w: 17, d: 17, seed: 5 },
+  { district: "centrum", label: "Centrum (stone city)", type: "kontor", w: 17, d: 17, seed: 6 },
+  { district: "innerstad", label: "Inner city (functionalist)", type: "bostad", w: 17, d: 17, seed: 3 },
+  { district: "innerstad", label: "Inner city (brick)", type: "butik", w: 17, d: 17, seed: 5 },
   { district: "förort", label: "Suburb (block)", type: "bostad", w: 22, d: 24, seed: 4 },
-  { district: "kulle", label: "Villakullen", type: "bostad", w: 10, d: 12, seed: 2 },
-  { district: "industri", label: "Industri (hall)", type: "industri", w: 27, d: 27, seed: 4 },
-  { district: "hamnen", label: "Hamnen (magasin)", type: "industri", w: 17, d: 17, seed: 1 },
-  { district: "finans", label: "Finans (glastorn)", type: "kontor", w: 19, d: 19, seed: 3 },
+  { district: "kulle", label: "Villa Hill", type: "bostad", w: 10, d: 12, seed: 2 },
+  { district: "industri", label: "Industrial (hall)", type: "industri", w: 27, d: 27, seed: 4 },
+  { district: "hamnen", label: "Harbour (warehouse)", type: "industri", w: 17, d: 17, seed: 1 },
+  { district: "finans", label: "Finance (glass tower)", type: "kontor", w: 19, d: 19, seed: 3 },
 ];
 
 function Label({ text, y = -4 }: { text: string; y?: number }) {
@@ -117,23 +117,23 @@ export function ModelGallery() {
     edges: { n: false, e: true, s: true, w: false },
   };
   rows.push(
-    <Slot key="sil1" x={0} z={rz} label="Centrum · hörntorn (gatukors)">
+    <Slot key="sil1" x={0} z={rz} label="Centrum · corner tower (street crossing)">
       <DistrictBuilding parcel={cornerParcel} type="kontor" floors={7} color="#b8a88a"
         windows selected={false} handlers={noop} seed={83} variant="normal" />
     </Slot>,
-    <Slot key="sil2" x={44} z={rz} label="Suburb · miljonprogram (platta tak)">
+    <Slot key="sil2" x={44} z={rz} label="Suburb · housing programme (flat roofs)">
       <DistrictBuilding parcel={mkParcel("förort", "förort-mp", 24, 24)} type="bostad" floors={3} color="#b8a88a"
         windows selected={false} handlers={noop} seed={12} variant="normal" />
     </Slot>,
-    <Slot key="sil3" x={88} z={rz} label="Villa · vinkelflygel">
+    <Slot key="sil3" x={88} z={rz} label="Villa · L-shaped wing">
       <DistrictBuilding parcel={mkParcel("kulle", "kulle-L", 10, 12)} type="bostad" floors={2} color="#c9b892"
         windows selected={false} handlers={noop} seed={9} variant="normal" />
     </Slot>,
-    <Slot key="sil4" x={132} z={rz} label="Finans · podium + teknikvåning">
+    <Slot key="sil4" x={132} z={rz} label="Finance · podium + plant floor">
       <DistrictBuilding parcel={mkParcel("finans", "finans-podium", 19, 19)} type="kontor" floors={22} color="#b8a88a"
         windows selected={false} handlers={noop} seed={6} variant="normal" />
     </Slot>,
-    <Slot key="sil5" x={176} z={rz} label="Tegel bostad · balkonger + brandtrappa">
+    <Slot key="sil5" x={176} z={rz} label="Brick residential · balconies + fire escape">
       <DistrictBuilding parcel={mkParcel("innerstad", "innerstad-balk", 17, 17)} type="bostad" floors={5} color="#b8a88a"
         windows selected={false} handlers={noop} seed={21} variant="normal" />
     </Slot>,
@@ -142,15 +142,15 @@ export function ModelGallery() {
 
   // Morfars hus
   rows.push(
-    <Slot key="arv" x={0} z={rz} label="Morfars hus (arvet)">
+    <Slot key="arv" x={0} z={rz} label="Grandpa's house (the inheritance)">
       <HeirloomHouse parcel={mkParcel("kulle", "kulle-arv", 10, 12)} type="bostad" floors={2}
         color="#c9b892" windows selected={false} handlers={noop} seed={7} variant="sliten" condition={30} />
     </Slot>,
   );
   // Industrier
   rows.push(
-    <Slot key="hotell" x={44} z={rz} label="Hotell (4★)"><Hotel pc={{ w: 17, d: 17 }} stars={4} /></Slot>,
-    <Slot key="lager" x={88} z={rz} label="Logistikterminal"><Warehouse pc={{ w: 27, d: 27 }} /></Slot>,
+    <Slot key="hotell" x={44} z={rz} label="Hotel (4★)"><Hotel pc={{ w: 17, d: 17 }} stars={4} /></Slot>,
+    <Slot key="lager" x={88} z={rz} label="Logistics terminal"><Warehouse pc={{ w: 27, d: 27 }} /></Slot>,
   );
   rz += 48;
   rows.push(
@@ -161,38 +161,38 @@ export function ModelGallery() {
   // Signaturkvarter
   const b = { x: 0, z: 0, w: 52, d: 36 };
   rows.push(
-    <group key="sig1" position={[0, 0, rz]}><OfficeCluster b={b} floors={20} /><Label text="Signatur: Kontorskluster" y={-3} /></group>,
-    <group key="sig2" position={[90, 0, rz]}><ResidentialBlock b={b} floors={8} /><Label text="Signatur: Bostadskvarter" y={-3} /></group>,
+    <group key="sig1" position={[0, 0, rz]}><OfficeCluster b={b} floors={20} /><Label text="Signature: Office cluster" y={-3} /></group>,
+    <group key="sig2" position={[90, 0, rz]}><ResidentialBlock b={b} floors={8} /><Label text="Signature: Residential block" y={-3} /></group>,
     <group key="sig3" position={[180, 0, rz]}><CultureDistrict b={b} floors={5} /><Label text="Signature: Cultural quarter" y={-3} /></group>,
-    <group key="sig4" position={[270, 0, rz]}><ConstructionSite b={b} progress={0.55} floors={12} /><Label text="Signatur: under bygge" y={-3} /></group>,
+    <group key="sig4" position={[270, 0, rz]}><ConstructionSite b={b} progress={0.55} floors={12} /><Label text="Signature: under construction" y={-3} /></group>,
   );
   rz += 100;
   // Megaprojekt
   rows.push(
-    <group key="m1" position={[0, 0, rz]}><Arena /><Label text="Megaprojekt: Imperium Arena" y={-3} /></group>,
-    <group key="m2" position={[170, 0, rz]}><Campus /><Label text="Megaprojekt: Universitetscampus" y={-3} /></group>,
-    <group key="m3" position={[320, 0, rz]}><Hospital /><Label text="Megaprojekt: Sjukhuskvarteret" y={-3} /></group>,
+    <group key="m1" position={[0, 0, rz]}><Arena /><Label text="Mega project: Imperium Arena" y={-3} /></group>,
+    <group key="m2" position={[170, 0, rz]}><Campus /><Label text="Mega project: University campus" y={-3} /></group>,
+    <group key="m3" position={[320, 0, rz]}><Hospital /><Label text="Mega project: Hospital quarter" y={-3} /></group>,
   );
   rz += 130;
   // Stadens landmärken (dekor med fasta platser på kartan)
   rows.push(
-    <group key="lm1" position={[0, 0, rz]}><LmStadshus x={0} z={0} /><Label text="Landmärke: Stadshuset" y={-3} /></group>,
-    <group key="lm2" position={[70, 0, rz]}><LmKyrka x={0} z={0} /><Label text="Landmärke: Kyrkan" y={-3} /></group>,
-    <group key="lm3" position={[150, 0, rz]}><LmVattentorn x={0} z={0} /><Label text="Landmärke: Vattentornet" y={-3} /></group>,
-    <group key="lm4" position={[230, 0, rz]}><LmSkorsten x={0} z={0} /><Label text="Landmärke: Fabriksskorstenen" y={-3} /></group>,
-    <group key="lm5" position={[330, 0, rz]}><LmStadspark x={0} z={0} /><Label text="Landmärke: Stadsparken" y={-3} /></group>,
-    <group key="lm6" position={[460, 0, rz]}><LmArena x={0} z={0} /><Label text="Landmärke: Idrottsarenan" y={-3} /></group>,
-    <group key="lm7" position={[600, 0, rz]}><LmPariserhjul x={0} z={0} /><Label text="Landmärke: Pariserhjulet" y={-3} /></group>,
+    <group key="lm1" position={[0, 0, rz]}><LmStadshus x={0} z={0} /><Label text="Landmark: City Hall" y={-3} /></group>,
+    <group key="lm2" position={[70, 0, rz]}><LmKyrka x={0} z={0} /><Label text="Landmark: The Church" y={-3} /></group>,
+    <group key="lm3" position={[150, 0, rz]}><LmVattentorn x={0} z={0} /><Label text="Landmark: The Water Tower" y={-3} /></group>,
+    <group key="lm4" position={[230, 0, rz]}><LmSkorsten x={0} z={0} /><Label text="Landmark: The Factory Chimney" y={-3} /></group>,
+    <group key="lm5" position={[330, 0, rz]}><LmStadspark x={0} z={0} /><Label text="Landmark: The City Park" y={-3} /></group>,
+    <group key="lm6" position={[460, 0, rz]}><LmArena x={0} z={0} /><Label text="Landmark: The Sports Arena" y={-3} /></group>,
+    <group key="lm7" position={[600, 0, rz]}><LmPariserhjul x={0} z={0} /><Label text="Landmark: The Ferris Wheel" y={-3} /></group>,
     <group key="lm8" position={[807, 0, rz - 305]}><HarborTerminal /></group>,
-    <group key="lm8b" position={[770, 0, rz]}><Label text="Landmärke: Hamnterminalen" y={-3} /></group>,
+    <group key="lm8b" position={[770, 0, rz]}><Label text="Landmark: The Harbour Terminal" y={-3} /></group>,
   );
   rz += 90;
   // Ägarlyx (positionerar sig själva i världskoordinater vid HK → offsetta hit)
   rows.push(
     <group key="lux1" position={[225, 0, rz - 244]}><SportsCar /></group>,
-    <group key="lux1b" position={[0, 0, rz]}><Label text="Ägarlyx: Sportbilen (kör varv)" y={-2} /></group>,
+    <group key="lux1b" position={[0, 0, rz]}><Label text="Owner luxury: The Sports Car (does laps)" y={-2} /></group>,
     <group key="lux2" position={[275, 0, rz - 201]}><Helicopter /></group>,
-    <group key="lux2b" position={[70, 0, rz]}><Label text="Ägarlyx: Helikoptern" y={-2} /></group>,
+    <group key="lux2b" position={[70, 0, rz]}><Label text="Owner luxury: The Helicopter" y={-2} /></group>,
   );
 
   return (
@@ -201,7 +201,7 @@ export function ModelGallery() {
         position: "absolute", top: 10, left: 14, zIndex: 10, color: "#e8e0cd",
         fontFamily: "'Inter', system-ui, sans-serif", fontSize: 13,
       }}>
-        <strong>MODELLBIBLIOTEK</strong> · dra för att panorera, scrolla för zoom · ?models
+        <strong>MODEL LIBRARY</strong> · drag to pan, scroll to zoom · ?models
       </div>
       <Canvas shadows camera={{ position: cam, fov: 40, near: 1, far: 4000 }}>
         <ambientLight intensity={0.55} />

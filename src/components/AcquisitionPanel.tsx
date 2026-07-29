@@ -416,7 +416,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                       <div style={{ color: C.creamSoft }}>Equity:</div>
                       <div style={{ fontWeight: 700 }}>{msek(comp.equity)}</div>
                       <div style={{ color: C.creamSoft }}>Net asset value:</div>
-                      <div style={{ fontWeight: 700 }} title={dd ? "Verifierat i due diligence." : "Osäkert utan due diligence – böckerna kan ljuga."}>
+                      <div style={{ fontWeight: 700 }} title={dd ? "Verified in due diligence." : "Uncertain without due diligence – the books can lie."}>
                         {dd
                           ? `${msek(val.nav)} ✓`
                           : `${msek(Math.round(val.nav * (1 - VALUATION_UNCERTAINTY)))}–${msek(Math.round(val.nav * (1 + VALUATION_UNCERTAINTY)))}`}
@@ -549,7 +549,7 @@ export function AcquisitionPanel({ state, dispatch }: Props) {
                               cursor: deal ? "default" : "pointer",
                               marginTop: 12,
                             }}
-                            title={deal ? "En förhandling i taget." : "Ägaren svarar vid nästa månadsskifte: accept, motbud eller avvisat."}
+                            title={deal ? "One negotiation at a time." : "The owner responds at the next month-end: accept, counter-bid or rejection."}
                           >
                             {deal ? "Negotiation in progress elsewhere" : `Approach ${comp.name}'s owner`}
                           </button>

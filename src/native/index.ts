@@ -73,7 +73,7 @@ export async function writeSlotFile(slot: number, json: string): Promise<boolean
     await invoke("save_slot", { slot, contents: json });
     return true;
   } catch (e) {
-    console.warn("Kunde inte spegla sparfilen till disk:", e);
+    console.warn("Could not mirror the save file to disk:", e);
     return false;
   }
 }
@@ -85,7 +85,7 @@ export async function readSlotFile(slot: number): Promise<string | null> {
     const { invoke } = await import("@tauri-apps/api/core");
     return (await invoke<string | null>("load_slot", { slot })) ?? null;
   } catch (e) {
-    console.warn("Kunde inte läsa sparfilen från disk:", e);
+    console.warn("Could not read the save file from disk:", e);
     return null;
   }
 }

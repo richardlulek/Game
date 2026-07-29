@@ -590,7 +590,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const app = (p.applications ?? []).find((a) => a.id === action.applicationId);
       if (!app) return state;
       if (action.contract === "ankare" && !app.anchorEligible)
-        return log(state, "Ankaravtal kan bara erbjudas kedjor och myndigheter.", "warn");
+        return log(state, "Anchor contracts can only be offered to chains and public agencies.", "warn");
       const tenant = signContract(app.tenant, action.contract);
       return {
         ...state,
@@ -2714,7 +2714,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "SALE_LEASEBACK": {
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || p.status === "bygger") return log(state, "Kan inte sale-leaseback under byggnation.", "warn");
+      if (!p || p.status === "bygger") return log(state, "Cannot start a sale-leaseback during construction.", "warn");
       const salePrice = Math.round(propMarketValue(p, state) * 1.0);
       const monthlyLease = Math.round(salePrice * 0.065 / 12);
       const payoff = Math.min(state.debt, (p.purchasePrice ?? salePrice) * 0.6);
@@ -2775,7 +2775,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const cbRival = state.competingBid?.rivalName;
       return { ...state, competingBid: undefined,
         standing: cbRival ? adjustStanding(state.standing, { kind: "rival", name: cbRival }, 2) : state.standing,
-        log: [{ t: cbRival ? `You step aside and let ${cbRival} take the deal uncontested — they notice (standing +2).` : "Du valde att inte delta i budgivningen.", kind: "info" }, ...state.log] };
+        log: [{ t: cbRival ? `You step aside and let ${cbRival} take the deal uncontested — they notice (standing +2).` : "You chose to sit out the bidding.", kind: "info" }, ...state.log] };
     }
     case "SEND_OLIVE_BRANCH": {
       // Olivkvisten: en dyr, synlig gest (välgörenhetsgala i rivalens namn,
@@ -2827,7 +2827,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const COSTS: Record<string, number> = { F: 80_000, E: 120_000, D: 180_000, C: 250_000, B: 350_000 };
       const cost = COSTS[curClass] ?? 150_000;
       if (state.cash < cost)
-        return log(state, `Energiuppgradering till klass ${CLASSES[curIdx + 1]} kostar ${kr(cost)}.`, "warn");
+        return log(state, `Energy upgrade to class ${CLASSES[curIdx + 1]} costs ${kr(cost)}.`, "warn");
       const nextClass = CLASSES[curIdx + 1];
       return {
         ...state,
@@ -2907,7 +2907,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
     case "DRAW_REVOLVING": {
       const rev = state.revolving;
-      if (!rev) return log(state, "Ingen revolverande kredit aktiv.", "warn");
+      if (!rev) return log(state, "No revolving credit is active.", "warn");
       const avail = rev.limit - rev.used;
       const amt = Math.min(action.amount, avail);
       if (amt <= 0) return log(state, "The credit limit has been reached.", "warn");
@@ -3317,14 +3317,14 @@ export function reducer(state: GameState, action: GameAction): GameState {
         log: [{
           t: nowShort
             ? `🏖️ ${p.typeLabel} in ${p.districtName} switched to short-term rental (+30% rent, +60% vacancy).`
-            : `🏠 ${p.typeLabel} i ${p.districtName} tillbaka till ordinarie uthyrning.`,
+            : `🏠 ${p.typeLabel} in ${p.districtName} back to standard letting.`,
           kind: "info",
         }, ...state.log],
       };
     }
     case "APPLY_ZONE_CHANGE": {
       const p = state.portfolio.find((x) => x.id === action.id);
-      if (!p || p.status === "bygger") return log(state, "Kan ej omklassa fastighet under byggnation.", "warn");
+      if (!p || p.status === "bygger") return log(state, "Cannot reclassify a property during construction.", "warn");
       if (p.pendingZoneChange) return log(state, "Rezoning is already in progress.", "warn");
       const cost = 500_000;
       if (state.cash < cost) return log(state, `Omklassning kostar ${kr(cost)}.`, "warn");
@@ -3788,7 +3788,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const asset = (state.industryPortfolio ?? []).find((a) => a.id === action.id);
       const upg = INDUSTRY_UPGRADES.find((u) => u.id === action.upg);
       if (!asset || !upg) return state;
-      if (asset.upgrades.includes(action.upg)) return log(state, "❌ Uppgradering redan installerad.", "warn");
+      if (asset.upgrades.includes(action.upg)) return log(state, "❌ Upgrade already installed.", "warn");
       const cost = Math.round(industryAssetValue(asset, state) * upg.cost);
       if (state.cash < cost) return log(state, `❌ Missing ${msek(cost)} for the upgrade.`, "warn");
       const newCond = upg.condBoost ? Math.min(100, asset.condition + upg.condBoost) : asset.condition;
@@ -3958,7 +3958,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       if (action.kind === "lokalanpassning") {
         const target = Math.max(1, Math.min(maxCapacityFor(p), Math.round(action.targetCapacity ?? p.capacity)));
         if (target === p.capacity)
-          return log(state, "Fastigheten har redan det antalet lokaler.", "info");
+          return log(state, "The property already has that number of units.", "info");
         if (p.tenants.length > target)
           return log(state, `Converting to ${target} ${target === 1 ? "unit" : "units"} requires at most ${target} to be rented – terminate or wait out contracts.`, "warn");
         cost = Math.max(150_000, Math.round(value * 0.04 * Math.abs(target - p.capacity)));
@@ -4214,7 +4214,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
     case "SET_COMPANY_NAME": {
       const name = action.name.trim().slice(0, 32);
       if (!name) return state;
-      return log({ ...state, companyName: name }, `Bolaget heter nu ${name}.`, "info");
+      return log({ ...state, companyName: name }, `The company is now called ${name}.`, "info");
     }
     case "LOAD":
       return action.state;

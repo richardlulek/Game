@@ -124,7 +124,7 @@ export function pickStrategicSale(
       return {
         index: idx,
         price: Math.round(value * (0.97 + random01() * 0.06)),
-        motive: `renodlar mot ${c.preferredDistrict}`,
+        motive: "focusing on its core districts",
       };
     }
   }

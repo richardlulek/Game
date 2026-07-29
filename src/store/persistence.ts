@@ -226,7 +226,7 @@ export function saveGame(state: GameState, slot?: number): boolean {
   try {
     localStorage.setItem(getSaveKey(s), raw);
   } catch (e) {
-    console.warn("Kunde inte spara spelet:", e);
+    console.warn("Could not save the game:", e);
     return false;
   }
   void writeSlotFile(s, raw); // desktop: no-op på webben
@@ -268,7 +268,7 @@ export async function hydrateFromDisk(): Promise<number> {
       localStorage.setItem(key, fromDisk);
       restored += 1;
     } catch (e) {
-      console.warn(`Kunde inte hämta slot ${slot} från disk:`, e);
+      console.warn(`Could not read slot ${slot} from disk:`, e);
     }
   }
   return restored;
@@ -290,7 +290,7 @@ export async function backfillToDisk(): Promise<number> {
       if (savedAtMs(local) <= savedAtMs(onDisk)) continue;
       if (await writeSlotFile(slot, local)) written += 1;
     } catch (e) {
-      console.warn(`Kunde inte skriva slot ${slot} till disk:`, e);
+      console.warn(`Could not write slot ${slot} to disk:`, e);
     }
   }
   return written;
@@ -334,7 +334,7 @@ export function parseSaveFile(raw: string): GameState | null {
     syncIdCounter(state);
     return state;
   } catch (e) {
-    console.warn("Trasig sparfil – ignoreras:", e);
+    console.warn("Corrupt save file – ignored:", e);
     return null;
   }
 }

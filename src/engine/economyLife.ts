@@ -63,7 +63,7 @@ export interface InfraKind {
 export const INFRA_KINDS: InfraKind[] = [
   { name: "Tram line", boost: [0.08, 0.12], months: [22, 30] },
   { name: "Commuter rail station", boost: [0.07, 0.1], months: [18, 26] },
-  { name: "Ny bro", boost: [0.05, 0.09], months: [20, 28] },
-  { name: "Grundskola och idrottshall", boost: [0.04, 0.07], months: [14, 20] },
-  { name: "Stadspark vid vattnet", boost: [0.04, 0.06], months: [12, 18] },
+  { name: "New bridge", boost: [0.05, 0.09], months: [20, 28] },
+  { name: "Primary school and sports hall", boost: [0.04, 0.07], months: [14, 20] },
+  { name: "Waterfront city park", boost: [0.04, 0.06], months: [12, 18] },
 ];

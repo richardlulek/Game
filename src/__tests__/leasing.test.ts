@@ -139,7 +139,7 @@ describe("U4: kvartersmix", () => {
     const mix = blockMixFor(bostad, s);
     expect(mix.rentMult).toBeGreaterThan(1);
     expect(mix.satBonus).toBeGreaterThan(0);
-    expect(mix.label).toContain("butik");
+    expect(mix.label).toContain("shops");
   });
 });
 
