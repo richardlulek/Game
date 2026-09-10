@@ -34,6 +34,7 @@ import { Pedestrians, Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
 import { CityLighting } from "./CityLighting";
+import { CityAmbience } from "./CityAmbience";
 import { ContactFootprints } from "./ContactFootprints";
 import { ThumbnailRenderer } from "./ThumbnailRenderer";
 import { PerfProbe } from "../components/FpsMeter";
@@ -260,6 +261,7 @@ export function CityCanvas() {
       }}
     >
       <CityLighting />
+      <CityAmbience />
       <ThumbnailRenderer />
       {/* Nära zoom (18) låter spelaren gå ner på gatunivå och se detaljer –
           entréer, Rogges bil, minneslappar. zoomToCursor gör att man zoomar

@@ -208,8 +208,15 @@ export function isSoundEnabled(): boolean {
   return enabled;
 }
 
+/** Ambient scene audio may reuse an already-unlocked context, never create one
+ * from an animation frame or bypass the user's sound setting. */
+export function activeAudioOutput(): { context: AudioContext; output: GainNode } | null {
+  return enabled && ctx?.state === "running" && master ? { context: ctx, output: master } : null;
+}
+
 export function setSoundEnabled(v: boolean): void {
   enabled = v;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("game-audio-settings"));
   try {
     localStorage.setItem(KEY, v ? "on" : "off");
   } catch {

@@ -14,9 +14,8 @@ interface ControlsLike {
 /** Avstånds-LOD: EN useFrame läser kamerans avstånd till mål och slår om
  *  uiStore.lodFar när vyn går in i/ur översikt. Hysteres (enter/exit ur
  *  grafikpresetet) så läget inte flimrar vid tröskeln, och store-set:et sker
- *  BARA vid växling – inte varje bildruta. Hus blir instansierade block och
- *  statusmärken döljs, vilket skär draw calls när hela staden är i bild.
- *  Lägre kvalitet → lägre tröskel → block redan vid måttlig utzoomning. */
+ *  BARA vid växling – inte varje bildruta. Små byggnadsdetaljer och
+ *  statusmärken döljs, medan fasader och tak behåller sin form. */
 const _t = new Vector3();
 
 export function LodController() {
@@ -38,7 +37,8 @@ export function LodController() {
       elapsed.current = 0;
       const ui = useUiStore.getState();
       const selected = ui.selectedParcelId ? parcelById(ui.selectedParcelId) : null;
-      const nearest = selected ?? PARCELS.reduce<typeof PARCELS[number] | null>((best, p) =>
+      const nearbySelected = selected && Math.hypot(selected.x - _t.x, selected.z - _t.z) < 80 ? selected : null;
+      const nearest = nearbySelected ?? PARCELS.reduce<typeof PARCELS[number] | null>((best, p) =>
         !best || Math.hypot(p.x - _t.x, p.z - _t.z) < Math.hypot(best.x - _t.x, best.z - _t.z) ? p : best, null);
       const block = !next && d < 340 ? nearest?.blockId ?? null : null;
       if (block !== ui.detailBlockId) ui.setDetailBlock(block);

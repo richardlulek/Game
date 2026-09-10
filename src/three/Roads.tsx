@@ -20,6 +20,7 @@ import {
 } from "three";
 import { DISTRICT_ZONES, ZONE_STREETS } from "../engine/city";
 import { ROADS, type RoadSeg } from "./roadNet";
+import { makeTrafficRoutes, sampleRoute, type TrafficRoute } from "./trafficRoutes";
 import { CAR_COLORS, ROAD, ROAD_DASH } from "./colors";
 
 interface Inst {
@@ -256,49 +257,19 @@ export function Roads() {
 /* ── Trafik: dynamisk instansiering ────────────────────────────────── */
 
 interface CarSpec {
-  seg: RoadSeg;
-  offset: number; // startfas 0–1 längs gatan
-  speed: number; // varv per sekund (hela gatan)
-  dir: 1 | -1; // körriktning – konstant, bilen vänder aldrig på gatan
+  route: TrafficRoute;
+  offset: number;
+  speed: number;
   color: Color;
 }
 
-/**
- * Alla bilar i tre InstancedMesh:ar (kaross + hytt + hjulaxlar).
- * Varje bil kör ENKELRIKTAT i sin fil och börjar om från gatans
- * början när den når slutet (som att en ny bil svänger in) – den
- * gamla ping-pong-rörelsen fick bilar att tvärvända mitt på leden
- * och samtidigt teleportera till motsatt fil.
- */
+/** Cars follow closed right-hand circuits through actual road intersections.
+ * The three instanced meshes are retained; routing is generated once per city. */
 export function Traffic({ density = 1 }: { density?: number }) {
-  const specs = useMemo<CarSpec[]>(() => {
-    const out: CarSpec[] = [];
-    ROADS.forEach((seg, i) => {
-      // 2–4 bilar per huvudled beroende på längd, varannan i motriktning.
-      const n = Math.max(2, Math.min(4, Math.round(Math.max(seg.w, seg.d) / 90)));
-      for (let c = 0; c < n; c++) {
-        const dir = (c % 2 === 0 ? 1 : -1) as 1 | -1;
-        out.push({
-          seg,
-          offset: ((i * 0.37 + c * 0.71) % 1),
-          speed: 0.05 + ((i + c) % 3) * 0.012,
-          dir,
-          color: new Color(CAR_COLORS[(i * 5 + c) % CAR_COLORS.length]),
-        });
-      }
-    });
-    // Var femte kvartersgata får en bil – deterministiskt urval.
-    ZONE_STREETS.filter((_, i) => i % 5 === 2).forEach((s, i) => {
-      out.push({
-        seg: { x: s.x, z: s.z, w: s.w, d: s.d },
-        offset: (i * 0.83 + 0.4) % 1,
-        speed: 0.035 + (i % 3) * 0.01,
-        dir: (i % 2 === 0 ? 1 : -1) as 1 | -1,
-        color: new Color(CAR_COLORS[(i + 2) % CAR_COLORS.length]),
-      });
-    });
-    return out.filter((_, i) => i % Math.max(1, Math.round(1 / density)) === 0);
-  }, [density]);
+  const specs = useMemo<CarSpec[]>(() => makeTrafficRoutes(
+    [...ROADS, ...ZONE_STREETS], Math.max(12, Math.round(90 * density)),
+  ).map((route, i) => ({ route, offset: ((i * 0.618) % 1) * route.length,
+    speed: 4.5 + (i % 5) * 0.55, color: new Color(CAR_COLORS[i % CAR_COLORS.length]) })), [density]);
 
   const meshes = useMemo(() => {
     const bodyMat = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.5, metalness: 0.15 });
@@ -308,6 +279,8 @@ export function Traffic({ density = 1 }: { density?: number }) {
     const cabins = new InstancedMesh(new BoxGeometry(1.8, 0.75, 1.5), cabinMat, specs.length);
     // En mörk axelkloss fram + bak per bil ger hjulkänsla från sidan.
     const wheels = new InstancedMesh(new BoxGeometry(0.62, 0.5, 1.82), wheelMat, specs.length * 2);
+    // Moving instances must not retain the bounds of their initial positions.
+    for (const mesh of [bodies, cabins, wheels]) mesh.frustumCulled = false;
     bodies.castShadow = true;
     specs.forEach((c, i) => bodies.setColorAt(i, c.color));
     if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
@@ -315,43 +288,33 @@ export function Traffic({ density = 1 }: { density?: number }) {
   }, [specs]);
   useDispose(...meshes);
 
-  const scratch = useMemo(() => new Object3D(), []);
+  const scratch = useMemo(() => ({ object: new Object3D(), point: { x: 0, z: 0 }, ahead: { x: 0, z: 0 } }), []);
   useFrame((state) => {
     const [bodies, cabins, wheels] = meshes;
-    const o = scratch;
+    const o = scratch.object;
+    o.scale.setScalar(0.82);
     specs.forEach((c, i) => {
-      const horizontal = c.seg.w > c.seg.d;
-      const len = (horizontal ? c.seg.w : c.seg.d) - 6;
-      const k = (state.clock.elapsedTime * c.speed + c.offset) % 1;
-      const along = (k - 0.5) * len * c.dir;
-      // Högertrafik: filen ligger till höger om färdriktningen.
-      const lane = 2.6 * c.dir;
-      let heading: number;
-      if (horizontal) {
-        o.position.set(c.seg.x + along, 0, c.seg.z + lane);
-        heading = c.dir === 1 ? 0 : Math.PI;
-      } else {
-        o.position.set(c.seg.x - lane, 0, c.seg.z + along);
-        heading = c.dir === 1 ? -Math.PI / 2 : Math.PI / 2;
-      }
+      const distance = state.clock.elapsedTime * c.speed + c.offset;
+      sampleRoute(c.route, distance, scratch.point);
+      sampleRoute(c.route, distance + 0.8, scratch.ahead);
+      const px = scratch.point.x, pz = scratch.point.z;
+      const heading = Math.atan2(-(scratch.ahead.z - pz), scratch.ahead.x - px);
+      o.position.set(px, 0, pz);
       o.rotation.y = heading;
-      const px = o.position.x;
-      const pz = o.position.z;
-      const fx = Math.cos(heading); // färdriktningens enhetsvektor
-      const fz = -Math.sin(heading);
+      const fx = Math.cos(heading), fz = -Math.sin(heading);
       // Kaross
-      o.position.y = 0.78;
+      o.position.y = 0.78 * 0.82;
       o.updateMatrix();
       bodies.setMatrixAt(i, o.matrix);
       // Hytt: något bakom mitten, ovanpå karossen
-      o.position.set(px + fx * -0.25, 1.55, pz + fz * -0.25);
+      o.position.set(px + fx * -0.205, 1.55 * 0.82, pz + fz * -0.205);
       o.updateMatrix();
       cabins.setMatrixAt(i, o.matrix);
       // Hjulaxlar fram och bak
-      o.position.set(px + fx * 1.05, 0.28, pz + fz * 1.05);
+      o.position.set(px + fx * 0.861, 0.28 * 0.82, pz + fz * 0.861);
       o.updateMatrix();
       wheels.setMatrixAt(i * 2, o.matrix);
-      o.position.set(px - fx * 1.05, 0.28, pz - fz * 1.05);
+      o.position.set(px - fx * 0.861, 0.28 * 0.82, pz - fz * 0.861);
       o.updateMatrix();
       wheels.setMatrixAt(i * 2 + 1, o.matrix);
     });

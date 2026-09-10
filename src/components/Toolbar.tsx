@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getVolume, playClick, setVolume } from "../audio/sound";
+import { getCityAmbienceVolume, setCityAmbienceVolume } from "../audio/cityAmbience";
 import { formatGameDate } from "../engine/date";
 import { useGameStore } from "../store/gameStore";
 import { exportSaveFile, getActiveSlot, importSaveFile, listSaveSlots, saveGame, setActiveSlot } from "../store/persistence";
@@ -211,6 +212,7 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
             </button>
           </div>
           {soundOn && (
+            <>
             <div style={row}>
               <span style={{ color: C.creamSoft }}>Volume</span>
               <input
@@ -219,10 +221,20 @@ function SettingsMenu({ state, onLoad, soundOn, onToggleSound, onQuitToTitle }: 
                 max={1}
                 step={0.05}
                 defaultValue={getVolume()}
+                aria-label="Master volume"
                 onChange={(e) => setVolume(parseFloat(e.target.value))}
                 style={{ width: 110, accentColor: BURGUNDY, cursor: "pointer" }}
               />
             </div>
+            <div style={row}>
+              <span style={{ color: C.creamSoft }}>City ambience</span>
+              <input type="range" min={0} max={1} step={0.05}
+                aria-label="City ambience volume"
+                defaultValue={getCityAmbienceVolume()}
+                onChange={(e) => setCityAmbienceVolume(parseFloat(e.target.value))}
+                style={{ width: 110, accentColor: BURGUNDY, cursor: "pointer" }} />
+            </div>
+            </>
           )}
           <div style={row}>
             <span style={{ color: C.creamSoft }} title="Automatically save to the active slot at the turn of each month">Autosave</span>
