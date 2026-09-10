@@ -17,11 +17,12 @@
    så att inget kvarter ser klonat ut.
    ============================================================ */
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, type ReactNode } from "react";
 import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
-import type { PropTypeKey } from "../engine/types";
+import type { Property, PropTypeKey } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
+import { FrontageContext, FrontageDetails } from "./FrontageDetails";
 import { facadeSurfaceMaps } from "./surfaceMaps";
 import { FLOOR_HEIGHT, facadeBoxGeometry, type PointerHandlers } from "./BuildingShapes";
 import {
@@ -104,7 +105,7 @@ function useFacade(
       // de tända rutorna, så glöden tintas inte ner av fasadfärgen.
       m.emissiveMap = glass ? glassEmissiveTexture(4, 4) : facadeEmissiveTexture(kind, variant);
       m.emissive.set("#ffffff");
-      m.emissiveIntensity = 0.55;
+      m.emissiveIntensity = variant === "släckt" ? 0 : 0.55;
     }
     // Thumbnail clones restore this neutral material instead of capturing selection glow.
     m.userData.previewFacade = { emissiveIntensity: m.emissiveIntensity, kind, variant, glass, windows };
@@ -121,7 +122,7 @@ function useFacade(
     } else {
       mat.emissiveMap = mat.map ? (glass ? glassEmissiveTexture(4, 4) : facadeEmissiveTexture(kind, variant)) : null;
       mat.emissive.set("#ffffff");
-      mat.emissiveIntensity = mat.map ? 0.55 : 0;
+      mat.emissiveIntensity = mat.map && variant !== "släckt" ? 0.55 : 0;
     }
     mat.needsUpdate = true;
   }, [selected, glass, kind, variant, mat]);
@@ -166,6 +167,8 @@ function HipRoof({ w, d, y, rise, color }: { w: number; d: number; y: number; ri
 }
 
 export interface DistrictBuildingProps {
+  /** Detailed entrances only for the viewed block, never signature/story models. */
+  frontage?: Property;
   parcel: Parcel;
   type: PropTypeKey;
   floors: number;
@@ -200,8 +203,10 @@ function SolarPanel({ w, d, y, x = 0, z = 0 }: { w: number; d: number; y: number
 function EntranceDetail({
   type, w, d, sx, sz, color, seed,
 }: { type: PropTypeKey; w: number; d: number; sx: number; sz: number; color: string; seed: number }) {
-  // Avstånds-LOD: gatuplansdetaljer syns inte i översikt – hoppas över där.
-  if (useUiStore((s) => s.lodFar)) return null;
+  const detailed = useContext(FrontageContext);
+  const far = useUiStore((s) => s.lodFar);
+  if (far) return null;
+  if (detailed) return <FrontageDetails w={w} d={d} sx={sx} sz={sz} />;
   const along = sx !== 0; // gatuväggen löper i z-led
   const px = sx * (w / 2 + 0.18);
   const pz = sz * (d / 2 + 0.18);
@@ -397,6 +402,7 @@ function FireEscape({ w, d, h, sz, seed }: {
 }
 
 function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers, seed, variant, solar }: DistrictBuildingProps) {
+  const detailed = useContext(FrontageContext);
   const h = floors * FLOOR_HEIGHT;
   const mat = useFacade(color, windows, selected, false, type, variant);
   const [sx, sz] = streetSide(parcel);
@@ -456,12 +462,12 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
       <mesh position={[offX + sx * (mainW / 2 + 0.06), 1.7, offZ + sz * (mainD / 2 + 0.06)]}>
         <boxGeometry args={[sx !== 0 ? 0.3 : mainW * 0.98, 3.4, sz !== 0 ? 0.3 : mainD * 0.98]} />
         {type === "butik" ? (
-          <meshStandardMaterial map={storefrontTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissiveMap={storefrontEmissiveTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissive="#ffffff" emissiveIntensity={0.55} roughness={0.5} />
+          <meshStandardMaterial map={storefrontTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissiveMap={storefrontEmissiveTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissive="#ffffff" emissiveIntensity={variant === "släckt" || variant === "sliten" ? 0 : 0.35} roughness={0.5} />
         ) : (
           <meshStandardMaterial color={new Color(color).multiplyScalar(0.62).getStyle()} />
         )}
       </mesh>
-      {type === "butik" && (
+      {type === "butik" && !detailed && (
         <mesh castShadow position={[offX + sx * (mainW / 2 + 0.8), 3.1, offZ + sz * (mainD / 2 + 0.8)]}>
           <boxGeometry args={[sx !== 0 ? 1.4 : mainW * 0.8, 0.22, sz !== 0 ? 1.4 : mainD * 0.8]} />
           <meshStandardMaterial color={AWNING_COLORS[seed % AWNING_COLORS.length]} />
@@ -502,8 +508,9 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
 
 /* ── Finans: glastorn med höjdhierarki ────────────────────────────── */
 
-function FinanceTower({ parcel, type, floors, color, windows, selected, handlers, seed, solar }: DistrictBuildingProps) {
-  const mat = useFacade(color, windows, selected, true);
+function FinanceTower({ parcel, type, floors, color, windows, selected, handlers, seed, solar, variant }: DistrictBuildingProps) {
+  const detailed = useContext(FrontageContext);
+  const mat = useFacade(color, windows, selected, true, type, variant);
   const w = parcel.w * 0.72;
   const d = parcel.d * 0.72;
   const h = floors * FLOOR_HEIGHT;
@@ -560,8 +567,8 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
       )}
       {style === 0 && !landmark && <RoofClutter w={w} d={d} y={h} seed={seed >> 1} />}
       {/* Kontorstorn får en glasentré i gatuplan */}
-      {windows && type === "kontor" && (
-        <EntranceDetail type="kontor" w={w} d={d} sx={streetSide(parcel)[0]} sz={streetSide(parcel)[1]} color={color} seed={seed} />
+      {windows && (type === "kontor" || detailed) && (
+        <EntranceDetail type={type} w={podium ? parcel.w * 0.92 : w} d={podium ? parcel.d * 0.92 : d} sx={streetSide(parcel)[0]} sz={streetSide(parcel)[1]} color={color} seed={seed} />
       )}
     </group>
   );
@@ -570,6 +577,7 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
 /* ── Innerstad: funkis och tegel med butiksband ───────────────────── */
 
 function InnerstadHouse({ parcel, type, floors, color, windows, selected, handlers, seed, variant, solar }: DistrictBuildingProps) {
+  const detailed = useContext(FrontageContext);
   const h = floors * FLOOR_HEIGHT;
   const tegel = seed % 5 < 2; // ~40 % tegel, resten funkis
   const facade = color;
@@ -624,9 +632,9 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
       {/* Butiksband i bottenplan mot gatan – skyltfönsterglas med entréer */}
       <mesh position={[sx * (w / 2 + 0.05), 1.5, sz * (d / 2 + 0.05)]}>
         <boxGeometry args={[sx !== 0 ? 0.28 : w * 0.94, 3, sz !== 0 ? 0.28 : d * 0.94]} />
-        <meshStandardMaterial map={storefrontTexture((sx !== 0 ? d : w) * 0.94)} emissiveMap={storefrontEmissiveTexture((sx !== 0 ? d : w) * 0.94)} emissive="#ffffff" emissiveIntensity={0.55} roughness={0.5} />
+        <meshStandardMaterial map={storefrontTexture((sx !== 0 ? d : w) * 0.94)} emissiveMap={storefrontEmissiveTexture((sx !== 0 ? d : w) * 0.94)} emissive="#ffffff" emissiveIntensity={variant === "släckt" || variant === "sliten" ? 0 : 0.35} roughness={0.5} />
       </mesh>
-      {(type === "butik" || seed % 3 === 0) && (
+      {!detailed && (type === "butik" || seed % 3 === 0) && (
         <mesh castShadow position={[sx * (w / 2 + 0.75), 3.05, sz * (d / 2 + 0.75)]}>
           <boxGeometry args={[sx !== 0 ? 1.3 : w * 0.7, 0.2, sz !== 0 ? 1.3 : d * 0.7]} />
           <meshStandardMaterial color={AWNING_COLORS[(seed >> 2) % AWNING_COLORS.length]} />
@@ -651,6 +659,7 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
 /* ── Förort: helt kvarter med lamellhus kring gård ────────────────── */
 
 function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers, seed, variant }: DistrictBuildingProps) {
+  const detailed = useContext(FrontageContext);
   const mat = useFacade(color, windows, selected, false, type, variant);
   const houses = 4 + (seed % 3); // 4–6 huskroppar
   const rows = 2;
@@ -682,10 +691,10 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
               <HipRoof w={hw} d={hd} y={hh + 0.8} rise={1.8} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
             )}
             {/* Entrétak mot gården (ingen skugga – ornament) */}
-            <mesh position={[0, 2.5, yard * (hd / 2 + 0.55)]}>
+            {detailed && (i === 0 || i === perRow) ? <FrontageDetails w={hw} d={hd} sx={0} sz={yard} /> : <mesh position={[0, 2.5, yard * (hd / 2 + 0.55)]}>
               <boxGeometry args={[2.2, 0.18, 1.1]} />
               <meshStandardMaterial color="#e8e2d4" />
-            </mesh>
+            </mesh>}
             {variant === "sliten" && i === 0 && <WornDetails w={hw} d={hd} h={hh} sx={0} sz={row === 0 ? -1 : 1} seed={seed} />}
           </group>
         );
@@ -710,6 +719,7 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
 /* ── Villakullen ──────────────────────────────────────────────────── */
 
 function Villa({ parcel, type, floors, color, windows, selected, handlers, seed, variant }: DistrictBuildingProps) {
+  const detailed = useContext(FrontageContext);
   const h = Math.min(2, floors) * FLOOR_HEIGHT;
   const mat = useFacade(color, windows, selected, false, type, variant);
   const vw = parcel.w * 0.55;
@@ -740,8 +750,9 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
           </mesh>
         </group>
       )}
+      {detailed && windows && <FrontageDetails w={vw} d={vd} sx={0} sz={1} />}
       {/* Farstukvist: trallgolv + tak på framsidan */}
-      {veranda && (
+      {veranda && !detailed && (
         <group position={[0, 0, vd / 2 + 1.0]}>
           <mesh receiveShadow position={[0, 0.35, 0]}>
             <boxGeometry args={[3.0, 0.7, 1.9]} />
@@ -782,6 +793,7 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
 /* ── Industri: hallar med monitortak ──────────────────────────────── */
 
 function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, variant, solar }: DistrictBuildingProps) {
+  const detailed = useContext(FrontageContext);
   const hallH = 7 + (seed % 3) * 1.5;
   const mat = useFacade(color, windows, selected, false, type, variant);
   const w = parcel.w * 0.92;
@@ -833,7 +845,7 @@ function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, 
         <meshStandardMaterial color="#aab2b8" metalness={0.35} roughness={0.5} />
       </mesh>
       {/* Lastport + betongramp mot gatan */}
-      {windows && (
+      {windows && (detailed ? <FrontageDetails w={w} d={d} sx={sx} sz={sz} /> : (
         <>
           <mesh position={[sx * (w / 2 + 0.08), 3.2, sz * (d / 2 + 0.08)]}>
             <boxGeometry args={[sx !== 0 ? 0.3 : 6.5, 4.4, sz !== 0 ? 0.3 : 6.5]} />
@@ -844,7 +856,7 @@ function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, 
             <meshStandardMaterial color="#9a988e" roughness={0.95} />
           </mesh>
         </>
-      )}
+      ))}
       {solar && <SolarPanel w={w * 0.4} d={d * 0.34} y={hallH + 1.35} x={-w * 0.24} z={d * 0.22} />}
       {variant === "sliten" && (
         <group>
@@ -863,6 +875,7 @@ function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, 
 /* ── Hamnen: magasin ──────────────────────────────────────────────── */
 
 function HarborShed({ parcel, type, floors, color, windows, selected, handlers, seed, variant }: DistrictBuildingProps) {
+  const detailed = useContext(FrontageContext);
   const h = Math.max(2, floors) * FLOOR_HEIGHT * 0.9;
   const mat = useFacade(color, windows, selected, false, type, variant);
   const w = parcel.w * 0.9;
@@ -873,10 +886,10 @@ function HarborShed({ parcel, type, floors, color, windows, selected, handlers, 
       {/* Valmat magasinstak */}
       <HipRoof w={w} d={d} y={h + 1.3} rise={2.8} color={seed % 2 ? ROOF_DARK : "#5d4a3a"} />
       {/* Lastport eller kontorsentré */}
-      <mesh position={[0, 2, d / 2 + 0.06]}>
+      {detailed && windows ? <FrontageDetails w={w} d={d} sx={0} sz={1} /> : <mesh position={[0, 2, d / 2 + 0.06]}>
         <boxGeometry args={[w * 0.3, 4, 0.25]} />
         <meshStandardMaterial color={type === "kontor" ? "#8fa8b8" : "#4a4238"} />
-      </mesh>
+      </mesh>}
       {/* Hissbalk över porten – magasinens signum mot kajen */}
       <mesh castShadow position={[0, h - 0.3, d / 2 + 0.8]}>
         <boxGeometry args={[0.35, 0.35, 1.9]} />
@@ -906,22 +919,19 @@ function HarborShed({ parcel, type, floors, color, windows, selected, handlers, 
 
 /** Väljer byggnadsfamilj utifrån distriktet. */
 export function DistrictBuilding(props: DistrictBuildingProps) {
+  const detail = useMemo(() => props.frontage ? { property: props.frontage, district: props.parcel.district } : null,
+    [props.frontage, props.parcel.district]);
+  let building: ReactNode;
   switch (props.parcel.district) {
-    case "centrum":
-      return <CentrumHouse {...props} />;
-    case "finans":
-      return <FinanceTower {...props} />;
-    case "innerstad":
-      return <InnerstadHouse {...props} />;
-    case "förort":
-      return <SuburbBlock {...props} />;
-    case "industri":
-      return <IndustryHall {...props} />;
-    case "hamnen":
-      return <HarborShed {...props} />;
-    default:
-      return <Villa {...props} />;
+    case "centrum": building = <CentrumHouse {...props} />; break;
+    case "finans": building = <FinanceTower {...props} />; break;
+    case "innerstad": building = <InnerstadHouse {...props} />; break;
+    case "förort": building = <SuburbBlock {...props} />; break;
+    case "industri": building = <IndustryHall {...props} />; break;
+    case "hamnen": building = <HarborShed {...props} />; break;
+    default: building = <Villa {...props} />;
   }
+  return <FrontageContext.Provider value={detail}>{building}</FrontageContext.Provider>;
 }
 
 /** Ambient fasadfärg per distrikt (dekorativ bebyggelse). */

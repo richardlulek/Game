@@ -317,8 +317,9 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
 
   const previewRoot = useRef<Group>(null);
   const detailed = useUiStore(s => s.detailBlockId === parcel.blockId);
+  const previewDetail = useUiStore(s => `${s.graphics}:${s.lightMode}`);
   const property = content && "prop" in content ? content.prop : undefined;
-  const previewKey = property ? appearanceKey(property) : "";
+  const previewKey = property ? `${appearanceKey(property)}:${detailed ? previewDetail : "base"}` : "";
   useEffect(() => {
     if (!previewRoot.current || !previewKey || overlayActive) return;
     return registerThumbnailSource(parcel.id, { object: previewRoot.current, key: previewKey, readyAt: performance.now() + 900 });
@@ -433,7 +434,7 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
 
   return (
     <group position={[parcel.x, 0, parcel.z]}>
-      {property && <PropertyFeedback property={property} owned={content.kind === "owned"} radius={Math.max(parcel.w, parcel.d) / 2} />}
+      {property && <PropertyFeedback property={property} owned={content.kind === "owned"} radius={Math.max(parcel.w, parcel.d) / 2} detailed={detailed && !lodFar && !overlayActive} />}
       {/* Markplatta (exakt tomtstorlek – klickytan för tomten) */}
       <mesh receiveShadow position={[0, 0.07, 0]} {...handlers}>
         <boxGeometry args={[parcel.w, 0.14, parcel.d]} />
@@ -486,13 +487,14 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
                 seed={hash >> 3}
                 variant={variant}
                 solar={solar}
+                frontage={detailed && !overlayActive ? property : undefined}
               />
             )}
           </GrowIn>
         )}
         {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
         </group>
-        {detailed && property && !isSignature && !overlayActive && (
+        {detailed && property && !property.storyTag && !isSignature && !overlayActive && !underConstruction && (
           <PropertyStreetscape parcel={parcel} property={property} height={fullH} />
         )}
         {/* Ägar-beacon: alltid synlig färgprick (ej ockluderad) så man ser

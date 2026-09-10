@@ -4,15 +4,12 @@ import { parcelHash } from "../engine/city";
 import type { Property } from "../engine/types";
 import { PALETTE_CENTRUM, PALETTE_FINANS, PALETTE_FORORT, PALETTE_FUNKIS, PALETTE_HAMN, PALETTE_INDUSTRI, PALETTE_TEGEL, PALETTE_VILLA } from "./colors";
 import type { FacadeVariant } from "./textures";
+import { frontageState } from "./frontageDesign";
 
 /** Visual state is derived from the simulation; it never changes saves or economics. */
 export function propertyAppearance(parcel: Parcel, p: Property) {
   const seed = parcelHash(parcel.id);
-  const occupancy = p.capacity > 0 ? Math.min(1, Math.max(0, p.tenants.length / p.capacity)) : 0;
-  const works = p.pendingWorks?.some(w =>
-    w.kind === "underhåll" || w.kind === "energi" || (w.kind === "uppgradering" && ["fasad", "renovering", "tillbygg", "energi"].includes(w.upgradeId ?? "")),
-  ) ?? false;
-  const renovating = !!p.phased || !!p.renovation || works;
+  const { occupancy, working: renovating } = frontageState(p);
   const variant: FacadeVariant = p.condition < 40 ? "sliten" : occupancy === 0 ? "släckt" : occupancy >= 1 ? "tänt" : "normal";
   const palette = p.type === "industri" ? (parcel.district === "hamnen" ? PALETTE_HAMN : PALETTE_INDUSTRI)
     : parcel.district === "finans" ? PALETTE_FINANS
@@ -33,6 +30,6 @@ export function propertyAppearance(parcel: Parcel, p: Property) {
 export function appearanceKey(p: Property): string {
   return [p.id, p.parcelId, p.type, p.area, Math.round(p.condition), p.tenants.length, p.capacity,
     p.status, p.buildLeft, p.devLevel, p.energyClass, p.storyTag, p.signature,
-    p.upgrades.join(","), p.phased?.done, p.phased?.monthsLeft, p.renovation?.kind,
+    p.upgrades.join(","), p.tenants.map(t => t.name).join(";"), p.phased?.done, p.phased?.monthsLeft, p.renovation?.kind,
     p.pendingWorks?.map(w => `${w.kind}:${w.upgradeId ?? ""}`).join(",")].join("|");
 }

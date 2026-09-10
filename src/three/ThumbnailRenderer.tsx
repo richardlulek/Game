@@ -1,6 +1,6 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
-import { AmbientLight, Box3, Color, DirectionalLight, HemisphereLight, Mesh, MeshStandardMaterial, OrthographicCamera, Scene, Vector3, Vector4, WebGLRenderTarget, SRGBColorSpace } from "three";
+import { AmbientLight, Box3, Color, DirectionalLight, HemisphereLight, InstancedMesh, Mesh, MeshStandardMaterial, OrthographicCamera, Scene, Vector3, Vector4, WebGLRenderTarget, SRGBColorSpace } from "three";
 import { nextThumbnail, publishThumbnail } from "./propertyThumbnails";
 import { facadeEmissiveTexture, glassEmissiveTexture } from "./textures";
 
@@ -25,7 +25,9 @@ export function ThumbnailRenderer() {
     const { target, scene, camera, pixels, viewport, scissor } = resources;
     const copy = job.source.object.clone(true);
     const temporaryMaterials: MeshStandardMaterial[] = [];
+    const temporaryInstances: InstancedMesh[] = [];
     copy.traverse(node => {
+      if (node instanceof InstancedMesh) temporaryInstances.push(node);
       if (node.userData.thumbnailFullScale) node.scale.y = 1;
       if (node instanceof Mesh && node.material instanceof MeshStandardMaterial && node.material.userData.previewFacade) {
         const appearance = node.material.userData.previewFacade;
@@ -37,7 +39,7 @@ export function ThumbnailRenderer() {
     });
     copy.position.set(0, 0, 0); copy.updateMatrixWorld(true);
     const box = new Box3().setFromObject(copy);
-    if (box.isEmpty()) { temporaryMaterials.forEach(m => m.dispose()); return; }
+    if (box.isEmpty()) { temporaryMaterials.forEach(m => m.dispose()); temporaryInstances.forEach(m => m.dispose()); return; }
     const center = box.getCenter(new Vector3()), size = box.getSize(new Vector3());
     const radius = Math.max(size.length() * 0.55, 4);
     camera.left = -radius * 1.6; camera.right = radius * 1.6;
@@ -71,6 +73,9 @@ export function ThumbnailRenderer() {
     } finally {
       scene.remove(copy); scene.environment = null;
       temporaryMaterials.forEach(m => m.dispose());
+      // Cloned instance attributes own GPU buffers; geometry/materials remain
+      // shared with the live model and must never be disposed here.
+      temporaryInstances.forEach(m => m.dispose());
       gl.setRenderTarget(oldTarget, oldFace, oldLevel); gl.setViewport(viewport); gl.setScissor(scissor); gl.setScissorTest(scissorTest);
       gl.autoClear = autoClear; gl.shadowMap.autoUpdate = shadows; gl.toneMappingExposure = exposure;
     }
