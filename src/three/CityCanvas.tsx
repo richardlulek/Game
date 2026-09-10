@@ -1,4 +1,4 @@
-import { Html, MapControls, Sky } from "@react-three/drei";
+import { Html, MapControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo } from "react";
 import { Color, MeshStandardMaterial } from "three";
@@ -23,7 +23,7 @@ import { Headquarters } from "./Headquarters";
 import { MemoryNotes, RoggeCar } from "./StoryProps";
 import { unlockedDistrictsFor } from "../engine/story";
 import { OwnerLuxuries } from "./OwnerLuxuries";
-import { DISTRICT_TINTS, GROUND, SKY, WATER } from "./colors";
+import { DISTRICT_TINTS, GROUND, WATER } from "./colors";
 import { groundTexture } from "./textures";
 import type { ParcelContent } from "./ParcelNode";
 import { ParcelNode } from "./ParcelNode";
@@ -33,7 +33,9 @@ import { MegaLandmarks } from "./MegaProjects";
 import { Pedestrians, Roads, Traffic } from "./Roads";
 import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
-import { BuildingBlocks } from "./BuildingBlocks";
+import { CityLighting } from "./CityLighting";
+import { ContactFootprints } from "./ContactFootprints";
+import { ThumbnailRenderer } from "./ThumbnailRenderer";
 import { PerfProbe } from "../components/FpsMeter";
 
 const LABEL_STYLE: React.CSSProperties = {
@@ -102,7 +104,6 @@ function overlayTint(p: Property, state: GameState, mode: OverlayMode): string {
 function CityParcels() {
   const state = useGameStore((s) => s.state);
   const overlay = useUiStore((s) => s.overlay);
-  const lodFar = useUiStore((s) => s.lodFar);
   const { portfolio, listings, lots, competitors } = state;
 
   const byParcel = useMemo(() => {
@@ -182,8 +183,8 @@ function CityParcels() {
 
   return (
     <>
+      <ContactFootprints parcels={byParcel} />
       <StaticCity occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
-      {lodFar && <BuildingBlocks byParcel={byParcel} overlayActive={overlay !== "ingen"} />}
       {parcelNodes}
     </>
   );
@@ -242,9 +243,6 @@ function Water() {
   );
 }
 
-/** Solens riktning – delas av himmel och nyckelljus så de aldrig divergerar. */
-const SUN = [260, 230, 120] as const;
-
 /** Hela 3D-stadsvyn. Ren renderare av GameState – ingen spellogik här. */
 export function CityCanvas() {
   const select = useUiStore((s) => s.select);
@@ -261,34 +259,8 @@ export function CityCanvas() {
         gl.toneMappingExposure = 1.22;
       }}
     >
-      <fog attach="fog" args={[SKY, 800, 1900]} />
-      {/* Procedurell atmosfär – ger horisontdis och naturlig himmelsgradient. */}
-      <Sky
-        distance={4000}
-        sunPosition={[SUN[0], SUN[1], SUN[2]]}
-        turbidity={5.5}
-        rayleigh={1.6}
-        mieCoefficient={0.004}
-        mieDirectionalG={0.75}
-      />
-      <ambientLight intensity={0.48} />
-      <hemisphereLight args={["#bfd6ea", "#939781", 0.6]} />
-      {/* Varmt nyckelljus (sen eftermiddag) + kallt fyllnadsljus från motsatt håll. */}
-      <directionalLight
-        key={`sun-${preset.shadowMap}`}
-        position={[SUN[0], SUN[1], SUN[2]]}
-        color="#ffe7c4"
-        intensity={1.5}
-        castShadow={preset.shadows}
-        shadow-mapSize={[preset.shadowMap || 1024, preset.shadowMap || 1024]}
-        shadow-bias={-0.0004}
-        shadow-camera-left={-540}
-        shadow-camera-right={540}
-        shadow-camera-top={540}
-        shadow-camera-bottom={-540}
-        shadow-camera-far={1400}
-      />
-      <directionalLight position={[-200, 140, -180]} color="#b9cce0" intensity={0.5} />
+      <CityLighting />
+      <ThumbnailRenderer />
       {/* Nära zoom (18) låter spelaren gå ner på gatunivå och se detaljer –
           entréer, Rogges bil, minneslappar. zoomToCursor gör att man zoomar
           MOT huset man pekar på i stället för mot skärmens mitt. */}
@@ -328,10 +300,10 @@ export function CityCanvas() {
         <>
           <Clouds />
           <Birds />
-          <Traffic />
-          <Pedestrians />
         </>
       )}
+      <Traffic density={preset.population} />
+      <Pedestrians density={preset.population} />
       <CameraRig />
       <LodController />
       {showFps && <PerfProbe />}

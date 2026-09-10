@@ -23,6 +23,10 @@ export interface Cinematic {
 }
 
 interface UiStore {
+  detailBlockId: string | null;
+  setDetailBlock: (id: string | null) => void;
+  lightMode: "morning" | "day" | "evening";
+  setLightMode: (mode: "morning" | "day" | "evening") => void;
   overlay: OverlayMode;
   setOverlay: (overlay: OverlayMode) => void;
   selectedParcelId: string | null;
@@ -60,6 +64,10 @@ interface UiStore {
 }
 
 export const useUiStore = create<UiStore>((set) => ({
+  detailBlockId: null,
+  setDetailBlock: (detailBlockId) => set({ detailBlockId }),
+  lightMode: "day",
+  setLightMode: (lightMode) => set({ lightMode }),
   overlay: "ingen",
   setOverlay: (overlay) => set({ overlay }),
   selectedParcelId: null,

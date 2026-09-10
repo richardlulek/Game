@@ -38,6 +38,7 @@ import {
 } from "./colors";
 import { ambientColorFor, districtFloors } from "./districtBuildings";
 import { ambientProfile } from "../engine/landDeals";
+import { facadeSurfaceMaps } from "./surfaceMaps";
 import {
   facadeEmissiveTexture,
   facadeTexture,
@@ -352,10 +353,12 @@ function AmbientBuildings({ occupied, lockedBlocks, grown, onAmbientClick }: Cit
           kind === "glas"
             ? new MeshStandardMaterial({
                 vertexColors: true, map: glassTexture(4, 4), roughness: 0.3, metalness: 0.32,
+                ...facadeSurfaceMaps("kontor", "normal", true), bumpScale: 0.035, envMapIntensity: 0.85,
                 emissiveMap: glassEmissiveTexture(4, 4), emissive: "#ffffff", emissiveIntensity: 0.5,
               })
             : new MeshStandardMaterial({
                 vertexColors: true, map: facadeTexture(kind, variant), roughness: 0.82, metalness: 0.02,
+                ...facadeSurfaceMaps(kind, variant), bumpScale: 0.16, envMapIntensity: 0.3,
                 emissiveMap: facadeEmissiveTexture(kind, variant), emissive: "#ffffff", emissiveIntensity: 0.5,
               }),
         );

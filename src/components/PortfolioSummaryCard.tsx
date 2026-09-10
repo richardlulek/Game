@@ -6,6 +6,7 @@ import { kr, msek } from "../engine/format";
 import { propMarketValue, propNOI, propYieldOnCost } from "../engine/property";
 import type { GameState, Property } from "../engine/types";
 import { BURGUNDY, C, FONTS, THEME } from "../styles/tokens";
+import { ShowOnMap } from "./NeighborhoodControls";
 import { BuildingArt } from "./BuildingArt";
 import { CondBar } from "./CondBar";
 
@@ -100,7 +101,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
       title="Click to open full management"
     >
       {/* Miniatyr med typ + distrikt */}
-      <div style={{ position: "relative", height: 84, borderBottom: `2px solid ${C.brass}` }}>
+      <div style={{ position: "relative", height: 150, borderBottom: `2px solid ${C.brass}` }}>
         <BuildingArt p={p} month={state.month} cover />
         <div style={{
           position: "absolute", left: 0, right: 0, bottom: 0,
@@ -128,6 +129,7 @@ export function PortfolioSummaryCard({ p, state, open, onToggle }: Props) {
       </div>
 
       <div style={{ padding: "10px 12px 12px" }}>
+        <ShowOnMap parcelId={p.parcelId} />
         {/* Värde + yield */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 21, fontWeight: 800, fontFamily: FONTS.heading }}>{msek(value)}</span>

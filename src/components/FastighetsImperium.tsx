@@ -52,6 +52,7 @@ import { ContractCalendar } from "./ContractCalendar";
 import { TenantPanel } from "./TenantPanel";
 import { NewsFeedPanel } from "./NewsFeedPanel";
 import { StatsPanel } from "./StatsPanel";
+import { NeighborhoodControls } from "./NeighborhoodControls";
 import { OnboardingOverlay } from "./OnboardingOverlay";
 import { IndustryPanel } from "./IndustryPanel";
 import { IndustryMarket } from "./IndustryMarket";
@@ -213,7 +214,8 @@ export default function FastighetsImperium() {
   const showFps = useUiStore((s) => s.showFps);
   useEffect(() => {
     if (!pendingOpen) return;
-    if (pendingOpen === "offers") setShowOffers(true);
+    if (pendingOpen === "map") setMinimized([...winsRef.current.wins]);
+    else if (pendingOpen === "offers") setShowOffers(true);
     else openWindow(pendingOpen);
     clearOpen();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,6 +628,7 @@ export default function FastighetsImperium() {
         </div>
         <MapLegend />
         <OverlayToggle />
+        <NeighborhoodControls />
         <TodoHud openWindow={(id) => unlocked.has(id) && openWindow(id)} />
         <StoryHud />
         <MapSelectionCard openWindow={(id) => unlocked.has(id) && openWindow(id)} />

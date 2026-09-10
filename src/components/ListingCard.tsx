@@ -6,6 +6,7 @@ import { propAnnualOpex, propPotentialRent } from "../engine/property";
 import type { GameAction, GameState, Property } from "../engine/types";
 import { S } from "../styles/styles";
 import { BURGUNDY, C, FONTS } from "../styles/tokens";
+import { ShowOnMap } from "./NeighborhoodControls";
 import { BuildingArt } from "./BuildingArt";
 import { CondBar } from "./CondBar";
 
@@ -77,6 +78,7 @@ export function ListingCard({ p, state, dispatch }: ListingCardProps) {
         </div>
       </div>
 
+      <ShowOnMap parcelId={p.parcelId} />
       <div style={S.cardValue}>{msek(p.askPrice)}</div>
 
       {monthsOnMkt !== null && (

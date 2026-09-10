@@ -64,7 +64,7 @@ export function GrowIn({ children, handlers }: { children: React.ReactNode; hand
     g.scale.y += (1 - g.scale.y) * Math.min(1, dt * 3);
   });
   return (
-    <group ref={ref} {...handlers}>
+    <group ref={ref} userData={{ thumbnailFullScale: true }} {...handlers}>
       {children}
     </group>
   );

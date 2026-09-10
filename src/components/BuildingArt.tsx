@@ -7,6 +7,7 @@
      • bygger   → byggarbetsplats med kran
    ============================================================ */
 
+import { usePropertyThumbnail } from "../three/propertyThumbnails";
 import { seasonOf } from "../engine/season";
 import type { Property, PropTypeKey } from "../engine/types";
 
@@ -74,6 +75,11 @@ function windowGrid(
 }
 
 export function BuildingArt({ p, month, cover }: Props) {
+  const thumbnail = usePropertyThumbnail(p.parcelId);
+  if (thumbnail && !p.signature) return <img
+    src={thumbnail} alt={`${p.typeLabel} in ${p.districtName}`}
+    style={{ display: "block", width: "100%", height: cover ? "100%" : "auto", objectFit: "contain", background: "#dce6e8", aspectRatio: cover ? undefined : "8 / 5" }}
+  />;
   const gid = `sky-${p.id}`;
   const winter = month !== undefined && seasonOf(month) === "vinter";
   const sky = winter ? (["#c2d2e0", "#e6eef5"] as [string, string]) : SKY[p.type];

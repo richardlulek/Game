@@ -22,6 +22,7 @@ import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { PropTypeKey } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
+import { facadeSurfaceMaps } from "./surfaceMaps";
 import { FLOOR_HEIGHT, facadeBoxGeometry, type PointerHandlers } from "./BuildingShapes";
 import {
   PALETTE_FUNKIS,
@@ -96,12 +97,17 @@ function useFacade(
     });
     if (windows) {
       m.map = glass ? glassTexture(4, 4) : facadeTexture(kind, variant); // repeat 1×1 – UV:erna styr
+      Object.assign(m, facadeSurfaceMaps(kind, variant, glass));
+      m.bumpScale = glass ? 0.035 : kind === "industri" ? 0.1 : 0.16;
+      m.envMapIntensity = glass ? 0.85 : 0.3;
       // Tända fönster glöder på riktigt: emissivkaklet är svart utom
       // de tända rutorna, så glöden tintas inte ner av fasadfärgen.
       m.emissiveMap = glass ? glassEmissiveTexture(4, 4) : facadeEmissiveTexture(kind, variant);
       m.emissive.set("#ffffff");
       m.emissiveIntensity = 0.55;
     }
+    // Thumbnail clones restore this neutral material instead of capturing selection glow.
+    m.userData.previewFacade = { emissiveIntensity: m.emissiveIntensity, kind, variant, glass, windows };
     return m;
   }, [color, windows, glass, kind, variant]);
   useEffect(() => {

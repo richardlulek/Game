@@ -54,21 +54,20 @@ export interface GraphicsPreset {
   shadowMap: number;
   /** Levande stad: trafik, fotgängare, fåglar, moln. */
   ambient: boolean;
+  /** Keep a small moving population even on integrated GPUs. */
+  population: number;
   /** Avstånd där husen blir instansierade block (lägre = mer aggressivt). */
   lodEnter: number;
   lodExit: number;
 }
 
-// Bygg-LOD (instansierade block i översikt) är AVSTÄNGT tillsvidare: blocken
-// saknar fönstertextur och blev fula släta pelare. lodEnter satt bortom
-// kamerans maxavstånd (1000) → lodFar blir aldrig sant → husen renderas alltid
-// fullt. All LOD-infrastruktur ligger kvar; för att återaktivera (när blocken
-// texturerats) sänk lodEnter/lodExit till rimliga avstånd igen.
-const LOD_OFF = { lodEnter: 100000, lodExit: 99000 };
+// Detail LOD retains the original textured building silhouettes. Only small
+// roof/entrance objects and badges disappear; the old untextured blocks are
+// deliberately not used. Hysteresis prevents flicker at the threshold.
 export const GRAPHICS_PRESETS: Record<Quality, GraphicsPreset> = {
-  low:    { dpr: 1,    shadows: false, shadowMap: 0,    ambient: false, ...LOD_OFF },
-  medium: { dpr: 1.35, shadows: true,  shadowMap: 1024, ambient: true,  ...LOD_OFF },
-  high:   { dpr: 2,    shadows: true,  shadowMap: 2048, ambient: true,  ...LOD_OFF },
+  low:    { dpr: 1,    shadows: false, shadowMap: 0,    ambient: false, population: 0.25, lodEnter: 320, lodExit: 280 },
+  medium: { dpr: 1.35, shadows: true,  shadowMap: 1024, ambient: true, population: 0.6, lodEnter: 480, lodExit: 430 },
+  high:   { dpr: 1.75, shadows: true, shadowMap: 2048, ambient: true, population: 1, lodEnter: 650, lodExit: 590 },
 };
 
 export function getGraphics(): Quality {

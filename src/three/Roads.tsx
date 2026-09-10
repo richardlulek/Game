@@ -270,7 +270,7 @@ interface CarSpec {
  * gamla ping-pong-rörelsen fick bilar att tvärvända mitt på leden
  * och samtidigt teleportera till motsatt fil.
  */
-export function Traffic() {
+export function Traffic({ density = 1 }: { density?: number }) {
   const specs = useMemo<CarSpec[]>(() => {
     const out: CarSpec[] = [];
     ROADS.forEach((seg, i) => {
@@ -297,8 +297,8 @@ export function Traffic() {
         color: new Color(CAR_COLORS[(i + 2) % CAR_COLORS.length]),
       });
     });
-    return out;
-  }, []);
+    return out.filter((_, i) => i % Math.max(1, Math.round(1 / density)) === 0);
+  }, [density]);
 
   const meshes = useMemo(() => {
     const bodyMat = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.5, metalness: 0.15 });
@@ -388,7 +388,7 @@ const SKIN = new Color("#e0b592");
  * Att en människa vänder vid gatans slut ser naturligt ut, så här
  * duger ping-pong-rörelsen (till skillnad från bilarna).
  */
-export function Pedestrians() {
+export function Pedestrians({ density = 1 }: { density?: number }) {
   const specs = useMemo<PedSpec[]>(() => {
     const out: PedSpec[] = [];
     // Varannan kvartersgata får 2 fotgängare (en per trottoar)…
@@ -415,8 +415,8 @@ export function Pedestrians() {
         });
       }
     });
-    return out;
-  }, []);
+    return out.filter((_, i) => i % Math.max(1, Math.round(1 / density)) === 0);
+  }, [density]);
 
   const meshes = useMemo(() => {
     const bodyMat = new MeshStandardMaterial({ color: "#ffffff", roughness: 0.85 });

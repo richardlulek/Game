@@ -1,7 +1,7 @@
 import { Html, useCursor } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { memo, useRef, useState } from "react";
-import { Color, Vector3, type Group, type Sprite, type SpriteMaterial } from "three";
+import { memo, useEffect, useRef, useState } from "react";
+import { Vector3, type Group, type Sprite, type SpriteMaterial } from "three";
 import type { Parcel } from "../engine/city";
 import { expansionByBlock, parcelHash } from "../engine/city";
 import { PROP_TYPES } from "../engine/data";
@@ -9,10 +9,14 @@ import { msek } from "../engine/format";
 import type { Lot, Property, PropTypeKey } from "../engine/types";
 import { useGameStore } from "../store/gameStore";
 import { useUiStore } from "../store/uiStore";
-import { CONSTRUCTION, PLOT_COLORS, PLOT_FALLBACK, RING_COLORS, RIVAL_COLORS, TYPE_COLORS } from "./colors";
+import { CONSTRUCTION, PLOT_COLORS, PLOT_FALLBACK, RING_COLORS } from "./colors";
 import { ConstructionShell, FLOOR_HEIGHT, GrowIn, type PointerHandlers } from "./BuildingShapes";
 import { DistrictBuilding, HeirloomHouse, districtFloors } from "./districtBuildings";
 import { iconTexture, type FacadeVariant } from "./textures";
+import { propertyAppearance, appearanceKey } from "./propertyAppearance";
+import { registerThumbnailSource } from "./propertyThumbnails";
+import { PropertyStreetscape } from "./PropertyStreetscape";
+import { PropertyFeedback } from "./PropertyFeedback";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
@@ -131,13 +135,6 @@ function StatusBadge({ emoji, y, order, onClick, title }: {
 }
 
 const CRANE_COLOR = "#d98e2b";
-
-/** Fasadfärg som mörknar/gråtonas när skicket sjunker. */
-function facadeColor(base: string, condition: number): string {
-  const c = new Color(base);
-  c.lerp(new Color("#6f6a61"), ((100 - condition) / 100) * 0.55);
-  return `#${c.getHexString()}`;
-}
 
 function tooltipFor(content: ParcelContent): { title: string; sub: string } {
   switch (content.kind) {
@@ -318,6 +315,15 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
   const [hovered, setHovered] = useState(false);
   useCursor(hovered && !!content);
 
+  const previewRoot = useRef<Group>(null);
+  const detailed = useUiStore(s => s.detailBlockId === parcel.blockId);
+  const property = content && "prop" in content ? content.prop : undefined;
+  const previewKey = property ? appearanceKey(property) : "";
+  useEffect(() => {
+    if (!previewRoot.current || !previewKey || overlayActive) return;
+    return registerThumbnailSource(parcel.id, { object: previewRoot.current, key: previewKey, readyAt: performance.now() + 900 });
+  }, [parcel.id, previewKey, overlayActive, lodFar]);
+
   const hash = parcelHash(parcel.id);
   // Låst expansionsmark: inhägnat fält tills detaljplanen auktionerats ut.
   if (parcel.expansion && !unlockedExpansion) return <LockedExpansion parcel={parcel} />;
@@ -362,21 +368,16 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
   const isSignature = "prop" in content && !!content.prop.signature;
   if ("prop" in content && !isSignature) {
     const p = content.prop;
-    underConstruction = p.status === "bygger";
+    // Refurbishment keeps the existing house standing. Only new construction
+    // and demolition/rebuild use the rising structural shell.
+    underConstruction = p.status === "bygger" && (!p.renovation || p.renovation.kind === "nybyggnation");
     constructionProgress = underConstruction
       ? Math.max(0.08, 1 - p.buildLeft / PROP_TYPES[p.type].buildMonths)
       : 1;
-    if (p.status === "klar") {
-      if (p.condition < 40) variant = "sliten";
-      else if (content.kind !== "rival" && p.capacity > 0 && p.tenants.length === 0) variant = "släckt";
-      else if (content.kind === "owned" && p.tenants.length >= p.capacity) variant = "tänt";
-      solar = content.kind === "owned" && (p.energyClass === "A" || p.energyClass === "B");
-    }
-    // Kartlager: egna hus färgas efter metrik, allt annat gråtonas.
-    const baseColor =
-      content.kind === "rival"
-        ? RIVAL_COLORS[content.ownerIndex % RIVAL_COLORS.length]
-        : facadeColor(TYPE_COLORS[p.type], p.condition);
+    const appearance = propertyAppearance(parcel, p);
+    variant = appearance.variant;
+    solar = appearance.solar;
+    const baseColor = appearance.color;
     const color = overlayActive
       ? content.kind === "owned" && content.tint
         ? content.tint
@@ -432,6 +433,7 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
 
   return (
     <group position={[parcel.x, 0, parcel.z]}>
+      {property && <PropertyFeedback property={property} owned={content.kind === "owned"} radius={Math.max(parcel.w, parcel.d) / 2} />}
       {/* Markplatta (exakt tomtstorlek – klickytan för tomten) */}
       <mesh receiveShadow position={[0, 0.07, 0]} {...handlers}>
         <boxGeometry args={[parcel.w, 0.14, parcel.d]} />
@@ -444,6 +446,7 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
         </mesh>
       )}
       <group position={[0, 0.14, 0]}>
+        <group ref={previewRoot}>
         {building && underConstruction && (
           <ConstructionShell
             w={parcel.w * 0.9}
@@ -454,9 +457,8 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
             handlers={handlers}
           />
         )}
-        {/* LOD: i översikt ersätts det fulla huset av ett instansierat block
-            (BuildingBlocks) – här ritas inget så vi slipper dubbelrita. */}
-        {building && !underConstruction && !lodFar && (
+        {/* Detail LOD keeps the original textured silhouettes. */}
+        {building && !underConstruction && (
           <GrowIn handlers={{}}>
             {"prop" in content && content.prop.storyTag === "arvet" ? (
               /* Morfars hus: unik modell med tillbyggnader, presenning och flaggstång. */
@@ -489,6 +491,10 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
           </GrowIn>
         )}
         {underConstruction && building && <Crane towerH={Math.min(fullH, 45) + 7} />}
+        </group>
+        {detailed && property && !isSignature && !overlayActive && (
+          <PropertyStreetscape parcel={parcel} property={property} height={fullH} />
+        )}
         {/* Ägar-beacon: alltid synlig färgprick (ej ockluderad) så man ser
             din/till salu/tomt/konkurrent även i trånga områden. */}
         {(() => {

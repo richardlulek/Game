@@ -1,7 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import { Vector3 } from "three";
-import { parcelById } from "../engine/city";
+import { PARCELS, parcelById } from "../engine/city";
 import { useUiStore } from "../store/uiStore";
 import { GRAPHICS_PRESETS } from "../store/prefs";
 
@@ -21,8 +21,9 @@ const _t = new Vector3();
 
 export function LodController() {
   const far = useRef(false);
+  const elapsed = useRef(0);
   const preset = useUiStore((s) => GRAPHICS_PRESETS[s.graphics]);
-  useFrame((rootState) => {
+  useFrame((rootState, dt) => {
     const controls = rootState.controls as unknown as ControlsLike | null;
     if (!controls) return;
     _t.set(controls.target.x, controls.target.y, controls.target.z);
@@ -31,6 +32,16 @@ export function LodController() {
     if (next !== far.current) {
       far.current = next;
       useUiStore.getState().setLodFar(next);
+    }
+    elapsed.current += dt;
+    if (elapsed.current > 0.3) {
+      elapsed.current = 0;
+      const ui = useUiStore.getState();
+      const selected = ui.selectedParcelId ? parcelById(ui.selectedParcelId) : null;
+      const nearest = selected ?? PARCELS.reduce<typeof PARCELS[number] | null>((best, p) =>
+        !best || Math.hypot(p.x - _t.x, p.z - _t.z) < Math.hypot(best.x - _t.x, best.z - _t.z) ? p : best, null);
+      const block = !next && d < 340 ? nearest?.blockId ?? null : null;
+      if (block !== ui.detailBlockId) ui.setDetailBlock(block);
     }
   });
   return null;
