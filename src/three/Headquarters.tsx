@@ -1,3 +1,4 @@
+import { FacadeStructure } from "./FacadeStructure";
 /* Huvudkontoret – bolagets hem på kartan. Växer med bolagsnivån:
    från liten kontorsvilla till skyskrapa med guldkrona. Den mest
    direkta signalen om att spelarens bolag blir större. */
@@ -54,9 +55,9 @@ function Tower({
     return [side, side, top, top, side, side];
   }, [w, floors]);
   return (
-    <mesh castShadow receiveShadow material={mats} position={[x, h / 2, z]}>
+    <><FacadeStructure kind="office" volumes={[{ w, d, h, x, z }]} /><mesh castShadow receiveShadow material={mats} position={[x, h / 2, z]}>
       <boxGeometry args={[w, h, d]} />
-    </mesh>
+    </mesh></>
   );
 }
 

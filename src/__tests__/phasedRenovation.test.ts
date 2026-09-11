@@ -8,7 +8,7 @@
    Etappvis tas en lokal i taget. Testerna låser det som gör åtgärden till
    ett verkligt val: att hyran fortsätter, att priset är högre, och att
    halva jobbet ger halva effekten. */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   PHASED_COST,
   PHASED_MIN_UNITS,
@@ -19,6 +19,7 @@ import {
   phasedTotalMonths,
 } from "../engine/phased";
 import { advanceMonth } from "../engine/simulation";
+import { clearRng, seedRng } from "../engine/random";
 import { reducer } from "../engine/reducer";
 import { buildingAge } from "../engine/lifecycle";
 import { makeProperty, makeState, makeTenantFixture } from "./factories";
@@ -31,7 +32,9 @@ const tenants = (n: number) =>
 const oldHouse = (over = {}) =>
   makeProperty({
     id: 1, baseRent: 2_400_000, capacity: 4, condition: 50,
-    builtYear: -39, tenants: tenants(4), ...over,
+    // Försäkrat: en oförsäkrad katastrof drar 25 i skick och gör mätningen
+    // till ett lotteri i stället för ett test av etapperna.
+    builtYear: -39, insurance: true, tenants: tenants(4), ...over,
   });
 
 const withHouse = (over: Partial<GameState> = {}) =>
@@ -43,6 +46,11 @@ function run(s: GameState, months: number): GameState {
   for (let i = 0; i < months; i++) cur = advanceMonth({ ...cur, pendingDecision: null, auction: undefined });
   return cur;
 }
+
+/* Tolv månadssteg rör hela simuleringen, så slumpen måste stå still –
+   annars mäter testerna vädret och inte etapprenoveringen. */
+beforeEach(() => seedRng(4242));
+afterEach(() => clearRng());
 
 describe("vad som går att beställa", () => {
   it("kräver minst två lokaler – ett enrumshus görs inte i etapper", () => {

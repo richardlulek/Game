@@ -1,3 +1,4 @@
+import { FacadeStructure } from "./FacadeStructure";
 /* Industrierna på kartan – hotell, energiparker och logistikterminaler
    står på sina tomtrutor som allt annat och ger staden liv:
    · Hotell     torn efter stjärnnivå med entrémarkis och takskylt
@@ -43,6 +44,7 @@ export function Hotel({ pc, stars }: { pc: { w: number; d: number }; stars: numb
   const facade = useFacade(CREAM, Math.round(w / 3), floors);
   return (
     <group>
+      <FacadeStructure kind="masonry" volumes={[{ w, d, h }]} />
       <mesh castShadow receiveShadow material={facade} position={[0, h / 2, 0]}>
         <boxGeometry args={[w, h, d]} />
       </mesh>
@@ -190,6 +192,7 @@ export function Warehouse({ pc }: { pc: { w: number; d: number } }) {
   }, []);
   return (
     <group>
+      <FacadeStructure kind="industrial" volumes={[{ w, d, h, z: -pc.d * 0.12 }]} />
       <mesh castShadow receiveShadow material={hallMat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, -pc.d * 0.12]} dispose={null} />
       {/* Företagsband i mörkblått längs takkanten */}
       <mesh position={[0, h - 0.45, -pc.d * 0.12]}>

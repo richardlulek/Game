@@ -17,6 +17,7 @@ import { propertyAppearance, appearanceKey } from "./propertyAppearance";
 import { registerThumbnailSource } from "./propertyThumbnails";
 import { PropertyStreetscape } from "./PropertyStreetscape";
 import { PropertyFeedback } from "./PropertyFeedback";
+import { PropertyGround } from "./PropertyGround";
 
 /** Vad som står på en tomtruta enligt speltillståndet. */
 export type ParcelContent =
@@ -435,6 +436,7 @@ function ParcelNodeInner({ parcel, content }: { parcel: Parcel; content?: Parcel
   return (
     <group position={[parcel.x, 0, parcel.z]}>
       {property && <PropertyFeedback property={property} owned={content.kind === "owned"} radius={Math.max(parcel.w, parcel.d) / 2} detailed={detailed && !lodFar && !overlayActive} />}
+      {detailed && property && !property.storyTag && !isSignature && !overlayActive && !underConstruction && <PropertyGround parcel={parcel} property={property} />}
       {/* Markplatta (exakt tomtstorlek – klickytan för tomten) */}
       <mesh receiveShadow position={[0, 0.07, 0]} {...handlers}>
         <boxGeometry args={[parcel.w, 0.14, parcel.d]} />

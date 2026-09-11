@@ -5,6 +5,7 @@
    eller kulturstråk (sågtandshallar, torg och kampanil).
    Ren renderare av GameState – klickytor och ikoner bor i ParcelNode. */
 
+import { FacadeStructure } from "./FacadeStructure";
 import { useMemo } from "react";
 import { MeshStandardMaterial } from "three";
 import { PARCELS } from "../engine/city";
@@ -128,6 +129,13 @@ export function OfficeCluster({ b, floors }: { b: Bounds; floors: number }) {
   const h1 = floors * 3, h2 = h1 * 0.75, h3 = h1 * 0.5;
   return (
     <group position={[b.x, 0, b.z]}>
+      <FacadeStructure kind="office" volumes={[
+        { w: b.w * 0.96, d: b.d * 0.96, h: 4.4 },
+        { w: b.w * 0.34, d: b.d * 0.4, h: h1 * 0.78, x: -b.w * 0.22, z: -b.d * 0.16, y: 4.4 },
+        { w: b.w * 0.26, d: b.d * 0.32, h: h1 * 0.22, x: -b.w * 0.22, z: -b.d * 0.16, y: 4.4 + h1 * 0.78 },
+        { w: b.w * 0.3, d: b.d * 0.36, h: h2, x: b.w * 0.24, z: b.d * 0.18, y: 4.4 },
+        { w: b.w * 0.26, d: b.d * 0.3, h: h3, x: b.w * 0.22, z: -b.d * 0.24, y: 4.4 },
+      ]} />
       <mesh receiveShadow castShadow position={[0, 2.2, 0]}>
         <boxGeometry args={[b.w * 0.96, 4.4, b.d * 0.96]} />
         <meshStandardMaterial color={PLASTER} roughness={0.85} />
@@ -171,6 +179,10 @@ export function ResidentialBlock({ b, floors }: { b: Bounds; floors: number }) {
   const south = useFacade(PLASTER, 8, floors);
   return (
     <group position={[b.x, 0, b.z]}>
+      <FacadeStructure kind="masonry" volumes={[
+        { w: b.w, d: t, h, z: -(b.d - t) / 2 }, { w: b.w, d: t, h: h * 0.92, z: (b.d - t) / 2 },
+        { w: t, d: b.d - 2 * t, h: h * 0.85, x: -(b.w - t) / 2 }, { w: t, d: b.d - 2 * t, h: h * 0.95, x: (b.w - t) / 2 },
+      ]} />
       {([
         [0, -(b.d - t) / 2, b.w, t, north, 1],
         [0, (b.d - t) / 2, b.w, t, south, 0.92],
@@ -225,6 +237,7 @@ export function CultureDistrict({ b, floors }: { b: Bounds; floors: number }) {
   const teeth = 5;
   return (
     <group position={[b.x, 0, b.z]}>
+      <FacadeStructure kind="warehouse" volumes={[-0.26, 0.26].map(kz => ({ w: b.w * 0.9, d: b.d * 0.34, h, z: kz * b.d }))} />
       {([-b.d * 0.26, b.d * 0.26] as const).map((pz, hi) => (
         <group key={hi} position={[0, 0, pz]}>
           <mesh castShadow receiveShadow material={hall} position={[0, h / 2, 0]}>

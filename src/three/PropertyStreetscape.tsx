@@ -10,18 +10,28 @@ import { DISTRICT_FRONTAGES } from "./frontageDesign";
 import { streetFront } from "./frontagePlacement";
 import { getReduceMotion } from "../store/prefs";
 import { useUiStore } from "../store/uiStore";
+import { groundsPlan, walkingPath, sampleWalker, type WalkingPath } from "./groundsLayout";
 
-function Visitor({ width, phase, color }: { width: number; phase: number; color: string }) {
+function Visitor({ width, phase, color, path }: { width: number; phase: number; color: string; path?: WalkingPath }) {
   const ref = useRef<Group>(null);
+  const point = useRef({ x: 0, z: 0, heading: 0, visible: false });
   const left = useRef<Group>(null), right = useRef<Group>(null);
   useFrame(({ clock }) => {
     if (!ref.current) return;
     if (getReduceMotion()) { ref.current.visible = false; return; }
-    const t = (clock.elapsedTime * 0.055 + phase) % 1;
-    ref.current.visible = t < 0.86;
-    const progress = Math.min(1, t / 0.68);
-    ref.current.position.set((-width * 0.36) * (1 - progress), 0, t > 0.68 ? -(t - 0.68) * 8 : 0);
-    ref.current.rotation.y = t > 0.68 ? Math.PI : Math.PI / 2;
+    if (path && path.length > 0) {
+      const cycle = path.length / 1.1 / 0.4;
+      sampleWalker(path, clock.elapsedTime / cycle + phase, point.current);
+      ref.current.visible = point.current.visible;
+      ref.current.position.set(point.current.x, 0, point.current.z);
+      ref.current.rotation.y = point.current.heading;
+    } else {
+      const t = (clock.elapsedTime * 0.055 + phase) % 1;
+      ref.current.visible = t < 0.86;
+      const progress = Math.min(1, t / 0.68);
+      ref.current.position.set((-width * 0.36) * (1 - progress), 0, t > 0.68 ? -(t - 0.68) * 8 : 0);
+      ref.current.rotation.y = t > 0.68 ? Math.PI : Math.PI / 2;
+    }
     const step = Math.sin(clock.elapsedTime * 8 + phase * 10) * 0.38;
     if (left.current) left.current.rotation.x = step;
     if (right.current) right.current.rotation.x = -step;
@@ -39,6 +49,16 @@ function Visitor({ width, phase, color }: { width: number; phase: number; color:
  * Everything stays on the property's street edge; roads/layout/saves are untouched. */
 export function PropertyStreetscape({ parcel, property: p, height }: { parcel: Parcel; property: Property; height: number }) {
   const front = useMemo(() => streetFront(parcel), [parcel]);
+  const path = useMemo(() => {
+    if (!front) return undefined;
+    const points = groundsPlan(parcel).route;
+    if (points.length < 2) return undefined;
+    const cos = Math.cos(front.rotation), sin = Math.sin(front.rotation);
+    return walkingPath(points.map(p => {
+      const dx = p.x - front.x, dz = p.z - front.z;
+      return { x: dx * cos - dz * sin, z: dx * sin + dz * cos - front.depth / 2 - 1.05 };
+    }));
+  }, [parcel, front]);
   const style = DISTRICT_FRONTAGES[parcel.district] ?? DISTRICT_FRONTAGES.kulle;
   const appearance = propertyAppearance(parcel, p);
   const low = useUiStore(s => s.graphics === "low");
@@ -62,7 +82,7 @@ export function PropertyStreetscape({ parcel, property: p, height }: { parcel: P
       }
     }
     if (appearance.renovating) {
-      const cap = parcel.district === "kulle" ? 6 : parcel.district === "industri" ? 10 : parcel.district === "förort" ? 12 : 22;
+      const cap = parcel.district === "kulle" ? 6 : parcel.district === "industri" ? 10 : parcel.district === "förort" ? 15 : 22;
       const h = Math.min(height, cap);
       const z = d / 2 + 0.45;
       for (const x of [-w * 0.42, -w * 0.14, w * 0.14, w * 0.42])
@@ -91,8 +111,8 @@ export function PropertyStreetscape({ parcel, property: p, height }: { parcel: P
   return <group position={[front.x, 0, front.z]} rotation-y={front.rotation}>
     {meshes.map((m, i) => <primitive key={i} object={m} />)}
     {appearance.active && !appearance.renovating && !low && !p.storyTag && <group position={[0, 0, front.depth / 2 + 1.05]}>
-      <Visitor width={front.width} phase={0.12} color="#a55d46" />
-      {appearance.occupancy > 0.5 && <Visitor width={front.width} phase={0.62} color="#4a667b" />}
+      <Visitor width={front.width} phase={0.12} color="#a55d46" path={path} />
+      {appearance.occupancy > 0.5 && <Visitor width={front.width} phase={0.62} color="#4a667b" path={path} />}
     </group>}
   </group>;
 }

@@ -1,3 +1,4 @@
+import { FacadeStructure } from "./FacadeStructure";
 /* Megaprojekten på kartan – landmärken med fasta platser i stadens
    omland. Under uppförande: byggarbetsplats med kranar; invigda:
    arena (skål med läktare), universitetscampus (fakulteter + klock-
@@ -170,6 +171,7 @@ export function Campus() {
   const stone = useFacade("#ded5bd", 6, 3);
   return (
     <group>
+      <FacadeStructure kind="masonry" volumes={[{ x: -24, z: -10, w: 34, d: 12, h: 12 }, { x: 24, z: -10, w: 34, d: 12, h: 12 }, { x: 0, z: 16, w: 44, d: 13, h: 12 }]} />
       {([[-24, -10, 34, 12, brick], [24, -10, 34, 12, brick], [0, 16, 44, 13, stone]] as const).map(
         ([x, z, w, d, mat], i) => (
           <group key={i} position={[x as number, 0, z as number]}>
@@ -251,6 +253,7 @@ export function Hospital() {
   const white = useFacade("#eef0ee", 10, 6);
   return (
     <group>
+      <FacadeStructure kind="office" volumes={[{ x: -18, w: 14, d: 40, h: 18 }, { x: 18, w: 14, d: 40, h: 18 }, { w: 24, d: 12, h: 18 }]} />
       {([[-18, 0, 14, 40], [18, 0, 14, 40], [0, 0, 24, 12]] as const).map(([x, z, w, d], i) => (
         <group key={i} position={[x, 0, z]}>
           <mesh castShadow receiveShadow material={white} position={[0, 9, 0]}>

@@ -22,6 +22,9 @@ import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { Property, PropTypeKey } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
+import { FacadeStructure } from "./FacadeStructure";
+import { SuburbDetails, SuburbRoof } from "./SuburbDetails";
+import { suburbFloors, suburbLayout } from "./suburbLayout";
 import { FrontageContext, FrontageDetails } from "./FrontageDetails";
 import { facadeSurfaceMaps } from "./surfaceMaps";
 import { FLOOR_HEIGHT, facadeBoxGeometry, type PointerHandlers } from "./BuildingShapes";
@@ -522,6 +525,13 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
   const podiumH = FLOOR_HEIGHT * (2 + ((seed >> 2) % 2));
   return (
     <group {...handlers}>
+      <FacadeStructure kind="office" enabled={windows} volumes={[
+        ...(podium ? [{ w: parcel.w * 0.92, d: parcel.d * 0.92, h: podiumH }] : []),
+        ...(style === 1 ? [{ w, d, h: h * 0.6 }, { w: w * 0.78, d: d * 0.78, h: h * 0.25, y: h * 0.6 },
+          { w: w * 0.55, d: d * 0.55, h: h * 0.15, y: h * 0.85 }]
+          : style === 2 ? [{ w, d, h: h * 0.85 }, { w: w * 0.6, d: d * 0.6, h: h * 0.15, y: h * 0.85, rotation: Math.PI / 4 }]
+          : [{ w, d, h }]),
+      ]} />
       {podium && (
         <>
           <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(parcel.w * 0.92, podiumH, parcel.d * 0.92, true)} position={[0, podiumH / 2, 0]} dispose={null} />
@@ -660,12 +670,10 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
 
 function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers, seed, variant }: DistrictBuildingProps) {
   const detailed = useContext(FrontageContext);
-  const mat = useFacade(color, windows, selected, false, type, variant);
-  const houses = 4 + (seed % 3); // 4–6 huskroppar
-  const rows = 2;
-  const perRow = Math.ceil(houses / rows);
-  const hw = parcel.w / perRow - 4.5;
-  const hd = 9;
+  const mat = useFacade(color, false, selected, false, type, variant);
+  const layout = suburbLayout(parcel, seed);
+  const houses = layout.houses.length, perRow = layout.columns;
+  const hw = layout.houses[0].w, hd = layout.depth;
   // Miljonprogram: vart fjärde kvarter har platta tak med sarg i stället
   // för sadeltak – två tydligt olika förortsepoker.
   const flatRoofs = seed % 4 === 0;
@@ -673,11 +681,9 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
     <group {...handlers}>
       {Array.from({ length: houses }, (_, i) => {
         const row = Math.floor(i / perRow);
-        const col = i % perRow;
-        const hFloors = Math.max(2, Math.min(4, floors + ((seed >> (i * 2)) % 2) - ((seed >> (i * 2 + 1)) % 2)));
+        const hFloors = suburbFloors(floors, seed, row);
         const hh = hFloors * FLOOR_HEIGHT;
-        const x = -parcel.w / 2 + (col + 0.5) * (parcel.w / perRow);
-        const z = row === 0 ? -parcel.d / 2 + hd / 2 + 2.5 : parcel.d / 2 - hd / 2 - 2.5;
+        const { x, z } = layout.houses[i];
         const yard = row === 0 ? 1 : -1; // mot gården
         return (
           <group key={i} position={[x, 0, z]}>
@@ -688,19 +694,20 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
                 <meshStandardMaterial color={ROOF_DARK} roughness={0.9} />
               </mesh>
             ) : (
-              <HipRoof w={hw} d={hd} y={hh + 0.8} rise={1.8} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
+              <SuburbRoof w={hw} d={hd} y={hh} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
             )}
             {/* Entrétak mot gården (ingen skugga – ornament) */}
-            {detailed && (i === 0 || i === perRow) ? <FrontageDetails w={hw} d={hd} sx={0} sz={yard} /> : <mesh position={[0, 2.5, yard * (hd / 2 + 0.55)]}>
+            {type !== "bostad" && (detailed && (i === 0 || i === perRow) ? <FrontageDetails w={hw} d={hd} sx={0} sz={yard} /> : <mesh position={[0, 2.5, yard * (hd / 2 + 0.55)]}>
               <boxGeometry args={[2.2, 0.18, 1.1]} />
               <meshStandardMaterial color="#e8e2d4" />
-            </mesh>}
+            </mesh>)}
             {variant === "sliten" && i === 0 && <WornDetails w={hw} d={hd} h={hh} sx={0} sz={row === 0 ? -1 : 1} seed={seed} />}
           </group>
         );
       })}
+      <SuburbDetails parcel={parcel} seed={seed} floors={floors} property={detailed?.property} variant={variant} enabled={windows} residential={type === "bostad"} />
       {/* Gårdens grönska */}
-      {[[-parcel.w * 0.18, 0], [parcel.w * 0.2, 2], [0, -3]].map(([x, z], i) => (
+      {layout.trees.map(({ x, z }, i) => (
         <group key={`t${i}`} position={[x, 0, z]}>
           <mesh castShadow position={[0, 1, 0]}>
             <cylinderGeometry args={[0.3, 0.4, 2, 5]} />
@@ -802,6 +809,7 @@ function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, 
   const [sx, sz] = streetSide(parcel);
   return (
     <group {...handlers}>
+      <FacadeStructure kind="industrial" enabled={windows} volumes={[{ w, d, h: hallH, y: 1 }]} />
       {/* Betongsockel */}
       <mesh receiveShadow position={[0, 0.5, 0]}>
         <boxGeometry args={[w + 1, 1, d + 1]} />
@@ -882,6 +890,7 @@ function HarborShed({ parcel, type, floors, color, windows, selected, handlers, 
   const d = parcel.d * 0.78;
   return (
     <group {...handlers}>
+      <FacadeStructure kind="warehouse" enabled={windows} volumes={[{ w, d, h }]} />
       <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, 0]} dispose={null} />
       {/* Valmat magasinstak */}
       <HipRoof w={w} d={d} y={h + 1.3} rise={2.8} color={seed % 2 ? ROOF_DARK : "#5d4a3a"} />

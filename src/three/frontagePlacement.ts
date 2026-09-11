@@ -1,4 +1,5 @@
 import { parcelHash, type Parcel } from "../engine/city";
+import { suburbLayout } from "./suburbLayout";
 
 /** Same dimensions and orientation as the architecture families. Courtyard
  * and quay buildings have fixed entrances even when another edge faces a road. */
@@ -13,10 +14,8 @@ export function streetFront(parcel: Parcel) {
     case "hamnen": w *= 0.9; d *= 0.78; fixedSouth = true; break;
     case "kulle": w *= 0.55; d *= 0.55; fixedSouth = true; break;
     case "förort": {
-      const perRow = Math.ceil((4 + seed % 3) / 2);
-      w = parcel.w / perRow - 4.5; d = 9;
-      x = -parcel.w / 2 + 0.5 * parcel.w / perRow;
-      z = -parcel.d / 2 + d / 2 + 2.5;
+      const first = suburbLayout(parcel, seed).houses[0];
+      w = first.w; d = first.d; x = first.x; z = first.z;
       fixedSouth = true; break;
     }
   }

@@ -27,6 +27,8 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { PARCELS, ZONE_DEFS, hasAmbientBuilding, parcelAt, parcelHash, type Parcel } from "../engine/city";
 import { type Inst, buildInstances, useDisposable, withColor } from "./meshHelpers";
 import { useUiStore } from "../store/uiStore";
+import { facadeStructure, type StructureKind } from "./facadeStructure";
+import { suburbFloors, suburbLayout } from "./suburbLayout";
 import { FLOOR_HEIGHT } from "./BuildingShapes";
 import {
   PARK_GREEN,
@@ -254,20 +256,22 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       break;
     }
     case "förort": {
-      const houses = 4 + (seed % 3);
-      const perRow = Math.ceil(houses / 2);
-      const hw = p.w / perRow - 4.5;
-      const hd = 9;
-      for (let i = 0; i < houses; i++) {
-        const row = Math.floor(i / perRow);
-        const col = i % perRow;
-        const hFloors = Math.max(2, Math.min(4, floors + ((seed >> (i * 2)) % 2) - ((seed >> (i * 2 + 1)) % 2)));
-        const hh = hFloors * FLOOR_HEIGHT;
-        const x = p.x - p.w / 2 + (col + 0.5) * (p.w / perRow);
-        const z = row === 0 ? p.z - p.d / 2 + hd / 2 + 2.5 : p.z + p.d / 2 - hd / 2 - 2.5;
+      const layout = suburbLayout(p, seed);
+      layout.houses.forEach((house, i) => {
+        const hh = suburbFloors(floors, seed, Math.floor(i / layout.columns)) * FLOOR_HEIGHT;
+        const { w: hw, d: hd } = house, x = p.x + house.x, z = p.z + house.z;
         facades.push(facadeBox(hw, hh, hd, x, 0, z, color));
-        extras.push(hipRoofGeo(hw, hd, x, hh + 0.8, z, 1.8, (seed >> 3) % 2 ? ROOF_RED : ROOF_DARK));
-      }
+        extras.push(plainBox(hw + 0.08, 0.65, hd + 0.08, x, 0, z, new Color("#aaa69b")));
+        if (seed % 4 === 0) extras.push(plainBox(hw * 1.03, 0.6, hd * 1.03, x, hh, z, ROOF_DARK));
+        else {
+          const rise = Math.min(2.2, hd * 0.22);
+          const roof = new BoxGeometry(hw + 0.45, rise, hd + 0.44);
+          const positions = roof.attributes.position;
+          for (let j = 0; j < positions.count; j++) if (positions.getY(j) > 0) positions.setZ(j, 0);
+          roof.computeVertexNormals(); roof.translate(x, hh + rise / 2, z);
+          extras.push(withColor(roof, (seed >> 3) % 2 ? ROOF_RED : ROOF_DARK));
+        }
+      });
       break;
     }
     case "industri": {
@@ -307,6 +311,20 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       }
     }
   }
+  if (p.district !== "förort") {
+    const kind: StructureKind = p.district === "finans" ? "office" : p.district === "industri" ? "industrial" : p.district === "hamnen" ? "warehouse" : "masonry";
+    const scale = p.district === "finans" ? [0.72, 0.72] : p.district === "innerstad" ? [0.96, 0.96]
+      : p.district === "industri" ? [0.92, 0.8] : p.district === "hamnen" ? [0.9, 0.78] : p.district === "centrum" ? [1, 1] : [0.55, 0.55];
+    const height = p.district === "industri" ? 7 + seed % 3 * 1.5 : p.district === "hamnen" ? Math.max(2, floors) * 2.7 : p.district === "kulle" ? Math.min(2, floors) * 3 : h;
+    const entry: [number, number] = p.district === "hamnen" || p.district === "kulle" || p.edges.s ? [0, 1] : p.edges.n ? [0, -1] : p.edges.e ? [1, 0] : [-1, 0];
+    const palette = { frame: new Color(kind === "office" ? "#8e9ba4" : kind === "warehouse" ? "#695749" : "#afa898"), base: new Color("#868277"), glass: new Color("#617981") };
+    for (const part of facadeStructure({ w: p.w * scale[0], d: p.d * scale[1], h: height, x: p.x, z: p.z, y: p.district === "industri" ? 1 : 0 }, kind, true, entry)) {
+      const geometry = new BoxGeometry(part.sx, part.sy, part.sz);
+      geometry.rotateY(part.rotY); geometry.translate(part.x, part.y, part.z);
+      extras.push(withColor(geometry, palette[part.surface]));
+    }
+  }
+
 }
 
 const AMBIENT_BUCKETS: AmbientBucket[] = ["bostad", "kontor", "butik", "industri", "glas"];
