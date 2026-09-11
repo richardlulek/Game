@@ -1,3 +1,4 @@
+import { propertyBoundaries } from "./propertyBoundaries";
 import { useEffect, useMemo } from "react";
 import { BoxGeometry, Color, MeshStandardMaterial, SphereGeometry } from "three";
 import type { Parcel } from "../engine/city";
@@ -48,10 +49,11 @@ export function PropertyGround({ parcel, property }: { parcel: Parcel; property:
         lamps.push({ x: r.x, y: 1.53, z: r.z - 0.55, sx: 0.2, sy: 0.18, sz: 0.2 });
       }
     }
+    for(const r of propertyBoundaries(parcel,plan)) soil.push({x:r.x,y:.52,z:r.z,sx:r.w,sy:.75,sz:r.d});
     const groups = [
       { items: stone, color: restored ? style.stone : "#827f70" },
       { items: joints, color: worn ? "#504d41" : "#8c8b80" },
-      { items: soil, color: industrial ? "#767971" : "#645344" },
+      { items: soil, color: industrial ? "#767971" : "#747567" },
       { items: plants, color: restored ? "#526c4c" : "#7b8050", round: true },
       { items: metal, color: style.frame, metal: true },
       { items: lamps, color: "#efd9ab", glow: true },

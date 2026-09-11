@@ -14,7 +14,11 @@ export interface InfraSpot {
 }
 
 /** Distriktets södra kantmitt ur tomtrutorna (memo per distrikt). */
-const DISTRICT_EDGE = (() => {
+let edgeSource: typeof PARCELS[0] | undefined;
+let edgeCache = new Map<string, { minX: number; maxX: number; maxZ: number }>();
+function districtEdges() {
+  if(edgeSource === PARCELS[0]) return edgeCache;
+  edgeSource = PARCELS[0];
   const acc = new Map<string, { minX: number; maxX: number; maxZ: number }>();
   for (const p of PARCELS) {
     const cur = acc.get(p.district) ?? { minX: Infinity, maxX: -Infinity, maxZ: -Infinity };
@@ -23,15 +27,16 @@ const DISTRICT_EDGE = (() => {
     cur.maxZ = Math.max(cur.maxZ, p.z + p.d / 2);
     acc.set(p.district, cur);
   }
+  edgeCache = acc;
   return acc;
-})();
+}
 
 /** Ren placeringslogik: var infrastrukturens symboler står. */
 export function infraSpotsFor(state: GameState): InfraSpot[] {
   const spots: InfraSpot[] = [];
   const perDistrict = new Map<string, number>();
   const place = (district: string): { x: number; z: number } | null => {
-    const edge = DISTRICT_EDGE.get(district);
+    const edge = districtEdges().get(district);
     if (!edge) return null;
     const i = perDistrict.get(district) ?? 0;
     perDistrict.set(district, i + 1);

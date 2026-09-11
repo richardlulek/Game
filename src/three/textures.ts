@@ -172,7 +172,7 @@ const LIT_SHARE: Record<FacadeVariant, number> = {
   sliten: 0.5,
 };
 
-const CURTAIN_COLORS = ["#e8ddc8", "#d8c8b8", "#e2d4d0", "#ccd4c8"];
+const CURTAIN_COLORS = ["#b6b1a0", "#a9a694", "#b7afa0", "#a6aca0"];
 const SIGN_COLORS = ["#b6413a", "#3c6ca8", "#c9a13b", "#4d8b52", "#7a5c8f"];
 
 /** Fejkad AO i en fönsternisch: mörk kant upptill och till vänster ger
@@ -220,8 +220,8 @@ function drawFacadeTile(kind: FacadeKind, variant: FacadeVariant): TilePair {
         const wy = y + (door ? 10 : tallRow ? 14 : 18);
         const ww = door ? 24 : 36;
         const wh = door ? 46 : tallRow ? 37 : 31;
-        g.fillStyle = "#4a4a44";
-        g.fillRect(wx - 3, wy - 3, ww + 6, wh + 6);
+        g.fillStyle = "#c0bcac";
+        g.fillRect(wx - 2, wy - 2, ww + 4, wh + 4);
         if (lit(0.16)) {
           const warm = g.createLinearGradient(0, wy, 0, wy + wh);
           warm.addColorStop(0, "#ffe3ae");

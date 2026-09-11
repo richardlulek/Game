@@ -1,3 +1,5 @@
+import { groundObstacles } from "./groundsLayout";
+import { suburbLayout } from "./suburbLayout";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { InstancedMesh, Object3D } from "three";
 import { PARCELS, parcelById } from "../engine/city";
@@ -8,14 +10,16 @@ export function ContactFootprints({ parcels }: { parcels: Map<string, ParcelCont
   const ref = useRef<InstancedMesh>(null);
   const footprints = useMemo(() => [...parcels].flatMap(([id, content]) => {
     const p = parcelById(id);
-    return p && "prop" in content && !content.prop.signature ? [p] : [];
+    if(!p || !("prop" in content) || content.prop.signature || content.prop.storyTag) return [];
+    const bodies=p.district==='förort'?suburbLayout(p).houses:groundObstacles(p);
+    return bodies.map(r=>({x:p.x+r.x,z:p.z+r.z,w:r.w,d:r.d}));
   }), [parcels]);
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
     const o = new Object3D();
     footprints.forEach((p, i) => {
-      const factor = p.district === "kulle" ? 0.68 : 1.07;
+      const factor = 1.07;
       o.position.set(p.x, 0.165, p.z);
       o.rotation.x = -Math.PI / 2;
       o.scale.set(p.w * factor, p.d * factor, 1);
@@ -24,7 +28,7 @@ export function ContactFootprints({ parcels }: { parcels: Map<string, ParcelCont
     mesh.count = footprints.length; mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
   }, [footprints]);
-  return <instancedMesh ref={ref} args={[undefined, undefined, PARCELS.length]} raycast={() => null}>
+  return <instancedMesh ref={ref} args={[undefined, undefined, PARCELS.length * 6]} raycast={() => null}>
     <planeGeometry />
     <shaderMaterial transparent depthWrite={false}
       vertexShader="varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}"

@@ -1,3 +1,9 @@
+import { bayWindowParts } from "./bayWindowParts";
+import { centrumMassing } from "./centrumMassing";
+import { turretDetails } from "./centrumDetails";
+import { propertyFacadeColor } from "./propertyAppearance";
+import { financeMassing } from "./financeMassing";
+import { villaAnnex } from "./villaAnnex";
 /* ============================================================
    Statisk stad – allt som INTE är interaktivt ritas här med
    instansiering och sammanslagen geometri, i stället för som
@@ -24,21 +30,22 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { ThreeEvent } from "@react-three/fiber";
-import { PARCELS, ZONE_DEFS, hasAmbientBuilding, parcelAt, parcelHash, type Parcel } from "../engine/city";
+import { PARCELS, hasAmbientBuilding, parcelAt, parcelHash, type Parcel } from "../engine/city";
 import { type Inst, buildInstances, useDisposable, withColor } from "./meshHelpers";
 import { useUiStore } from "../store/uiStore";
 import { facadeStructure, type StructureKind } from "./facadeStructure";
+import { suburbParts } from "./suburbParts";
+import { architecturePalette } from "./architecturePalette";
 import { suburbFloors, suburbLayout } from "./suburbLayout";
 import { FLOOR_HEIGHT } from "./BuildingShapes";
 import {
   PARK_GREEN,
   PLOT_COLORS,
   PLOT_FALLBACK,
-  SIDEWALK,
   TREE_GREENS,
   TREE_TRUNK,
 } from "./colors";
-import { ambientColorFor, districtFloors } from "./districtBuildings";
+import { districtFloors } from "./districtBuildings";
 import { ambientProfile } from "../engine/landDeals";
 import { facadeSurfaceMaps } from "./surfaceMaps";
 import {
@@ -62,36 +69,6 @@ interface CityProps {
 const isLocked = (p: Parcel, locked: Set<string>) => !!p.expansion && locked.has(p.blockId);
 
 /* ── Trottoarer: en instans per gatusida ───────────────────────────── */
-
-function Sidewalks({ lockedBlocks }: { lockedBlocks: Set<string> }) {
-  const mesh = useMemo(() => {
-    const items: Inst[] = [];
-    // Trottoarbredd per distrikt: max 19 % av gatubredden per sida, så att
-    // körbanan (62 % av gatan) alltid syns. Med fast bredd 3 svalde
-    // trottoarerna hela gatunätet i Villakullen (gator på bara 6 enheter).
-    const sw = (district: string) => {
-      const street = ZONE_DEFS.find((z) => z.district === district)?.street ?? 10;
-      return Math.min(3, Math.max(1, street * 0.19));
-    };
-    for (const p of PARCELS) {
-      if (isLocked(p, lockedBlocks)) continue;
-      const e = p.edges;
-      const w = sw(p.district);
-      if (e.n) items.push({ x: p.x, y: 0.1, z: p.z - p.d / 2 - w / 2, sx: p.w + w, sy: 0.2, sz: w });
-      if (e.s) items.push({ x: p.x, y: 0.1, z: p.z + p.d / 2 + w / 2, sx: p.w + w, sy: 0.2, sz: w });
-      if (e.w) items.push({ x: p.x - p.w / 2 - w / 2, y: 0.1, z: p.z, sx: w, sy: 0.2, sz: p.d + w });
-      if (e.e) items.push({ x: p.x + p.w / 2 + w / 2, y: 0.1, z: p.z, sx: w, sy: 0.2, sz: p.d + w });
-    }
-    return buildInstances(
-      new BoxGeometry(1, 1, 1),
-      new MeshStandardMaterial({ color: SIDEWALK }),
-      items,
-      { receive: true },
-    );
-  }, [lockedBlocks]);
-  useDisposable(mesh);
-  return <primitive object={mesh} />;
-}
 
 /* Tomtkant + infart togs bort: kantstenslippen runt hela tomten och
    asfaltinfarten staplades ovanpå trottoaren och gav ett rörigt
@@ -225,26 +202,49 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
   const hash = parcelHash(p.id);
   const seed = hash >> 3;
   const floors = districtFloors(p, hash);
-  const color = new Color(ambientColorFor(p.district, hash >> 2));
+  const kind = ambientKindFor(p.district, seed);
+  const color = new Color(propertyFacadeColor(p.district, hash, kind === "glas" ? "kontor" : kind, ambientProfile(p).condition));
   // Väder fasaden efter tomtens dekorskick (samma skala som spelhusens
   // facadeColor). Skicket är detsamma som BUY_AMBIENT använder (ambientProfile),
   // så nedgångna hus syns gråare på kartan och man kan spana efter förvärvs-
   // och renoveringslägen – kartan och affären är överens.
   const condition = ambientProfile(p).condition;
   const worn = condition < 40;
-  color.lerp(new Color("#6f6a61"), ((100 - condition) / 100) * 0.55);
-  const dim = new Color().copy(color);
+
   const h = floors * FLOOR_HEIGHT;
 
   switch (p.district) {
     case "centrum": {
-      facades.push(facadeBox(p.w, h, p.d, p.x, 0, p.z, color));
-      extras.push(plainBox(p.w * 0.99, 0.7, p.d * 0.99, p.x, h, p.z, dim.multiplyScalar(0.6)));
+      const m=centrumMassing(p,seed);
+      facades.push(facadeBox(m.mainW,h,m.mainD,p.x+m.offX,0,p.z+m.offZ,color));
+      extras.push(plainBox(m.mainW*1.05,.55,m.mainD*1.05,p.x+m.offX,h-.825,p.z+m.offZ,color.clone().multiplyScalar(.66)));
+      extras.push(plainBox(m.mainW*.99,.7,m.mainD*.99,p.x+m.offX,h,p.z+m.offZ,color.clone().multiplyScalar(.6)));
+      if(m.hasInside) {
+        facades.push(facadeBox(m.wingW,m.wingH,m.wingD,p.x-m.offX,0,p.z-m.offZ,color));
+        extras.push(plainBox(m.wingW+.2,.2,m.wingD+.2,p.x-m.offX,m.wingH,p.z-m.offZ,color.clone().multiplyScalar(.66)));
+      }
+      if(m.turret) {
+        const tx=p.x+m.offX+m.ex*(m.mainW/2-.5),tz=p.z+m.offZ+m.ez*(m.mainD/2-.5);
+        const body=new CylinderGeometry(2,2,h+1.6,10);body.translate(tx,(h+1.6)/2,tz);extras.push(withColor(body,color));
+        const roof=new ConeGeometry(2.35,2.6,10);roof.translate(tx,h+2.9,tz);extras.push(withColor(roof,(seed>>1)%2?new Color('#4a6152'):ROOF_DARK));
+        const details=turretDetails(floors),palette=architecturePalette(color.getStyle());
+        for(const [kind,parts] of Object.entries(details)) for(const part of parts) {
+          const g=kind==='bands'?new CylinderGeometry(1,1,1,10):new BoxGeometry();
+          g.scale(part.sx??1,part.sy??1,part.sz??1);g.rotateY(part.rotY??0);g.translate(tx+part.x,part.y,tz+part.z);
+          extras.push(withColor(g,new Color(kind==='panes'?palette.glass:palette.frame)));
+        }
+      }
       break;
     }
     case "finans": {
-      facades.push(facadeBox(p.w * 0.72, h, p.d * 0.72, p.x, 0, p.z, color));
-      extras.push(plainBox(p.w * 0.5, 1.2, p.d * 0.5, p.x, h, p.z, dim.multiplyScalar(0.55)));
+      for (const v of financeMassing(p,h,seed)) {
+        const g=facadeBox(v.w,v.h,v.d,0,0,0,color);
+        if(v.rotation) g.rotateY(v.rotation);
+        g.translate(p.x,v.y??0,p.z);facades.push(g);
+        const roof=plainBox(v.w,0.16,v.d,0,v.h,0,new Color("#656a66"));
+        if(v.rotation) roof.rotateY(v.rotation);
+        roof.translate(p.x,v.y??0,p.z);extras.push(roof);
+      }
       break;
     }
     case "innerstad": {
@@ -252,7 +252,15 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       const d = p.d * 0.96;
       facades.push(facadeBox(w, h, d, p.x, 0, p.z, color));
       if (seed % 5 < 2) extras.push(hipRoofGeo(w, d, p.x, h + 1.1, p.z, 2.4, ROOF_RED));
-      else extras.push(plainBox(w * 0.55, 1.8, d * 0.55, p.x, h, p.z, dim.multiplyScalar(0.85)));
+      else {
+        facades.push(facadeBox(w*.55,1.8,d*.55,p.x,h,p.z,color));
+        extras.push(plainBox(w*.55+.25,.12,d*.55+.25,p.x,h+1.8,p.z,new Color('#6f736b')));
+        const {sx,sz}=centrumMassing(p,seed),rotation=sx?sx*Math.PI/2:sz<0?Math.PI:0;
+        for(const group of bayWindowParts(sx?d:w,floors,color.getStyle(),seed)) for(const part of group.items) {
+          const g=new BoxGeometry(part.sx,part.sy,part.sz);g.translate(part.x,part.y,part.z);g.rotateY(rotation);
+          g.translate(p.x+sx*w/2,0,p.z+sz*d/2);extras.push(withColor(g,new Color(group.color)));
+        }
+      }
       break;
     }
     case "förort": {
@@ -260,7 +268,7 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       layout.houses.forEach((house, i) => {
         const hh = suburbFloors(floors, seed, Math.floor(i / layout.columns)) * FLOOR_HEIGHT;
         const { w: hw, d: hd } = house, x = p.x + house.x, z = p.z + house.z;
-        facades.push(facadeBox(hw, hh, hd, x, 0, z, color));
+        extras.push(plainBox(hw, hh, hd, x, 0, z, color));
         extras.push(plainBox(hw + 0.08, 0.65, hd + 0.08, x, 0, z, new Color("#aaa69b")));
         if (seed % 4 === 0) extras.push(plainBox(hw * 1.03, 0.6, hd * 1.03, x, hh, z, ROOF_DARK));
         else {
@@ -269,9 +277,17 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
           const positions = roof.attributes.position;
           for (let j = 0; j < positions.count; j++) if (positions.getY(j) > 0) positions.setZ(j, 0);
           roof.computeVertexNormals(); roof.translate(x, hh + rise / 2, z);
-          extras.push(withColor(roof, (seed >> 3) % 2 ? ROOF_RED : ROOF_DARK));
+          withColor(roof, (seed >> 3) % 2 ? ROOF_RED : ROOF_DARK);
+          const vertexColors=roof.attributes.color,normals=roof.attributes.normal;
+          for(let j=0;j<normals.count;j++) if(Math.abs(normals.getX(j))>.9) vertexColors.setXYZ(j,color.r,color.g,color.b);
+          extras.push(roof);
         }
       });
+      for (const group of suburbParts(p, seed, floors, true, condition >= 70, false, false)) for (const part of group.items) {
+        const g = new BoxGeometry(part.sx, part.sy, part.sz);
+        g.translate(p.x + part.x, part.y, p.z + part.z);
+        extras.push(withColor(g, part.color ?? new Color(group.color)));
+      }
       break;
     }
     case "industri": {
@@ -280,7 +296,8 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       const d = p.d * 0.8;
       extras.push(plainBox(w + 1, 1, d + 1, p.x, 0, p.z, new Color("#9a988e")));
       facades.push(facadeBox(w, hallH, d, p.x, 1, p.z, color));
-      extras.push(hipRoofGeo(w * 0.9, d * 0.86, p.x, hallH + 2.1, p.z, 2.4, dim.multiplyScalar(0.7)));
+      const monitors=2+seed%2;
+      for(let i=0;i<monitors;i++) extras.push(hipRoofGeo(w/monitors*0.86,d*0.86,p.x-w/2+(i+0.5)*w/monitors,hallH+2.1,p.z,2.4,color.clone().multiplyScalar(0.7)));
       break;
     }
     case "hamnen": {
@@ -301,8 +318,16 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       roof.rotateY(Math.PI / 4);
       roof.translate(p.x, vh + 1.2, p.z);
       extras.push(withColor(roof, seed % 3 ? ROOF_RED : ROOF_DARK));
-      if (seed % 2 === 0)
-        extras.push(plainBox(4, 2.4, 3.4, p.x + vw * 0.85, 0, p.z - vd * 0.5, dim.multiplyScalar(0.85)));
+      if (seed % 2 === 0) for (const part of villaAnnex(vw, vd, color.getStyle()))
+        extras.push(plainBox(part.sx, part.sy, part.sz, p.x + part.x, part.y - part.sy / 2, p.z + part.z, new Color(part.color)));
+      if (seed % 3 === 0) {
+        facades.push(facadeBox(vw * 0.6, 3, vd * 0.75, p.x - vw * 0.68, 0, p.z + vd * 0.3, color));
+        const wingRoof=new ConeGeometry(vw*.44,1.1,4);wingRoof.rotateY(Math.PI/4);wingRoof.translate(p.x-vw*.68,3.55,p.z+vd*.3);
+        extras.push(withColor(wingRoof,seed%3?ROOF_RED:ROOF_DARK));
+      }
+      // A compact residential door replaces the former full-width blue panel.
+      extras.push(plainBox(1.1, 2.15, 0.12, p.x, 0.1, p.z + vd / 2 + 0.04, new Color("#575e59")));
+      extras.push(plainBox(1.5, 0.12, 0.7, p.x, 2.45, p.z + vd / 2 + 0.25, color));
       // Slitna villor: plywood för fönstren, så förfallet syns även på
       // dekorhusen (samma signal som spelhusens "sliten"-variant).
       if (worn) {
@@ -317,8 +342,11 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       : p.district === "industri" ? [0.92, 0.8] : p.district === "hamnen" ? [0.9, 0.78] : p.district === "centrum" ? [1, 1] : [0.55, 0.55];
     const height = p.district === "industri" ? 7 + seed % 3 * 1.5 : p.district === "hamnen" ? Math.max(2, floors) * 2.7 : p.district === "kulle" ? Math.min(2, floors) * 3 : h;
     const entry: [number, number] = p.district === "hamnen" || p.district === "kulle" || p.edges.s ? [0, 1] : p.edges.n ? [0, -1] : p.edges.e ? [1, 0] : [-1, 0];
-    const palette = { frame: new Color(kind === "office" ? "#8e9ba4" : kind === "warehouse" ? "#695749" : "#afa898"), base: new Color("#868277"), glass: new Color("#617981") };
-    for (const part of facadeStructure({ w: p.w * scale[0], d: p.d * scale[1], h: height, x: p.x, z: p.z, y: p.district === "industri" ? 1 : 0 }, kind, true, entry)) {
+    const sharedPalette = architecturePalette(color.getStyle());
+    const palette = { frame: new Color(sharedPalette.frame), base: new Color(sharedPalette.base), glass: new Color(sharedPalette.glass) };
+    const cm=centrumMassing(p,seed);
+    const volumes=p.district==="centrum"?[{w:cm.mainW,d:cm.mainD,h,x:p.x+cm.offX,z:p.z+cm.offZ},...(cm.hasInside?[{w:cm.wingW,d:cm.wingD,h:cm.wingH,x:p.x-cm.offX,z:p.z-cm.offZ}]:[])]:p.district==="finans"?financeMassing(p,h,seed).map(v=>({...v,x:p.x,z:p.z})):[{ w: p.w * scale[0], d: p.d * scale[1], h: height, x: p.x, z: p.z, y: p.district === "industri" ? 1 : 0 }];
+    for (const volume of volumes) for (const part of facadeStructure(volume, kind, true, p.district === "kulle" || (volume.y??0)>0 ? undefined : entry)) {
       const geometry = new BoxGeometry(part.sx, part.sy, part.sz);
       geometry.rotateY(part.rotY); geometry.translate(part.x, part.y, part.z);
       extras.push(withColor(geometry, palette[part.surface]));
@@ -440,7 +468,7 @@ function StaticCityInner({ occupied, lockedBlocks, grown }: CityProps) {
 
   return (
     <>
-      <Sidewalks lockedBlocks={lockedBlocks} />
+
       <PlotPlates occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} onAmbientClick={onAmbientClick} />
       <ParkTrees occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} />
       <AmbientBuildings occupied={occupied} lockedBlocks={lockedBlocks} grown={grown} onAmbientClick={onAmbientClick} />

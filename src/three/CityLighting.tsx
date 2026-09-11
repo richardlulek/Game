@@ -62,13 +62,13 @@ export function CityLighting() {
     }
   });
   return <>
-    <fog attach="fog" args={[mood.horizon, 750, 1800]} />
+    <fog attach="fog" args={[mood.horizon, mode === "evening" ? 650 : 900, mode === "evening" ? 1750 : 2100]} />
     <Sky distance={4000} sunPosition={[...mood.sun]} turbidity={mode === "evening" ? 7 : 3.5} rayleigh={1.6} mieCoefficient={0.004} mieDirectionalG={0.78} />
     <ambientLight intensity={mood.ambient} />
     <hemisphereLight args={[mood.sky, mood.ground, 0.45]} />
     <directionalLight ref={light} key={preset.shadowMap} position={[...mood.sun]} color={mood.color} intensity={mood.intensity}
       castShadow={preset.shadows} shadow-mapSize={[preset.shadowMap || 1024, preset.shadowMap || 1024]}
-      shadow-bias={-0.00015} shadow-normalBias={0.15} shadow-camera-near={1} shadow-camera-far={1800}
+      shadow-bias={-0.00015} shadow-normalBias={0.09} shadow-camera-near={1} shadow-camera-far={1800}
       shadow-camera-left={-540} shadow-camera-right={540} shadow-camera-top={540} shadow-camera-bottom={-540} />
   </>;
 }

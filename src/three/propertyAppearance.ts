@@ -11,15 +11,7 @@ export function propertyAppearance(parcel: Parcel, p: Property) {
   const seed = parcelHash(parcel.id);
   const { occupancy, working: renovating } = frontageState(p);
   const variant: FacadeVariant = p.condition < 40 ? "sliten" : occupancy === 0 ? "släckt" : occupancy >= 1 ? "tänt" : "normal";
-  const palette = p.type === "industri" ? (parcel.district === "hamnen" ? PALETTE_HAMN : PALETTE_INDUSTRI)
-    : parcel.district === "finans" ? PALETTE_FINANS
-    : parcel.district === "kulle" ? PALETTE_VILLA
-    : parcel.district === "förort" ? PALETTE_FORORT
-    : parcel.district === "centrum" ? PALETTE_CENTRUM
-    : seed % 2 ? PALETTE_TEGEL : PALETTE_FUNKIS;
-  const color = new Color(palette[seed % palette.length]);
-  color.lerp(new Color("#756e64"), Math.max(0, 100 - p.condition) / 100 * 0.38);
-  if (p.upgrades.includes("fasad")) color.lerp(new Color("#eee6d8"), 0.1);
+  const color = new Color(propertyFacadeColor(parcel.district, seed, p.type, p.condition, p.upgrades.includes("fasad")));
   return { color: `#${color.getHexString()}`, variant, occupancy, renovating,
     active: p.status === "klar" && occupancy > 0,
     caredFor: p.condition >= 70,
@@ -32,4 +24,17 @@ export function appearanceKey(p: Property): string {
     p.status, p.buildLeft, p.devLevel, p.energyClass, p.storyTag, p.signature,
     p.upgrades.join(","), p.tenants.map(t => t.name).join(";"), p.phased?.done, p.phased?.monthsLeft, p.renovation?.kind,
     p.pendingWorks?.map(w => `${w.kind}:${w.upgradeId ?? ""}:${w.monthsLeft}`).join(",")].join("|");
+}
+
+export function propertyFacadeColor(district: Parcel["district"], seed: number, type: Property["type"], condition: number, facadeUpgrade = false) {
+  const palette = type === "industri" ? (district === "hamnen" ? PALETTE_HAMN : PALETTE_INDUSTRI)
+    : district === "finans" ? PALETTE_FINANS
+    : district === "kulle" ? PALETTE_VILLA
+    : district === "förort" ? PALETTE_FORORT
+    : district === "centrum" ? PALETTE_CENTRUM
+    : seed % 2 ? PALETTE_TEGEL : PALETTE_FUNKIS;
+  const color = new Color(palette[seed % palette.length]);
+  color.lerp(new Color("#756e64"), Math.max(0, 100 - condition) / 100 * 0.38);
+  if (facadeUpgrade) color.lerp(new Color("#eee6d8"), 0.1);
+  return `#${color.getHexString()}`;
 }

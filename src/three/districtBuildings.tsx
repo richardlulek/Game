@@ -1,3 +1,6 @@
+import { centrumMassing } from "./centrumMassing";
+import { financeMassing } from "./financeMassing";
+import { VillaAnnex } from "./VillaAnnex";
 /* ============================================================
    Distriktsarkitektur – varje distrikt har sin egen byggnadsfamilj:
 
@@ -30,10 +33,6 @@ import { suburbFloors, suburbLayout } from "./suburbLayout";
 import { FrontageContext, FrontageDetails } from "./FrontageDetails";
 import { facadeSurfaceMaps } from "./surfaceMaps";
 import { FLOOR_HEIGHT, facadeBoxGeometry, type PointerHandlers } from "./BuildingShapes";
-import {
-  PALETTE_FUNKIS,
-  PALETTE_TEGEL,
-} from "./colors";
 import {
   facadeEmissiveTexture,
   facadeTexture,
@@ -410,22 +409,7 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
   const detailed = useContext(FrontageContext);
   const h = floors * FLOOR_HEIGHT;
   const mat = useFacade(color, windows, selected, false, type, variant);
-  const [sx, sz] = streetSide(parcel);
-  // Gårdsflygel: om tomten har en insida (motsatt gatusida) dras
-  // huvudvolymen mot gatan och en låg flygel fyller gårdssidan.
-  const hasInside = (sz !== 0 && !(parcel.edges.n && parcel.edges.s)) || (sx !== 0 && !(parcel.edges.e && parcel.edges.w));
-  const mainD = hasInside && sz !== 0 ? parcel.d * 0.68 : parcel.d;
-  const mainW = hasInside && sx !== 0 ? parcel.w * 0.68 : parcel.w;
-  const offX = hasInside && sx !== 0 ? (sx * (parcel.w - mainW)) / 2 : 0;
-  const offZ = hasInside && sz !== 0 ? (sz * (parcel.d - mainD)) / 2 : 0;
-  const wingH = FLOOR_HEIGHT * (1 + (seed % 2));
-  const wingW = sx !== 0 ? parcel.w - mainW : parcel.w * 0.86;
-  const wingD = sz !== 0 ? parcel.d - mainD : parcel.d * 0.86;
-  // Hörntorn: tomter i gatukors (två angränsande gatusidor) får ett runt
-  // torn med tälttak – stenstadens klassiska accent mot korsningen.
-  const ex = parcel.edges.e ? 1 : parcel.edges.w ? -1 : 0;
-  const ez = parcel.edges.s ? 1 : parcel.edges.n ? -1 : 0;
-  const turret = ex !== 0 && ez !== 0 && seed % 3 !== 0;
+  const { sx, sz, hasInside, mainD, mainW, offX, offZ, wingH, wingW, wingD, ex, ez, turret } = centrumMassing(parcel, seed);
   const trim = new Color(color).multiplyScalar(0.66).getStyle();
   return (
     <group {...handlers}>
@@ -441,7 +425,7 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
         <group position={[offX + ex * (mainW / 2 - 0.5), 0, offZ + ez * (mainD / 2 - 0.5)]}>
           <mesh castShadow receiveShadow position={[0, (h + 1.6) / 2, 0]}>
             <cylinderGeometry args={[2.0, 2.0, h + 1.6, 10]} />
-            <meshStandardMaterial color={new Color(color).multiplyScalar(0.92).getStyle()} roughness={0.8} />
+            <meshStandardMaterial color={color} roughness={0.8} />
           </mesh>
           <CentrumTurretDetails floors={floors} color={color} enabled={windows} />
           <mesh castShadow position={[0, h + 2.9, 0]}>
@@ -464,7 +448,7 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
         <group position={[-offX, 0, -offZ]}>
           <mesh castShadow receiveShadow position={[0, wingH / 2, 0]}
             geometry={facadeBoxGeometry(wingW, wingH, wingD)} material={mat} dispose={null} />
-          <FacadeStructure kind="masonry" enabled={windows} volumes={[{ w: wingW, d: wingD, h: wingH }]} />
+          <FacadeStructure color={color} kind="masonry" enabled={windows} volumes={[{ w: wingW, d: wingD, h: wingH }]} />
           <mesh receiveShadow position={[0, wingH + 0.1, 0]}>
             <boxGeometry args={[wingW + 0.2, 0.2, wingD + 0.2]} />
             <meshStandardMaterial color={trim} roughness={0.9} />
@@ -537,13 +521,7 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
   const podiumH = FLOOR_HEIGHT * (2 + ((seed >> 2) % 2));
   return (
     <group {...handlers}>
-      <FacadeStructure kind="office" enabled={windows} volumes={[
-        ...(podium ? [{ w: parcel.w * 0.92, d: parcel.d * 0.92, h: podiumH }] : []),
-        ...(style === 1 ? [{ w, d, h: h * 0.6 }, { w: w * 0.78, d: d * 0.78, h: h * 0.25, y: h * 0.6 },
-          { w: w * 0.55, d: d * 0.55, h: h * 0.15, y: h * 0.85 }]
-          : style === 2 ? [{ w, d, h: h * 0.85 }, { w: w * 0.6, d: d * 0.6, h: h * 0.15, y: h * 0.85, rotation: Math.PI / 4 }]
-          : [{ w, d, h }]),
-      ]} />
+      <FacadeStructure color={color} kind="office" enabled={windows} volumes={financeMassing(parcel, h, seed)} />
       {podium && (
         <>
           <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(parcel.w * 0.92, podiumH, parcel.d * 0.92, true)} position={[0, podiumH / 2, 0]} dispose={null} />
@@ -708,7 +686,7 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
                 <meshStandardMaterial color={ROOF_DARK} roughness={0.9} />
               </mesh>
             ) : (
-              <SuburbRoof w={hw} d={hd} y={hh} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
+              <SuburbRoof wallColor={color} w={hw} d={hd} y={hh} color={(seed >> 3) % 2 ? ROOF_RED : ROOF_DARK} />
             )}
             {/* Entrétak mot gården (ingen skugga – ornament) */}
             {type !== "bostad" && (detailed && (i === 0 || i === perRow) ? <FrontageDetails w={hw} d={hd} sx={0} sz={yard} /> : <mesh position={[0, 2.5, yard * (hd / 2 + 0.55)]}>
@@ -761,10 +739,7 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
       {/* Vinkelflygel i en våning – bryter kvadraten till en L-form */}
       {wing && (
         <group position={[-vw * 0.68, 0, vd * 0.3]}>
-          <mesh castShadow receiveShadow position={[0, FLOOR_HEIGHT / 2, 0]}>
-            <boxGeometry args={[vw * 0.6, FLOOR_HEIGHT, vd * 0.75]} />
-            <meshStandardMaterial color={new Color(color).multiplyScalar(0.92).getStyle()} />
-          </mesh>
+          <mesh castShadow receiveShadow position={[0, FLOOR_HEIGHT / 2, 0]} geometry={facadeBoxGeometry(vw * 0.6, FLOOR_HEIGHT, vd * 0.75)} material={mat} dispose={null} />
           <mesh castShadow position={[0, FLOOR_HEIGHT + 0.55, 0]} rotation-y={Math.PI / 4}>
             <coneGeometry args={[vw * 0.44, 1.1, 4]} />
             <meshStandardMaterial color={seed % 3 ? ROOF_RED : ROOF_DARK} />
@@ -786,12 +761,7 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
         </group>
       )}
       {/* Garage/förråd */}
-      {seed % 2 === 0 && (
-        <mesh castShadow receiveShadow position={[vw * 0.85, 1.2, -vd * 0.5]}>
-          <boxGeometry args={[4, 2.4, 3.4]} />
-          <meshStandardMaterial color={new Color(color).multiplyScalar(0.85).getStyle()} />
-        </mesh>
-      )}
+      {seed % 2 === 0 && <VillaAnnex w={vw} d={vd} color={color} />}
       {variant === "sliten" && (
         <group>
           <mesh position={[0, 1.9, vd / 2 + 0.06]}>
@@ -823,7 +793,7 @@ function IndustryHall({ parcel, type, color, windows, selected, handlers, seed, 
   const [sx, sz] = streetSide(parcel);
   return (
     <group {...handlers}>
-      <FacadeStructure kind="industrial" enabled={windows} volumes={[{ w, d, h: hallH, y: 1 }]} />
+      <FacadeStructure color={color} kind="industrial" enabled={windows} volumes={[{ w, d, h: hallH, y: 1 }]} />
       {/* Betongsockel */}
       <mesh receiveShadow position={[0, 0.5, 0]}>
         <boxGeometry args={[w + 1, 1, d + 1]} />
@@ -904,7 +874,7 @@ function HarborShed({ parcel, type, floors, color, windows, selected, handlers, 
   const d = parcel.d * 0.78;
   return (
     <group {...handlers}>
-      <FacadeStructure kind="warehouse" enabled={windows} volumes={[{ w, d, h }]} />
+      <FacadeStructure color={color} kind="warehouse" enabled={windows} volumes={[{ w, d, h }]} />
       <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, 0]} dispose={null} />
       {/* Valmat magasinstak */}
       <HipRoof w={w} d={d} y={h + 1.3} rise={2.8} color={seed % 2 ? ROOF_DARK : "#5d4a3a"} />
@@ -942,8 +912,8 @@ function HarborShed({ parcel, type, floors, color, windows, selected, handlers, 
 
 /** Väljer byggnadsfamilj utifrån distriktet. */
 export function DistrictBuilding(props: DistrictBuildingProps) {
-  const detail = useMemo(() => props.frontage ? { property: props.frontage, district: props.parcel.district } : null,
-    [props.frontage, props.parcel.district]);
+  const detail = useMemo(() => props.frontage ? { property: props.frontage, district: props.parcel.district, color: props.color } : null,
+    [props.frontage, props.parcel.district, props.color]);
   let building: ReactNode;
   switch (props.parcel.district) {
     case "centrum": building = <CentrumHouse {...props} />; break;
@@ -955,27 +925,6 @@ export function DistrictBuilding(props: DistrictBuildingProps) {
     default: building = <Villa {...props} />;
   }
   return <FrontageContext.Provider value={detail}>{building}</FrontageContext.Provider>;
-}
-
-/** Ambient fasadfärg per distrikt (dekorativ bebyggelse). */
-export function ambientColorFor(district: string, hash: number): string {
-  const pick = (arr: string[]) => arr[hash % arr.length];
-  switch (district) {
-    case "centrum":
-      return pick(["#d9cfc0", "#cfc0a8", "#c8b9a2", "#d6c6b0", "#b9a88f", "#e2d8c6"]);
-    case "finans":
-      return pick(["#8fb0c8", "#7fa3c0", "#6d94b5", "#9db8cc", "#5f88a8"]);
-    case "innerstad":
-      return hash % 5 < 2 ? pick(PALETTE_TEGEL) : pick(PALETTE_FUNKIS);
-    case "förort":
-      return pick(["#c9b8a0", "#b8a888", "#d0c0a8", "#a89878", "#c0ae90"]);
-    case "industri":
-      return pick(["#8a97a0", "#7a8a94", "#9aa8b0", "#708088", "#94a094"]);
-    case "hamnen":
-      return pick(["#96604a", "#7a5a48", "#8a6a55", "#6d7a82", "#856048"]);
-    default:
-      return pick(["#c8b090", "#b89878", "#d4c0a0", "#a08868", "#c0a888"]);
-  }
 }
 
 /* ── Morfars hus (berättelseläget "Arvet efter morfar") ─────────────── */

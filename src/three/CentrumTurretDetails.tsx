@@ -1,3 +1,4 @@
+import { architecturePalette, ARCHITECTURE } from "./architecturePalette";
 import { useEffect, useMemo } from "react";
 import { BoxGeometry, Color, CylinderGeometry, MeshStandardMaterial } from "three";
 import { buildInstances } from "./meshHelpers";
@@ -8,10 +9,10 @@ export function CentrumTurretDetails({ floors, color, enabled }: { floors: numbe
   const meshes = useMemo(() => {
     if (!enabled) return [];
     const { frames, panes, bands } = turretDetails(floors);
-    const trim = new Color(color).lerp(new Color("#e6ddc9"), 0.4);
+    const trim = new Color(architecturePalette(color).frame);
     return [
       buildInstances(new BoxGeometry(), new MeshStandardMaterial({ color: trim, roughness: 0.85 }), frames, { receive: true }),
-      buildInstances(new BoxGeometry(), new MeshStandardMaterial({ color: "#53636b", roughness: 0.3, metalness: 0.18 }), panes),
+      buildInstances(new BoxGeometry(), new MeshStandardMaterial({ color: ARCHITECTURE.glass, roughness: 0.3, metalness: 0.18 }), panes),
       buildInstances(new CylinderGeometry(1, 1, 1, 10), new MeshStandardMaterial({ color: trim, roughness: 0.85 }), bands, { receive: true }),
     ];
   }, [floors, color, enabled]);

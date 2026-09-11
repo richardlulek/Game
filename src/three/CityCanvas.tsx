@@ -35,6 +35,7 @@ import { SignatureBlocks } from "./SignatureBlocks";
 import { StaticCity } from "./StaticCity";
 import { CityLighting } from "./CityLighting";
 import { CityAmbience } from "./CityAmbience";
+import { CityPublicRealm } from "./CityPublicRealm";
 import { ContactFootprints } from "./ContactFootprints";
 import { ThumbnailRenderer } from "./ThumbnailRenderer";
 import { PerfProbe } from "../components/FpsMeter";
@@ -285,6 +286,7 @@ export function CityCanvas() {
       {/* Landskapet utanför staden: åkrar, skog, kullar, berg, skärgård. */}
       <Backdrop />
       <Roads />
+      <CityPublicRealm />
       <DistrictPlates />
       <CityParcels />
       <Harbor />

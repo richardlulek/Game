@@ -1,3 +1,4 @@
+import { architecturePalette } from "./architecturePalette";
 import { createContext, useContext, useEffect, useMemo } from "react";
 import { BoxGeometry, MeshStandardMaterial } from "three";
 import type { Property } from "../engine/types";
@@ -8,7 +9,7 @@ import { nameSignTexture } from "./textures";
 
 // Only the viewed interactive block provides a property. Ambient houses keep
 // their inexpensive existing entrances and do not allocate detailed meshes.
-export const FrontageContext = createContext<{ property: Property; district: string } | null>(null);
+export const FrontageContext = createContext<{ property: Property; district: string; color?: string } | null>(null);
 
 export function FrontageDetails({ w, d, sx, sz }: { w: number; d: number; sx: number; sz: number }) {
   const data = useContext(FrontageContext);
@@ -18,9 +19,9 @@ export function FrontageDetails({ w, d, sx, sz }: { w: number; d: number; sx: nu
   const meshes = useMemo(() => {
     if (!data) return [];
     const parts = frontageParts(width, data.district, data.property, low);
-    const state = frontageState(data.property);
     const style = DISTRICT_FRONTAGES[data.district] ?? DISTRICT_FRONTAGES.kulle;
-    const colors = { ...style, stone: state.restored ? style.stone : "#827e72", dark: "#202a2d", glass: "#819ba4", warm: "#f1ce8d", green: "#536e4f" };
+    const parent = architecturePalette(data.color ?? style.stone);
+    const colors = { ...style, stone: parent.frame, frame: parent.base, dark: "#202a2d", glass: parent.glass, warm: "#f1ce8d", green: "#536e4f" };
     return (Object.keys(parts) as FrontageSurface[]).filter(key => parts[key].length > 0).map(key => {
       const mat = new MeshStandardMaterial({ color: colors[key],
         roughness: key === "glass" ? 0.23 : key === "frame" ? 0.4 : 0.88,
