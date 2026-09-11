@@ -1,9 +1,11 @@
 import { parcelHash, type Parcel } from "../engine/city";
+import type { PropTypeKey } from "../engine/types";
 import { suburbLayout } from "./suburbLayout";
 import { streetFront } from "./frontagePlacement";
 
 export interface GroundPoint { x: number; z: number; }
 export interface GroundRect extends GroundPoint { w: number; d: number; }
+export interface GroundAmenity extends GroundRect { kind: "parking" | "loading" | "bikes" | "bins"; rotation: number; }
 export interface WalkingPath { points: GroundPoint[]; cumulative: number[]; length: number; }
 export function walkingPath(points: GroundPoint[]): WalkingPath {
   const cumulative = [0];
@@ -103,9 +105,9 @@ export function routeToStreet(p: Parcel, start: GroundPoint, obstacles: GroundRe
   return [];
 }
 
-export function groundsPlan(p: Parcel) {
+export function groundsPlan(p: Parcel, type: PropTypeKey = "bostad") {
   const front = streetFront(p), obstacles = groundObstacles(p);
-  if (!front) return { obstacles, route: [] as GroundPoint[], paving: [] as GroundRect[], beds: [] as GroundRect[] };
+  if (!front) return { obstacles, route: [] as GroundPoint[], paving: [] as GroundRect[], beds: [] as GroundRect[], amenities: [] as GroundAmenity[] };
   const sin = Math.sin(front.rotation), cos = Math.cos(front.rotation);
   // Reserve existing entrance furniture, so paths and planting cannot cross it.
   const place = (x: number, z: number) => ({ x: front.x + x * cos + z * sin, z: front.z - x * sin + z * cos });
@@ -113,19 +115,51 @@ export function groundsPlan(p: Parcel) {
     const at = place(side * front.width * 0.36, front.depth / 2 + 0.7);
     obstacles.push({ ...at, w: 1.5 * Math.min(1, front.width / 10), d: 1.5 * Math.min(1, front.width / 10) });
   }
-  if (front.width > 12) obstacles.push({ ...place(-front.width * 0.23, front.depth / 2 + 1), w: 1.9, d: 1.9 });
+  if (front.width > 12) for (const side of [-1, 1]) obstacles.push({ ...place(side * front.width * 0.23, front.depth / 2 + 1), w: 1.9, d: 1.9 });
+  const workSpan = front.width * 0.43 - 2.5;
+  if (workSpan > 0.8) for (const side of [-1, 1]) {
+    // Reserve scaffolding clearance even when idle so workers keep the same route.
+    const at = place(side * (2.5 + workSpan / 2), front.depth / 2 + 0.65);
+    obstacles.push({ ...at, w: Math.abs(cos) * (workSpan + 0.25) + Math.abs(sin) * 1.35,
+      d: Math.abs(sin) * (workSpan + 0.25) + Math.abs(cos) * 1.35 });
+  }
   const route = routeToStreet(p, place(0, front.depth / 2 + 0.85), obstacles);
   const paving = route.slice(1).map((point, i) => pathRect(route[i], point));
+  const amenities: GroundAmenity[] = [];
+  const accept = (r: GroundAmenity) => {
+    if (insidePlot(r, p) && ![...obstacles, ...paving, ...amenities].some(b => overlaps(r, b, 0.25))) amenities.push(r);
+  };
+  // Parallel parking opens directly onto a street. No cars in landlocked gardens.
+  for (const edge of ["s", "n", "e", "w"] as const) {
+    if (!p.edges[edge] || amenities.length >= 2) continue;
+    const horizontal = edge === "s" || edge === "n";
+    const sign = edge === "s" || edge === "e" ? 1 : -1;
+    for (const side of [-1, 1]) {
+      if (amenities.length >= 2) break;
+      accept({ kind: type === "industri" ? "loading" : "parking", rotation: horizontal ? 0 : Math.PI / 2,
+        x: horizontal ? side * p.w * 0.26 : sign * (p.w / 2 - 1.15),
+        z: horizontal ? sign * (p.d / 2 - 1.15) : side * p.d * 0.26,
+        w: horizontal ? 5.4 : 2.2, d: horizontal ? 2.2 : 5.4 });
+    }
+  }
+  for (const kind of (type === "industri" ? ["bins"] : ["bikes", "bins"]) as ("bins" | "bikes")[]) {
+    const w = kind === "bins" ? 1.5 : 2.1, d = kind === "bins" ? 0.9 : 1.35;
+    for (const x of [-p.w / 2 + w / 2 + 0.3, p.w / 2 - w / 2 - 0.3, -p.w * 0.22, p.w * 0.22]) {
+      for (const z of [0, -p.d / 2 + d / 2 + 0.3, p.d / 2 - d / 2 - 0.3]) {
+        if (!amenities.some(a => a.kind === kind)) accept({ kind, x, z, w, d, rotation: 0 });
+      }
+    }
+  }
   const beds: GroundRect[] = [];
   // Deterministic candidates, accepted only when completely clear of the path
   // and the actual houses. No speculative gardens on occupied building volume.
   for (const x of [-p.w / 2 + 1, p.w / 2 - 1, -p.w * 0.24, p.w * 0.24]) {
     for (const z of [-p.d / 2 + 1.2, p.d / 2 - 1.2, 0]) {
       const bed = { x, z, w: 1.1, d: 1.5 };
-      if (insidePlot(bed, p) && ![...obstacles, ...paving, ...beds].some(r => overlaps(bed, r, 0.25))) beds.push(bed);
+      if (insidePlot(bed, p) && ![...obstacles, ...paving, ...amenities, ...beds].some(r => overlaps(bed, r, 0.25))) beds.push(bed);
       if (beds.length === 6) break;
     }
     if (beds.length === 6) break;
   }
-  return { obstacles, route, paving, beds };
+  return { obstacles, route, paving, beds, amenities };
 }

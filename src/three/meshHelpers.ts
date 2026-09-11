@@ -15,6 +15,7 @@ export interface Inst {
   x: number; y: number; z: number;
   sx?: number; sy?: number; sz?: number;
   rotY?: number;
+  rotZ?: number;
   color?: Color;
 }
 
@@ -29,7 +30,7 @@ export function buildInstances(
   const o = new Object3D();
   items.forEach((it, i) => {
     o.position.set(it.x, it.y, it.z);
-    o.rotation.set(0, it.rotY ?? 0, 0);
+    o.rotation.set(0, it.rotY ?? 0, it.rotZ ?? 0);
     o.scale.set(it.sx ?? 1, it.sy ?? 1, it.sz ?? 1);
     o.updateMatrix();
     mesh.setMatrixAt(i, o.matrix);

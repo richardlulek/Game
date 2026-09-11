@@ -67,3 +67,14 @@ body {
   .neighborhood-light-label { display: none; }
   .neighborhood-controls select { width: 100%; }
 }
+
+.property-view-controls { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.property-view-controls button { min-width: 36px; }
+@media (max-width: 900px) {
+  .neighborhood-controls { flex-wrap: wrap; max-width: min(480px, calc(100% - 24px)); }
+}
+@media (max-width: 600px) {
+  .neighborhood-controls { max-width: 190px; }
+  .property-view-controls { max-width: 178px; }
+  .property-view-controls select { width: auto; flex: 1; min-width: 90px; }
+}

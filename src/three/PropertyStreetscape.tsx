@@ -10,9 +10,10 @@ import { DISTRICT_FRONTAGES } from "./frontageDesign";
 import { streetFront } from "./frontagePlacement";
 import { getReduceMotion } from "../store/prefs";
 import { useUiStore } from "../store/uiStore";
+import { buildingWorkState } from "./buildingWorkState";
 import { groundsPlan, walkingPath, sampleWalker, type WalkingPath } from "./groundsLayout";
 
-function Visitor({ width, phase, color, path }: { width: number; phase: number; color: string; path?: WalkingPath }) {
+function Visitor({ phase, color, path, role }: { phase: number; color: string; path: WalkingPath; role: "resident" | "visitor" | "worker" }) {
   const ref = useRef<Group>(null);
   const point = useRef({ x: 0, z: 0, heading: 0, visible: false });
   const left = useRef<Group>(null), right = useRef<Group>(null);
@@ -25,12 +26,6 @@ function Visitor({ width, phase, color, path }: { width: number; phase: number; 
       ref.current.visible = point.current.visible;
       ref.current.position.set(point.current.x, 0, point.current.z);
       ref.current.rotation.y = point.current.heading;
-    } else {
-      const t = (clock.elapsedTime * 0.055 + phase) % 1;
-      ref.current.visible = t < 0.86;
-      const progress = Math.min(1, t / 0.68);
-      ref.current.position.set((-width * 0.36) * (1 - progress), 0, t > 0.68 ? -(t - 0.68) * 8 : 0);
-      ref.current.rotation.y = t > 0.68 ? Math.PI : Math.PI / 2;
     }
     const step = Math.sin(clock.elapsedTime * 8 + phase * 10) * 0.38;
     if (left.current) left.current.rotation.x = step;
@@ -39,6 +34,8 @@ function Visitor({ width, phase, color, path }: { width: number; phase: number; 
   return <group ref={ref}>
     <mesh position={[0, 1.05, 0]} castShadow><boxGeometry args={[0.46, 0.65, 0.28]} /><meshStandardMaterial color={color} roughness={0.95} /></mesh>
     <mesh position={[0, 1.58, 0]}><sphereGeometry args={[0.2, 8, 6]} /><meshStandardMaterial color="#b98d70" /></mesh>
+    {role === "worker" && <mesh position={[0, 1.76, 0]}><sphereGeometry args={[0.23, 8, 5]} /><meshStandardMaterial color="#d6ad4e" /></mesh>}
+    {role !== "resident" && <mesh position={[0.32, 0.88, 0]}><boxGeometry args={[0.18, 0.35, 0.3]} /><meshStandardMaterial color={role === "worker" ? "#b88748" : "#5b4e42"} /></mesh>}
     {[-1, 1].map((side, i) => <group key={side} ref={i ? right : left} position={[side * 0.13, 0.75, 0]}>
       <mesh position={[0, -0.33, 0]}><boxGeometry args={[0.18, 0.66, 0.2]} /><meshStandardMaterial color="#303b42" /></mesh>
     </group>)}
@@ -51,16 +48,17 @@ export function PropertyStreetscape({ parcel, property: p, height }: { parcel: P
   const front = useMemo(() => streetFront(parcel), [parcel]);
   const path = useMemo(() => {
     if (!front) return undefined;
-    const points = groundsPlan(parcel).route;
+    const points = groundsPlan(parcel, p.type).route;
     if (points.length < 2) return undefined;
     const cos = Math.cos(front.rotation), sin = Math.sin(front.rotation);
     return walkingPath(points.map(p => {
       const dx = p.x - front.x, dz = p.z - front.z;
       return { x: dx * cos - dz * sin, z: dx * sin + dz * cos - front.depth / 2 - 1.05 };
     }));
-  }, [parcel, front]);
+  }, [parcel, front, p.type]);
   const style = DISTRICT_FRONTAGES[parcel.district] ?? DISTRICT_FRONTAGES.kulle;
   const appearance = propertyAppearance(parcel, p);
+  const work = buildingWorkState(p);
   const low = useUiStore(s => s.graphics === "low");
   const meshes = useMemo(() => {
     if (!front) return [];
@@ -81,17 +79,37 @@ export function PropertyStreetscape({ parcel, property: p, height }: { parcel: P
         });
       }
     }
-    if (appearance.renovating) {
-      const cap = parcel.district === "kulle" ? 6 : parcel.district === "industri" ? 10 : parcel.district === "förort" ? 15 : 22;
-      const h = Math.min(height, cap);
-      const z = d / 2 + 0.45;
-      for (const x of [-w * 0.42, -w * 0.14, w * 0.14, w * 0.42])
-        metal.push({ x, y: h / 2, z, sx: 0.12, sy: h, sz: 0.12 });
-      for (let y = 3; y <= h; y += 3) {
-        timber.push({ x: 0, y, z, sx: w * 0.86, sy: 0.16, sz: 1.15 });
-        metal.push({ x: 0, y: y + 1, z: z + 0.48, sx: w * 0.86, sy: 0.1, sz: 0.1 });
+    // Dirt stays on plinths and corner seams instead of covering occupied windows.
+    if (p.condition < 65 && !low) for (let i = 0; i < 7; i++) {
+      const x = (i - 3) * w * 0.12;
+      if (Math.abs(x) < 2) continue;
+      stone.push({ x, y: 0.4, z: d / 2 + 0.19, sx: w * 0.055, sy: 0.2 + (i % 3) * 0.1, sz: 0.025,
+        color: new Color(p.condition < 40 ? "#666657" : "#8c8775") });
+    }
+    if (work.active) {
+      const cap = parcel.district === "kulle" ? 6 : parcel.district === "industri" ? 10 : parcel.district === "förort" ? 12 : 22;
+      const h = Math.min(height, cap), z = d / 2 + 0.55;
+      if (work.scaffold) {
+        // Both sides keep the central doorway free; finishing reduces the work area.
+        const sides = work.stage === "finishing" ? [1] : [-1, 1];
+        for (const side of sides) {
+          const span = Math.max(0, w * 0.43 - 2.5);
+          if (span < 0.8) continue;
+          const x = side * (2.5 + span / 2);
+          for (const dx of [-span / 2, span / 2]) metal.push({ x: x + dx, y: h / 2, z, sx: 0.1, sy: h, sz: 0.1 });
+          for (let y = 3; y <= h; y += 3) {
+            timber.push({ x, y, z, sx: span + 0.2, sy: 0.12, sz: 0.85 });
+            metal.push({ x, y: y + 0.85, z: z + 0.36, sx: span, sy: 0.08, sz: 0.08 });
+          }
+          // Guardrails, not a solid fence across access to an occupied property.
+          for (const y of [0.5, 1]) timber.push({ x, y, z: z + 0.5, sx: span, sy: 0.13, sz: 0.08, color: new Color("#c6a266") });
+        }
+      } else if (w > 12) {
+        // Small jobs use a tool cabinet beside the entry, not a full-height scaffold.
+        timber.push({ x: w * 0.23, y: 0.57, z: d / 2 + 0.55, sx: 0.7, sy: 0.85, sz: 0.6, color: new Color("#ba924d") });
       }
-      timber.push({ x: -w * 0.24, y: 0.8, z: d / 2 + 0.7, sx: Math.min(2.4, w * 0.2), sy: 1.6, sz: 1.1, color: new Color("#b78e4a") });
+      if (work.facadeProgress > 0) stone.push({ x: -w * 0.45 + w * 0.9 * work.facadeProgress / 2,
+        y: 0.18, z: d / 2 + 0.22, sx: w * 0.9 * work.facadeProgress, sy: 0.25, sz: 0.1, color: new Color(style.stone) });
     } else if (appearance.active && p.type !== "industri" && !low && w > 12) {
       // A bench, not a restaurant terrace invented for every retail tenant.
       const x = -w * 0.23;
@@ -105,14 +123,15 @@ export function PropertyStreetscape({ parcel, property: p, height }: { parcel: P
       buildInstances(new BoxGeometry(), new MeshStandardMaterial({ color: appearance.caredFor ? style.stone : "#777c6b", roughness: 0.95 }), stone, { cast: true }),
       buildInstances(new SphereGeometry(1, 8, 6), new MeshStandardMaterial({ color: appearance.caredFor ? "#4c7050" : "#777c46", roughness: 1 }), green, { cast: true }),
     ];
-  }, [parcel, front, style, low, height, appearance.renovating, appearance.caredFor, appearance.active, p.type]);
+  }, [parcel, front, style, low, height, appearance.renovating, appearance.caredFor, appearance.active, p.type, p.condition, work.active, work.scaffold, work.stage, work.facadeProgress]);
   useEffect(() => () => meshes.forEach(m => { m.geometry.dispose(); (m.material as MeshStandardMaterial).dispose(); m.dispose(); }), [meshes]);
   if (!front) return null;
   return <group position={[front.x, 0, front.z]} rotation-y={front.rotation}>
     {meshes.map((m, i) => <primitive key={i} object={m} />)}
-    {appearance.active && !appearance.renovating && !low && !p.storyTag && <group position={[0, 0, front.depth / 2 + 1.05]}>
-      <Visitor width={front.width} phase={0.12} color="#a55d46" path={path} />
-      {appearance.occupancy > 0.5 && <Visitor width={front.width} phase={0.62} color="#4a667b" path={path} />}
+    {path && !low && !p.storyTag && <group position={[0, 0, front.depth / 2 + 1.05]}>
+      {appearance.active && <Visitor phase={0.12} color={p.type === "bostad" ? "#a55d46" : "#4a667b"} path={path} role={p.type === "bostad" ? "resident" : "visitor"} />}
+      {work.active ? <Visitor phase={0.55} color="#d6a64c" path={path} role="worker" />
+        : appearance.active && appearance.occupancy > 0.5 && <Visitor phase={0.62} color="#4a667b" path={path} role={p.type === "bostad" ? "resident" : "visitor"} />}
     </group>}
   </group>;
 }

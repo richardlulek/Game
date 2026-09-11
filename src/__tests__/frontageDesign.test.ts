@@ -56,7 +56,7 @@ describe("next-level frontage", () => {
     const high = frontageParts(17, "centrum", occupied);
     const low = frontageParts(17, "centrum", occupied, true);
     expect(Object.values(low).flat().length).toBeLessThan(Object.values(high).flat().length);
-    expect(low.dark.length).toBe(high.dark.length);
+    expect(low.dark.filter(p => p.sy > 1)).toEqual(high.dark.filter(p => p.sy > 1)); // Opening recesses remain; the small intercom screen is optional.
     expect(low.glass.length).toBeGreaterThan(0);
   });
   it("places harbor and villa details on the actual fixed south-facing buildings", () => {

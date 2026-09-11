@@ -1,9 +1,12 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import { Vector3 } from "three";
+import { Box3, Vector3 } from "three";
 import { PARCELS, parcelById } from "../engine/city";
 import { useUiStore } from "../store/uiStore";
-import { GRAPHICS_PRESETS } from "../store/prefs";
+import { thumbnailSources } from "./propertyThumbnails";
+import { streetFront } from "./frontagePlacement";
+import { inspectionPose } from "./inspectionView";
+import { getReduceMotion, GRAPHICS_PRESETS } from "../store/prefs";
 
 /** Minimal strukturell typ för MapControls – slipper three-stdlib-import. */
 interface ControlsLike {
@@ -52,9 +55,10 @@ export function LodController() {
  *  så berättelsescener landar i närbild i stället för på översiktshöjd. */
 export function CameraRig() {
   const handledSeq = useRef(0);
+  const inspectionGoal = useRef<{ seq: number; pose: ReturnType<typeof inspectionPose> } | null>(null);
 
   useFrame((rootState, delta) => {
-    const { focusParcelId, focusPoint, focusZoom, focusSeq } = useUiStore.getState();
+    const { focusParcelId, focusPoint, focusZoom, focusSeq, inspection } = useUiStore.getState();
     if (focusSeq === handledSeq.current || (!focusParcelId && !focusPoint)) return;
     const parcel = focusParcelId ? parcelById(focusParcelId) : null;
     const goal = focusPoint ?? (parcel ? { x: parcel.x, z: parcel.z } : null);
@@ -63,10 +67,31 @@ export function CameraRig() {
       handledSeq.current = focusSeq;
       return;
     }
+    if (inspection && parcel) {
+      if (inspectionGoal.current?.seq !== focusSeq) {
+        const source = thumbnailSources.get(parcel.id)?.object;
+        const box = source ? new Box3().setFromObject(source) : null;
+        const size = box && !box.isEmpty() ? box.getSize(new Vector3()) : new Vector3(parcel.w, 30, parcel.d);
+        const front = streetFront(parcel) ?? { x: 0, z: 0, width: parcel.w, depth: parcel.d, rotation: 0 };
+        inspectionGoal.current = { seq: focusSeq, pose: inspectionPose({ x: parcel.x, z: parcel.z, w: size.x, d: size.z, h: size.y },
+          { ...front, x: parcel.x + front.x, z: parcel.z + front.z }, inspection.view, inspection.turn,
+          "fov" in rootState.camera ? rootState.camera.fov as number : 38, parcel.district === "förort" ? { x: parcel.x, z: parcel.z } : undefined) };
+      }
+      const { target, position } = inspectionGoal.current.pose;
+      const f = getReduceMotion() ? 1 : 1 - Math.exp(-delta * 5);
+      controls.target.x += (target.x - controls.target.x) * f;
+      controls.target.y += (target.y - controls.target.y) * f;
+      controls.target.z += (target.z - controls.target.z) * f;
+      rootState.camera.position.lerp(_t.set(position.x, position.y, position.z), f);
+      if (rootState.camera.position.distanceTo(_t) < 0.1) handledSeq.current = focusSeq;
+      controls.update();
+      return;
+    }
+    const dy = -controls.target.y;
     const dx = goal.x - controls.target.x;
     const dz = goal.z - controls.target.z;
-    const dist = Math.hypot(dx, dz);
-    const f = Math.min(1, delta * 4);
+    const dist = Math.hypot(dx, dy, dz);
+    const f = getReduceMotion() ? 1 : Math.min(1, delta * 4);
 
     // Dolly: krymp kamerans avstånd till målet mot focusZoom.
     let zoomLeft = 0;
@@ -93,6 +118,8 @@ export function CameraRig() {
       return;
     }
     // Flytta mål och kamera lika mycket så vinkeln bevaras.
+    controls.target.y += dy * f;
+    rootState.camera.position.y += dy * f;
     controls.target.x += dx * f;
     controls.target.z += dz * f;
     rootState.camera.position.x += dx * f;

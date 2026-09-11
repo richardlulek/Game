@@ -268,6 +268,7 @@ export function CityCanvas() {
           MOT huset man pekar på i stället för mot skärmens mitt. */}
       <MapControls
         makeDefault
+        onStart={() => useUiStore.getState().cancelFocus()}
         enableDamping
         dampingFactor={0.08}
         maxPolarAngle={Math.PI / 2.25}

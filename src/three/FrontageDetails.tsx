@@ -39,6 +39,10 @@ export function FrontageDetails({ w, d, sx, sz }: { w: number; d: number; sx: nu
   const rotation = sx ? sx * Math.PI / 2 : sz < 0 ? Math.PI : 0;
   return <group position={[sx * w / 2, 0, sz * d / 2]} rotation-y={rotation}>
     {meshes.map((mesh, i) => <primitive key={i} object={mesh} />)}
+    {!low && <mesh position={[Math.min(width * 0.35, 3.2), 2.75, 0.7]} raycast={() => null}>
+      <planeGeometry args={[0.8, 0.45]} />
+      <meshStandardMaterial map={nameSignTexture(String(data.property.id))} roughness={0.8} />
+    </mesh>}
     {label && <mesh position={[0, top + 0.05, 0.93]} raycast={() => null}>
       <planeGeometry args={[Math.min(width * 0.8, 6.5), 0.55]} />
       <meshStandardMaterial map={nameSignTexture(label.slice(0, 26))} roughness={0.75} />

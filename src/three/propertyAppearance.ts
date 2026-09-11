@@ -31,5 +31,5 @@ export function appearanceKey(p: Property): string {
   return [p.id, p.parcelId, p.type, p.area, Math.round(p.condition), p.tenants.length, p.capacity,
     p.status, p.buildLeft, p.devLevel, p.energyClass, p.storyTag, p.signature,
     p.upgrades.join(","), p.tenants.map(t => t.name).join(";"), p.phased?.done, p.phased?.monthsLeft, p.renovation?.kind,
-    p.pendingWorks?.map(w => `${w.kind}:${w.upgradeId ?? ""}`).join(",")].join("|");
+    p.pendingWorks?.map(w => `${w.kind}:${w.upgradeId ?? ""}:${w.monthsLeft}`).join(",")].join("|");
 }

@@ -13,6 +13,10 @@ export function focusProperty(parcelId: string) {
 
 /** These controls change the view only; lighting never advances the game clock. */
 export function NeighborhoodControls() {
+  const selected = useUiStore(s => s.selectedParcelId);
+  const inspection = useUiStore(s => s.inspection);
+  const inspect = useUiStore(s => s.inspect);
+  const knownProperty = useGameStore(s => [...s.state.portfolio, ...s.state.listings, ...s.state.competitors.flatMap(c => c.portfolio)].find(p => p.parcelId === selected));
   const mode = useUiStore(s => s.lightMode);
   const setMode = useUiStore(s => s.setLightMode);
   const explore = () => {
@@ -28,6 +32,16 @@ export function NeighborhoodControls() {
   };
   return <div className="neighborhood-controls" aria-label="City view">
     <button type="button" onClick={explore} title="Visit a street and see its properties up close">Explore block</button>
+    {selected && knownProperty && !knownProperty.signature && !knownProperty.storyTag && <div className="property-view-controls" role="group" aria-label="Property inspection">
+      {!inspection ? <button type="button" onClick={() => inspect(selected, "building")}>Inspect property</button> : <>
+        <button type="button" aria-label="Rotate property view left" onClick={() => inspect(selected, inspection.view, inspection.turn - 1)}>↶</button>
+        <select aria-label="Property viewpoint" value={inspection.view} onChange={e => inspect(selected, e.target.value as typeof inspection.view)}>
+          <option value="building">Building</option><option value="entrance">Entrance</option><option value="yard">Courtyard</option>
+        </select>
+        <button type="button" aria-label="Rotate property view right" onClick={() => inspect(selected, inspection.view, inspection.turn + 1)}>↷</button>
+        <button type="button" onClick={() => useUiStore.getState().requestFocus(selected, 230)}>Overview</button>
+      </>}
+    </div>}
     <label>
       <span className="neighborhood-light-label">Light</span>
       <select aria-label="City lighting" value={mode} onChange={e => setMode(e.target.value as typeof mode)}>

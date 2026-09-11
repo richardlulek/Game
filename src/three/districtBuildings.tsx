@@ -22,6 +22,7 @@ import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { Property, PropTypeKey } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
+import { BayWindows } from "./BayWindows";
 import { CentrumTurretDetails } from "./CentrumTurretDetails";
 import { FacadeStructure } from "./FacadeStructure";
 import { SuburbDetails, SuburbRoof } from "./SuburbDetails";
@@ -629,6 +630,11 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
                   <boxGeometry args={[1.5, 1.5, 1.5]} />
                   <meshStandardMaterial color={facade} />
                 </mesh>
+                {windows && <group rotation-y={sx ? sx * Math.PI / 2 : sz < 0 ? Math.PI : 0}>
+                  <mesh position={[0, 0.1, 0.77]}><boxGeometry args={[1.13, 1.16, 0.1]} /><meshStandardMaterial color="#d8cebd" /></mesh>
+                  <mesh position={[0, 0.1, 0.84]}><boxGeometry args={[0.88, 0.92, 0.04]} /><meshStandardMaterial color="#516971" roughness={0.3} /></mesh>
+                  <mesh position={[0, 0.1, 0.88]}><boxGeometry args={[0.065, 0.92, 0.03]} /><meshStandardMaterial color="#d8cebd" /></mesh>
+                </group>}
                 <mesh position={[0, 1.0, 0]} rotation-y={Math.PI / 4}>
                   <coneGeometry args={[1.15, 0.9, 4]} />
                   <meshStandardMaterial color={ROOF_RED} />
@@ -640,14 +646,11 @@ function InnerstadHouse({ parcel, type, floors, color, windows, selected, handle
       ) : (
         <>
           {/* Funkis: indragen takvåning + balkongband */}
-          <mesh castShadow position={[0, h + 0.9, 0]}>
-            <boxGeometry args={[w * 0.55, 1.8, d * 0.55]} />
-            <meshStandardMaterial color={new Color(facade).multiplyScalar(0.85).getStyle()} />
+          <mesh castShadow position={[0, h + 0.9, 0]} geometry={facadeBoxGeometry(w * 0.55, 1.8, d * 0.55)} material={mat} dispose={null} />
+          <mesh position={[0, h + 1.86, 0]}>
+            <boxGeometry args={[w * 0.55 + 0.25, 0.12, d * 0.55 + 0.25]} /><meshStandardMaterial color="#6f736b" roughness={0.85} />
           </mesh>
-          <mesh castShadow position={[sx * (w / 2 + 0.45) + (sx === 0 ? w * 0.22 : 0), h / 2 + 0.5, sz * (d / 2 + 0.45) + (sz === 0 ? d * 0.22 : 0)]}>
-            <boxGeometry args={[sx !== 0 ? 0.9 : 2.6, h * 0.72, sz !== 0 ? 0.9 : 2.6]} />
-            <meshStandardMaterial color="#f0ece2" />
-          </mesh>
+          {windows && <BayWindows w={w} d={d} floors={floors} sx={sx} sz={sz} color={color} seed={seed} occupied={detailed ? detailed.property.status === "klar" && detailed.property.tenants.length > 0 : variant !== "släckt"} />}
         </>
       )}
       {/* Butiksband i bottenplan mot gatan – skyltfönsterglas med entréer */}

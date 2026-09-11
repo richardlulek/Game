@@ -4,13 +4,15 @@ import type { Parcel } from "../engine/city";
 import type { Property } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
 import { buildInstances, type Inst } from "./meshHelpers";
+import { GroundAmenities } from "./GroundAmenities";
+import { parcelHash } from "../engine/city";
 import { groundsPlan } from "./groundsLayout";
 import { DISTRICT_FRONTAGES, frontageState } from "./frontageDesign";
 
 /** Ground embellishment has no picking handlers: the parcel remains clickable.
  * All placement comes from a deterministic collision-checked plan. */
 export function PropertyGround({ parcel, property }: { parcel: Parcel; property: Property }) {
-  const plan = useMemo(() => groundsPlan(parcel), [parcel]);
+  const plan = useMemo(() => groundsPlan(parcel, property.type), [parcel, property.type]);
   const low = useUiStore(s => s.graphics === "low");
   const evening = useUiStore(s => s.lightMode === "evening");
   const { restored, worn, open, working } = frontageState(property);
@@ -32,7 +34,7 @@ export function PropertyGround({ parcel, property }: { parcel: Parcel; property:
       stone.push({ x: r.x, y: 0.29, z: r.z, sx: r.w, sy: 0.3, sz: r.d });
       soil.push({ x: r.x, y: 0.452, z: r.z, sx: r.w - 0.14, sy: 0.025, sz: r.d - 0.14 });
       if (!industrial) {
-        plants.push({ x: r.x, y: restored ? 0.7 : 0.85, z: r.z, sx: 0.42, sy: restored ? 0.34 : 0.5, sz: 0.55 });
+        plants.push({ x: r.x, y: restored ? 0.7 : 0.85, z: r.z, sx: 0.42, sy: restored ? 0.3 + ((parcelHash(parcel.id) + i) % 3) * 0.2 : 0.65, sz: 0.55 });
         if (restored && !low && !working) for (const side of [-1, 1]) plants.push({
           x: r.x + side * 0.2, y: 0.98, z: r.z + side * 0.28, sx: 0.12, sy: 0.12, sz: 0.12,
           color: new Color(i % 2 ? "#d6b0b3" : "#e3ce99"),
@@ -58,7 +60,7 @@ export function PropertyGround({ parcel, property }: { parcel: Parcel; property:
       new MeshStandardMaterial({ color: g.color, roughness: g.metal ? 0.45 : 0.94, metalness: g.metal ? 0.5 : 0,
         emissive: g.glow && evening ? "#edc68c" : "#000000", emissiveIntensity: g.glow && evening ? 0.85 : 0 }),
       g.items, { receive: true }));
-  }, [plan, low, evening, restored, worn, open, working, style, industrial]);
+  }, [plan, parcel.id, low, evening, restored, worn, open, working, style, industrial]);
   useEffect(() => () => meshes.forEach(m => { m.geometry.dispose(); (m.material as MeshStandardMaterial).dispose(); m.dispose(); }), [meshes]);
-  return <group>{meshes.map((mesh, i) => <primitive key={i} object={mesh} raycast={() => null} />)}</group>;
+  return <group><GroundAmenities plan={plan} property={property} />{meshes.map((mesh, i) => <primitive key={i} object={mesh} raycast={() => null} />)}</group>;
 }

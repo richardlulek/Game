@@ -4,6 +4,7 @@
    sparfiler inte påverkas.
    ============================================================ */
 
+import type { InspectionView } from "../three/inspectionView";
 import { create } from "zustand";
 import { getGraphics, getShowFps, setGraphics, setShowFps, type Quality } from "./prefs";
 
@@ -23,6 +24,9 @@ export interface Cinematic {
 }
 
 interface UiStore {
+  inspection: { view: InspectionView; turn: number } | null;
+  inspect: (parcelId: string, view: InspectionView, turn?: number) => void;
+  cancelFocus: () => void;
   detailBlockId: string | null;
   setDetailBlock: (id: string | null) => void;
   lightMode: "morning" | "day" | "evening";
@@ -64,6 +68,10 @@ interface UiStore {
 }
 
 export const useUiStore = create<UiStore>((set) => ({
+  inspection: null,
+  inspect: (parcelId, view, turn = 0) => set(s => ({ selectedParcelId: parcelId, overlay: "ingen", focusParcelId: parcelId,
+    focusPoint: null, focusZoom: null, inspection: { view, turn }, focusSeq: s.focusSeq + 1 })),
+  cancelFocus: () => set({ focusParcelId: null, focusPoint: null }),
   detailBlockId: null,
   setDetailBlock: (detailBlockId) => set({ detailBlockId }),
   lightMode: "day",
@@ -71,15 +79,15 @@ export const useUiStore = create<UiStore>((set) => ({
   overlay: "ingen",
   setOverlay: (overlay) => set({ overlay }),
   selectedParcelId: null,
-  select: (selectedParcelId) => set({ selectedParcelId }),
+  select: (selectedParcelId) => set(s => s.selectedParcelId === selectedParcelId ? {} : { selectedParcelId, inspection: null, focusParcelId: null, focusPoint: null }),
   focusParcelId: null,
   focusPoint: null,
   focusZoom: null,
   focusSeq: 0,
   requestFocus: (parcelId, zoom) =>
-    set((s) => ({ focusParcelId: parcelId, focusPoint: null, focusZoom: zoom ?? null, focusSeq: s.focusSeq + 1 })),
+    set((s) => ({ inspection: null, focusParcelId: parcelId, focusPoint: null, focusZoom: zoom ?? null, focusSeq: s.focusSeq + 1 })),
   requestFocusPoint: (x, z, zoom) =>
-    set((s) => ({ focusParcelId: null, focusPoint: { x, z }, focusZoom: zoom ?? null, focusSeq: s.focusSeq + 1 })),
+    set((s) => ({ inspection: null, focusParcelId: null, focusPoint: { x, z }, focusZoom: zoom ?? null, focusSeq: s.focusSeq + 1 })),
   cinematic: null,
   setCinematic: (cinematic) => set({ cinematic }),
   pendingOpen: null,
