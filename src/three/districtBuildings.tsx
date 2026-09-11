@@ -1,3 +1,6 @@
+import {ModelDetails} from "./ModelDetails";
+import {residentialDetails} from "./residentialDetails";
+import {financeDetails} from "./financeDetails";
 import {architecturePalette,ARCHITECTURE} from "./architecturePalette";
 import { WorkplaceFacade } from "./WorkplaceFacade";
 import { UrbanFacade } from "./UrbanFacade";
@@ -29,7 +32,6 @@ import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { Property, PropTypeKey } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
 import { CentrumTurretDetails } from "./CentrumTurretDetails";
-import { FacadeStructure } from "./FacadeStructure";
 import { SuburbDetails, SuburbRoof } from "./SuburbDetails";
 import { suburbFloors, suburbLayout } from "./suburbLayout";
 import { FrontageContext, FrontageDetails } from "./FrontageDetails";
@@ -463,41 +465,24 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
 function FinanceTower({ parcel, type, floors, color, windows, selected, handlers, seed, solar, variant }: DistrictBuildingProps) {
   const detailed = useContext(FrontageContext);
   const mat = useFacade(color, windows, selected, true, type, variant);
+  const podiumMat=useFacade(color,false,selected,false,type,variant);
   const w = parcel.w * 0.72;
   const d = parcel.d * 0.72;
   const h = floors * FLOOR_HEIGHT;
+  const towerVolumes=financeMassing(parcel,h,seed);
+  const topVolume=towerVolumes[towerVolumes.length-1];
   const landmark = floors >= 40;
   const style = seed % 3; // 0 = rak, 1 = avsatser, 2 = smalnande topp
   // Podium: vartannat torn står på en bredare bas i 2–3 våningar –
   // ger gaturummet en mänsklig skala under glaskroppen.
   const podium = seed % 2 === 0;
-  const podiumH = FLOOR_HEIGHT * (2 + ((seed >> 2) % 2));
   return (
     <group {...handlers}>
-      <FacadeStructure color={color} kind="office" enabled={windows} volumes={financeMassing(parcel, h, seed)} />
-      {podium && (
-        <>
-          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(parcel.w * 0.92, podiumH, parcel.d * 0.92, true)} position={[0, podiumH / 2, 0]} dispose={null} />
-          <mesh receiveShadow position={[0, podiumH + 0.12, 0]}>
-            <boxGeometry args={[parcel.w * 0.94, 0.24, parcel.d * 0.94]} />
-            <meshStandardMaterial color="#3d454c" roughness={0.6} metalness={0.2} />
-          </mesh>
-        </>
-      )}
-      {style === 1 ? (
-        <>
-          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h * 0.6, d, true)} position={[0, h * 0.3, 0]} dispose={null} />
-          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w * 0.78, h * 0.25, d * 0.78, true)} position={[0, h * 0.6 + h * 0.125, 0]} dispose={null} />
-          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w * 0.55, h * 0.15, d * 0.55, true)} position={[0, h * 0.85 + h * 0.075, 0]} dispose={null} />
-        </>
-      ) : style === 2 ? (
-        <>
-          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h * 0.85, d, true)} position={[0, h * 0.425, 0]} dispose={null} />
-          <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w * 0.6, h * 0.15, d * 0.6, true)} position={[0, h * 0.85 + h * 0.075, 0]} rotation-y={Math.PI / 4} dispose={null} />
-        </>
-      ) : (
-        <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(w, h, d, true)} position={[0, h / 2, 0]} dispose={null} />
-      )}
+      {towerVolumes.map((v,i)=><group key={i} position={[0,v.y??0,0]} rotation-y={v.rotation??0}>
+        <mesh castShadow receiveShadow material={podium&&i===0?podiumMat:mat} geometry={facadeBoxGeometry(v.w,v.h,v.d,!(podium&&i===0))} position={[0,v.h/2,0]} dispose={null}/>
+        <mesh receiveShadow position={[0,v.h+.07,0]}><boxGeometry args={[v.w+.16,.14,v.d+.16]}/><meshStandardMaterial color="#59646a" roughness={.8}/></mesh>
+      </group>)}
+      {windows && <ModelDetails groups={financeDetails(towerVolumes,color,podium,...streetSide(parcel),!detailed)}/>}
       {/* Krona på landmärkestorn – lyser svagt */}
       {landmark && (
         <mesh position={[0, h + 0.8, 0]}>
@@ -510,7 +495,7 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
         <cylinderGeometry args={[0.12, 0.2, landmark ? 9 : 4.5, 6]} />
         <meshStandardMaterial color="#7a8288" metalness={0.6} roughness={0.4} />
       </mesh>
-      {solar && <SolarPanel w={w * 0.32} d={d * 0.28} y={h + 0.2} x={-w * 0.24} z={d * 0.22} />}
+      {solar && <group rotation-y={topVolume.rotation??0}><SolarPanel w={topVolume.w*.32} d={topVolume.d*.28} y={h+.2} x={-topVolume.w*.15} z={topVolume.d*.15}/></group>}
       {/* Maskinrum på taket – raka torn utan krona får en teknikvåning */}
       {style === 0 && !landmark && (
         <mesh castShadow position={[-w * 0.12, h + 1.0, d * 0.08]}>
@@ -520,7 +505,7 @@ function FinanceTower({ parcel, type, floors, color, windows, selected, handlers
       )}
       {style === 0 && !landmark && <RoofClutter w={w} d={d} y={h} seed={seed >> 1} />}
       {/* Kontorstorn får en glasentré i gatuplan */}
-      {windows && (type === "kontor" || detailed) && (
+      {windows && detailed && (
         <EntranceDetail type={type} w={podium ? parcel.w * 0.92 : w} d={podium ? parcel.d * 0.92 : d} sx={streetSide(parcel)[0]} sz={streetSide(parcel)[1]} color={color} seed={seed} />
       )}
     </group>
@@ -666,7 +651,7 @@ function SuburbBlock({ parcel, type, floors, color, windows, selected, handlers,
 function Villa({ parcel, type, floors, color, windows, selected, handlers, seed, variant }: DistrictBuildingProps) {
   const detailed = useContext(FrontageContext);
   const h = Math.min(2, floors) * FLOOR_HEIGHT;
-  const mat = useFacade(color, windows, selected, false, type, variant);
+  const mat = useFacade(color, false, selected, false, type, variant);
   const vw = parcel.w * 0.55;
   const vd = parcel.d * 0.55;
   const wing = seed % 3 === 0; // vinkelbyggd villa (L-form)
@@ -674,10 +659,8 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
   return (
     <group {...handlers}>
       <mesh castShadow receiveShadow material={mat} geometry={facadeBoxGeometry(vw, h, vd)} position={[0, h / 2, 0]} dispose={null} />
-      <mesh castShadow position={[0, h + 1.2, 0]} rotation-y={Math.PI / 4}>
-        <coneGeometry args={[vw * 0.8, 2.4, 4]} />
-        <meshStandardMaterial color={seed % 3 ? ROOF_RED : ROOF_DARK} />
-      </mesh>
+      {windows && <ModelDetails groups={residentialDetails(vw,vd,h,color,true,!detailed,veranda)}/>}
+      <HipRoof w={vw} d={vd} y={h+1.2} rise={2.4} color={seed%3?ROOF_RED:ROOF_DARK}/>
       <mesh castShadow position={[vw * 0.24, h + 1.8, vd * 0.1]}>
         <boxGeometry args={[0.7, 1.5, 0.7]} />
         <meshStandardMaterial color="#6f5648" />
@@ -686,26 +669,11 @@ function Villa({ parcel, type, floors, color, windows, selected, handlers, seed,
       {wing && (
         <group position={[-vw * 0.68, 0, vd * 0.3]}>
           <mesh castShadow receiveShadow position={[0, FLOOR_HEIGHT / 2, 0]} geometry={facadeBoxGeometry(vw * 0.6, FLOOR_HEIGHT, vd * 0.75)} material={mat} dispose={null} />
-          <mesh castShadow position={[0, FLOOR_HEIGHT + 0.55, 0]} rotation-y={Math.PI / 4}>
-            <coneGeometry args={[vw * 0.44, 1.1, 4]} />
-            <meshStandardMaterial color={seed % 3 ? ROOF_RED : ROOF_DARK} />
-          </mesh>
+          {windows && <ModelDetails groups={residentialDetails(vw*.6,vd*.75,3,color,false)}/>}
+          <HipRoof w={vw*.6} d={vd*.75} y={3.55} rise={1.1} color={seed%3?ROOF_RED:ROOF_DARK}/>
         </group>
       )}
       {detailed && windows && <FrontageDetails w={vw} d={vd} sx={0} sz={1} />}
-      {/* Farstukvist: trallgolv + tak på framsidan */}
-      {veranda && !detailed && (
-        <group position={[0, 0, vd / 2 + 1.0]}>
-          <mesh receiveShadow position={[0, 0.35, 0]}>
-            <boxGeometry args={[3.0, 0.7, 1.9]} />
-            <meshStandardMaterial color="#a8907a" roughness={0.9} />
-          </mesh>
-          <mesh position={[0, 2.75, 0]} rotation-x={0.18}>
-            <boxGeometry args={[3.2, 0.16, 2.1]} />
-            <meshStandardMaterial color={seed % 3 ? ROOF_RED : ROOF_DARK} />
-          </mesh>
-        </group>
-      )}
       {/* Garage/förråd */}
       {seed % 2 === 0 && <VillaAnnex w={vw} d={vd} color={color} />}
       {variant === "sliten" && (

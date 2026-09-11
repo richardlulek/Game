@@ -3,7 +3,7 @@ import type { StructureVolume } from "./facadeStructure";
 export function financeMassing(parcel: Parcel, h: number, seed: number): StructureVolume[] {
   const w = parcel.w * 0.72,
     d = parcel.d * 0.72;
-  return [
+  const volumes: StructureVolume[] = [
     ...(seed % 2 === 0
       ? [{ w: parcel.w * 0.92, d: parcel.d * 0.92, h: 3 * (2 + ((seed >> 2) % 2)) }]
       : []),
@@ -20,4 +20,11 @@ export function financeMassing(parcel: Parcel, h: number, seed: number): Structu
           ]
         : [{ w, d, h }]),
   ];
+  const podiumH = seed % 2 === 0 ? volumes[0].h : 0;
+  return volumes.flatMap((v, i) => {
+    if (i === 0 && podiumH) return [v];
+    const bottom = Math.max(v.y ?? 0, podiumH),
+      top = (v.y ?? 0) + v.h;
+    return top > bottom ? [{ ...v, y: bottom, h: top - bottom }] : [];
+  });
 }
