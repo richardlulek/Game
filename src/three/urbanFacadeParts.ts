@@ -91,7 +91,7 @@ export function urbanFacadeParts(s: UrbanFacadeSpec) {
     }
   }
   return [
-    { items: wall, color: s.color },
+    { items: wall, color: s.color, solid: true },
     { items: trim, color: palette.frame },
     {
       items: glass,

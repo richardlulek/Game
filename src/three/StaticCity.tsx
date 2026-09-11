@@ -1,3 +1,4 @@
+import {facadeDetailGeometry} from "./facadeDetailGeometry";
 import {urbanFacadeParts} from "./urbanFacadeParts";
 import {workplaceFacadeParts} from "./workplaceFacadeParts";
 import { centrumMassing } from "./centrumMassing";
@@ -216,7 +217,7 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
 
   const appendParts=(groups:ReturnType<typeof urbanFacadeParts>|ReturnType<typeof workplaceFacadeParts>,x:number,z:number,y=0)=>{
     for(const group of groups) for(const part of group.items) {
-      const g=new BoxGeometry(part.sx,part.sy,part.sz);g.rotateY(part.rotY??0);g.translate(x+part.x,y+part.y,z+part.z);
+      const g=facadeDetailGeometry(group,true);g.scale(part.sx??1,part.sy??1,part.sz??1);g.rotateY(part.rotY??0);g.translate(x+part.x,y+part.y,z+part.z);
       extras.push(withColor(g,new Color(group.color)));
     }
   };

@@ -1,10 +1,12 @@
+import { facadeDetailGeometry } from "./facadeDetailGeometry";
 import { useEffect, useMemo } from "react";
-import { BoxGeometry, MeshStandardMaterial } from "three";
+import { MeshStandardMaterial } from "three";
 import { useUiStore } from "../store/uiStore";
 import { buildInstances } from "./meshHelpers";
 import { urbanFacadeParts, type UrbanFacadeSpec } from "./urbanFacadeParts";
 export function UrbanFacade(props: UrbanFacadeSpec) {
   const evening = useUiStore((s) => s.lightMode === "evening");
+  const coarse = useUiStore((s) => s.lodFar || s.graphics === "low");
   const signature = JSON.stringify({ ...props, evening });
   const meshes = useMemo(
     () =>
@@ -12,7 +14,7 @@ export function UrbanFacade(props: UrbanFacadeSpec) {
         .filter((g) => g.items.length)
         .map((g) =>
           buildInstances(
-            new BoxGeometry(),
+            facadeDetailGeometry(g, coarse),
             new MeshStandardMaterial({
               color: g.color,
               roughness: g.glass ? 0.35 : 0.86,
@@ -24,7 +26,7 @@ export function UrbanFacade(props: UrbanFacadeSpec) {
             { receive: true },
           ),
         ),
-    [signature],
+    [signature, coarse],
   );
   useEffect(
     () => () =>

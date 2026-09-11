@@ -1,8 +1,11 @@
+import { useUiStore } from "../store/uiStore";
+import { facadeDetailGeometry } from "./facadeDetailGeometry";
 import { useEffect, useMemo } from "react";
-import { BoxGeometry, MeshStandardMaterial } from "three";
+import { MeshStandardMaterial } from "three";
 import { buildInstances } from "./meshHelpers";
 import { workplaceFacadeParts, type WorkplaceSpec } from "./workplaceFacadeParts";
 export function WorkplaceFacade(props: WorkplaceSpec) {
+  const coarse = useUiStore((s) => s.lodFar || s.graphics === "low");
   const signature = JSON.stringify(props);
   const meshes = useMemo(
     () =>
@@ -10,7 +13,7 @@ export function WorkplaceFacade(props: WorkplaceSpec) {
         .filter((g) => g.items.length)
         .map((g) =>
           buildInstances(
-            new BoxGeometry(),
+            facadeDetailGeometry(g, coarse),
             new MeshStandardMaterial({
               color: g.color,
               roughness: g.glass ? 0.35 : 0.85,
@@ -20,7 +23,7 @@ export function WorkplaceFacade(props: WorkplaceSpec) {
             { receive: true },
           ),
         ),
-    [signature],
+    [signature, coarse],
   );
   useEffect(
     () => () =>
