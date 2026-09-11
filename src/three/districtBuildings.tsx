@@ -22,6 +22,7 @@ import { Color, MeshStandardMaterial } from "three";
 import { DISTRICT_ZONES, type Parcel } from "../engine/city";
 import type { Property, PropTypeKey } from "../engine/types";
 import { useUiStore } from "../store/uiStore";
+import { CentrumTurretDetails } from "./CentrumTurretDetails";
 import { FacadeStructure } from "./FacadeStructure";
 import { SuburbDetails, SuburbRoof } from "./SuburbDetails";
 import { suburbFloors, suburbLayout } from "./suburbLayout";
@@ -417,6 +418,8 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
   const offX = hasInside && sx !== 0 ? (sx * (parcel.w - mainW)) / 2 : 0;
   const offZ = hasInside && sz !== 0 ? (sz * (parcel.d - mainD)) / 2 : 0;
   const wingH = FLOOR_HEIGHT * (1 + (seed % 2));
+  const wingW = sx !== 0 ? parcel.w - mainW : parcel.w * 0.86;
+  const wingD = sz !== 0 ? parcel.d - mainD : parcel.d * 0.86;
   // Hörntorn: tomter i gatukors (två angränsande gatusidor) får ett runt
   // torn med tälttak – stenstadens klassiska accent mot korsningen.
   const ex = parcel.edges.e ? 1 : parcel.edges.w ? -1 : 0;
@@ -439,6 +442,7 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
             <cylinderGeometry args={[2.0, 2.0, h + 1.6, 10]} />
             <meshStandardMaterial color={new Color(color).multiplyScalar(0.92).getStyle()} roughness={0.8} />
           </mesh>
+          <CentrumTurretDetails floors={floors} color={color} enabled={windows} />
           <mesh castShadow position={[0, h + 2.9, 0]}>
             <coneGeometry args={[2.35, 2.6, 10]} />
             <meshStandardMaterial color={(seed >> 1) % 2 ? "#4a6152" : ROOF_DARK} metalness={0.15} roughness={0.7} />
@@ -456,20 +460,27 @@ function CentrumHouse({ parcel, type, floors, color, windows, selected, handlers
       </mesh>
       {/* Gårdsflygel mot kvarterets insida */}
       {hasInside && (
-        <mesh castShadow receiveShadow position={[-offX, wingH / 2, -offZ]}>
-          <boxGeometry args={[sx !== 0 ? parcel.w - mainW : parcel.w * 0.86, wingH, sz !== 0 ? parcel.d - mainD : parcel.d * 0.86]} />
-          <meshStandardMaterial color={new Color(color).multiplyScalar(0.88).getStyle()} />
-        </mesh>
+        <group position={[-offX, 0, -offZ]}>
+          <mesh castShadow receiveShadow position={[0, wingH / 2, 0]}
+            geometry={facadeBoxGeometry(wingW, wingH, wingD)} material={mat} dispose={null} />
+          <FacadeStructure kind="masonry" enabled={windows} volumes={[{ w: wingW, d: wingD, h: wingH }]} />
+          <mesh receiveShadow position={[0, wingH + 0.1, 0]}>
+            <boxGeometry args={[wingW + 0.2, 0.2, wingD + 0.2]} />
+            <meshStandardMaterial color={trim} roughness={0.9} />
+          </mesh>
+        </group>
       )}
-      {/* Bottenvåning mot gatan: sten (sockel) – butiker får skyltfönsterglas */}
-      <mesh position={[offX + sx * (mainW / 2 + 0.06), 1.7, offZ + sz * (mainD / 2 + 0.06)]}>
-        <boxGeometry args={[sx !== 0 ? 0.3 : mainW * 0.98, 3.4, sz !== 0 ? 0.3 : mainD * 0.98]} />
-        {type === "butik" ? (
+      {/* Bottenvåningen får öppningar; butikernas skyltfönster behåller sina UV:er. */}
+      {type === "butik" ? (
+        <mesh position={[offX + sx * (mainW / 2 + 0.06), 1.7, offZ + sz * (mainD / 2 + 0.06)]}>
+          <boxGeometry args={[sx !== 0 ? 0.3 : mainW * 0.98, 3.4, sz !== 0 ? 0.3 : mainD * 0.98]} />
           <meshStandardMaterial map={storefrontTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissiveMap={storefrontEmissiveTexture((sx !== 0 ? mainD : mainW) * 0.98)} emissive="#ffffff" emissiveIntensity={variant === "släckt" || variant === "sliten" ? 0 : 0.35} roughness={0.5} />
-        ) : (
-          <meshStandardMaterial color={new Color(color).multiplyScalar(0.62).getStyle()} />
-        )}
-      </mesh>
+        </mesh>
+      ) : (
+        <mesh position={[offX + sx * (mainW / 2 + 0.06), FLOOR_HEIGHT / 2, offZ + sz * (mainD / 2 + 0.06)]}
+          geometry={facadeBoxGeometry(sx !== 0 ? 0.3 : mainW * 0.98, FLOOR_HEIGHT, sz !== 0 ? 0.3 : mainD * 0.98)}
+          material={mat} dispose={null} />
+      )}
       {type === "butik" && !detailed && (
         <mesh castShadow position={[offX + sx * (mainW / 2 + 0.8), 3.1, offZ + sz * (mainD / 2 + 0.8)]}>
           <boxGeometry args={[sx !== 0 ? 1.4 : mainW * 0.8, 0.22, sz !== 0 ? 1.4 : mainD * 0.8]} />
