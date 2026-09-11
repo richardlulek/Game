@@ -1,3 +1,4 @@
+import {WorkplaceFacade} from "./WorkplaceFacade";
 import { FacadeStructure } from "./FacadeStructure";
 /* Industrierna på kartan – hotell, energiparker och logistikterminaler
    står på sina tomtrutor som allt annat och ger staden liv:
@@ -174,14 +175,7 @@ export function Warehouse({ pc }: { pc: { w: number; d: number } }) {
   const w = pc.w * 0.82, d = pc.d * 0.62, h = 6;
   // Hallen bär industrifasadens profilplåt med högt fönsterband i stället
   // för att vara en naken grå låda; kontorsdelen på gaveln får kontorsglas.
-  const hallMat = useMemo(() => {
-    const m = new MeshStandardMaterial({ color: "#b9bec4", roughness: 0.55, metalness: 0.3 });
-    m.map = facadeTexture("industri");
-    m.emissiveMap = facadeEmissiveTexture("industri");
-    m.emissive.set("#ffffff");
-    m.emissiveIntensity = 0.5;
-    return m;
-  }, []);
+  const hallMat = useMemo(() => new MeshStandardMaterial({color:"#b9bec4",roughness:.8,metalness:.12}), []);
   const officeMat = useMemo(() => {
     const m = new MeshStandardMaterial({ color: CREAM, roughness: 0.74 });
     m.map = facadeTexture("kontor");
@@ -192,7 +186,7 @@ export function Warehouse({ pc }: { pc: { w: number; d: number } }) {
   }, []);
   return (
     <group>
-      <FacadeStructure kind="industrial" volumes={[{ w, d, h, z: -pc.d * 0.12 }]} />
+      <group position={[0,0,-pc.d*.12]}><WorkplaceFacade w={w} d={d} h={h} color="#b9bec4" warehouse={false} sx={0} sz={1} entrance={false}/></group>
       <mesh castShadow receiveShadow material={hallMat} geometry={facadeBoxGeometry(w, h, d)} position={[0, h / 2, -pc.d * 0.12]} dispose={null} />
       {/* Företagsband i mörkblått längs takkanten */}
       <mesh position={[0, h - 0.45, -pc.d * 0.12]}>

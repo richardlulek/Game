@@ -1,4 +1,5 @@
-import { bayWindowParts } from "./bayWindowParts";
+import {urbanFacadeParts} from "./urbanFacadeParts";
+import {workplaceFacadeParts} from "./workplaceFacadeParts";
 import { centrumMassing } from "./centrumMassing";
 import { turretDetails } from "./centrumDetails";
 import { propertyFacadeColor } from "./propertyAppearance";
@@ -213,15 +214,23 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
 
   const h = floors * FLOOR_HEIGHT;
 
+  const appendParts=(groups:ReturnType<typeof urbanFacadeParts>|ReturnType<typeof workplaceFacadeParts>,x:number,z:number,y=0)=>{
+    for(const group of groups) for(const part of group.items) {
+      const g=new BoxGeometry(part.sx,part.sy,part.sz);g.rotateY(part.rotY??0);g.translate(x+part.x,y+part.y,z+part.z);
+      extras.push(withColor(g,new Color(group.color)));
+    }
+  };
   switch (p.district) {
     case "centrum": {
       const m=centrumMassing(p,seed);
-      facades.push(facadeBox(m.mainW,h,m.mainD,p.x+m.offX,0,p.z+m.offZ,color));
-      extras.push(plainBox(m.mainW*1.05,.55,m.mainD*1.05,p.x+m.offX,h-.825,p.z+m.offZ,color.clone().multiplyScalar(.66)));
+      extras.push(plainBox(m.mainW,h,m.mainD,p.x+m.offX,0,p.z+m.offZ,color));
+      appendParts(urbanFacadeParts({w:m.mainW,d:m.mainD,h,color:color.getStyle(),seed,classical:true,sx:m.sx,sz:m.sz,shop:kind==="butik"}),p.x+m.offX,p.z+m.offZ);
+      extras.push(plainBox(m.mainW*1.05,.55,m.mainD*1.05,p.x+m.offX,h-.825,p.z+m.offZ,new Color(architecturePalette(color.getStyle()).frame)));
       extras.push(plainBox(m.mainW*.99,.7,m.mainD*.99,p.x+m.offX,h,p.z+m.offZ,color.clone().multiplyScalar(.6)));
       if(m.hasInside) {
-        facades.push(facadeBox(m.wingW,m.wingH,m.wingD,p.x-m.offX,0,p.z-m.offZ,color));
-        extras.push(plainBox(m.wingW+.2,.2,m.wingD+.2,p.x-m.offX,m.wingH,p.z-m.offZ,color.clone().multiplyScalar(.66)));
+        extras.push(plainBox(m.wingW,m.wingH,m.wingD,p.x-m.offX,0,p.z-m.offZ,color));
+        appendParts(urbanFacadeParts({w:m.wingW,d:m.wingD,h:m.wingH,color:color.getStyle(),seed,classical:true,sx:-m.sx,sz:-m.sz,entrance:false}),p.x-m.offX,p.z-m.offZ);
+        extras.push(plainBox(m.wingW+.2,.2,m.wingD+.2,p.x-m.offX,m.wingH,p.z-m.offZ,new Color(architecturePalette(color.getStyle()).frame)));
       }
       if(m.turret) {
         const tx=p.x+m.offX+m.ex*(m.mainW/2-.5),tz=p.z+m.offZ+m.ez*(m.mainD/2-.5);
@@ -250,16 +259,15 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
     case "innerstad": {
       const w = p.w * 0.96;
       const d = p.d * 0.96;
-      facades.push(facadeBox(w, h, d, p.x, 0, p.z, color));
+      extras.push(plainBox(w,h,d,p.x,0,p.z,color));
+      const {sx,sz}=centrumMassing(p,seed);
+      appendParts(urbanFacadeParts({w,d,h,color:color.getStyle(),seed,classical:seed%5<2,sx,sz,shop:kind==="butik"}),p.x,p.z);
       if (seed % 5 < 2) extras.push(hipRoofGeo(w, d, p.x, h + 1.1, p.z, 2.4, ROOF_RED));
       else {
-        facades.push(facadeBox(w*.55,1.8,d*.55,p.x,h,p.z,color));
+        extras.push(plainBox(w*.55,1.8,d*.55,p.x,h,p.z,color));
+        appendParts(urbanFacadeParts({w:w*.55,d:d*.55,h:1.8,color:color.getStyle(),seed,classical:false,sx,sz,entrance:false}),p.x,p.z,h);
         extras.push(plainBox(w*.55+.25,.12,d*.55+.25,p.x,h+1.8,p.z,new Color('#6f736b')));
-        const {sx,sz}=centrumMassing(p,seed),rotation=sx?sx*Math.PI/2:sz<0?Math.PI:0;
-        for(const group of bayWindowParts(sx?d:w,floors,color.getStyle(),seed)) for(const part of group.items) {
-          const g=new BoxGeometry(part.sx,part.sy,part.sz);g.translate(part.x,part.y,part.z);g.rotateY(rotation);
-          g.translate(p.x+sx*w/2,0,p.z+sz*d/2);extras.push(withColor(g,new Color(group.color)));
-        }
+
       }
       break;
     }
@@ -295,7 +303,9 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       const w = p.w * 0.92;
       const d = p.d * 0.8;
       extras.push(plainBox(w + 1, 1, d + 1, p.x, 0, p.z, new Color("#9a988e")));
-      facades.push(facadeBox(w, hallH, d, p.x, 1, p.z, color));
+      extras.push(plainBox(w,hallH,d,p.x,1,p.z,color));
+      const {sx,sz}=centrumMassing(p,seed);
+      appendParts(workplaceFacadeParts({w,d,h:hallH,color:color.getStyle(),warehouse:false,sx,sz}),p.x,p.z,1);
       const monitors=2+seed%2;
       for(let i=0;i<monitors;i++) extras.push(hipRoofGeo(w/monitors*0.86,d*0.86,p.x-w/2+(i+0.5)*w/monitors,hallH+2.1,p.z,2.4,color.clone().multiplyScalar(0.7)));
       break;
@@ -304,7 +314,8 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       const w = p.w * 0.9;
       const d = p.d * 0.78;
       const hh = Math.max(2, floors) * FLOOR_HEIGHT * 0.9;
-      facades.push(facadeBox(w, hh, d, p.x, 0, p.z, color));
+      extras.push(plainBox(w,hh,d,p.x,0,p.z,color));
+      appendParts(workplaceFacadeParts({w,d,h:hh,color:color.getStyle(),warehouse:true,sx:0,sz:1}),p.x,p.z);
       extras.push(hipRoofGeo(w, d, p.x, hh + 1.3, p.z, 2.8, seed % 2 ? ROOF_DARK : new Color("#5d4a3a")));
       break;
     }
@@ -336,16 +347,13 @@ function ambientBuildingGeo(p: Parcel, facades: BufferGeometry[], extras: Buffer
       }
     }
   }
-  if (p.district !== "förort") {
-    const kind: StructureKind = p.district === "finans" ? "office" : p.district === "industri" ? "industrial" : p.district === "hamnen" ? "warehouse" : "masonry";
-    const scale = p.district === "finans" ? [0.72, 0.72] : p.district === "innerstad" ? [0.96, 0.96]
-      : p.district === "industri" ? [0.92, 0.8] : p.district === "hamnen" ? [0.9, 0.78] : p.district === "centrum" ? [1, 1] : [0.55, 0.55];
-    const height = p.district === "industri" ? 7 + seed % 3 * 1.5 : p.district === "hamnen" ? Math.max(2, floors) * 2.7 : p.district === "kulle" ? Math.min(2, floors) * 3 : h;
-    const entry: [number, number] = p.district === "hamnen" || p.district === "kulle" || p.edges.s ? [0, 1] : p.edges.n ? [0, -1] : p.edges.e ? [1, 0] : [-1, 0];
-    const sharedPalette = architecturePalette(color.getStyle());
-    const palette = { frame: new Color(sharedPalette.frame), base: new Color(sharedPalette.base), glass: new Color(sharedPalette.glass) };
-    const cm=centrumMassing(p,seed);
-    const volumes=p.district==="centrum"?[{w:cm.mainW,d:cm.mainD,h,x:p.x+cm.offX,z:p.z+cm.offZ},...(cm.hasInside?[{w:cm.wingW,d:cm.wingD,h:cm.wingH,x:p.x-cm.offX,z:p.z-cm.offZ}]:[])]:p.district==="finans"?financeMassing(p,h,seed).map(v=>({...v,x:p.x,z:p.z})):[{ w: p.w * scale[0], d: p.d * scale[1], h: height, x: p.x, z: p.z, y: p.district === "industri" ? 1 : 0 }];
+  if (p.district === "finans" || p.district === "kulle") {
+    const kind: StructureKind = p.district === "finans" ? "office" : "masonry";
+    const height=p.district === "kulle" ? Math.min(2,floors)*3 : h;
+    const entry: [number,number]=p.edges.s?[0,1]:p.edges.n?[0,-1]:p.edges.e?[1,0]:[-1,0];
+    const sharedPalette=architecturePalette(color.getStyle());
+    const palette={frame:new Color(sharedPalette.frame),base:new Color(sharedPalette.base),glass:new Color(sharedPalette.glass)};
+    const volumes=p.district === "finans" ? financeMassing(p,h,seed).map(v=>({...v,x:p.x,z:p.z})) : [{w:p.w*.55,d:p.d*.55,h:height,x:p.x,z:p.z,y:0}];
     for (const volume of volumes) for (const part of facadeStructure(volume, kind, true, p.district === "kulle" || (volume.y??0)>0 ? undefined : entry)) {
       const geometry = new BoxGeometry(part.sx, part.sy, part.sz);
       geometry.rotateY(part.rotY); geometry.translate(part.x, part.y, part.z);
